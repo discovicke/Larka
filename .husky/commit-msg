@@ -1,0 +1,7 @@
+# Husky ersätter core.hooksPath, så kör en eventuell global commit-msg-hook först
+global_hooks="$(git config --global core.hooksPath)"
+if [ -n "$global_hooks" ] && [ -x "$global_hooks/commit-msg" ]; then
+  "$global_hooks/commit-msg" "$1" || exit 1
+fi
+
+npx --no -- commitlint --edit "$1"
