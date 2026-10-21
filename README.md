@@ -1,5 +1,9 @@
 # net25-devops-grupp-4
 
+[![CD](https://github.com/EduEdugrade/net25-devops-grupp-4/actions/workflows/cd.yml/badge.svg)](https://github.com/EduEdugrade/net25-devops-grupp-4/actions/workflows/cd.yml)
+
+Live: https://net25-devops-grupp-4.onrender.com (gratisinstansen somnar efter 15 minuter utan trafik, första anropet kan ta en minut)
+
 ## Köra lokalt
 
 ```bash
@@ -20,6 +24,19 @@ dotnet publish backend -c Release -o publish
 ```
 
 Publish bygger klienten (`npm ci` + `npm run build`) och lägger den i `wwwroot`, så backend serverar både API:et och klienten. Sökvägar som inte är filer eller `/api` får klientens `index.html`.
+
+## Deploy
+
+Allt som når `main` deployas automatiskt av [`cd.yml`](.github/workflows/cd.yml):
+
+1. **checks**: samma kontroller som på PR:er
+2. **release**: semantic-release sätter versionstagg (se [Versioner och releaser](#versioner-och-releaser))
+3. **image**: bygger Docker-imagen och pushar den till `ghcr.io/eduedugrade/net25-devops-grupp-4`, taggad med commit, version och `latest`
+4. **deploy**: säger åt Render att köra imagen, väntar tills den är live och kontrollerar att `/version` svarar med rätt commit
+
+Render kör imagen i Frankfurt, databasen är Supabase Postgres i samma region. Misslyckas en deploy behåller Render den gamla versionen live. `GET /version` visar vilken version och commit som körs.
+
+Tjänsten skapas och konfigureras med [`infra/render-setup.sh`](infra/render-setup.sh). GitHub-miljön `production` innehåller `RENDER_API_KEY` och `RENDER_SERVICE_ID` (secrets) och `APP_URL` (variabel).
 
 ## Bidra
 

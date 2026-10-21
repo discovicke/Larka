@@ -1,8 +1,9 @@
 name: CD
 
-# Körs på varje push till main: samma kontroller som på PR:er, sedan release.
+# Körs på varje push till main: checks → release → image → deploy.
 # Release sätter versionstagg (vX.Y.Z) och skapar en GitHub-release utifrån commits.
 # feat ger minor, fix ger patch och breaking change (! eller BREAKING CHANGE) ger major.
+# Image bygger Docker-imagen och pushar den till ghcr.io, deploy säger åt Render att köra den.
 on:
   push:
     branches: [main]
@@ -15,6 +16,10 @@ concurrency:
 
 permissions:
   contents: read
+
+# Image-namn i ghcr.io måste vara gemener.
+env:
+  IMAGE: ghcr.io/eduedugrade/net25-devops-grupp-4
 
 jobs:
   checks:
@@ -54,3 +59,63 @@ jobs:
       - name: Version
         id: version
         run: echo "version=$(git describe --tags --always)" >> "$GITHUB_OUTPUT"
+
+  image:
+    name: image
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.ref.outputs.image }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v4
+
+      # Taggas med commit, version och latest. Version och commit bakas in så att /version kan visa dem.
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:${{ needs.release.outputs.version }}
+            ${{ env.IMAGE }}:latest
+          build-args: |
+            APP_VERSION=${{ needs.release.outputs.version }}
+            GIT_COMMIT=${{ github.sha }}
+          labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Image ref
+        id: ref
+        run: echo "image=$IMAGE:$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: deploy
+    needs: [release, image]
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ vars.APP_URL }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Deploy to Render
+        run: .github/scripts/render-deploy.sh
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+          APP_URL: ${{ vars.APP_URL }}
+          IMAGE: ${{ needs.image.outputs.image }}
+          EXPECTED_VERSION: ${{ needs.release.outputs.version }}
+          EXPECTED_COMMIT: ${{ github.sha }}
