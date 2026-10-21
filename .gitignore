@@ -25,3 +25,9 @@ pnpm-debug.log*
 .idea/
 .vscode/
 *.swp
+
+# .NET
+.vs/
+backend/bin/
+backend/obj/
+*.user
