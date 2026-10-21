@@ -28,6 +28,9 @@ pnpm-debug.log*
 
 # .NET
 .vs/
-backend/bin/
-backend/obj/
+[Bb]in/
+[Oo]bj/
 *.user
+
+# Test output
+coverage/
