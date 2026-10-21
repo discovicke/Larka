@@ -14,4 +14,23 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.3.0" />
   </ItemGroup>
 
+  <PropertyGroup>
+    <ClientRoot>$(MSBuildProjectDirectory)/../client/</ClientRoot>
+  </PropertyGroup>
+
+  <!-- Bygger klienten vid dotnet publish och lägger den i wwwroot. Vanlig build/test behöver inte Node. -->
+  <Target Name="PublishClient" AfterTargets="ComputeFilesToPublish">
+    <Exec WorkingDirectory="$(ClientRoot)" Command="npm ci" />
+    <Exec WorkingDirectory="$(ClientRoot)" Command="npm run build" />
+
+    <ItemGroup>
+      <ClientDistFiles Include="$(ClientRoot)dist/**" />
+      <ResolvedFileToPublish Include="@(ClientDistFiles->'%(FullPath)')" Exclude="@(ResolvedFileToPublish)">
+        <RelativePath>wwwroot/%(RecursiveDir)%(FileName)%(Extension)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+
 </Project>

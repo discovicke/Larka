@@ -1,5 +1,26 @@
 # net25-devops-grupp-4
 
+## Köra lokalt
+
+```bash
+npm install            # i repots rot, en gång (husky + concurrently)
+npm --prefix client install
+npm run dev
+```
+
+`npm run dev` startar backend (http://localhost:5257) och Vite (http://localhost:5173) samtidigt. Öppna Vite-adressen. Vite skickar `/api` och `/health` vidare till backend, så webbläsaren pratar bara med en origin och ingen CORS behövs.
+
+- API:et ligger under `/api`, t.ex. `/api/groups`. `/health` ligger på roten.
+- Swagger finns på http://localhost:5257/swagger.
+
+## Publicera
+
+```bash
+dotnet publish backend -c Release -o publish
+```
+
+Publish bygger klienten (`npm ci` + `npm run build`) och lägger den i `wwwroot`, så backend serverar både API:et och klienten. Sökvägar som inte är filer eller `/api` får klientens `index.html`.
+
 ## Bidra
 
 Kör `npm install` i repots rot en gång efter kloning. Det aktiverar git-hooken som kontrollerar commit-meddelanden.

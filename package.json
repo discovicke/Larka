@@ -3,11 +3,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "prepare": "husky"
+    "prepare": "husky",
+    "dev": "concurrently --kill-others-on-fail --names api,client --prefix-colors blue,green \"dotnet run --project backend --launch-profile http\" \"npm --prefix client run dev\""
   },
   "devDependencies": {
     "@commitlint/cli": "^20.5.3",
     "@commitlint/config-conventional": "^20.5.3",
+    "concurrently": "^10.0.6",
     "husky": "^9.1.7"
   }
 }

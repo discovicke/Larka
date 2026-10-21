@@ -16,7 +16,12 @@ app.Services.EnsureDatabaseCreated();
 app.UseSwagger();
 app.UseSwaggerUI();
 
+// Klienten byggs in i wwwroot vid dotnet publish. Lokalt körs den via Vite i stället.
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.MapApiEndpoints();
+app.MapClient();
 
 app.Run();
 

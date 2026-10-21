@@ -7,10 +7,23 @@ public static class EndpointExtensions
     public static IEndpointRouteBuilder MapApiEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapHealthEndpoints();
-        app.MapGroupEndpoints();
-        app.MapPostEndpoints();
-        app.MapSubmissionEndpoints();
-        app.MapLabEndpoints();
+
+        var api = app.MapGroup("/api");
+        api.MapGroupEndpoints();
+        api.MapPostEndpoints();
+        api.MapSubmissionEndpoints();
+        api.MapLabEndpoints();
+
+        // Okända /api-anrop ska ge 404, inte klientens index.html.
+        api.MapFallback(() => Results.NotFound());
+
+        return app;
+    }
+
+    /// <summary>Serverar den byggda klienten från wwwroot. Sökvägar som inte är filer går till index.html.</summary>
+    public static IEndpointRouteBuilder MapClient(this IEndpointRouteBuilder app)
+    {
+        app.MapFallbackToFile("index.html");
         return app;
     }
 }
