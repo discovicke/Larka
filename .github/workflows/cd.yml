@@ -1,6 +1,7 @@
-name: Release
+name: CD
 
-# Sätter versionstagg (vX.Y.Z) och skapar en GitHub-release utifrån commits på main.
+# Körs på varje push till main: samma kontroller som på PR:er, sedan release.
+# Release sätter versionstagg (vX.Y.Z) och skapar en GitHub-release utifrån commits.
 # feat ger minor, fix ger patch och breaking change (! eller BREAKING CHANGE) ger major.
 on:
   push:
@@ -9,18 +10,27 @@ on:
 
 # Två merges direkt efter varandra får inte tagga samtidigt.
 concurrency:
-  group: release
+  group: cd
   cancel-in-progress: false
 
 permissions:
-  contents: write
-  issues: write
-  pull-requests: write
+  contents: read
 
 jobs:
+  checks:
+    name: checks
+    uses: ./.github/workflows/ci.yml
+
   release:
     name: release
+    needs: checks
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -39,3 +49,8 @@ jobs:
         run: npx semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # v1.2.0 om den här commiten släpptes, annars t.ex. v1.2.0-3-gabc1234.
+      - name: Version
+        id: version
+        run: echo "version=$(git describe --tags --always)" >> "$GITHUB_OUTPUT"

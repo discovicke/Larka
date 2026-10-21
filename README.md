@@ -41,7 +41,7 @@ PR:er squash-mergas, så PR-titeln blir commiten på `main` och kontrolleras i C
 
 ### Versioner och releaser
 
-Varje push till `main` kör [semantic-release](https://semantic-release.gitbook.io/), som läser commits sedan förra taggen och räknar fram nästa version enligt [semver](https://semver.org/):
+Varje push till `main` kör först samma kontroller som på PR:er och sedan [semantic-release](https://semantic-release.gitbook.io/), som läser commits sedan förra taggen och räknar fram nästa version enligt [semver](https://semver.org/):
 
 | Commit på `main`                                      | Version       |
 | ----------------------------------------------------- | ------------- |

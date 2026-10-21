@@ -4,10 +4,13 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+  # Återanvänds av cd.yml så att main kontrolleras med exakt samma steg innan release.
+  workflow_call:
 
+# Nya pushar till en PR avbryter gamla körningar. På main får varje körning gå klart.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
