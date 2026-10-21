@@ -39,6 +39,19 @@ Exempel: `feat(client): add course page`, `fix(backend): return 404 for missing 
 
 PR:er squash-mergas, så PR-titeln blir commiten på `main` och kontrolleras i CI.
 
+### Versioner och releaser
+
+Varje push till `main` kör [semantic-release](https://semantic-release.gitbook.io/), som läser commits sedan förra taggen och räknar fram nästa version enligt [semver](https://semver.org/):
+
+| Commit på `main`                                      | Version       |
+| ----------------------------------------------------- | ------------- |
+| `fix: ...`                                            | patch 1.0.x   |
+| `feat: ...`                                           | minor 1.x.0   |
+| `feat!: ...` eller `BREAKING CHANGE:` i commit-texten | major x.0.0   |
+| `docs`, `test`, `ci`, `chore` m.fl.                   | ingen release |
+
+Den skapar en git-tagg (`v1.2.3`) och en GitHub-release med release notes. Inget commitas tillbaka till `main`, så branch-skyddet behöver inga undantag.
+
 ### Kontroller på varje PR
 
 CI kör följande och alla måste vara gröna innan en PR kan mergas. Kör dem lokalt innan du pushar:

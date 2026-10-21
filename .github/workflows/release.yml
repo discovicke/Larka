@@ -1,0 +1,41 @@
+name: Release
+
+# Sätter versionstagg (vX.Y.Z) och skapar en GitHub-release utifrån commits på main.
+# feat ger minor, fix ger patch och breaking change (! eller BREAKING CHANGE) ger major.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Två merges direkt efter varandra får inte tagga samtidigt.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  release:
+    name: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Release
+        run: npx semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
