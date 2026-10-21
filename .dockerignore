@@ -1,0 +1,11 @@
+**/node_modules
+**/bin
+**/obj
+**/dist
+**/*.db
+.git
+.github
+.claude
+.husky
+Dockerfile
+.dockerignore
