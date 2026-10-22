@@ -11,6 +11,7 @@ public class ContentService
 {
     private readonly IContentRepository _content;
     private readonly IGroupRepository _groups;
+    private readonly SubmissionService _submissions;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentUser _currentUser;
     private readonly TimeProvider _time;
@@ -18,12 +19,14 @@ public class ContentService
     public ContentService(
         IContentRepository content,
         IGroupRepository groups,
+        SubmissionService submissions,
         IUnitOfWork unitOfWork,
         ICurrentUser currentUser,
         TimeProvider time)
     {
         _content = content;
         _groups = groups;
+        _submissions = submissions;
         _unitOfWork = unitOfWork;
         _currentUser = currentUser;
         _time = time;
@@ -49,9 +52,30 @@ public class ContentService
             return ServiceResult<Content>.Invalid("title is required");
         }
 
-        if (dto.MaxScore is not null && type != ContentType.Assignment)
+        if (type != ContentType.Assignment && (dto.MaxScore is not null || dto.SubmissionMode is not null || dto.TemplateRepo is not null))
         {
-            return ServiceResult<Content>.Invalid("maxScore is only allowed on assignments");
+            return ServiceResult<Content>.Invalid("maxScore, submissionMode and templateRepo are only allowed on assignments");
+        }
+
+        var mode = SubmissionMode.None;
+        if (dto.SubmissionMode is not null && !Enum.TryParse(dto.SubmissionMode, true, out mode))
+        {
+            return ServiceResult<Content>.Invalid("submissionMode must be none|file|repo|fileOrRepo");
+        }
+
+        if (SubmissionService.UsesRepo(mode) != (dto.TemplateRepo is not null))
+        {
+            return ServiceResult<Content>.Invalid("templateRepo is required for repo and fileOrRepo, and only allowed there");
+        }
+
+        if (dto.TemplateRepo is not null && dto.TemplateRepo.Split('/') is not [{ Length: > 0 }, { Length: > 0 }])
+        {
+            return ServiceResult<Content>.Invalid("templateRepo must look like org/name");
+        }
+
+        if (dto.MaxScore is < 1)
+        {
+            return ServiceResult<Content>.Invalid("maxScore must be at least 1");
         }
 
         var content = new Content
@@ -64,7 +88,13 @@ public class ContentService
         };
         if (type == ContentType.Assignment)
         {
-            content.Assignment = new AssignmentConfig { ContentId = content.Id, MaxScore = dto.MaxScore ?? 100 };
+            content.Assignment = new AssignmentSpec
+            {
+                ContentId = content.Id,
+                MaxScore = dto.MaxScore,
+                SubmissionMode = mode,
+                TemplateRepo = dto.TemplateRepo
+            };
         }
 
         _content.Add(content);
@@ -116,6 +146,7 @@ public class ContentService
             IsPinned = dto.IsPinned
         };
         _content.AddLink(link);
+        await _submissions.HandOutAsync(link, content, ct);
         await _unitOfWork.SaveChangesAsync(ct);
         return ServiceResult<ContentLink>.Ok(link);
     }

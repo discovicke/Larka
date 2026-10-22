@@ -7,7 +7,9 @@ public record CreateContentDto(
     string Title,
     string BodyMd,
     string? Status = null,
-    int? MaxScore = null);
+    int? MaxScore = null,
+    string? SubmissionMode = null, // bara för uppgifter: none|file|repo|fileOrRepo
+    string? TemplateRepo = null); // "org/mall", krävs för repo och fileOrRepo
 
 // Minst en av GroupId och CourseId. Båda = kursen så som den går för just den gruppen.
 public record CreateContentLinkDto(

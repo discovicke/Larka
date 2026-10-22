@@ -13,5 +13,5 @@ public class Content
     public string BodyMd { get; set; } = "";
     public ContentStatus Status { get; set; } = ContentStatus.Published;
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
-    public AssignmentConfig? Assignment { get; set; }
+    public AssignmentSpec? Assignment { get; set; }
 }

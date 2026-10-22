@@ -14,11 +14,13 @@ public class UserRepository : IUserRepository
     public Task<User?> GetByEmailAsync(string email, CancellationToken ct) =>
         _db.Users.FirstOrDefaultAsync(u => u.Email == email, ct);
 
-    public async Task<List<User>> GetStudentsInGroupAsync(Guid groupId, CancellationToken ct)
+    // En elev som är med i flera av grupperna kommer bara med en gång.
+    public async Task<List<User>> GetStudentsInGroupsAsync(IReadOnlyCollection<Guid> groupIds, CancellationToken ct)
     {
         var studentIds = await _db.Enrollments
-            .Where(e => e.GroupId == groupId && e.Role == GroupRole.Student)
+            .Where(e => groupIds.Contains(e.GroupId) && e.Role == GroupRole.Student)
             .Select(e => e.UserId)
+            .Distinct()
             .ToListAsync(ct);
         return await _db.Users.Where(u => studentIds.Contains(u.Id)).ToListAsync(ct);
     }

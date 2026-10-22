@@ -44,6 +44,14 @@ public static class TestData
         return group;
     }
 
+    public static async Task<User> AddMemberAsync(AppDb db, Group group, GroupRole role = GroupRole.Student)
+    {
+        var user = await AddUserAsync(db, group.SchoolId);
+        db.Enrollments.Add(new Enrollment { UserId = user.Id, GroupId = group.Id, Role = role });
+        await db.SaveChangesAsync();
+        return user;
+    }
+
     /// <summary>Skapar en kurs. Skickas groupId med läser den gruppen kursen (GroupCourse).</summary>
     public static async Task<Course> AddCourseAsync(AppDb db, Guid schoolId, Guid? groupId = null)
     {

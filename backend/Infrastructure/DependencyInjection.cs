@@ -59,6 +59,5 @@ public static class DependencyInjection
         services.AddScoped<IGroupRepository, GroupRepository>();
         services.AddScoped<IContentRepository, ContentRepository>();
         services.AddScoped<ISubmissionRepository, SubmissionRepository>();
-        services.AddScoped<ILabRepository, LabRepository>();
     }
 }

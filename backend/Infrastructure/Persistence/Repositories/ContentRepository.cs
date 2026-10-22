@@ -21,6 +21,18 @@ public class ContentRepository : IContentRepository
 
     public void AddLink(ContentLink link) => _db.ContentLinks.Add(link);
 
+    public async Task<LinkedContent?> GetLinkWithContentAsync(Guid linkId, CancellationToken ct)
+    {
+        var link = await _db.ContentLinks.FirstOrDefaultAsync(l => l.Id == linkId, ct);
+        if (link is null)
+        {
+            return null;
+        }
+
+        var content = await _db.Content.Include(c => c.Assignment).SingleAsync(c => c.Id == link.ContentId, ct);
+        return new LinkedContent(link, content);
+    }
+
     public Task<List<ContentFeedItem>> GetGroupFeedAsync(
         Guid groupId, ContentType? type, DateTimeOffset now, CancellationToken ct)
     {

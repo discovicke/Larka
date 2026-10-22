@@ -4,12 +4,16 @@ using Backend.Domain.Enums;
 
 namespace Backend.Application.Abstractions;
 
+/// <summary>En utdelning och innehållet den delar ut (med AssignmentSpec om det är en uppgift).</summary>
+public record LinkedContent(ContentLink Link, Content Content);
+
 public interface IContentRepository
 {
     Task<Content?> GetAsync(Guid id, CancellationToken ct);
     Task<bool> ExistsAsync(Guid id, CancellationToken ct);
     void Add(Content content);
     void AddLink(ContentLink link);
+    Task<LinkedContent?> GetLinkWithContentAsync(Guid linkId, CancellationToken ct);
 
     // Publicerat innehåll med PublishAt passerad. Gruppens flöde tar även med det som är länkat
     // till en kurs gruppen läser (länkar med bara CourseId).

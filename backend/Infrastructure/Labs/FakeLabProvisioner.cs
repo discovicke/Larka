@@ -5,31 +5,29 @@ using Backend.Domain.Enums;
 namespace Backend.Infrastructure.Labs;
 
 // Fake nu: skapar repo-namn + Pending. Byt till Octokit-implementation senare.
-// Fake simulerar gamla Classroom-känslan: lagrar UpstreamUrl per repo + "git remote add upstream".
 public class FakeLabProvisioner : ILabProvisioner
 {
     private readonly string _org;
 
     public FakeLabProvisioner(IConfiguration cfg) => _org = cfg["GitHub:Org"] ?? "skol-org";
 
-    public Task<IReadOnlyList<StudentLabRepo>> ProvisionAsync(
-        LabAssignment lab, IEnumerable<User> students, CancellationToken ct)
+    public Task<IReadOnlyList<StudentRepo>> ProvisionAsync(
+        string templateRepo, string assignmentTitle, IReadOnlyList<RepoRequest> requests, CancellationToken ct)
     {
-        var repos = students.Select(s =>
+        var repos = requests.Select(r =>
         {
-            var slug = s.Email.Split('@')[0].Replace(".", "-").ToLowerInvariant();
-            return new StudentLabRepo
+            var slug = r.Student.Email.Split('@')[0].Replace(".", "-").ToLowerInvariant();
+            return new StudentRepo
             {
-                LabId = lab.Id,
-                StudentId = s.Id,
-                RepoFullName = $"{_org}/{lab.Title.ToLowerInvariant().Replace(" ", "-")}-{slug}",
+                SubmissionId = r.SubmissionId,
+                RepoFullName = $"{_org}/{assignmentTitle.ToLowerInvariant().Replace(" ", "-")}-{slug}",
                 CheckStatus = CheckStatus.Pending
             };
         }).ToList();
 
-        return Task.FromResult<IReadOnlyList<StudentLabRepo>>(repos);
+        return Task.FromResult<IReadOnlyList<StudentRepo>>(repos);
     }
 
-    public Task RefreshCheckStatusAsync(IReadOnlyList<StudentLabRepo> repos, CancellationToken ct) =>
+    public Task RefreshCheckStatusAsync(IReadOnlyList<StudentRepo> repos, CancellationToken ct) =>
         Task.CompletedTask;
 }

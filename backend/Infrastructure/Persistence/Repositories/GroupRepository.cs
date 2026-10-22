@@ -27,6 +27,9 @@ public class GroupRepository : IGroupRepository
         return await _db.Courses.Where(c => courseIds.Contains(c.Id)).ToListAsync(ct);
     }
 
+    public Task<List<Guid>> GetGroupIdsReadingCourseAsync(Guid courseId, CancellationToken ct) =>
+        _db.GroupCourses.Where(gc => gc.CourseId == courseId).Select(gc => gc.GroupId).ToListAsync(ct);
+
     public Task<bool> ReadsCourseAsync(Guid groupId, Guid courseId, CancellationToken ct) =>
         _db.GroupCourses.AnyAsync(g => g.GroupId == groupId && g.CourseId == courseId, ct);
 

@@ -10,7 +10,6 @@ public static class DependencyInjection
         services.AddScoped<ContentService>();
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<SubmissionService>();
-        services.AddScoped<LabService>();
         return services;
     }
 }

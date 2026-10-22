@@ -12,12 +12,6 @@ namespace backend.Tests;
 /// </summary>
 public class RelationTests : IClassFixture<TestWebApplicationFactory>
 {
-    // Tabeller som inte har gått över till den nya modellen än (#39). Tas bort därifrån när de gör det.
-    private static readonly HashSet<string> _notMigratedYet =
-    [
-        nameof(Submission), nameof(Grade), nameof(LabAssignment), nameof(StudentLabRepo)
-    ];
-
     private readonly TestWebApplicationFactory _factory;
 
     public RelationTests(TestWebApplicationFactory factory)
@@ -32,7 +26,6 @@ public class RelationTests : IClassFixture<TestWebApplicationFactory>
         var model = scope.ServiceProvider.GetRequiredService<AppDb>().Model;
 
         var missing = model.GetEntityTypes()
-            .Where(e => !_notMigratedYet.Contains(e.ClrType.Name))
             .SelectMany(e => e.GetProperties().Select(p => (Entity: e, Property: p)))
             .Where(x => x.Property.Name != "Id" && x.Property.Name.EndsWith("Id") && !x.Property.IsForeignKey())
             .Select(x => $"{x.Entity.ClrType.Name}.{x.Property.Name}")
@@ -101,5 +94,51 @@ public class RelationTests : IClassFixture<TestWebApplicationFactory>
             .SingleAsync();
 
         Assert.Equal("Teacher", stored);
+    }
+
+    [Fact]
+    public async Task SecondSubmission_ForSameStudentAndLink_IsRejected()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var (link, student) = await AddLinkWithStudentAsync(db);
+        db.Submissions.Add(new Submission { ContentLinkId = link.Id, StudentId = student.Id });
+        await db.SaveChangesAsync();
+
+        db.Submissions.Add(new Submission { ContentLinkId = link.Id, StudentId = student.Id });
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+    }
+
+    [Fact]
+    public async Task Link_WithSubmissions_CannotBeDeleted()
+    {
+        Guid linkId;
+        using (var setup = _factory.Services.CreateScope())
+        {
+            var setupDb = setup.ServiceProvider.GetRequiredService<AppDb>();
+            var (link, student) = await AddLinkWithStudentAsync(setupDb);
+            setupDb.Submissions.Add(new Submission { ContentLinkId = link.Id, StudentId = student.Id });
+            await setupDb.SaveChangesAsync();
+            linkId = link.Id;
+        }
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        db.ContentLinks.Remove(await db.ContentLinks.SingleAsync(l => l.Id == linkId));
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+    }
+
+    private static async Task<(ContentLink Link, User Student)> AddLinkWithStudentAsync(AppDb db)
+    {
+        var group = await TestData.AddGroupAsync(db);
+        var student = await TestData.AddMemberAsync(db, group);
+        var content = new Content { AuthorId = student.Id, Type = ContentType.Assignment, Title = "Labb" };
+        var link = new ContentLink { ContentId = content.Id, GroupId = group.Id };
+        db.Content.Add(content);
+        db.ContentLinks.Add(link);
+        await db.SaveChangesAsync();
+        return (link, student);
     }
 }
