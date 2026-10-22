@@ -26,6 +26,8 @@ public class AppDb : DbContext
     public DbSet<Grade> Grades => Set<Grade>();
     public DbSet<Comment> Comments => Set<Comment>();
     public DbSet<Attachment> Attachments => Set<Attachment>();
+    public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder b)
     {
@@ -45,6 +47,7 @@ public class AppDb : DbContext
         b.Properties<CheckStatus>().HaveConversion<string>();
         b.Properties<SubmissionMode>().HaveConversion<string>();
         b.Properties<SubmissionStatus>().HaveConversion<string>();
+        b.Properties<NotificationKind>().HaveConversion<string>();
     }
 
     protected override void OnModelCreating(ModelBuilder m)

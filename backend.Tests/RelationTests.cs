@@ -130,6 +130,45 @@ public class RelationTests : IClassFixture<TestWebApplicationFactory>
         await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
     }
 
+    [Fact]
+    public async Task Notification_KeepsItsRow_WhenContentIsDeleted()
+    {
+        Guid notificationId, contentId;
+        using (var setup = _factory.Services.CreateScope())
+        {
+            var setupDb = setup.ServiceProvider.GetRequiredService<AppDb>();
+            var user = await TestData.AddUserAsync(setupDb);
+            var content = new Content { AuthorId = user.Id, Type = ContentType.News, Title = "Nyhet" };
+            var notification = new Notification { UserId = user.Id, Kind = NotificationKind.NewsPublished, ContentId = content.Id };
+            setupDb.Content.Add(content);
+            setupDb.Notifications.Add(notification);
+            await setupDb.SaveChangesAsync();
+            (notificationId, contentId) = (notification.Id, content.Id);
+        }
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        await db.Content.Where(c => c.Id == contentId).ExecuteDeleteAsync();
+
+        var kept = await db.Notifications.SingleAsync(n => n.Id == notificationId);
+        Assert.Null(kept.ContentId);
+    }
+
+    [Fact]
+    public async Task PushSubscription_WithSameEndpoint_IsRejected()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var user = await TestData.AddUserAsync(db);
+        var endpoint = $"https://fcm.googleapis.com/fcm/send/{Guid.NewGuid():N}";
+        db.PushSubscriptions.Add(new PushSubscription { UserId = user.Id, Endpoint = endpoint, P256dh = "k", Auth = "a" });
+        await db.SaveChangesAsync();
+
+        db.PushSubscriptions.Add(new PushSubscription { UserId = user.Id, Endpoint = endpoint, P256dh = "k", Auth = "a" });
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+    }
+
     private static async Task<(ContentLink Link, User Student)> AddLinkWithStudentAsync(AppDb db)
     {
         var group = await TestData.AddGroupAsync(db);

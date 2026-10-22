@@ -98,7 +98,7 @@ erDiagram
         uuid Id PK
         uuid ContentId FK
         string FileName
-        string StorageKey
+        string Url
         long SizeBytes
     }
     Comment {
@@ -120,7 +120,7 @@ erDiagram
         uuid Id PK
         uuid SubmissionId FK
         string FileName
-        string StorageKey
+        string Url
         long SizeBytes
     }
     StudentRepo {
@@ -140,7 +140,7 @@ erDiagram
     Notification {
         uuid Id PK
         uuid UserId FK
-        NotificationKind Kind
+        NotificationKind Kind "NewsPublished | AssignmentPublished | DeadlineSoon | SubmissionNeedsWork | SubmissionGraded"
         uuid ContentId FK "nullable"
         uuid SubmissionId FK "nullable"
         timestamptz CreatedAt
@@ -179,7 +179,7 @@ erDiagram
 
 - **Submission hör till en ContentLink, inte till content.** Det är på länken deadlinen finns, och en elev lämnar in till uppgiften så som den delades ut till hens grupp. Det finns en rad per elev och länk (unik), och `Status` (`NotStarted`, `Submitted`, `NeedsWork`, `Graded`) visar var eleven är. Statusbytena styr notiserna.
 - **SubmissionFile (1:N)** innehåller uppladdade filer, **StudentRepo (1:0..1)** elevens GitHub-repo när uppgiften använder repo-läge. Repot skapas när uppgiften delas ut, så då finns submission-raden redan med status `NotStarted`.
-- **Grade (1:0..1 med Submission)** sparar vem som rättade (`GradedById`) och när. `Score` är valfritt, så uppgifter utan poäng kan få bara feedback.
+- **Grade (1:0..1 med Submission)** sparar vem som rättade (`GradedById`) och när. `Score` ligger mellan 0 och uppgiftens `MaxScore`. Uppgifter utan `MaxScore` får bara feedback. Vid komplettering sätts status `NeedsWork` och Grade har feedback men ingen poäng, och eleven kan lämna in igen. En rättad inlämning går inte att lämna in igen.
 
 ### Notiser
 
