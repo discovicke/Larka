@@ -1,4 +1,5 @@
 using Backend.Domain.Entities;
+using Backend.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
@@ -33,15 +34,22 @@ public class AppDb : DbContext
             b.Properties<DateTimeOffset>().HaveConversion<DateTimeOffsetToBinaryConverter>();
             b.Properties<DateTimeOffset?>().HaveConversion<DateTimeOffsetToBinaryConverter>();
         }
+
+        // Enums sparas som text ("Student" i stället för 0), så tabellerna går att läsa direkt i databasen.
+        b.Properties<UserRole>().HaveConversion<string>();
+        b.Properties<GroupType>().HaveConversion<string>();
+        b.Properties<GroupRole>().HaveConversion<string>();
+        b.Properties<PostType>().HaveConversion<string>();
+        b.Properties<CheckStatus>().HaveConversion<string>();
     }
 
     protected override void OnModelCreating(ModelBuilder m)
     {
-        m.Entity<Enrollment>().HasKey(e => new { e.UserId, e.GroupId });
-        m.Entity<GroupCourse>().HasKey(g => new { g.GroupId, g.CourseId });
+        // Relationer, nycklar och unika regler ligger i Configurations/, en klass per tabell.
+        m.ApplyConfigurationsFromAssembly(typeof(AppDb).Assembly);
+
         m.Entity<AssignmentConfig>().HasKey(a => a.PostId);
         m.Entity<Post>().HasOne(p => p.Assignment).WithOne().HasForeignKey<AssignmentConfig>(a => a.PostId);
         m.Entity<Submission>().HasOne(s => s.Grade).WithOne().HasForeignKey<Grade>(g => g.SubmissionId);
-        m.Entity<User>().HasIndex(u => u.Email).IsUnique();
     }
 }
