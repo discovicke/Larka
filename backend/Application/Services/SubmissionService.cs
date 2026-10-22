@@ -17,11 +17,11 @@ public class SubmissionService
         _currentUser = currentUser;
     }
 
-    public async Task<Submission> SubmitAsync(Guid postId, SubmitDto dto, CancellationToken ct)
+    public async Task<Submission> SubmitAsync(Guid contentId, SubmitDto dto, CancellationToken ct)
     {
         var submission = new Submission
         {
-            PostId = postId,
+            ContentId = contentId,
             StudentId = _currentUser.UserId,
             BodyMd = dto.BodyMd,
             RepoUrl = dto.RepoUrl

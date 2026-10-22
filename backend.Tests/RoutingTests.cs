@@ -22,7 +22,7 @@ public class RoutingTests : IClassFixture<TestWebApplicationFactory>
     [Fact]
     public async Task ApiRoutes_AreNotServedFromRoot()
     {
-        var response = await _client.GetAsync($"/groups/{Guid.NewGuid()}/posts");
+        var response = await _client.GetAsync($"/groups/{Guid.NewGuid()}/content");
 
         Assert.NotEqual(HttpStatusCode.OK, response.StatusCode);
     }

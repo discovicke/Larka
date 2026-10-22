@@ -7,7 +7,7 @@ public static class SubmissionEndpoints
 {
     public static IEndpointRouteBuilder MapSubmissionEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/posts/{id:guid}/submissions",
+        app.MapPost("/content/{id:guid}/submissions",
                 async (Guid id, SubmitDto d, SubmissionService service, CancellationToken ct) =>
                 {
                     var submission = await service.SubmitAsync(id, d, ct);

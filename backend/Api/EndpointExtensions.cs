@@ -10,7 +10,7 @@ public static class EndpointExtensions
 
         var api = app.MapGroup("/api");
         api.MapGroupEndpoints();
-        api.MapPostEndpoints();
+        api.MapContentEndpoints();
         api.MapSubmissionEndpoints();
         api.MapLabEndpoints();
 

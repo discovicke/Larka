@@ -1,8 +1,8 @@
 namespace Backend.Domain.Entities;
 
+// Finns bara för content av typen Assignment. Deadline ligger på ContentLink.
 public class AssignmentConfig
 {
-    public Guid PostId { get; set; }
-    public DateTimeOffset? DueAt { get; set; }
+    public Guid ContentId { get; set; }
     public int MaxScore { get; set; } = 100;
 }

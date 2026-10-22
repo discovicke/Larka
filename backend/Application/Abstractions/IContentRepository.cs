@@ -1,0 +1,22 @@
+using Backend.Application.Dtos;
+using Backend.Domain.Entities;
+using Backend.Domain.Enums;
+
+namespace Backend.Application.Abstractions;
+
+public interface IContentRepository
+{
+    Task<Content?> GetAsync(Guid id, CancellationToken ct);
+    Task<bool> ExistsAsync(Guid id, CancellationToken ct);
+    void Add(Content content);
+    void AddLink(ContentLink link);
+
+    // Publicerat innehåll med PublishAt passerad. Gruppens flöde tar även med det som är länkat
+    // till en kurs gruppen läser (länkar med bara CourseId).
+    Task<List<ContentFeedItem>> GetGroupFeedAsync(Guid groupId, ContentType? type, DateTimeOffset now, CancellationToken ct);
+    Task<List<ContentFeedItem>> GetCourseFeedAsync(Guid courseId, ContentType? type, DateTimeOffset now, CancellationToken ct);
+
+    Task<List<Comment>> GetCommentsAsync(Guid contentId, CancellationToken ct);
+    void AddComment(Comment comment);
+    void AddAttachment(Attachment attachment);
+}

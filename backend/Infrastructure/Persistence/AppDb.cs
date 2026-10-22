@@ -17,7 +17,8 @@ public class AppDb : DbContext
     public DbSet<GroupCourse> GroupCourses => Set<GroupCourse>();
     public DbSet<Group> Groups => Set<Group>();
     public DbSet<Enrollment> Enrollments => Set<Enrollment>();
-    public DbSet<Post> Posts => Set<Post>();
+    public DbSet<Content> Content => Set<Content>();
+    public DbSet<ContentLink> ContentLinks => Set<ContentLink>();
     public DbSet<AssignmentConfig> AssignmentConfigs => Set<AssignmentConfig>();
     public DbSet<Submission> Submissions => Set<Submission>();
     public DbSet<Grade> Grades => Set<Grade>();
@@ -39,7 +40,8 @@ public class AppDb : DbContext
         b.Properties<UserRole>().HaveConversion<string>();
         b.Properties<GroupType>().HaveConversion<string>();
         b.Properties<GroupRole>().HaveConversion<string>();
-        b.Properties<PostType>().HaveConversion<string>();
+        b.Properties<ContentType>().HaveConversion<string>();
+        b.Properties<ContentStatus>().HaveConversion<string>();
         b.Properties<CheckStatus>().HaveConversion<string>();
     }
 
@@ -48,8 +50,6 @@ public class AppDb : DbContext
         // Relationer, nycklar och unika regler ligger i Configurations/, en klass per tabell.
         m.ApplyConfigurationsFromAssembly(typeof(AppDb).Assembly);
 
-        m.Entity<AssignmentConfig>().HasKey(a => a.PostId);
-        m.Entity<Post>().HasOne(p => p.Assignment).WithOne().HasForeignKey<AssignmentConfig>(a => a.PostId);
         m.Entity<Submission>().HasOne(s => s.Grade).WithOne().HasForeignKey<Grade>(g => g.SubmissionId);
     }
 }

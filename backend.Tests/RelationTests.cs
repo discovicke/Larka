@@ -12,11 +12,10 @@ namespace backend.Tests;
 /// </summary>
 public class RelationTests : IClassFixture<TestWebApplicationFactory>
 {
-    // Tabeller som inte har gått över till den nya modellen än (#38 och #39). Tas bort därifrån när de gör det.
+    // Tabeller som inte har gått över till den nya modellen än (#39). Tas bort därifrån när de gör det.
     private static readonly HashSet<string> _notMigratedYet =
     [
-        nameof(Post), nameof(Comment), nameof(Attachment), nameof(Submission), nameof(Grade),
-        nameof(LabAssignment), nameof(StudentLabRepo)
+        nameof(Submission), nameof(Grade), nameof(LabAssignment), nameof(StudentLabRepo)
     ];
 
     private readonly TestWebApplicationFactory _factory;

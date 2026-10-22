@@ -12,6 +12,12 @@ public class GroupRepository : IGroupRepository
 
     public Task<List<Group>> GetAllAsync(CancellationToken ct) => _db.Groups.ToListAsync(ct);
 
+    public Task<bool> ExistsAsync(Guid groupId, CancellationToken ct) =>
+        _db.Groups.AnyAsync(g => g.Id == groupId, ct);
+
+    public Task<bool> CourseExistsAsync(Guid courseId, CancellationToken ct) =>
+        _db.Courses.AnyAsync(c => c.Id == courseId, ct);
+
     public async Task<List<Course>> GetCoursesAsync(Guid groupId, CancellationToken ct)
     {
         var courseIds = await _db.GroupCourses

@@ -43,4 +43,18 @@ public static class TestData
         await db.SaveChangesAsync();
         return group;
     }
+
+    /// <summary>Skapar en kurs. Skickas groupId med läser den gruppen kursen (GroupCourse).</summary>
+    public static async Task<Course> AddCourseAsync(AppDb db, Guid schoolId, Guid? groupId = null)
+    {
+        var course = new Course { SchoolId = schoolId, Title = "Kurs", Code = $"K-{Guid.NewGuid():N}"[..10] };
+        db.Courses.Add(course);
+        if (groupId is { } g)
+        {
+            db.GroupCourses.Add(new GroupCourse { GroupId = g, CourseId = course.Id });
+        }
+
+        await db.SaveChangesAsync();
+        return course;
+    }
 }
