@@ -12,9 +12,10 @@ npm --prefix client install
 npm run dev
 ```
 
-`npm run dev` startar backend (http://localhost:5257) och Vite (http://localhost:5173) samtidigt. Öppna Vite-adressen. Vite skickar `/api` och `/health` vidare till backend, så webbläsaren pratar bara med en origin och ingen CORS behövs.
+`npm run dev` startar backend (http://localhost:5257) och Vite (http://localhost:5173) samtidigt. Öppna Vite-adressen. Vite skickar `/api`, `/health` och `/version` vidare till backend, så webbläsaren pratar bara med en origin och ingen CORS behövs.
 
-- API:et ligger under `/api`, t.ex. `/api/groups`. `/health` ligger på roten.
+- API:et ligger under `/api`, t.ex. `/api/groups`. `/health` och `/version` ligger på roten.
+- Anropa API:et från klienten med `api` i `client/src/lib/api.ts`, t.ex. `await api.get<Group[]>('/api/groups')`. Fel kastas som `ApiError` med HTTP-status.
 - Swagger finns på http://localhost:5257/swagger.
 
 ## Publicera
