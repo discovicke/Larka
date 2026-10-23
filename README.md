@@ -4,6 +4,8 @@
 
 Live: https://net25-devops-grupp-4.onrender.com (gratisinstansen somnar efter 15 minuter utan trafik, första anropet kan ta en minut)
 
+Design: [mockup](https://claude.ai/artifact/PPjCF4RnekzyfrvJrYF8LC), se [docs/design.md](docs/design.md).
+
 ## Köra lokalt
 
 ```bash
