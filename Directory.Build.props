@@ -6,4 +6,17 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
+
+  <!-- Regler som dotnet format saknar, se .editorconfig: radlängd (Roslynator RCS0056),
+       ternaries på egna rader (RLMS001), inga enbokstavsnamn (RLMS002) och inga property patterns (RLMS003)
+       från backend.Analyzers. -->
+  <ItemGroup>
+    <PackageReference Include="Roslynator.Formatting.Analyzers" Version="5.0.1" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(MSBuildProjectName)' != 'backend.Analyzers'">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)backend.Analyzers/backend.Analyzers.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
 </Project>

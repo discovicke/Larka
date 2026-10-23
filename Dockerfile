@@ -7,6 +7,7 @@ WORKDIR /src
 
 # Restore i ett eget lager så att det cachas tills paketen ändras.
 COPY Directory.Build.props ./
+COPY backend.Analyzers/backend.Analyzers.csproj backend.Analyzers/
 COPY backend/backend.csproj backend/
 RUN dotnet restore backend/backend.csproj
 

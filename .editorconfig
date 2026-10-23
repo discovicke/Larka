@@ -39,6 +39,17 @@ csharp_new_line_before_finally = true
 # ? och : på egna rader. Gäller Rider; dotnet format har ingen sådan regel, så CI kontrollerar det inte.
 resharper_csharp_wrap_ternary_expr_style = chop_always
 
+# max 120 tecken per rad. Roslynator (Directory.Build.props) kontrollerar i CI och dotnet format radbryter.
+max_line_length = 120
+roslynator_max_line_length = 120
+dotnet_diagnostic.RCS0056.severity = warning
+
+# egna regler i backend.Analyzers. RLMS001 rättas av dotnet format, RLMS002 (namn) och RLMS003 (property patterns)
+# får man rätta själv.
+dotnet_diagnostic.RLMS001.severity = warning
+dotnet_diagnostic.RLMS002.severity = warning
+dotnet_diagnostic.RLMS003.severity = warning
+
 # naming: private fields are _camelCase
 dotnet_naming_rule.private_fields_underscore.severity = warning
 dotnet_naming_rule.private_fields_underscore.symbols = private_fields

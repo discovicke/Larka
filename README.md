@@ -79,6 +79,7 @@ CI kör följande och alla måste vara gröna innan en PR kan mergas. Kör dem l
 npx prettier --check .
 
 # Backend
+dotnet build backend.Analyzers   # våra egna regler, måste finnas innan dotnet format körs
 dotnet format RebornLMS.sln --verify-no-changes
 dotnet build RebornLMS.sln
 dotnet test RebornLMS.sln
@@ -118,6 +119,8 @@ groups.map((group) => group.id) // inga enbokstavsnamn, utom i i loopar, T och _
 <Button/>                      <!-- inget mellanslag före /> -->
 <input type="text"/>
 ```
+
+I C# gäller även regler som `dotnet format` inte har själv: max 120 tecken per rad, `?` och `:` i en ternary på egna rader, inga namn på en bokstav och inga property patterns. Se [docs/code-style-csharp.md](docs/code-style-csharp.md).
 
 Ställ in editorn så att den formaterar med samma verktyg som CI. I Rider/WebStorm:
 

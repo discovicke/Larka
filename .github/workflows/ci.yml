@@ -35,6 +35,10 @@ jobs:
       - name: Restore
         run: dotnet restore RebornLMS.sln
 
+      # dotnet format hoppar tyst över våra egna regler (RLMS*) om analyzern inte är byggd än.
+      - name: Build analyzers
+        run: dotnet build backend.Analyzers --no-restore
+
       - name: Check formatting
         run: dotnet format RebornLMS.sln --no-restore --verify-no-changes
 
