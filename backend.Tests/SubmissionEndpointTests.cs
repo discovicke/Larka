@@ -6,16 +6,9 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace backend.Tests;
 
-public class SubmissionEndpointTests : IClassFixture<TestWebApplicationFactory>
+public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClassFixture<TestWebApplicationFactory>
 {
-    private readonly TestWebApplicationFactory _factory;
-    private readonly HttpClient _client;
-
-    public SubmissionEndpointTests(TestWebApplicationFactory factory)
-    {
-        _factory = factory;
-        _client = factory.CreateClient();
-    }
+    private readonly HttpClient _client = factory.CreateClient();
 
     private record IdResponse(Guid Id);
 
@@ -210,7 +203,7 @@ public class SubmissionEndpointTests : IClassFixture<TestWebApplicationFactory>
 
     private async Task<(Guid GroupId, Guid SchoolId)> AddGroupAsync(int students, int teachers = 0)
     {
-        using var scope = _factory.Services.CreateScope();
+        using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
         var group = await TestData.AddGroupAsync(db);
         for (var i = 0; i < students; i++)
@@ -228,7 +221,7 @@ public class SubmissionEndpointTests : IClassFixture<TestWebApplicationFactory>
 
     private async Task<Guid> AddCourseReadByTwoGroupsAsync()
     {
-        using var scope = _factory.Services.CreateScope();
+        using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
         var groupA = await TestData.AddGroupAsync(db);
         var groupB = await TestData.AddGroupAsync(db, groupA.SchoolId);

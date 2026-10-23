@@ -3,33 +3,24 @@ using Backend.Domain.Entities;
 
 namespace Backend.Application.Services;
 
-public class GroupService
+public class GroupService(IGroupRepository groups, IUnitOfWork unitOfWork)
 {
-    private readonly IGroupRepository _groups;
-    private readonly IUnitOfWork _unitOfWork;
-
-    public GroupService(IGroupRepository groups, IUnitOfWork unitOfWork)
-    {
-        _groups = groups;
-        _unitOfWork = unitOfWork;
-    }
-
-    public Task<List<Group>> GetAllAsync(CancellationToken ct) => _groups.GetAllAsync(ct);
+    public Task<List<Group>> GetAllAsync(CancellationToken ct) => groups.GetAllAsync(ct);
 
     // Tom lista = fristående grupp (t.ex. committee).
     public Task<List<Course>> GetCoursesAsync(Guid groupId, CancellationToken ct) =>
-        _groups.GetCoursesAsync(groupId, ct);
+        groups.GetCoursesAsync(groupId, ct);
 
     /// <summary>Returnerar false om gruppen redan läser kursen.</summary>
     public async Task<bool> AddCourseAsync(Guid groupId, Guid courseId, CancellationToken ct)
     {
-        if (await _groups.ReadsCourseAsync(groupId, courseId, ct))
+        if (await groups.ReadsCourseAsync(groupId, courseId, ct))
         {
             return false;
         }
 
-        _groups.AddCourse(new GroupCourse { GroupId = groupId, CourseId = courseId });
-        await _unitOfWork.SaveChangesAsync(ct);
+        groups.AddCourse(new GroupCourse { GroupId = groupId, CourseId = courseId });
+        await unitOfWork.SaveChangesAsync(ct);
         return true;
     }
 }

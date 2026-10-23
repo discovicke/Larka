@@ -5,14 +5,9 @@ namespace backend.Tests;
 /// <summary>
 /// Integrationstester som snurrar upp hela appen i minnet och gör riktiga HTTP-anrop.
 /// </summary>
-public class HealthEndpointTests : IClassFixture<TestWebApplicationFactory>
+public class HealthEndpointTests(TestWebApplicationFactory factory) : IClassFixture<TestWebApplicationFactory>
 {
-    private readonly HttpClient _client;
-
-    public HealthEndpointTests(TestWebApplicationFactory factory)
-    {
-        _client = factory.CreateClient();
-    }
+    private readonly HttpClient _client = factory.CreateClient();
 
     [Fact]
     public async Task GetHealth_ReturnsOk()

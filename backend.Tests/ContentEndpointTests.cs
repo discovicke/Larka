@@ -6,16 +6,9 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace backend.Tests;
 
-public class ContentEndpointTests : IClassFixture<TestWebApplicationFactory>
+public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFixture<TestWebApplicationFactory>
 {
-    private readonly TestWebApplicationFactory _factory;
-    private readonly HttpClient _client;
-
-    public ContentEndpointTests(TestWebApplicationFactory factory)
-    {
-        _factory = factory;
-        _client = factory.CreateClient();
-    }
+    private readonly HttpClient _client = factory.CreateClient();
 
     private record ContentResponse(Guid Id, string Type, string Title, Guid AuthorId);
 
@@ -189,7 +182,7 @@ public class ContentEndpointTests : IClassFixture<TestWebApplicationFactory>
     // Grupper och kurser kan inte skapas via API:et än (#32), så de läggs in direkt i databasen.
     private async Task<(Guid GroupId, Guid CourseId)> AddGroupWithCourseAsync()
     {
-        using var scope = _factory.Services.CreateScope();
+        using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
         var group = await TestData.AddGroupAsync(db);
         var course = await TestData.AddCourseAsync(db, group.SchoolId, group.Id);

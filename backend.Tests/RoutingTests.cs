@@ -2,14 +2,9 @@ using System.Net;
 
 namespace backend.Tests;
 
-public class RoutingTests : IClassFixture<TestWebApplicationFactory>
+public class RoutingTests(TestWebApplicationFactory factory) : IClassFixture<TestWebApplicationFactory>
 {
-    private readonly HttpClient _client;
-
-    public RoutingTests(TestWebApplicationFactory factory)
-    {
-        _client = factory.CreateClient();
-    }
+    private readonly HttpClient _client = factory.CreateClient();
 
     [Fact]
     public async Task UnknownApiRoute_ReturnsNotFound()

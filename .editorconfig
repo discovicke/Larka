@@ -25,6 +25,10 @@ csharp_style_var_for_built_in_types = true:suggestion
 csharp_style_var_when_type_is_apparent = true:suggestion
 csharp_style_var_elsewhere = true:suggestion
 
+# primary constructors
+csharp_style_prefer_primary_constructors = true:warning
+dotnet_diagnostic.IDE0290.severity = warning
+
 # braces and new lines
 csharp_prefer_braces = true:warning
 csharp_new_line_before_open_brace = all

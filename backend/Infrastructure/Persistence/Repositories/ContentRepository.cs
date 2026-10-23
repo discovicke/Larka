@@ -6,58 +6,54 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Backend.Infrastructure.Persistence.Repositories;
 
-public class ContentRepository : IContentRepository
+public class ContentRepository(AppDb db) : IContentRepository
 {
-    private readonly AppDb _db;
-
-    public ContentRepository(AppDb db) => _db = db;
-
     public Task<Content?> GetAsync(Guid id, CancellationToken ct) =>
-        _db.Content.Include(c => c.Assignment).FirstOrDefaultAsync(c => c.Id == id, ct);
+        db.Content.Include(c => c.Assignment).FirstOrDefaultAsync(c => c.Id == id, ct);
 
-    public Task<bool> ExistsAsync(Guid id, CancellationToken ct) => _db.Content.AnyAsync(c => c.Id == id, ct);
+    public Task<bool> ExistsAsync(Guid id, CancellationToken ct) => db.Content.AnyAsync(c => c.Id == id, ct);
 
-    public void Add(Content content) => _db.Content.Add(content);
+    public void Add(Content content) => db.Content.Add(content);
 
-    public void AddLink(ContentLink link) => _db.ContentLinks.Add(link);
+    public void AddLink(ContentLink link) => db.ContentLinks.Add(link);
 
     public async Task<LinkedContent?> GetLinkWithContentAsync(Guid linkId, CancellationToken ct)
     {
-        var link = await _db.ContentLinks.FirstOrDefaultAsync(l => l.Id == linkId, ct);
+        var link = await db.ContentLinks.FirstOrDefaultAsync(l => l.Id == linkId, ct);
         if (link is null)
         {
             return null;
         }
 
-        var content = await _db.Content.Include(c => c.Assignment).SingleAsync(c => c.Id == link.ContentId, ct);
+        var content = await db.Content.Include(c => c.Assignment).SingleAsync(c => c.Id == link.ContentId, ct);
         return new LinkedContent(link, content);
     }
 
     public Task<List<ContentFeedItem>> GetGroupFeedAsync(
         Guid groupId, ContentType? type, DateTimeOffset now, CancellationToken ct)
     {
-        var courseIds = _db.GroupCourses.Where(gc => gc.GroupId == groupId).Select(gc => gc.CourseId);
-        var links = _db.ContentLinks.Where(l =>
+        var courseIds = db.GroupCourses.Where(gc => gc.GroupId == groupId).Select(gc => gc.CourseId);
+        var links = db.ContentLinks.Where(l =>
             l.GroupId == groupId || (l.GroupId == null && l.CourseId != null && courseIds.Contains(l.CourseId.Value)));
         return FeedAsync(links, type, now, ct);
     }
 
     public Task<List<ContentFeedItem>> GetCourseFeedAsync(
         Guid courseId, ContentType? type, DateTimeOffset now, CancellationToken ct) =>
-        FeedAsync(_db.ContentLinks.Where(l => l.CourseId == courseId), type, now, ct);
+        FeedAsync(db.ContentLinks.Where(l => l.CourseId == courseId), type, now, ct);
 
     public Task<List<Comment>> GetCommentsAsync(Guid contentId, CancellationToken ct) =>
-        _db.Comments.Where(c => c.ContentId == contentId).OrderBy(c => c.CreatedAt).ToListAsync(ct);
+        db.Comments.Where(c => c.ContentId == contentId).OrderBy(c => c.CreatedAt).ToListAsync(ct);
 
-    public void AddComment(Comment comment) => _db.Comments.Add(comment);
+    public void AddComment(Comment comment) => db.Comments.Add(comment);
 
-    public void AddAttachment(Attachment attachment) => _db.Attachments.Add(attachment);
+    public void AddAttachment(Attachment attachment) => db.Attachments.Add(attachment);
 
     private Task<List<ContentFeedItem>> FeedAsync(
         IQueryable<ContentLink> links, ContentType? type, DateTimeOffset now, CancellationToken ct)
     {
         var q = from l in links
-                join c in _db.Content on l.ContentId equals c.Id
+                join c in db.Content on l.ContentId equals c.Id
                 where c.Status == ContentStatus.Published && l.PublishAt <= now
                 select new { l, c };
         if (type is { } t)

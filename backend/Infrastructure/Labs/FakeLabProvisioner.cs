@@ -5,11 +5,9 @@ using Backend.Domain.Enums;
 namespace Backend.Infrastructure.Labs;
 
 // Fake nu: skapar repo-namn + Pending. Byt till Octokit-implementation senare.
-public class FakeLabProvisioner : ILabProvisioner
+public class FakeLabProvisioner(IConfiguration cfg) : ILabProvisioner
 {
-    private readonly string _org;
-
-    public FakeLabProvisioner(IConfiguration cfg) => _org = cfg["GitHub:Org"] ?? "skol-org";
+    private readonly string _org = cfg["GitHub:Org"] ?? "skol-org";
 
     public Task<IReadOnlyList<StudentRepo>> ProvisionAsync(
         string templateRepo, string assignmentTitle, IReadOnlyList<RepoRequest> requests, CancellationToken ct)

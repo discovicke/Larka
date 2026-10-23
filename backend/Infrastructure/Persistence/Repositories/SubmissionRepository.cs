@@ -4,12 +4,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Backend.Infrastructure.Persistence.Repositories;
 
-public class SubmissionRepository : ISubmissionRepository
+public class SubmissionRepository(AppDb db) : ISubmissionRepository
 {
-    private readonly AppDb _db;
-
-    public SubmissionRepository(AppDb db) => _db = db;
-
     public Task<Submission?> GetAsync(Guid id, CancellationToken ct) =>
         WithDetails().FirstOrDefaultAsync(s => s.Id == id, ct);
 
@@ -19,18 +15,18 @@ public class SubmissionRepository : ISubmissionRepository
     public Task<List<Submission>> GetByLinkAsync(Guid linkId, CancellationToken ct) =>
         WithDetails().Where(s => s.ContentLinkId == linkId).ToListAsync(ct);
 
-    public void Add(Submission submission) => _db.Submissions.Add(submission);
+    public void Add(Submission submission) => db.Submissions.Add(submission);
 
-    public void AddRange(IEnumerable<Submission> submissions) => _db.Submissions.AddRange(submissions);
+    public void AddRange(IEnumerable<Submission> submissions) => db.Submissions.AddRange(submissions);
 
-    public void AddFiles(IEnumerable<SubmissionFile> files) => _db.SubmissionFiles.AddRange(files);
+    public void AddFiles(IEnumerable<SubmissionFile> files) => db.SubmissionFiles.AddRange(files);
 
-    public void RemoveFiles(IEnumerable<SubmissionFile> files) => _db.SubmissionFiles.RemoveRange(files);
+    public void RemoveFiles(IEnumerable<SubmissionFile> files) => db.SubmissionFiles.RemoveRange(files);
 
-    public void AddGrade(Grade grade) => _db.Grades.Add(grade);
+    public void AddGrade(Grade grade) => db.Grades.Add(grade);
 
-    public Task<List<StudentRepo>> GetAllReposAsync(CancellationToken ct) => _db.StudentRepos.ToListAsync(ct);
+    public Task<List<StudentRepo>> GetAllReposAsync(CancellationToken ct) => db.StudentRepos.ToListAsync(ct);
 
     private IQueryable<Submission> WithDetails() =>
-        _db.Submissions.Include(s => s.Files).Include(s => s.Repo).Include(s => s.Grade);
+        db.Submissions.Include(s => s.Files).Include(s => s.Repo).Include(s => s.Grade);
 }

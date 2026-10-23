@@ -5,12 +5,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace Backend.Infrastructure.Persistence;
 
-public class AppDb : DbContext
+public class AppDb(DbContextOptions<AppDb> o) : DbContext(o)
 {
-    public AppDb(DbContextOptions<AppDb> o) : base(o)
-    {
-    }
-
     public DbSet<User> Users => Set<User>();
     public DbSet<School> Schools => Set<School>();
     public DbSet<Course> Courses => Set<Course>();

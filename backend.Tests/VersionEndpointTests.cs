@@ -3,19 +3,12 @@ using Backend.Api.Endpoints;
 
 namespace backend.Tests;
 
-public class VersionEndpointTests : IClassFixture<TestWebApplicationFactory>
+public class VersionEndpointTests(TestWebApplicationFactory factory) : IClassFixture<TestWebApplicationFactory>
 {
-    private readonly TestWebApplicationFactory _factory;
-
-    public VersionEndpointTests(TestWebApplicationFactory factory)
-    {
-        _factory = factory;
-    }
-
     [Fact]
     public async Task GetVersion_WithoutDeployInfo_ReturnsDefaults()
     {
-        var version = await _factory.CreateClient().GetFromJsonAsync<VersionResponse>("/version");
+        var version = await factory.CreateClient().GetFromJsonAsync<VersionResponse>("/version");
 
         Assert.Equal(new VersionResponse("dev", "local"), version);
     }
@@ -23,7 +16,7 @@ public class VersionEndpointTests : IClassFixture<TestWebApplicationFactory>
     [Fact]
     public async Task GetVersion_ReturnsDeployedVersionAndCommit()
     {
-        var client = _factory.WithWebHostBuilder(b =>
+        var client = factory.WithWebHostBuilder(b =>
         {
             b.UseSetting("APP_VERSION", "1.2.3");
             b.UseSetting("GIT_COMMIT", "abc123");

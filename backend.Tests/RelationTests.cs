@@ -10,19 +10,12 @@ namespace backend.Tests;
 /// Kontrollerar att relationerna i ER-modellen (docs/er-diagram.md) finns som riktiga foreign keys
 /// och att databasen faktiskt stoppar ogiltiga rader.
 /// </summary>
-public class RelationTests : IClassFixture<TestWebApplicationFactory>
+public class RelationTests(TestWebApplicationFactory factory) : IClassFixture<TestWebApplicationFactory>
 {
-    private readonly TestWebApplicationFactory _factory;
-
-    public RelationTests(TestWebApplicationFactory factory)
-    {
-        _factory = factory;
-    }
-
     [Fact]
     public void EveryIdColumn_IsAForeignKey()
     {
-        using var scope = _factory.Services.CreateScope();
+        using var scope = factory.Services.CreateScope();
         var model = scope.ServiceProvider.GetRequiredService<AppDb>().Model;
 
         var missing = model.GetEntityTypes()
@@ -37,7 +30,7 @@ public class RelationTests : IClassFixture<TestWebApplicationFactory>
     [Fact]
     public async Task Enrollment_InGroupThatDoesNotExist_IsRejected()
     {
-        using var scope = _factory.Services.CreateScope();
+        using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
         var user = await TestData.AddUserAsync(db);
 
@@ -49,7 +42,7 @@ public class RelationTests : IClassFixture<TestWebApplicationFactory>
     [Fact]
     public async Task Course_WithSameCodeAtSameSchool_IsRejected()
     {
-        using var scope = _factory.Services.CreateScope();
+        using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
         var school = await TestData.AddSchoolAsync(db);
         db.Courses.Add(new Course { SchoolId = school.Id, Title = "C#", Code = "NET-101" });
@@ -64,7 +57,7 @@ public class RelationTests : IClassFixture<TestWebApplicationFactory>
     public async Task School_WithGroups_CannotBeDeleted()
     {
         Guid schoolId;
-        using (var setup = _factory.Services.CreateScope())
+        using (var setup = factory.Services.CreateScope())
         {
             var setupDb = setup.ServiceProvider.GetRequiredService<AppDb>();
             schoolId = (await TestData.AddSchoolAsync(setupDb)).Id;
@@ -72,7 +65,7 @@ public class RelationTests : IClassFixture<TestWebApplicationFactory>
         }
 
         // Ny context som inte känner till gruppen, så det är databasen som säger nej och inte EF.
-        using var scope = _factory.Services.CreateScope();
+        using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
         db.Schools.Remove(await db.Schools.SingleAsync(s => s.Id == schoolId));
 
@@ -82,7 +75,7 @@ public class RelationTests : IClassFixture<TestWebApplicationFactory>
     [Fact]
     public async Task EnrollmentRole_IsStoredAsText()
     {
-        using var scope = _factory.Services.CreateScope();
+        using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
         var user = await TestData.AddUserAsync(db);
         var group = await TestData.AddGroupAsync(db, user.SchoolId);
@@ -99,7 +92,7 @@ public class RelationTests : IClassFixture<TestWebApplicationFactory>
     [Fact]
     public async Task SecondSubmission_ForSameStudentAndLink_IsRejected()
     {
-        using var scope = _factory.Services.CreateScope();
+        using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
         var (link, student) = await AddLinkWithStudentAsync(db);
         db.Submissions.Add(new Submission { ContentLinkId = link.Id, StudentId = student.Id });
@@ -114,7 +107,7 @@ public class RelationTests : IClassFixture<TestWebApplicationFactory>
     public async Task Link_WithSubmissions_CannotBeDeleted()
     {
         Guid linkId;
-        using (var setup = _factory.Services.CreateScope())
+        using (var setup = factory.Services.CreateScope())
         {
             var setupDb = setup.ServiceProvider.GetRequiredService<AppDb>();
             var (link, student) = await AddLinkWithStudentAsync(setupDb);
@@ -123,7 +116,7 @@ public class RelationTests : IClassFixture<TestWebApplicationFactory>
             linkId = link.Id;
         }
 
-        using var scope = _factory.Services.CreateScope();
+        using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
         db.ContentLinks.Remove(await db.ContentLinks.SingleAsync(l => l.Id == linkId));
 
@@ -134,7 +127,7 @@ public class RelationTests : IClassFixture<TestWebApplicationFactory>
     public async Task Notification_KeepsItsRow_WhenContentIsDeleted()
     {
         Guid notificationId, contentId;
-        using (var setup = _factory.Services.CreateScope())
+        using (var setup = factory.Services.CreateScope())
         {
             var setupDb = setup.ServiceProvider.GetRequiredService<AppDb>();
             var user = await TestData.AddUserAsync(setupDb);
@@ -146,7 +139,7 @@ public class RelationTests : IClassFixture<TestWebApplicationFactory>
             (notificationId, contentId) = (notification.Id, content.Id);
         }
 
-        using var scope = _factory.Services.CreateScope();
+        using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
         await db.Content.Where(c => c.Id == contentId).ExecuteDeleteAsync();
 
@@ -157,7 +150,7 @@ public class RelationTests : IClassFixture<TestWebApplicationFactory>
     [Fact]
     public async Task PushSubscription_WithSameEndpoint_IsRejected()
     {
-        using var scope = _factory.Services.CreateScope();
+        using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
         var user = await TestData.AddUserAsync(db);
         var endpoint = $"https://fcm.googleapis.com/fcm/send/{Guid.NewGuid():N}";
