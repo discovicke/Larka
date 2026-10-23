@@ -68,4 +68,20 @@ describe('api', () => {
       'type must be news|theory|assignment',
     )
   })
+
+  it('packar upp felmeddelanden som skickas som JSON-sträng', async () => {
+    respond(400, '"title is required"')
+
+    const error = await api.post('/api/content', {}).catch((e: unknown) => e)
+
+    expect((error as ApiError).message).toBe('title is required')
+  })
+
+  it('send returnerar status och data', async () => {
+    respond(201, JSON.stringify({id: '1'}))
+
+    const response = await api.send('POST', '/api/content', {title: 'Hej'})
+
+    expect(response).toEqual({status: 201, data: {id: '1'}})
+  })
 })

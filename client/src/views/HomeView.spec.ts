@@ -1,7 +1,7 @@
 import {flushPromises, mount} from '@vue/test-utils'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 
-import App from './App.vue'
+import HomeView from './HomeView.vue'
 
 function stubFetch(response: Response | Error) {
   vi.stubGlobal(
@@ -12,14 +12,14 @@ function stubFetch(response: Response | Error) {
   )
 }
 
-describe('App', () => {
+describe('HomeView', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
   })
 
   it('renderar rubriken', () => {
     stubFetch(new Response('{}', {headers: {'Content-Type': 'application/json'}}))
-    const wrapper = mount(App)
+    const wrapper = mount(HomeView)
 
     expect(wrapper.find('h1').text()).toBe('Welcome to your new project')
   })
@@ -30,7 +30,7 @@ describe('App', () => {
         headers: {'Content-Type': 'application/json'},
       }),
     )
-    const wrapper = mount(App)
+    const wrapper = mount(HomeView)
     await flushPromises()
 
     expect(wrapper.find('[data-test="api-status"]').text()).toBe('API: OK (1.2.3, abc123)')
@@ -38,7 +38,7 @@ describe('App', () => {
 
   it('visar fel när backend inte svarar', async () => {
     stubFetch(new TypeError('Failed to fetch'))
-    const wrapper = mount(App)
+    const wrapper = mount(HomeView)
     await flushPromises()
 
     expect(wrapper.find('[data-test="api-status"]').text()).toBe('API: could not reach the backend')

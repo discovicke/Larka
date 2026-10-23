@@ -11,9 +11,36 @@ export class ApiError extends Error {
   }
 }
 
-type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
-async function request<T>(method: Method, path: string, body?: unknown): Promise<T> {
+export interface ApiResponse<T> {
+  status: number
+  data: T
+}
+
+function parseBody(text: string, contentType: string | null): unknown {
+  if (!text) {
+    return undefined
+  }
+  return contentType?.includes('json')
+    ? JSON.parse(text)
+    : text
+}
+
+// Backend skickar fel som en JSON-sträng ("title is required") eller som ProblemDetails.
+function errorMessage(body: unknown, fallback: string): string {
+  if (typeof body === 'string' && body) {
+    return body
+  }
+  if (body && typeof body === 'object') {
+    const problem = body as {detail?: string, title?: string}
+    return problem.detail ?? problem.title ?? fallback
+  }
+  return fallback
+}
+
+/** Som request, men returnerar även statuskoden. */
+async function send<T>(method: Method, path: string, body?: unknown): Promise<ApiResponse<T>> {
   const headers: Record<string, string> = {Accept: 'application/json'}
   const init: RequestInit = {method, headers}
 
@@ -24,24 +51,22 @@ async function request<T>(method: Method, path: string, body?: unknown): Promise
 
   // När inloggning via Entra ID finns läggs Authorization-headern till här.
   const response = await fetch(path, init)
-  const text = await response.text()
+  const data = parseBody(await response.text(), response.headers.get('Content-Type'))
 
   if (!response.ok) {
-    throw new ApiError(response.status, text || response.statusText)
+    throw new ApiError(response.status, errorMessage(data, response.statusText || `HTTP ${response.status}`))
   }
 
-  // T.ex. 201 Created utan body.
-  if (!text) {
-    return undefined as T
-  }
+  // data är undefined för svar utan body, t.ex. 201 Created.
+  return {status: response.status, data: data as T}
+}
 
-  const isJson = response.headers.get('Content-Type')?.includes('application/json') ?? false
-  return (isJson
-    ? JSON.parse(text)
-    : text) as T
+async function request<T>(method: Method, path: string, body?: unknown): Promise<T> {
+  return (await send<T>(method, path, body)).data
 }
 
 export const api = {
+  send,
   get: <T>(path: string) => request<T>('GET', path),
   post: <T>(path: string, body?: unknown) => request<T>('POST', path, body),
   put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body),

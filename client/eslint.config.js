@@ -44,4 +44,14 @@ export default defineConfigWithVueTs(
       'vue/singleline-html-element-content-newline': 'off',
     },
   },
+
+  // shadcn-vue genererar komponenter med ettordsnamn (Button, Card ...) och valfria props utan default.
+  {
+    name: 'app/shadcn-ui',
+    files: ['src/components/ui/**/*.vue'],
+    rules: {
+      'vue/multi-word-component-names': 'off',
+      'vue/require-default-prop': 'off',
+    },
+  },
 )
