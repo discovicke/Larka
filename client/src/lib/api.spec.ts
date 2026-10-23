@@ -1,12 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
-import { api, ApiError } from './api'
+import {api, ApiError} from './api'
 
 const fetchMock = vi.fn<typeof fetch>()
 
 function respond(status: number, body: string, contentType = 'application/json') {
   fetchMock.mockResolvedValueOnce(
-    new Response(body || null, { status, headers: { 'Content-Type': contentType } }),
+    new Response(body || null, {status, headers: {'Content-Type': contentType}}),
   )
 }
 
@@ -21,12 +21,12 @@ describe('api', () => {
   })
 
   it('tolkar JSON-svar', async () => {
-    respond(200, JSON.stringify({ version: '1.0.0', commit: 'abc' }))
+    respond(200, JSON.stringify({version: '1.0.0', commit: 'abc'}))
 
-    const result = await api.get<{ version: string }>('/version')
+    const result = await api.get<{version: string}>('/version')
 
-    expect(result).toEqual({ version: '1.0.0', commit: 'abc' })
-    expect(fetchMock).toHaveBeenCalledWith('/version', expect.objectContaining({ method: 'GET' }))
+    expect(result).toEqual({version: '1.0.0', commit: 'abc'})
+    expect(fetchMock).toHaveBeenCalledWith('/version', expect.objectContaining({method: 'GET'}))
   })
 
   it('returnerar text när svaret inte är JSON', async () => {
@@ -36,14 +36,14 @@ describe('api', () => {
   })
 
   it('skickar body som JSON', async () => {
-    respond(201, JSON.stringify({ id: '1' }))
+    respond(201, JSON.stringify({id: '1'}))
 
-    await api.post('/api/groups/1/posts', { title: 'Hej' })
+    await api.post('/api/groups/1/posts', {title: 'Hej'})
 
     const [, init] = fetchMock.mock.calls[0]!
     expect(init?.method).toBe('POST')
-    expect(init?.body).toBe(JSON.stringify({ title: 'Hej' }))
-    expect(init?.headers).toMatchObject({ 'Content-Type': 'application/json' })
+    expect(init?.body).toBe(JSON.stringify({title: 'Hej'}))
+    expect(init?.headers).toMatchObject({'Content-Type': 'application/json'})
   })
 
   it('klarar svar utan body', async () => {

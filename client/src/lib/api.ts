@@ -14,8 +14,8 @@ export class ApiError extends Error {
 type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
 async function request<T>(method: Method, path: string, body?: unknown): Promise<T> {
-  const headers: Record<string, string> = { Accept: 'application/json' }
-  const init: RequestInit = { method, headers }
+  const headers: Record<string, string> = {Accept: 'application/json'}
+  const init: RequestInit = {method, headers}
 
   if (body !== undefined) {
     headers['Content-Type'] = 'application/json'
@@ -36,7 +36,9 @@ async function request<T>(method: Method, path: string, body?: unknown): Promise
   }
 
   const isJson = response.headers.get('Content-Type')?.includes('application/json') ?? false
-  return (isJson ? JSON.parse(text) : text) as T
+  return (isJson
+    ? JSON.parse(text)
+    : text) as T
 }
 
 export const api = {

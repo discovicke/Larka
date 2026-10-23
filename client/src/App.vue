@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import {onMounted, ref} from 'vue'
 
-import { api } from '@/lib/api'
+import {api} from '@/lib/api'
 
 interface VersionResponse {
   version: string

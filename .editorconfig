@@ -32,6 +32,9 @@ csharp_new_line_before_else = true
 csharp_new_line_before_catch = true
 csharp_new_line_before_finally = true
 
+# ? och : på egna rader. Gäller Rider; dotnet format har ingen sådan regel, så CI kontrollerar det inte.
+resharper_csharp_wrap_ternary_expr_style = chop_always
+
 # naming: private fields are _camelCase
 dotnet_naming_rule.private_fields_underscore.severity = warning
 dotnet_naming_rule.private_fields_underscore.symbols = private_fields

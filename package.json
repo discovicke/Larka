@@ -4,7 +4,9 @@
   "type": "module",
   "scripts": {
     "prepare": "husky",
-    "dev": "concurrently --kill-others-on-fail --names api,client --prefix-colors blue,green \"dotnet run --project backend --launch-profile http\" \"npm --prefix client run dev\""
+    "dev": "concurrently --kill-others-on-fail --names api,client --prefix-colors blue,green \"dotnet run --project backend --launch-profile http\" \"npm --prefix client run dev\"",
+    "format": "prettier --write . && npm --prefix client run format && dotnet format RebornLMS.sln",
+    "format:check": "prettier --check . && npm --prefix client run lint && dotnet format RebornLMS.sln --verify-no-changes"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.5.3",
@@ -12,6 +14,7 @@
     "concurrently": "^10.0.6",
     "conventional-changelog-conventionalcommits": "^9.3.1",
     "husky": "^9.1.7",
+    "prettier": "^3.9.10",
     "semantic-release": "^25.0.9"
   }
 }

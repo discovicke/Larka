@@ -57,15 +57,24 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: client/package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            client/package-lock.json
+
+      # Prettier formaterar allt i repot utom JS, TS och Vue (YAML, JSON, Markdown, CSS, HTML).
+      - name: Install root tools
+        working-directory: .
+        run: npm ci
+
+      - name: Check formatting (Prettier)
+        working-directory: .
+        run: npx prettier --check .
 
       - name: Install
         run: npm ci
 
-      - name: Check formatting
-        run: npm run format:check
-
-      - name: Lint
+      # ESLint kontrollerar både kodfel och formatering (ESLint Stylistic).
+      - name: Lint and check formatting
         run: npm run lint
 
       - name: Build

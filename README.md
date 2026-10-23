@@ -75,6 +75,9 @@ Den skapar en git-tagg (`v1.2.3`) och en GitHub-release med release notes. Inget
 CI kör följande och alla måste vara gröna innan en PR kan mergas. Kör dem lokalt innan du pushar:
 
 ```bash
+# Formatering i hela repot (YAML, JSON, Markdown, CSS, HTML)
+npx prettier --check .
+
 # Backend
 dotnet format RebornLMS.sln --verify-no-changes
 dotnet build RebornLMS.sln
@@ -82,10 +85,39 @@ dotnet test RebornLMS.sln
 
 # Frontend
 cd client
-npm run format:check
 npm run lint
 npm run build
 npm run test
 ```
 
-`npm run format` och `dotnet format RebornLMS.sln` fixar formateringen automatiskt.
+`npm run format` i repots rot fixar formateringen i hela repot (Prettier, ESLint och `dotnet format`), och `npm run format:check` kontrollerar den.
+
+### Kodstil
+
+Tre verktyg delar på formateringen, och `npm run format` kör alla:
+
+| Filer                              | Verktyg                                                                                   | Inställningar                         |
+| ---------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------- |
+| JS, TS och Vue                     | ESLint ([ESLint Stylistic](https://eslint.style/) och layoutreglerna i eslint-plugin-vue) | `client/eslint.config.js`             |
+| YAML, JSON, Markdown, CSS och HTML | Prettier                                                                                  | `.prettierrc.json`, `.prettierignore` |
+| C#                                 | `dotnet format`                                                                           | `.editorconfig`                       |
+
+Några av ESLint-reglerna:
+
+```ts
+import {computed} from 'vue'   // inga mellanslag innanför { }
+
+return value === ''            // ? och : alltid på egna rader
+  ? null
+  : value
+```
+
+```vue
+<Button/>                      <!-- inget mellanslag före /> -->
+<input type="text"/>
+```
+
+Ställ in editorn så att den formaterar med samma verktyg som CI. I Rider/WebStorm:
+
+- _Languages & Frameworks → JavaScript → Code Quality Tools → ESLint_: "Automatic ESLint configuration" och "Run eslint --fix on save"
+- _Languages & Frameworks → JavaScript → Prettier_: "Automatic Prettier configuration", "Run on save" och "Run for files" satt till `**/*.{json,md,yml,yaml,css,html}`. Standardmönstret gäller bara JS, TS och Vue, alltså tvärtom mot vad vi vill.

@@ -1,7 +1,7 @@
-import { fileURLToPath, URL } from 'node:url'
+import {fileURLToPath, URL} from 'node:url'
 import tailwindcss from '@tailwindcss/vite'
 import vue from '@vitejs/plugin-vue'
-import { defineConfig } from 'vite'
+import {defineConfig} from 'vite'
 
 // Backend-adressen från backend/Properties/launchSettings.json (profilen "http").
 const backendUrl = process.env.BACKEND_URL ?? 'http://localhost:5257'

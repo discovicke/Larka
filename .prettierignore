@@ -1,0 +1,12 @@
+# JS, TS och Vue formateras av ESLint (client/eslint.config.js)
+*.js
+*.cjs
+*.mjs
+*.ts
+*.cts
+*.mts
+*.tsx
+*.vue
+
+# Genererat
+package-lock.json

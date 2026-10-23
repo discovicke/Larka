@@ -162,7 +162,7 @@ erDiagram
 
 - **School → User, Group, Course.** Allt hör till en skola. En användare tillhör en skola.
 - **GroupCourse (Group ↔ Course, M:N).** En klass läser flera kurser och en kurs kan läsas av flera klasser. Det här är den enda kopplingen mellan kurs och grupp. Det fanns tidigare även `Course.ProgramGroupId` ("ägande program"), men två kopplingar som kan säga olika saker togs bort till förmån för en. Committee-grupper har inga rader här.
-- **Enrollment (User ↔ Group, M:N) med `Role`.** Rollen gäller *i gruppen*, så en lärare kan vara student i en annan grupp. Den är en enum i stället för fri text, så ett stavfel inte kan göra att en elev försvinner ur sin grupp. `User.Role` är fortfarande användarens roll i systemet (Admin, Teacher, Student).
+- **Enrollment (User ↔ Group, M:N) med `Role`.** Rollen gäller _i gruppen_, så en lärare kan vara student i en annan grupp. Den är en enum i stället för fri text, så ett stavfel inte kan göra att en elev försvinner ur sin grupp. `User.Role` är fortfarande användarens roll i systemet (Admin, Teacher, Student).
 
 ### Content
 
@@ -183,21 +183,21 @@ erDiagram
 
 ### Notiser
 
-- **Notification** är *vad som hände* för en användare (t.ex. ny nyhet, uppgift rättad), med valfri länk till content eller submission. Den visas i appen och `ReadAt` markerar den som läst.
-- **PushSubscription** är *vart* en pushnotis ska skickas: en rad per enhet (mobil, dator) som användaren har tillåtit notiser på. Den är `Endpoint` + nycklarna webbläsaren ger. Saknas rader skickas ingen push, men notisen finns ändå i appen.
+- **Notification** är _vad som hände_ för en användare (t.ex. ny nyhet, uppgift rättad), med valfri länk till content eller submission. Den visas i appen och `ReadAt` markerar den som läst.
+- **PushSubscription** är _vart_ en pushnotis ska skickas: en rad per enhet (mobil, dator) som användaren har tillåtit notiser på. Den är `Endpoint` + nycklarna webbläsaren ger. Saknas rader skickas ingen push, men notisen finns ändå i appen.
 
 ## Delete-regler
 
-| Relation | Vid delete av förälder |
-|---|---|
-| School → User, Group, Course | blockeras (Restrict) |
-| Group, Course → GroupCourse, Enrollment, ContentLink | blockeras |
-| User → Content, Comment, Submission, Grade, Enrollment | blockeras |
-| Content → ContentLink, AssignmentSpec, Attachment, Comment | kaskad |
-| ContentLink → Submission | blockeras (elevarbete ska inte försvinna av misstag) |
-| Submission → SubmissionFile, StudentRepo, Grade | kaskad |
-| User → Notification, PushSubscription | kaskad |
-| Content, Submission → Notification | sätts till null |
+| Relation                                                   | Vid delete av förälder                               |
+| ---------------------------------------------------------- | ---------------------------------------------------- |
+| School → User, Group, Course                               | blockeras (Restrict)                                 |
+| Group, Course → GroupCourse, Enrollment, ContentLink       | blockeras                                            |
+| User → Content, Comment, Submission, Grade, Enrollment     | blockeras                                            |
+| Content → ContentLink, AssignmentSpec, Attachment, Comment | kaskad                                               |
+| ContentLink → Submission                                   | blockeras (elevarbete ska inte försvinna av misstag) |
+| Submission → SubmissionFile, StudentRepo, Grade            | kaskad                                               |
+| User → Notification, PushSubscription                      | kaskad                                               |
+| Content, Submission → Notification                         | sätts till null                                      |
 
 Principen: det man äger raderas med en (content med sina bilagor, en inlämning med sina filer). Delade saker (skolor, grupper, kurser, användare) och elevernas arbete går inte att radera så länge något pekar på dem.
 

@@ -1,12 +1,14 @@
-import { flushPromises, mount } from '@vue/test-utils'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import {flushPromises, mount} from '@vue/test-utils'
+import {afterEach, describe, expect, it, vi} from 'vitest'
 
 import App from './App.vue'
 
 function stubFetch(response: Response | Error) {
   vi.stubGlobal(
     'fetch',
-    vi.fn(() => (response instanceof Error ? Promise.reject(response) : Promise.resolve(response))),
+    vi.fn(() => (response instanceof Error
+      ? Promise.reject(response)
+      : Promise.resolve(response))),
   )
 }
 
@@ -16,7 +18,7 @@ describe('App', () => {
   })
 
   it('renderar rubriken', () => {
-    stubFetch(new Response('{}', { headers: { 'Content-Type': 'application/json' } }))
+    stubFetch(new Response('{}', {headers: {'Content-Type': 'application/json'}}))
     const wrapper = mount(App)
 
     expect(wrapper.find('h1').text()).toBe('Welcome to your new project')
@@ -24,8 +26,8 @@ describe('App', () => {
 
   it('visar version från API:et', async () => {
     stubFetch(
-      new Response(JSON.stringify({ version: '1.2.3', commit: 'abc123' }), {
-        headers: { 'Content-Type': 'application/json' },
+      new Response(JSON.stringify({version: '1.2.3', commit: 'abc123'}), {
+        headers: {'Content-Type': 'application/json'},
       }),
     )
     const wrapper = mount(App)
