@@ -45,6 +45,11 @@ jobs:
       - name: Build (warnings as errors)
         run: dotnet build RebornLMS.sln --no-restore -warnaserror
 
+      # Builden skriver om client/openapi.json. Skiljer den sig har någon ändrat API:et utan att köra builden.
+      - name: Check OpenAPI document is up to date
+        working-directory: .
+        run: git diff --exit-code client/openapi.json
+
       - name: Test
         run: dotnet test RebornLMS.sln --no-build
 
@@ -76,6 +81,10 @@ jobs:
 
       - name: Install
         run: npm ci
+
+      # Typerna genereras från client/openapi.json. Skiljer de sig har någon glömt npm run gen:api.
+      - name: Check API types are up to date
+        run: npm run gen:api && git diff --exit-code src/lib/api-types.ts
 
       # ESLint kontrollerar både kodfel och formatering (ESLint Stylistic).
       - name: Lint and check formatting

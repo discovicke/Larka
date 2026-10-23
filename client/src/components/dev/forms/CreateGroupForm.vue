@@ -4,24 +4,28 @@ import {reactive} from 'vue'
 import {Input} from '@/components/ui/input'
 import {useDevOptions} from '@/composables/useDevOptions'
 import {useDevSubmit} from '@/composables/useDevSubmit'
+import {api, type Schema} from '@/lib/api'
+import {groupTypeValues} from '@/lib/api-types'
 
 import DevField from '../DevField.vue'
 import DevFormCard from '../DevFormCard.vue'
 import EntitySelect from '../EntitySelect.vue'
 import EnumSelect from '../EnumSelect.vue'
-import {groupTypes, orNull} from '../types'
+import {orNull} from '../types'
 
-const form = reactive({schoolId: '', type: 'Class', name: '', term: ''})
-const {result, busy, send} = useDevSubmit()
+const form = reactive({schoolId: '', type: 'Class' as Schema<'GroupType'>, name: '', term: ''})
+const {result, busy, submit: run, fail} = useDevSubmit()
 const {remember} = useDevOptions()
 
 async function submit() {
-  const group = await send<{id: string, name: string, term: string}>('POST', '/api/groups', {
-    schoolId: orNull(form.schoolId),
-    type: form.type,
-    name: form.name,
-    term: orNull(form.term),
-  })
+  if (!form.schoolId) {
+    fail('Pick a school.')
+    return
+  }
+
+  const group = await run(() => api.POST('/api/groups', {
+    body: {schoolId: form.schoolId, type: form.type, name: form.name, term: orNull(form.term)},
+  }))
   if (group) {
     remember('groups', {value: group.id, label: `${group.name} (${group.term})`})
   }
@@ -46,7 +50,7 @@ async function submit() {
       id="group-type"
       v-model="form.type"
       label="Type"
-      :values="groupTypes"
+      :values="groupTypeValues"
     />
     <DevField id="group-name" label="Name">
       <Input

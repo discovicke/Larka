@@ -1,19 +1,25 @@
 import {ref} from 'vue'
 
 import type {FormResult} from '@/components/dev/types'
-import {api, ApiError, type Method} from '@/lib/api'
+import {ApiError} from '@/lib/api'
 
-/** Skickar ett formulär och lägger svaret (status + JSON) eller felet i result. */
+/** Det ett anrop med api returnerar (data finns inte för svar utan body). */
+interface CallResult<T> {
+  data?: T
+  response: Response
+}
+
+/** Kör ett formulärs anrop och lägger svaret (status + JSON) eller felet i result. */
 export function useDevSubmit() {
   const result = ref<FormResult | null>(null)
   const busy = ref(false)
 
-  async function send<T>(method: Method, path: string, body?: unknown): Promise<T | undefined> {
+  async function submit<T>(call: () => Promise<CallResult<T>>): Promise<T | undefined> {
     busy.value = true
     try {
-      const response = await api.send<T>(method, path, body)
-      result.value = {kind: 'response', status: response.status, body: response.data ?? null}
-      return response.data
+      const {data, response} = await call()
+      result.value = {kind: 'response', status: response.status, body: data ?? null}
+      return data
     } catch (error) {
       result.value = error instanceof ApiError
         ? {kind: 'error', status: error.status, message: error.message}
@@ -26,5 +32,10 @@ export function useDevSubmit() {
     }
   }
 
-  return {result, busy, send}
+  /** Visar ett fel utan att något skickas, t.ex. när ett obligatoriskt val saknas. */
+  function fail(message: string) {
+    result.value = {kind: 'error', message}
+  }
+
+  return {result, busy, submit, fail}
 }

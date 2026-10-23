@@ -2,22 +2,26 @@
 import {reactive} from 'vue'
 
 import {useDevSubmit} from '@/composables/useDevSubmit'
+import {api, type Schema} from '@/lib/api'
+import {groupRoleValues} from '@/lib/api-types'
 
 import DevFormCard from '../DevFormCard.vue'
 import EntitySelect from '../EntitySelect.vue'
 import EnumSelect from '../EnumSelect.vue'
-import {groupRoles, orNull} from '../types'
 
-const form = reactive({groupId: '', userId: '', role: 'Student'})
-const {result, busy, send} = useDevSubmit()
+const form = reactive({groupId: '', userId: '', role: 'Student' as Schema<'GroupRole'>})
+const {result, busy, submit: run, fail} = useDevSubmit()
 
 async function submit() {
-  if (!form.groupId) {
-    result.value = {kind: 'error', message: 'Pick a group.'}
+  if (!form.groupId || !form.userId) {
+    fail('Pick a group and a user.')
     return
   }
 
-  await send('POST', `/api/groups/${form.groupId}/members`, {userId: orNull(form.userId), role: form.role})
+  await run(() => api.POST('/api/groups/{id}/members', {
+    params: {path: {id: form.groupId}},
+    body: {userId: form.userId, role: form.role},
+  }))
 }
 </script>
 
@@ -46,7 +50,7 @@ async function submit() {
       id="member-role"
       v-model="form.role"
       label="Role in group"
-      :values="groupRoles"
+      :values="groupRoleValues"
     />
   </DevFormCard>
 </template>

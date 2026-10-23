@@ -10,16 +10,21 @@ import PublishContentForm from './PublishContentForm.vue'
 
 type Handler = (method: string, path: string, body: unknown) => {status: number, body?: unknown}
 
-const fetchMock = vi.fn<typeof fetch>()
+const fetchMock = vi.fn<(request: Request) => Promise<Response>>()
+
+// Det som formulären skickat, som metod, sökväg och body.
+const requests: {method: string, path: string, body: unknown}[] = []
 
 // Svarar på GET för dropdowns och låter testet bestämma svaret på formulärets anrop.
 function mockApi(handler: Handler) {
-  fetchMock.mockImplementation(async (input, init) => {
-    const method = init?.method ?? 'GET'
-    const body = init?.body
-      ? JSON.parse(init.body as string)
+  fetchMock.mockImplementation(async (request) => {
+    const path = new URL(request.url).pathname
+    const text = await request.text()
+    const body = text
+      ? JSON.parse(text)
       : undefined
-    const response = handler(method, String(input), body)
+    requests.push({method: request.method, path, body})
+    const response = handler(request.method, path, body)
     return new Response(response.body === undefined
       ? null
       : JSON.stringify(response.body), {
@@ -30,10 +35,11 @@ function mockApi(handler: Handler) {
 }
 
 function sent(method: string, path: string) {
-  const call = fetchMock.mock.calls.find(([input, init]) => String(input) === path && init?.method === method)
-  return call?.[1]?.body
-    ? JSON.parse(call[1].body as string)
-    : undefined
+  return requests.find((request) => request.method === method && request.path === path)?.body
+}
+
+function posted() {
+  return requests.some((request) => request.method === 'POST')
 }
 
 // Dropdowns laddas i flera led (grupper -> kurser -> flöden), så det krävs flera varv.
@@ -79,6 +85,7 @@ describe('dev forms', () => {
 
   afterEach(() => {
     fetchMock.mockReset()
+    requests.length = 0
     vi.unstubAllGlobals()
   })
 
@@ -128,7 +135,7 @@ describe('dev forms', () => {
     await wrapper.find('form').trigger('submit')
 
     expect(wrapper.find('[data-test="result"]').text()).toBe('Pick a group, a course or both.')
-    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false)
+    expect(posted()).toBe(false)
   })
 
   it('publicering skickar länken och visar felet från backend', async () => {
@@ -192,13 +199,15 @@ describe('dev forms', () => {
   it('grupp utan termin skickar term som null och visar felet från backend', async () => {
     mockApi(backendWithOneGroup(() => ({status: 400, body: 'school does not exist'})))
     const wrapper = mount(CreateGroupForm)
+    await settle()
 
+    await wrapper.find('#group-school').setValue('sc1')
     await wrapper.find('#group-name').setValue('Elevråd')
     await wrapper.find('#group-type').setValue('Committee')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
-    expect(sent('POST', '/api/groups')).toEqual({schoolId: null, type: 'Committee', name: 'Elevråd', term: null})
+    expect(sent('POST', '/api/groups')).toEqual({schoolId: 'sc1', type: 'Committee', name: 'Elevråd', term: null})
     expect(wrapper.find('[data-test="result"]').text()).toBe('400: school does not exist')
   })
 
@@ -216,13 +225,13 @@ describe('dev forms', () => {
     expect(sent('POST', '/api/groups/g1/members')).toEqual({userId: 'u1', role: 'Teacher'})
   })
 
-  it('medlem kräver en grupp innan något skickas', async () => {
+  it('medlem kräver grupp och användare innan något skickas', async () => {
     mockApi(backendWithOneGroup(() => ({status: 201})))
     const wrapper = mount(AddGroupMemberForm)
 
     await wrapper.find('form').trigger('submit')
 
-    expect(wrapper.find('[data-test="result"]').text()).toBe('Pick a group.')
-    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false)
+    expect(wrapper.find('[data-test="result"]').text()).toBe('Pick a group and a user.')
+    expect(posted()).toBe(false)
   })
 })

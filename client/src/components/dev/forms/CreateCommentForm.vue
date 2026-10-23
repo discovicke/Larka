@@ -3,21 +3,25 @@ import {reactive} from 'vue'
 
 import {Textarea} from '@/components/ui/textarea'
 import {useDevSubmit} from '@/composables/useDevSubmit'
+import {api} from '@/lib/api'
 
 import DevField from '../DevField.vue'
 import DevFormCard from '../DevFormCard.vue'
 import EntitySelect from '../EntitySelect.vue'
 
 const form = reactive({contentId: '', bodyMd: ''})
-const {result, busy, send} = useDevSubmit()
+const {result, busy, submit: run, fail} = useDevSubmit()
 
 async function submit() {
   if (!form.contentId) {
-    result.value = {kind: 'error', message: 'Pick the content to comment on.'}
+    fail('Pick the content to comment on.')
     return
   }
 
-  await send('POST', `/api/content/${form.contentId}/comments`, {bodyMd: form.bodyMd})
+  await run(() => api.POST('/api/content/{id}/comments', {
+    params: {path: {id: form.contentId}},
+    body: {bodyMd: form.bodyMd},
+  }))
 }
 </script>
 

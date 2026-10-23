@@ -10,3 +10,6 @@
 
 # Genererat
 package-lock.json
+
+# Genereras från backend (dotnet build) och används av npm run gen:api
+client/openapi.json

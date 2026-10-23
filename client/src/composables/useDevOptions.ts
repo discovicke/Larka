@@ -1,45 +1,12 @@
 import {reactive} from 'vue'
 
 import type {Option} from '@/components/dev/types'
-import {api} from '@/lib/api'
+import {api, type Schema} from '@/lib/api'
 
 export type OptionSource
   = 'schools' | 'users' | 'groups' | 'courses' | 'contents' | 'contentLinks' | 'submissions'
 
-interface School {
-  id: string
-  name: string
-}
-
-interface User {
-  id: string
-  name: string
-  role: string
-}
-
-interface Group {
-  id: string
-  name: string
-  term: string
-}
-
-interface Course {
-  id: string
-  title: string
-  code: string
-}
-
-interface FeedItem {
-  linkId: string
-  contentId: string
-  type: string
-  title: string
-}
-
-interface Submission {
-  id: string
-  status: string
-}
+type FeedItem = Schema<'ContentFeedItem'>
 
 const sources: OptionSource[] = [
   'schools',
@@ -67,22 +34,29 @@ function unique(items: Option[]): Option[] {
   return [...new Map(items.map((option) => [option.value, option])).values()]
 }
 
-async function loadGroups(): Promise<Group[]> {
-  return api.get<Group[]>('/api/groups')
+// Svar som inte är 2xx kastas som ApiError, så data finns alltid för en lista.
+async function loadGroups(): Promise<Schema<'GroupDto'>[]> {
+  return (await api.GET('/api/groups')).data ?? []
 }
 
-async function loadCourses(): Promise<Course[]> {
-  return api.get<Course[]>('/api/courses')
+async function loadCourses(): Promise<Schema<'CourseDto'>[]> {
+  return (await api.GET('/api/courses')).data ?? []
+}
+
+async function loadGroupFeed(id: string): Promise<FeedItem[]> {
+  return (await api.GET('/api/groups/{id}/content', {params: {path: {id}}})).data ?? []
+}
+
+async function loadCourseFeed(id: string): Promise<FeedItem[]> {
+  return (await api.GET('/api/courses/{id}/content', {params: {path: {id}}})).data ?? []
 }
 
 // Det finns inget GET för all content, så den samlas ihop från alla grupp- och kursflöden.
 async function loadFeed(): Promise<{item: FeedItem, target: string}[]> {
   const [groups, courses] = await Promise.all([loadGroups(), loadCourses()])
   const feeds = await Promise.all([
-    ...groups.map(async (group) => (await api.get<FeedItem[]>(`/api/groups/${group.id}/content`))
-      .map((item) => ({item, target: group.name}))),
-    ...courses.map(async (course) => (await api.get<FeedItem[]>(`/api/courses/${course.id}/content`))
-      .map((item) => ({item, target: course.code}))),
+    ...groups.map(async (group) => (await loadGroupFeed(group.id)).map((item) => ({item, target: group.name}))),
+    ...courses.map(async (course) => (await loadCourseFeed(course.id)).map((item) => ({item, target: course.code}))),
   ])
   return feeds.flat()
 }
@@ -94,9 +68,17 @@ async function loadAssignmentLinks(): Promise<Option[]> {
     .map(({item, target}) => ({value: item.linkId, label: `${item.title} → ${target}`}))
 }
 
+async function loadSubmissions(link: Option): Promise<Option[]> {
+  const {data} = await api.GET('/api/links/{id}/submissions', {params: {path: {id: link.value}}})
+  return (data ?? []).map((submission) => ({value: submission.id, label: `${link.label}: ${submission.status}`}))
+}
+
 const loaders: Record<OptionSource, () => Promise<Option[]>> = {
-  schools: async () => (await api.get<School[]>('/api/schools')).map((school) => ({value: school.id, label: school.name})),
-  users: async () => (await api.get<User[]>('/api/users')).map((user) => ({
+  schools: async () => ((await api.GET('/api/schools')).data ?? []).map((school) => ({
+    value: school.id,
+    label: school.name,
+  })),
+  users: async () => ((await api.GET('/api/users')).data ?? []).map((user) => ({
     value: user.id,
     label: `${user.name} (${user.role})`,
   })),
@@ -109,10 +91,7 @@ const loaders: Record<OptionSource, () => Promise<Option[]>> = {
   contentLinks: loadAssignmentLinks,
   submissions: async () => {
     const links = unique([...(await loadAssignmentLinks()), ...created.contentLinks])
-    const perLink = await Promise.all(links.map(async (link) =>
-      (await api.get<Submission[]>(`/api/links/${link.value}/submissions`))
-        .map((submission) => ({value: submission.id, label: `${link.label}: ${submission.status}`}))))
-    return perLink.flat()
+    return (await Promise.all(links.map(loadSubmissions))).flat()
   },
 }
 

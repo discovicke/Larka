@@ -4,22 +4,25 @@ import {reactive} from 'vue'
 import {Input} from '@/components/ui/input'
 import {useDevOptions} from '@/composables/useDevOptions'
 import {useDevSubmit} from '@/composables/useDevSubmit'
+import {api} from '@/lib/api'
 
 import DevField from '../DevField.vue'
 import DevFormCard from '../DevFormCard.vue'
 import EntitySelect from '../EntitySelect.vue'
-import {orNull} from '../types'
 
 const form = reactive({schoolId: '', title: '', code: ''})
-const {result, busy, send} = useDevSubmit()
+const {result, busy, submit: run, fail} = useDevSubmit()
 const {remember} = useDevOptions()
 
 async function submit() {
-  const course = await send<{id: string, title: string, code: string}>('POST', '/api/courses', {
-    schoolId: orNull(form.schoolId),
-    title: form.title,
-    code: form.code,
-  })
+  if (!form.schoolId) {
+    fail('Pick a school.')
+    return
+  }
+
+  const course = await run(() => api.POST('/api/courses', {
+    body: {schoolId: form.schoolId, title: form.title, code: form.code},
+  }))
   if (course) {
     remember('courses', {value: course.id, label: `${course.code} ${course.title}`})
   }

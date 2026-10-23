@@ -1,5 +1,15 @@
+import createClient, {type Middleware} from 'openapi-fetch'
+
+import type {components, paths} from './api-types'
+
 // Klienten och API:et har samma origin (Vite-proxy lokalt, backend serverar klienten i prod),
-// så alla anrop går till relativa sökvägar som /api/groups. Ingen bas-URL eller CORS behövs.
+// så alla anrop går till samma origin som sidan. Ingen CORS behövs.
+//
+// Sökvägar, parametrar, bodies och svar är typade från backendens OpenAPI-dokument
+// (client/openapi.json -> src/lib/api-types.ts med npm run gen:api).
+
+/** En typ från OpenAPI-dokumentet, t.ex. Schema<'GroupDto'>. */
+export type Schema<Name extends keyof components['schemas']> = components['schemas'][Name]
 
 export class ApiError extends Error {
   readonly status: number
@@ -9,13 +19,6 @@ export class ApiError extends Error {
     this.name = 'ApiError'
     this.status = status
   }
-}
-
-export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
-
-export interface ApiResponse<T> {
-  status: number
-  data: T
 }
 
 function parseBody(text: string, contentType: string | null): unknown {
@@ -39,37 +42,25 @@ function errorMessage(body: unknown, fallback: string): string {
   return fallback
 }
 
-/** Som request, men returnerar även statuskoden. */
-async function send<T>(method: Method, path: string, body?: unknown): Promise<ApiResponse<T>> {
-  const headers: Record<string, string> = {Accept: 'application/json'}
-  const init: RequestInit = {method, headers}
+// Svar som inte är 2xx kastas som ApiError, så anropen bara behöver hantera det lyckade svaret.
+const throwOnError: Middleware = {
+  async onResponse({response}) {
+    if (response.ok) {
+      return undefined
+    }
 
-  if (body !== undefined) {
-    headers['Content-Type'] = 'application/json'
-    init.body = JSON.stringify(body)
-  }
-
-  // När inloggning via Entra ID finns läggs Authorization-headern till här.
-  const response = await fetch(path, init)
-  const data = parseBody(await response.text(), response.headers.get('Content-Type'))
-
-  if (!response.ok) {
-    throw new ApiError(response.status, errorMessage(data, response.statusText || `HTTP ${response.status}`))
-  }
-
-  // data är undefined för svar utan body, t.ex. 201 Created.
-  return {status: response.status, data: data as T}
+    const body = parseBody(await response.clone().text(), response.headers.get('Content-Type'))
+    throw new ApiError(response.status, errorMessage(body, response.statusText || `HTTP ${response.status}`))
+  },
 }
 
-async function request<T>(method: Method, path: string, body?: unknown): Promise<T> {
-  return (await send<T>(method, path, body)).data
-}
+export const api = createClient<paths>({
+  baseUrl: typeof window === 'undefined'
+    ? ''
+    : window.location.origin,
+  // Slås upp vid varje anrop, så att testerna kan byta ut fetch.
+  // När inloggning via Entra ID finns läggs Authorization-headern till i en middleware.
+  fetch: (request) => globalThis.fetch(request),
+})
 
-export const api = {
-  send,
-  get: <T>(path: string) => request<T>('GET', path),
-  post: <T>(path: string, body?: unknown) => request<T>('POST', path, body),
-  put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body),
-  patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, body),
-  delete: <T>(path: string) => request<T>('DELETE', path),
-}
+api.use(throwOnError)

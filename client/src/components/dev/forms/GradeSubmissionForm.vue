@@ -6,6 +6,7 @@ import {Input} from '@/components/ui/input'
 import {Label} from '@/components/ui/label'
 import {Textarea} from '@/components/ui/textarea'
 import {useDevSubmit} from '@/composables/useDevSubmit'
+import {api} from '@/lib/api'
 
 import DevField from '../DevField.vue'
 import DevFormCard from '../DevFormCard.vue'
@@ -13,22 +14,25 @@ import EntitySelect from '../EntitySelect.vue'
 import {numberOrNull} from '../types'
 
 const form = reactive({submissionId: '', score: '', feedback: '', needsWork: false})
-const {result, busy, send} = useDevSubmit()
+const {result, busy, submit: run, fail} = useDevSubmit()
 
 async function submit() {
   if (!form.submissionId) {
-    result.value = {kind: 'error', message: 'Pick the submission to grade.'}
+    fail('Pick the submission to grade.')
     return
   }
 
   // Komplettering får bara feedback, ingen poäng.
-  await send('POST', `/api/submissions/${form.submissionId}/grade`, {
-    score: form.needsWork
-      ? null
-      : numberOrNull(form.score),
-    feedback: form.feedback,
-    needsWork: form.needsWork,
-  })
+  await run(() => api.POST('/api/submissions/{id}/grade', {
+    params: {path: {id: form.submissionId}},
+    body: {
+      score: form.needsWork
+        ? null
+        : numberOrNull(form.score),
+      feedback: form.feedback,
+      needsWork: form.needsWork,
+    },
+  }))
 }
 </script>
 

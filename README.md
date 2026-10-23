@@ -19,7 +19,7 @@ npm run dev
 `npm run dev` startar backend (http://localhost:5257) och Vite (http://localhost:5173) samtidigt. Öppna Vite-adressen. Vite skickar `/api`, `/health` och `/version` vidare till backend, så webbläsaren pratar bara med en origin och ingen CORS behövs.
 
 - API:et ligger under `/api`, t.ex. `/api/groups`. `/health` och `/version` ligger på roten.
-- Anropa API:et från klienten med `api` i `client/src/lib/api.ts`, t.ex. `await api.get<Group[]>('/api/groups')`. Fel kastas som `ApiError` med HTTP-status.
+- Anropa API:et från klienten med `api` i `client/src/lib/api.ts`, t.ex. `const {data} = await api.GET('/api/groups/{id}', {params: {path: {id}}})`. Sökvägar, parametrar, bodies och svar är typade från backendens OpenAPI-dokument. Fel kastas som `ApiError` med HTTP-status. En DTO som typ: `Schema<'GroupDto'>`.
 - Swagger UI finns på http://localhost:5257/swagger och OpenAPI-dokumentet på http://localhost:5257/openapi/v1.json.
 
 ### Databas
@@ -44,6 +44,18 @@ Vill du köra mot en annan databas, t.ex. Supabase, lägg connection string i us
 dotnet user-secrets set ConnectionStrings:Default "Host=...;Port=5432;..." --project backend
 dotnet user-secrets set Database:SeedDevData false --project backend
 ```
+
+### API-typer i klienten
+
+C#-DTO:erna i backend är den enda källan. Varje `dotnet build` (Debug) skriver OpenAPI-dokumentet till `client/openapi.json`, och `npm run gen:api` gör om det till TypeScript-typer i `client/src/lib/api-types.ts`. Båda filerna genereras och ska inte ändras för hand.
+
+**Ändrat en DTO eller en endpoint?** Kör båda stegen och commita de två filerna:
+
+```bash
+dotnet build backend && npm --prefix client run gen:api
+```
+
+CI faller om någon av filerna inte stämmer med koden.
 
 ## Publicera
 
@@ -108,11 +120,12 @@ npx prettier --check .
 # Backend
 dotnet build backend.Analyzers   # våra egna regler, måste finnas innan dotnet format körs
 dotnet format RebornLMS.sln --verify-no-changes
-dotnet build RebornLMS.sln
+dotnet build RebornLMS.sln       # skriver också client/openapi.json
 dotnet test RebornLMS.sln
 
 # Frontend
 cd client
+npm run gen:api                  # API-typerna från client/openapi.json
 npm run lint
 npm run build
 npm run test

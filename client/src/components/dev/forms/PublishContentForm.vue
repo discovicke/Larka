@@ -6,6 +6,7 @@ import {Input} from '@/components/ui/input'
 import {Label} from '@/components/ui/label'
 import {useDevOptions} from '@/composables/useDevOptions'
 import {useDevSubmit} from '@/composables/useDevSubmit'
+import {api} from '@/lib/api'
 
 import DevField from '../DevField.vue'
 import DevFormCard from '../DevFormCard.vue'
@@ -20,26 +21,29 @@ const form = reactive({
   dueAt: '',
   isPinned: false,
 })
-const {result, busy, send} = useDevSubmit()
+const {result, busy, submit: run, fail} = useDevSubmit()
 const {remember, labelOf} = useDevOptions()
 
 async function submit() {
   if (!form.contentId) {
-    result.value = {kind: 'error', message: 'Pick the content to publish.'}
+    fail('Pick the content to publish.')
     return
   }
   if (!form.groupId && !form.courseId) {
-    result.value = {kind: 'error', message: 'Pick a group, a course or both.'}
+    fail('Pick a group, a course or both.')
     return
   }
 
-  const link = await send<{id: string}>('POST', `/api/content/${form.contentId}/links`, {
-    groupId: orNull(form.groupId),
-    courseId: orNull(form.courseId),
-    publishAt: isoOrNull(form.publishAt),
-    dueAt: isoOrNull(form.dueAt),
-    isPinned: form.isPinned,
-  })
+  const link = await run(() => api.POST('/api/content/{id}/links', {
+    params: {path: {id: form.contentId}},
+    body: {
+      groupId: orNull(form.groupId),
+      courseId: orNull(form.courseId),
+      publishAt: isoOrNull(form.publishAt),
+      dueAt: isoOrNull(form.dueAt),
+      isPinned: form.isPinned,
+    },
+  }))
 
   // Utdelade uppgifter går att lämna in på, så de ska synas i inlämningsformuläret direkt.
   const content = labelOf('contents', form.contentId)

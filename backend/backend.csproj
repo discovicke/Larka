@@ -12,6 +12,10 @@
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.13" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.13" PrivateAssets="all" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.13" />
+    <PackageReference Include="Microsoft.Extensions.ApiDescription.Server" Version="10.0.13">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="10.0.13" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
     <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="10.3.0" />
@@ -19,6 +23,17 @@
 
   <PropertyGroup>
     <ClientRoot>$(MSBuildProjectDirectory)/../client/</ClientRoot>
+  </PropertyGroup>
+
+  <!--
+    Skriver OpenAPI-dokumentet till client/openapi.json vid varje Debug-build. Klienten genererar sina
+    typer från filen (npm run gen:api). Release (dotnet publish i Dockerfile) hoppar över det.
+  -->
+  <PropertyGroup>
+    <OpenApiGenerateDocuments>false</OpenApiGenerateDocuments>
+    <OpenApiGenerateDocuments Condition="'$(Configuration)' == 'Debug'">true</OpenApiGenerateDocuments>
+    <OpenApiDocumentsDirectory>$(ClientRoot)</OpenApiDocumentsDirectory>
+    <OpenApiGenerateDocumentsOptions>--file-name openapi</OpenApiGenerateDocumentsOptions>
   </PropertyGroup>
 
   <!-- Bygger klienten vid dotnet publish och lägger den i wwwroot. Vanlig build/test behöver inte Node. -->

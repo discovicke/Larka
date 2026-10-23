@@ -9,7 +9,8 @@ export default defineConfigWithVueTs(
     files: ['**/*.{js,mjs,ts,mts,tsx,vue}'],
   },
 
-  globalIgnores(['**/dist/**', '**/dist-ssr/**', '**/coverage/**']),
+  // api-types.ts genereras av npm run gen:api.
+  globalIgnores(['**/dist/**', '**/dist-ssr/**', '**/coverage/**', 'src/lib/api-types.ts']),
 
   // strongly-recommended innehåller layoutreglerna för templates (indrag, attribut, self-closing ...).
   pluginVue.configs['flat/strongly-recommended'],

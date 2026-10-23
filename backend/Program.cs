@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.Json.Serialization;
 using Backend.Api;
 using Backend.Application;
@@ -29,7 +30,12 @@ builder.Services.AddProblemDetails();
 
 var app = builder.Build();
 
-app.Services.MigrateDatabase();
+// Vid build startar GetDocument.Insider appen för att skriva client/openapi.json. Då finns ingen databas.
+var isGeneratingOpenApiDocument = Assembly.GetEntryAssembly()?.GetName().Name == "GetDocument.Insider";
+if (!isGeneratingOpenApiDocument)
+{
+    app.Services.MigrateDatabase();
+}
 
 app.UseExceptionHandler();
 

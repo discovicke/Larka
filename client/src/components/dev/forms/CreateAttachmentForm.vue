@@ -3,6 +3,7 @@ import {reactive} from 'vue'
 
 import {Input} from '@/components/ui/input'
 import {useDevSubmit} from '@/composables/useDevSubmit'
+import {api} from '@/lib/api'
 
 import DevField from '../DevField.vue'
 import DevFormCard from '../DevFormCard.vue'
@@ -10,19 +11,18 @@ import EntitySelect from '../EntitySelect.vue'
 import {numberOrNull} from '../types'
 
 const form = reactive({contentId: '', fileName: '', url: '', sizeBytes: ''})
-const {result, busy, send} = useDevSubmit()
+const {result, busy, submit: run, fail} = useDevSubmit()
 
 async function submit() {
   if (!form.contentId) {
-    result.value = {kind: 'error', message: 'Pick the content to attach to.'}
+    fail('Pick the content to attach to.')
     return
   }
 
-  await send('POST', `/api/content/${form.contentId}/attachments`, {
-    fileName: form.fileName,
-    url: form.url,
-    sizeBytes: numberOrNull(form.sizeBytes),
-  })
+  await run(() => api.POST('/api/content/{id}/attachments', {
+    params: {path: {id: form.contentId}},
+    body: {fileName: form.fileName, url: form.url, sizeBytes: numberOrNull(form.sizeBytes) ?? 0},
+  }))
 }
 </script>
 

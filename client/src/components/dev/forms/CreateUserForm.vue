@@ -4,24 +4,27 @@ import {reactive} from 'vue'
 import {Input} from '@/components/ui/input'
 import {useDevOptions} from '@/composables/useDevOptions'
 import {useDevSubmit} from '@/composables/useDevSubmit'
+import {api, type Schema} from '@/lib/api'
+import {userRoleValues} from '@/lib/api-types'
 
 import DevField from '../DevField.vue'
 import DevFormCard from '../DevFormCard.vue'
 import EntitySelect from '../EntitySelect.vue'
 import EnumSelect from '../EnumSelect.vue'
-import {orNull, userRoles} from '../types'
 
-const form = reactive({schoolId: '', name: '', email: '', role: 'Student'})
-const {result, busy, send} = useDevSubmit()
+const form = reactive({schoolId: '', name: '', email: '', role: 'Student' as Schema<'UserRole'>})
+const {result, busy, submit: run, fail} = useDevSubmit()
 const {remember} = useDevOptions()
 
 async function submit() {
-  const user = await send<{id: string, name: string, role: string}>('POST', '/api/users', {
-    schoolId: orNull(form.schoolId),
-    name: form.name,
-    email: form.email,
-    role: form.role,
-  })
+  if (!form.schoolId) {
+    fail('Pick a school.')
+    return
+  }
+
+  const user = await run(() => api.POST('/api/users', {
+    body: {schoolId: form.schoolId, name: form.name, email: form.email, role: form.role},
+  }))
   if (user) {
     remember('users', {value: user.id, label: `${user.name} (${user.role})`})
   }
@@ -57,7 +60,7 @@ async function submit() {
       id="user-role"
       v-model="form.role"
       label="Role"
-      :values="userRoles"
+      :values="userRoleValues"
     />
   </DevFormCard>
 </template>

@@ -5,6 +5,7 @@ import {Input} from '@/components/ui/input'
 import {Textarea} from '@/components/ui/textarea'
 import {useDevOptions} from '@/composables/useDevOptions'
 import {useDevSubmit} from '@/composables/useDevSubmit'
+import {api} from '@/lib/api'
 
 import DevField from '../DevField.vue'
 import DevFormCard from '../DevFormCard.vue'
@@ -12,7 +13,7 @@ import EntitySelect from '../EntitySelect.vue'
 import {numberOrNull, orNull} from '../types'
 
 const form = reactive({contentLinkId: '', bodyMd: '', fileName: '', fileUrl: '', fileSize: ''})
-const {result, busy, send} = useDevSubmit()
+const {result, busy, submit: run, fail} = useDevSubmit()
 const {remember, labelOf} = useDevOptions()
 
 // En fil räcker för testdata. Lämnas tomt skickas inga filer.
@@ -25,15 +26,14 @@ function files() {
 
 async function submit() {
   if (!form.contentLinkId) {
-    result.value = {kind: 'error', message: 'Pick the published assignment.'}
+    fail('Pick the published assignment.')
     return
   }
 
-  const submission = await send<{id: string, status: string}>(
-    'POST',
-    `/api/links/${form.contentLinkId}/submissions`,
-    {bodyMd: orNull(form.bodyMd), files: files()},
-  )
+  const submission = await run(() => api.POST('/api/links/{id}/submissions', {
+    params: {path: {id: form.contentLinkId}},
+    body: {bodyMd: orNull(form.bodyMd), files: files()},
+  }))
   if (submission) {
     const link = labelOf('contentLinks', form.contentLinkId) ?? 'Submission'
     remember('submissions', {value: submission.id, label: `${link}: ${submission.status}`})

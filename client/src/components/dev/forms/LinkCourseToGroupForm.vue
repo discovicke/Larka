@@ -2,20 +2,23 @@
 import {reactive} from 'vue'
 
 import {useDevSubmit} from '@/composables/useDevSubmit'
+import {api} from '@/lib/api'
 
 import DevFormCard from '../DevFormCard.vue'
 import EntitySelect from '../EntitySelect.vue'
 
 const form = reactive({groupId: '', courseId: ''})
-const {result, busy, send} = useDevSubmit()
+const {result, busy, submit: run, fail} = useDevSubmit()
 
 async function submit() {
   if (!form.groupId || !form.courseId) {
-    result.value = {kind: 'error', message: 'Pick a group and a course.'}
+    fail('Pick a group and a course.')
     return
   }
 
-  await send('POST', `/api/groups/${form.groupId}/courses/${form.courseId}`)
+  await run(() => api.POST('/api/groups/{id}/courses/{courseId}', {
+    params: {path: {id: form.groupId, courseId: form.courseId}},
+  }))
 }
 </script>
 

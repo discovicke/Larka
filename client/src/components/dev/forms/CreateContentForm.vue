@@ -5,29 +5,31 @@ import {Input} from '@/components/ui/input'
 import {Textarea} from '@/components/ui/textarea'
 import {useDevOptions} from '@/composables/useDevOptions'
 import {useDevSubmit} from '@/composables/useDevSubmit'
+import {api, type Schema} from '@/lib/api'
+import {contentStatusValues, contentTypeValues, submissionModeValues} from '@/lib/api-types'
 
 import DevField from '../DevField.vue'
 import DevFormCard from '../DevFormCard.vue'
 import EnumSelect from '../EnumSelect.vue'
-import {contentStatuses, contentTypes, numberOrNull, orNull, submissionModes} from '../types'
+import {numberOrNull, orNull} from '../types'
 
 const form = reactive({
-  type: 'News',
+  type: 'News' as Schema<'ContentType'>,
   title: '',
   bodyMd: '',
-  status: 'Published',
+  status: 'Published' as Schema<'ContentStatus'>,
   maxScore: '',
-  submissionMode: 'None',
+  submissionMode: 'None' as Schema<'SubmissionMode'>,
   templateRepo: '',
 })
-const {result, busy, send} = useDevSubmit()
+const {result, busy, submit: run} = useDevSubmit()
 const {remember} = useDevOptions()
 
 const isAssignment = computed(() => form.type === 'Assignment')
 const usesRepo = computed(() => ['Repo', 'FileOrRepo'].includes(form.submissionMode))
 
 // Backend tar bara emot uppgiftsfälten på uppgifter, och templateRepo bara för repo-lägen.
-function body() {
+function body(): Schema<'CreateContentDto'> {
   const base = {type: form.type, title: form.title, bodyMd: form.bodyMd, status: form.status}
   if (!isAssignment.value) {
     return base
@@ -44,7 +46,7 @@ function body() {
 }
 
 async function submit() {
-  const content = await send<{id: string, title: string, type: string}>('POST', '/api/content', body())
+  const content = await run(() => api.POST('/api/content', {body: body()}))
   if (content) {
     remember('contents', {value: content.id, label: `${content.title} (${content.type})`})
   }
@@ -63,7 +65,7 @@ async function submit() {
       id="content-type"
       v-model="form.type"
       label="Type"
-      :values="contentTypes"
+      :values="contentTypeValues"
     />
     <DevField id="content-title" label="Title">
       <Input id="content-title" v-model="form.title" required/>
@@ -75,7 +77,7 @@ async function submit() {
       id="content-status"
       v-model="form.status"
       label="Status"
-      :values="contentStatuses"
+      :values="contentStatusValues"
     />
 
     <template v-if="isAssignment">
@@ -91,7 +93,7 @@ async function submit() {
         id="content-submission-mode"
         v-model="form.submissionMode"
         label="Submission mode"
-        :values="submissionModes"
+        :values="submissionModeValues"
       />
       <DevField
         v-if="usesRepo"
