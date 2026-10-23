@@ -9,6 +9,8 @@ Live: https://net25-devops-grupp-4.onrender.com (gratisinstansen somnar efter 15
 ```bash
 npm install            # i repots rot, en gång (husky + concurrently)
 npm --prefix client install
+dotnet tool restore    # en gång, installerar dotnet-ef
+npm run db             # startar Postgres i Docker (docker-compose.yml)
 npm run dev
 ```
 
@@ -17,6 +19,29 @@ npm run dev
 - API:et ligger under `/api`, t.ex. `/api/groups`. `/health` och `/version` ligger på roten.
 - Anropa API:et från klienten med `api` i `client/src/lib/api.ts`, t.ex. `await api.get<Group[]>('/api/groups')`. Fel kastas som `ApiError` med HTTP-status.
 - Swagger finns på http://localhost:5257/swagger.
+
+### Databas
+
+Lokalt kör backend mot Postgres i Docker (`npm run db`, data sparas i en Docker-volym). I prod är det Supabase Postgres. Testerna använder en egen SQLite-fil per testklass och behöver ingen Docker.
+
+Vid start kör backend de migrationer som saknas (`Database.Migrate()`), både lokalt och i prod. Render free tier har inget pre-deploy-steg, så det sker när appen startar. En tom lokal databas får också exempeldata (en klass, två kurser och lite innehåll) från [`DevSeed`](backend/Infrastructure/Persistence/DevSeed.cs).
+
+**Ändrat en entitet eller en konfiguration?** Skapa en migration och commita den:
+
+```bash
+dotnet ef migrations add <VadSomÄndrats> --project backend
+```
+
+Testet `Migrations_match_the_model` faller i CI om en ändring saknar migration. Migrationerna ligger i `backend/Infrastructure/Persistence/Migrations/` och ska inte ändras för hand.
+
+Börja om från en tom lokal databas: `docker compose down -v && npm run db`.
+
+Vill du köra mot en annan databas, t.ex. Supabase, lägg connection string i user-secrets så att den aldrig hamnar i repot. Stäng av exempeldatan, annars läggs den in om databasen saknar grupper:
+
+```bash
+dotnet user-secrets set ConnectionStrings:Default "Host=...;Port=5432;..." --project backend
+dotnet user-secrets set Database:SeedDevData false --project backend
+```
 
 ## Publicera
 

@@ -1,0 +1,21 @@
+# Postgres för lokal utveckling. Starta med `docker compose up -d db`.
+# Samma huvudversion som Supabase kör i prod.
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: rebornlms
+      POSTGRES_PASSWORD: rebornlms
+      POSTGRES_DB: rebornlms
+    ports:
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U rebornlms']
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  db-data:

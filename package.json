@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "prepare": "husky",
+    "db": "docker compose up -d --wait db",
     "dev": "concurrently --kill-others-on-fail --names api,client --prefix-colors blue,green \"dotnet run --project backend --launch-profile http\" \"npm --prefix client run dev\"",
     "format": "prettier --write . && npm --prefix client run format && dotnet build backend.Analyzers --nologo -v q && dotnet format RebornLMS.sln",
     "format:check": "prettier --check . && npm --prefix client run lint && dotnet build backend.Analyzers --nologo -v q && dotnet format RebornLMS.sln --verify-no-changes"

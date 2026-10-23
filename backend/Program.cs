@@ -15,7 +15,7 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-app.Services.EnsureDatabaseCreated();
+app.Services.MigrateDatabase();
 
 app.UseSwagger();
 app.UseSwaggerUI();

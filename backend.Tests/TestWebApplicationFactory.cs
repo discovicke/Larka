@@ -16,6 +16,7 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
         builder.UseEnvironment("Development");
         builder.UseSetting("Database:Provider", "Sqlite");
         builder.UseSetting("ConnectionStrings:Default", $"Data Source={_dbPath}");
+        builder.UseSetting("Database:SeedDevData", "false");
     }
 
     protected override void Dispose(bool disposing)

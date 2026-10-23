@@ -23,10 +23,25 @@ public static class DependencyInjection
         return services;
     }
 
-    public static void EnsureDatabaseCreated(this IServiceProvider services)
+    /// <summary>
+    /// Postgres: kör migrationer som saknas. SQLite (testerna): skapar tabellerna direkt från modellen,
+    /// eftersom migrationerna är skrivna för Postgres.
+    /// </summary>
+    public static void MigrateDatabase(this IServiceProvider services)
     {
         using var scope = services.CreateScope();
-        scope.ServiceProvider.GetRequiredService<AppDb>().Database.EnsureCreated();
+        var database = scope.ServiceProvider.GetRequiredService<AppDb>().Database;
+
+        // EnsureCreated räcker inte mot Supabase: den gör ingenting om databasen redan har tabeller,
+        // och Supabase har alltid sina egna (auth, storage). Migrate skapar och uppdaterar våra.
+        if (database.IsNpgsql())
+        {
+            database.Migrate();
+        }
+        else
+        {
+            database.EnsureCreated();
+        }
     }
 
     private static void AddPersistence(this IServiceCollection services, IConfiguration config)
@@ -36,7 +51,8 @@ public static class DependencyInjection
         // Läses vid körning så att t.ex. tester kan byta connection string.
         services.AddDbContext<AppDb>((serviceProvider, options) =>
         {
-            var provider = serviceProvider.GetRequiredService<IOptions<DatabaseOptions>>().Value.Provider;
+            var databaseOptions = serviceProvider.GetRequiredService<IOptions<DatabaseOptions>>().Value;
+            var provider = databaseOptions.Provider;
             var connectionString = serviceProvider.GetRequiredService<IConfiguration>().GetConnectionString("Default")
                 ?? throw new InvalidOperationException("ConnectionStrings:Default saknas.");
 
@@ -51,6 +67,14 @@ public static class DependencyInjection
                 default:
                     throw new InvalidOperationException(
                         $"Okänd Database:Provider '{provider}'. Använd 'Sqlite' eller 'Postgres'.");
+            }
+
+            // Exempeldata i en tom dev-databas, så att /dev och klienten har något att visa.
+            if (databaseOptions.SeedDevData)
+            {
+                options.UseSeeding((context, _) => DevSeed.Seed((AppDb)context));
+                options.UseAsyncSeeding((context, _, cancellationToken) =>
+                    DevSeed.SeedAsync((AppDb)context, cancellationToken));
             }
         });
 
