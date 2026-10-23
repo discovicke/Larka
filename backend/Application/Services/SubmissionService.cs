@@ -55,35 +55,44 @@ public class SubmissionService(
         submissions.AddRange(newSubmissions);
     }
 
-    public Task<Submission?> GetAsync(Guid id, CancellationToken ct) => submissions.GetAsync(id, ct);
+    public async Task<SubmissionDto?> GetAsync(Guid id, CancellationToken ct)
+    {
+        var submission = await submissions.GetAsync(id, ct);
+        return submission is null
+            ? null
+            : SubmissionDto.From(submission);
+    }
 
-    public Task<List<Submission>> GetByLinkAsync(Guid linkId, CancellationToken ct) =>
-        submissions.GetByLinkAsync(linkId, ct);
+    public async Task<List<SubmissionDto>> GetByLinkAsync(Guid linkId, CancellationToken ct)
+    {
+        var linkSubmissions = await submissions.GetByLinkAsync(linkId, ct);
+        return linkSubmissions.Select(SubmissionDto.From).ToList();
+    }
 
     /// <summary>Lämnar in (eller lämnar in igen) som inloggad elev. En inlämning per elev och utdelning.</summary>
-    public async Task<ServiceResult<Submission>> SubmitAsync(Guid linkId, SubmitDto dto, CancellationToken ct)
+    public async Task<ServiceResult<SubmissionDto>> SubmitAsync(Guid linkId, SubmitDto dto, CancellationToken ct)
     {
         var linked = await contents.GetLinkWithContentAsync(linkId, ct);
         if (linked is null)
         {
-            return ServiceResult<Submission>.NotFound("link not found");
+            return ServiceResult<SubmissionDto>.NotFound("link not found");
         }
 
         var spec = linked.Content.Assignment;
         if (spec is null || spec.SubmissionMode == SubmissionMode.None)
         {
-            return ServiceResult<Submission>.Invalid("this content takes no submissions");
+            return ServiceResult<SubmissionDto>.Invalid("this content takes no submissions");
         }
 
         var files = dto.Files ?? [];
         if (spec.SubmissionMode == SubmissionMode.File && files.Count == 0)
         {
-            return ServiceResult<Submission>.Invalid("this assignment needs at least one file");
+            return ServiceResult<SubmissionDto>.Invalid("this assignment needs at least one file");
         }
 
         if (spec.SubmissionMode == SubmissionMode.Repo && files.Count > 0)
         {
-            return ServiceResult<Submission>.Invalid("this assignment is handed in through its repo, not files");
+            return ServiceResult<SubmissionDto>.Invalid("this assignment is handed in through its repo, not files");
         }
 
         var submission = await submissions.GetForStudentAsync(linkId, currentUser.UserId, ct);
@@ -95,7 +104,7 @@ public class SubmissionService(
         }
         else if (submission.Status == SubmissionStatus.Graded)
         {
-            return ServiceResult<Submission>.Invalid("already graded");
+            return ServiceResult<SubmissionDto>.Invalid("already graded");
         }
 
         submission.Status = SubmissionStatus.Submitted;
@@ -112,39 +121,40 @@ public class SubmissionService(
         submissions.AddFiles(submission.Files);
 
         await unitOfWork.SaveChangesAsync(ct);
-        return ServiceResult<Submission>.Ok(submission);
+        return ServiceResult<SubmissionDto>.Ok(SubmissionDto.From(submission));
     }
 
     /// <summary>Sätter betyg, eller begär komplettering (NeedsWork) med bara feedback.</summary>
-    public async Task<ServiceResult<Submission>> GradeAsync(Guid submissionId, GradeDto dto, CancellationToken ct)
+    public async Task<ServiceResult<SubmissionDto>> GradeAsync(
+        Guid submissionId, GradeSubmissionDto dto, CancellationToken ct)
     {
         var submission = await submissions.GetAsync(submissionId, ct);
         if (submission is null)
         {
-            return ServiceResult<Submission>.NotFound("submission not found");
+            return ServiceResult<SubmissionDto>.NotFound("submission not found");
         }
 
         if (submission.Status == SubmissionStatus.NotStarted)
         {
-            return ServiceResult<Submission>.Invalid("nothing has been submitted yet");
+            return ServiceResult<SubmissionDto>.Invalid("nothing has been submitted yet");
         }
 
         var linked = await contents.GetLinkWithContentAsync(submission.ContentLinkId, ct);
         var maxScore = linked!.Content.Assignment?.MaxScore;
         if (dto.NeedsWork && dto.Score is not null)
         {
-            return ServiceResult<Submission>.Invalid("a submission that needs work gets feedback, not a score");
+            return ServiceResult<SubmissionDto>.Invalid("a submission that needs work gets feedback, not a score");
         }
 
         if (!dto.NeedsWork && maxScore is null && dto.Score is not null)
         {
-            return ServiceResult<Submission>.Invalid("this assignment has no score, only feedback");
+            return ServiceResult<SubmissionDto>.Invalid("this assignment has no score, only feedback");
         }
 
         var scoreOutOfRange = dto.Score is null || dto.Score < 0 || dto.Score > maxScore;
         if (!dto.NeedsWork && maxScore is not null && scoreOutOfRange)
         {
-            return ServiceResult<Submission>.Invalid($"score must be between 0 and {maxScore}");
+            return ServiceResult<SubmissionDto>.Invalid($"score must be between 0 and {maxScore}");
         }
 
         if (submission.Grade is null)
@@ -162,7 +172,7 @@ public class SubmissionService(
             : SubmissionStatus.Graded;
 
         await unitOfWork.SaveChangesAsync(ct);
-        return ServiceResult<Submission>.Ok(submission);
+        return ServiceResult<SubmissionDto>.Ok(SubmissionDto.From(submission));
     }
 
     public async Task RefreshChecksAsync(CancellationToken ct)

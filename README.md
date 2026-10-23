@@ -18,7 +18,7 @@ npm run dev
 
 - API:et ligger under `/api`, t.ex. `/api/groups`. `/health` och `/version` ligger på roten.
 - Anropa API:et från klienten med `api` i `client/src/lib/api.ts`, t.ex. `await api.get<Group[]>('/api/groups')`. Fel kastas som `ApiError` med HTTP-status.
-- Swagger finns på http://localhost:5257/swagger.
+- Swagger UI finns på http://localhost:5257/swagger och OpenAPI-dokumentet på http://localhost:5257/openapi/v1.json.
 
 ### Databas
 

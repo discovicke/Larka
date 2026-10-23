@@ -15,53 +15,48 @@ public class ContentService(
     ICurrentUser currentUser,
     TimeProvider time)
 {
-    public Task<Content?> GetAsync(Guid id, CancellationToken ct) => contents.GetAsync(id, ct);
-
-    public async Task<ServiceResult<Content>> CreateAsync(CreateContentDto dto, CancellationToken ct)
+    public async Task<ContentDto?> GetAsync(Guid id, CancellationToken ct)
     {
-        if (!Enum.TryParse<ContentType>(dto.Type, true, out var type))
-        {
-            return ServiceResult<Content>.Invalid("type must be news|theory|assignment");
-        }
+        var content = await contents.GetAsync(id, ct);
+        return content is null
+            ? null
+            : ContentDto.From(content);
+    }
 
-        var status = ContentStatus.Published;
-        if (dto.Status is not null && !Enum.TryParse(dto.Status, true, out status))
-        {
-            return ServiceResult<Content>.Invalid("status must be draft|published");
-        }
+    // Typ, status och läge är enums i DTO:n, så okända värden stoppas redan när JSON läses in (400).
+    public async Task<ValidationResult<ContentDto>> CreateAsync(CreateContentDto dto, CancellationToken ct)
+    {
+        var type = dto.Type;
+        var status = dto.Status ?? ContentStatus.Published;
+        var mode = dto.SubmissionMode ?? SubmissionMode.None;
 
         if (string.IsNullOrWhiteSpace(dto.Title))
         {
-            return ServiceResult<Content>.Invalid("title is required");
+            return ValidationResult<ContentDto>.Invalid("title is required");
         }
 
-        if (type != ContentType.Assignment &&
-            (dto.MaxScore is not null || dto.SubmissionMode is not null || dto.TemplateRepo is not null))
+        var hasAssignmentFields =
+            dto.MaxScore is not null || dto.SubmissionMode is not null || dto.TemplateRepo is not null;
+        if (type != ContentType.Assignment && hasAssignmentFields)
         {
-            return ServiceResult<Content>.Invalid(
+            return ValidationResult<ContentDto>.Invalid(
                 "maxScore, submissionMode and templateRepo are only allowed on assignments");
-        }
-
-        var mode = SubmissionMode.None;
-        if (dto.SubmissionMode is not null && !Enum.TryParse(dto.SubmissionMode, true, out mode))
-        {
-            return ServiceResult<Content>.Invalid("submissionMode must be none|file|repo|fileOrRepo");
         }
 
         if (SubmissionService.UsesRepo(mode) != (dto.TemplateRepo is not null))
         {
-            return ServiceResult<Content>.Invalid(
+            return ValidationResult<ContentDto>.Invalid(
                 "templateRepo is required for repo and fileOrRepo, and only allowed there");
         }
 
         if (dto.TemplateRepo is not null && !LooksLikeOrgAndName(dto.TemplateRepo))
         {
-            return ServiceResult<Content>.Invalid("templateRepo must look like org/name");
+            return ValidationResult<ContentDto>.Invalid("templateRepo must look like org/name");
         }
 
-        if (dto.MaxScore is < 1)
+        if (dto.MaxScore < 1)
         {
-            return ServiceResult<Content>.Invalid("maxScore must be at least 1");
+            return ValidationResult<ContentDto>.Invalid("maxScore must be at least 1");
         }
 
         var content = new Content
@@ -85,42 +80,42 @@ public class ContentService(
 
         contents.Add(content);
         await unitOfWork.SaveChangesAsync(ct);
-        return ServiceResult<Content>.Ok(content);
+        return ValidationResult<ContentDto>.Ok(ContentDto.From(content));
     }
 
-    public async Task<ServiceResult<ContentLink>> AddLinkAsync(
+    public async Task<ServiceResult<ContentLinkDto>> AddLinkAsync(
         Guid contentId, CreateContentLinkDto dto, CancellationToken ct)
     {
         var content = await contents.GetAsync(contentId, ct);
         if (content is null)
         {
-            return ServiceResult<ContentLink>.NotFound("content not found");
+            return ServiceResult<ContentLinkDto>.NotFound("content not found");
         }
 
         if (dto.GroupId is null && dto.CourseId is null)
         {
-            return ServiceResult<ContentLink>.Invalid("groupId or courseId is required");
+            return ServiceResult<ContentLinkDto>.Invalid("groupId or courseId is required");
         }
 
         if (dto.GroupId is not null && !await groups.ExistsAsync(dto.GroupId.Value, ct))
         {
-            return ServiceResult<ContentLink>.Invalid("group does not exist");
+            return ServiceResult<ContentLinkDto>.Invalid("group does not exist");
         }
 
         if (dto.CourseId is not null && !await groups.CourseExistsAsync(dto.CourseId.Value, ct))
         {
-            return ServiceResult<ContentLink>.Invalid("course does not exist");
+            return ServiceResult<ContentLinkDto>.Invalid("course does not exist");
         }
 
         var linksGroupAndCourse = dto.GroupId is not null && dto.CourseId is not null;
         if (linksGroupAndCourse && !await groups.ReadsCourseAsync(dto.GroupId!.Value, dto.CourseId!.Value, ct))
         {
-            return ServiceResult<ContentLink>.Invalid("group does not read this course");
+            return ServiceResult<ContentLinkDto>.Invalid("group does not read this course");
         }
 
         if (dto.DueAt is not null && content.Type != ContentType.Assignment)
         {
-            return ServiceResult<ContentLink>.Invalid("dueAt is only allowed on assignments");
+            return ServiceResult<ContentLinkDto>.Invalid("dueAt is only allowed on assignments");
         }
 
         var link = new ContentLink
@@ -135,7 +130,7 @@ public class ContentService(
         contents.AddLink(link);
         await submissions.HandOutAsync(link, content, ct);
         await unitOfWork.SaveChangesAsync(ct);
-        return ServiceResult<ContentLink>.Ok(link);
+        return ServiceResult<ContentLinkDto>.Ok(ContentLinkDto.From(link));
     }
 
     /// <summary>Filtrerar på typ (news|theory|assignment) om den går att tolka, annars returneras alla.</summary>
@@ -145,28 +140,32 @@ public class ContentService(
     public Task<List<ContentFeedItem>> GetCourseFeedAsync(Guid courseId, string? type, CancellationToken ct) =>
         contents.GetCourseFeedAsync(courseId, ParseType(type), time.GetUtcNow(), ct);
 
-    public Task<List<Comment>> GetCommentsAsync(Guid contentId, CancellationToken ct) =>
-        contents.GetCommentsAsync(contentId, ct);
+    public async Task<List<CommentDto>> GetCommentsAsync(Guid contentId, CancellationToken ct)
+    {
+        var comments = await contents.GetCommentsAsync(contentId, ct);
+        return comments.Select(CommentDto.From).ToList();
+    }
 
-    public async Task<ServiceResult<Comment>> AddCommentAsync(Guid contentId, CommentDto dto, CancellationToken ct)
+    /// <summary>Returnerar null om innehållet inte finns.</summary>
+    public async Task<CommentDto?> AddCommentAsync(Guid contentId, CreateCommentDto dto, CancellationToken ct)
     {
         if (!await contents.ExistsAsync(contentId, ct))
         {
-            return ServiceResult<Comment>.NotFound("content not found");
+            return null;
         }
 
         var comment = new Comment { ContentId = contentId, AuthorId = currentUser.UserId, BodyMd = dto.BodyMd };
         contents.AddComment(comment);
         await unitOfWork.SaveChangesAsync(ct);
-        return ServiceResult<Comment>.Ok(comment);
+        return CommentDto.From(comment);
     }
 
-    public async Task<ServiceResult<Attachment>> AddAttachmentAsync(
-        Guid contentId, AttachmentDto dto, CancellationToken ct)
+    /// <summary>Returnerar null om innehållet inte finns.</summary>
+    public async Task<AttachmentDto?> AddAttachmentAsync(Guid contentId, CreateAttachmentDto dto, CancellationToken ct)
     {
         if (!await contents.ExistsAsync(contentId, ct))
         {
-            return ServiceResult<Attachment>.NotFound("content not found");
+            return null;
         }
 
         var attachment = new Attachment
@@ -178,7 +177,7 @@ public class ContentService(
         };
         contents.AddAttachment(attachment);
         await unitOfWork.SaveChangesAsync(ct);
-        return ServiceResult<Attachment>.Ok(attachment);
+        return AttachmentDto.From(attachment);
     }
 
     private static ContentType? ParseType(string? type) =>

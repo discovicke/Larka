@@ -1,23 +1,72 @@
+using Backend.Domain.Entities;
 using Backend.Domain.Enums;
 
 namespace Backend.Application.Dtos;
 
+// --- requests ---
+
 public record CreateContentDto(
-    string Type,
+    ContentType Type,
     string Title,
     string BodyMd,
-    string? Status = null,
+    ContentStatus? Status = null,
     int? MaxScore = null,
-    string? SubmissionMode = null, // bara för uppgifter: none|file|repo|fileOrRepo
-    string? TemplateRepo = null); // "org/mall", krävs för repo och fileOrRepo
+    SubmissionMode? SubmissionMode = null, // bara för uppgifter
+    string? TemplateRepo = null); // "org/mall", krävs för Repo och FileOrRepo
 
 // Minst en av GroupId och CourseId. Båda = kursen så som den går för just den gruppen.
 public record CreateContentLinkDto(
-    Guid? GroupId,
-    Guid? CourseId,
+    Guid? GroupId = null,
+    Guid? CourseId = null,
     DateTimeOffset? PublishAt = null,
     DateTimeOffset? DueAt = null,
     bool IsPinned = false);
+
+public record CreateCommentDto(string BodyMd);
+
+public record CreateAttachmentDto(string FileName, string Url, long SizeBytes);
+
+// --- responses ---
+
+public record ContentDto(
+    Guid Id,
+    Guid AuthorId,
+    ContentType Type,
+    string Title,
+    string BodyMd,
+    ContentStatus Status,
+    DateTimeOffset CreatedAt,
+    AssignmentSpecDto? Assignment)
+{
+    public static ContentDto From(Content content)
+    {
+        var assignment = content.Assignment is null
+            ? null
+            : AssignmentSpecDto.From(content.Assignment);
+        return new ContentDto(
+            content.Id, content.AuthorId, content.Type, content.Title, content.BodyMd, content.Status,
+            content.CreatedAt, assignment);
+    }
+}
+
+public record AssignmentSpecDto(int? MaxScore, SubmissionMode SubmissionMode, string? TemplateRepo)
+{
+    public static AssignmentSpecDto From(AssignmentSpec spec) =>
+        new(spec.MaxScore, spec.SubmissionMode, spec.TemplateRepo);
+}
+
+public record ContentLinkDto(
+    Guid Id,
+    Guid ContentId,
+    Guid? GroupId,
+    Guid? CourseId,
+    DateTimeOffset PublishAt,
+    DateTimeOffset? DueAt,
+    bool IsPinned)
+{
+    public static ContentLinkDto From(ContentLink link) =>
+        new(link.Id, link.ContentId, link.GroupId, link.CourseId, link.PublishAt, link.DueAt, link.IsPinned);
+}
 
 /// <summary>En rad i flödet för en grupp eller kurs: innehållet plus hur det publicerades.</summary>
 public record ContentFeedItem(
@@ -33,6 +82,14 @@ public record ContentFeedItem(
     DateTimeOffset? DueAt,
     bool IsPinned);
 
-public record CommentDto(string BodyMd);
+public record CommentDto(Guid Id, Guid ContentId, Guid AuthorId, string BodyMd, DateTimeOffset CreatedAt)
+{
+    public static CommentDto From(Comment comment) =>
+        new(comment.Id, comment.ContentId, comment.AuthorId, comment.BodyMd, comment.CreatedAt);
+}
 
-public record AttachmentDto(string FileName, string Url, long SizeBytes);
+public record AttachmentDto(Guid Id, Guid ContentId, string FileName, string Url, long SizeBytes)
+{
+    public static AttachmentDto From(Attachment attachment) =>
+        new(attachment.Id, attachment.ContentId, attachment.FileName, attachment.Url, attachment.SizeBytes);
+}
