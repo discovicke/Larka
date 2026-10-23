@@ -1,0 +1,19 @@
+using Backend.Application.Abstractions;
+using Backend.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
+
+namespace Backend.Infrastructure.Persistence.Repositories;
+
+public class CourseRepository(AppDb db) : ICourseRepository
+{
+    public Task<List<Course>> GetAllAsync(CancellationToken ct) =>
+        db.Courses.OrderBy(course => course.Code).ToListAsync(ct);
+
+    public Task<Course?> GetAsync(Guid id, CancellationToken ct) =>
+        db.Courses.FirstOrDefaultAsync(course => course.Id == id, ct);
+
+    public Task<bool> CodeExistsAsync(Guid schoolId, string code, CancellationToken ct) =>
+        db.Courses.AnyAsync(course => course.SchoolId == schoolId && course.Code == code, ct);
+
+    public void Add(Course course) => db.Courses.Add(course);
+}

@@ -22,7 +22,7 @@ async function submit() {
 <template>
   <DevFormCard
     title="Link course to group"
-    description="The group reads the course. Courses no group reads yet only show up once GET /api/courses exists (#32)."
+    description="The group reads the course."
     submit-label="Link"
     :result="result"
     :busy="busy"

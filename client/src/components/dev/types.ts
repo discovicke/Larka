@@ -5,8 +5,7 @@ export interface Option {
 
 /** Det som visas under ett formulär efter att man tryckt på knappen. */
 export type FormResult
-  = | {kind: 'preview', body: unknown}
-    | {kind: 'response', status: number, body: unknown}
+  = | {kind: 'response', status: number, body: unknown}
     | {kind: 'error', status?: number, message: string}
 
 export const userRoles = ['Admin', 'Teacher', 'Student'] as const

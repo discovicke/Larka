@@ -8,8 +8,15 @@ public class GroupRepository(AppDb db) : IGroupRepository
 {
     public Task<List<Group>> GetAllAsync(CancellationToken ct) => db.Groups.ToListAsync(ct);
 
+    public Task<Group?> GetAsync(Guid groupId, CancellationToken ct) =>
+        db.Groups.FirstOrDefaultAsync(group => group.Id == groupId, ct);
+
     public Task<bool> ExistsAsync(Guid groupId, CancellationToken ct) =>
         db.Groups.AnyAsync(group => group.Id == groupId, ct);
+
+    public Task<bool> NameExistsAsync(Guid schoolId, string name, string term, CancellationToken ct) =>
+        db.Groups.AnyAsync(
+            group => group.SchoolId == schoolId && group.Name == name && group.Term == term, ct);
 
     public Task<bool> CourseExistsAsync(Guid courseId, CancellationToken ct) =>
         db.Courses.AnyAsync(course => course.Id == courseId, ct);
@@ -33,5 +40,12 @@ public class GroupRepository(AppDb db) : IGroupRepository
         db.GroupCourses.AnyAsync(
             groupCourse => groupCourse.GroupId == groupId && groupCourse.CourseId == courseId, ct);
 
+    public Task<bool> IsMemberAsync(Guid groupId, Guid userId, CancellationToken ct) =>
+        db.Enrollments.AnyAsync(enrollment => enrollment.GroupId == groupId && enrollment.UserId == userId, ct);
+
+    public void Add(Group group) => db.Groups.Add(group);
+
     public void AddCourse(GroupCourse groupCourse) => db.GroupCourses.Add(groupCourse);
+
+    public void AddMember(Enrollment enrollment) => db.Enrollments.Add(enrollment);
 }

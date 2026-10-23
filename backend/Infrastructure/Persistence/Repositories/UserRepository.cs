@@ -7,6 +7,14 @@ namespace Backend.Infrastructure.Persistence.Repositories;
 
 public class UserRepository(AppDb db) : IUserRepository
 {
+    public Task<List<User>> GetAllAsync(CancellationToken ct) =>
+        db.Users.OrderBy(user => user.Name).ToListAsync(ct);
+
+    public Task<User?> GetAsync(Guid id, CancellationToken ct) =>
+        db.Users.FirstOrDefaultAsync(user => user.Id == id, ct);
+
+    public void Add(User user) => db.Users.Add(user);
+
     public Task<User?> GetByEmailAsync(string email, CancellationToken ct) =>
         db.Users.FirstOrDefaultAsync(user => user.Email == email, ct);
 

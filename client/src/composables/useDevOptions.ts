@@ -6,6 +6,17 @@ import {api} from '@/lib/api'
 export type OptionSource
   = 'schools' | 'users' | 'groups' | 'courses' | 'contents' | 'contentLinks' | 'submissions'
 
+interface School {
+  id: string
+  name: string
+}
+
+interface User {
+  id: string
+  name: string
+  role: string
+}
+
 interface Group {
   id: string
   name: string
@@ -60,12 +71,8 @@ async function loadGroups(): Promise<Group[]> {
   return api.get<Group[]>('/api/groups')
 }
 
-// Det finns inget GET /api/courses än (#32), så kurserna samlas ihop från alla grupper.
-// Kurser som ingen grupp läser syns därför inte.
 async function loadCourses(): Promise<Course[]> {
-  const groups = await loadGroups()
-  const perGroup = await Promise.all(groups.map((group) => api.get<Course[]>(`/api/groups/${group.id}/courses`)))
-  return [...new Map(perGroup.flat().map((course) => [course.id, course])).values()]
+  return api.get<Course[]>('/api/courses')
 }
 
 // Det finns inget GET för all content, så den samlas ihop från alla grupp- och kursflöden.
@@ -87,7 +94,12 @@ async function loadAssignmentLinks(): Promise<Option[]> {
     .map(({item, target}) => ({value: item.linkId, label: `${item.title} → ${target}`}))
 }
 
-const loaders: Partial<Record<OptionSource, () => Promise<Option[]>>> = {
+const loaders: Record<OptionSource, () => Promise<Option[]>> = {
+  schools: async () => (await api.get<School[]>('/api/schools')).map((school) => ({value: school.id, label: school.name})),
+  users: async () => (await api.get<User[]>('/api/users')).map((user) => ({
+    value: user.id,
+    label: `${user.name} (${user.role})`,
+  })),
   groups: async () => (await loadGroups()).map((group) => ({value: group.id, label: `${group.name} (${group.term})`})),
   courses: async () => (await loadCourses()).map((course) => ({value: course.id, label: `${course.code} ${course.title}`})),
   contents: async () => (await loadFeed()).map(({item}) => ({
@@ -102,14 +114,13 @@ const loaders: Partial<Record<OptionSource, () => Promise<Option[]>>> = {
         .map((submission) => ({value: submission.id, label: `${link.label}: ${submission.status}`}))))
     return perLink.flat()
   },
-  // schools och users: kräver GET-endpoints från #32.
 }
 
 export function useDevOptions() {
   async function refresh(source: OptionSource) {
     const load = loaders[source]
     // Flera dropdowns kan dela källa, så den hämtas bara en gång åt gången.
-    if (!load || loading[source]) {
+    if (loading[source]) {
       return
     }
 

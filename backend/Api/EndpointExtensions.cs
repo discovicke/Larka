@@ -9,7 +9,10 @@ public static class EndpointExtensions
         app.MapHealthEndpoints();
 
         var api = app.MapGroup("/api");
+        api.MapSchoolEndpoints();
+        api.MapUserEndpoints();
         api.MapGroupEndpoints();
+        api.MapCourseEndpoints();
         api.MapContentEndpoints();
         api.MapSubmissionEndpoints();
 

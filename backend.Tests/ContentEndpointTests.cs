@@ -1,8 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
 using Backend.Infrastructure.Auth;
-using Backend.Infrastructure.Persistence;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace backend.Tests;
 
@@ -182,13 +180,23 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
         return (await response.Content.ReadFromJsonAsync<ContentResponse>())!;
     }
 
-    // Grupper och kurser kan inte skapas via API:et än (#32), så de läggs in direkt i databasen.
+    private record CreatedResponse(Guid Id);
+
+    // Skola, grupp och kurs skapas via API:et, och gruppen får läsa kursen.
     private async Task<(Guid GroupId, Guid CourseId)> AddGroupWithCourseAsync()
     {
-        using var scope = factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
-        var group = await TestData.AddGroupAsync(db);
-        var course = await TestData.AddCourseAsync(db, group.SchoolId, group.Id);
+        var school = await PostAsync("/api/schools", new { name = "Skola" });
+        var group = await PostAsync("/api/groups", new { schoolId = school.Id, type = "class", name = "NET25" });
+        var course = await PostAsync("/api/courses", new { schoolId = school.Id, title = "Kurs", code = "KURS" });
+        var link = await _client.PostAsync($"/api/groups/{group.Id}/courses/{course.Id}", null);
+        link.EnsureSuccessStatusCode();
         return (group.Id, course.Id);
+    }
+
+    private async Task<CreatedResponse> PostAsync(string path, object body)
+    {
+        var response = await _client.PostAsJsonAsync(path, body);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<CreatedResponse>())!;
     }
 }

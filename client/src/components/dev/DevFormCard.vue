@@ -44,10 +44,7 @@ const formattedBody = computed(() => {
       </CardContent>
 
       <CardContent v-if="result" data-test="result">
-        <p v-if="result.kind === 'preview'" class="text-muted-foreground mb-1">
-          Preview, not sent yet:
-        </p>
-        <p v-else-if="result.kind === 'response'" class="mb-1 font-medium">
+        <p v-if="result.kind === 'response'" class="mb-1 font-medium">
           {{ result.status }}
         </p>
         <p v-else class="text-destructive font-medium">

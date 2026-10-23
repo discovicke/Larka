@@ -6,7 +6,10 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
+        services.AddScoped<SchoolService>();
+        services.AddScoped<UserService>();
         services.AddScoped<GroupService>();
+        services.AddScoped<CourseService>();
         services.AddScoped<ContentService>();
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<SubmissionService>();

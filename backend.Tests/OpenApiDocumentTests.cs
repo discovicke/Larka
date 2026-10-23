@@ -23,6 +23,24 @@ public class OpenApiDocumentTests(TestWebApplicationFactory factory) : IClassFix
         Assert.Equal("#/components/schemas/ContentDto", schemaRef.GetString());
     }
 
+    [Theory]
+    [InlineData("/api/schools", "SchoolDto")]
+    [InlineData("/api/users", "UserDto")]
+    [InlineData("/api/groups", "GroupDto")]
+    [InlineData("/api/courses", "CourseDto")]
+    public async Task CreateEndpoints_Document201WithDtoAnd400(string path, string dto)
+    {
+        using var document = await GetDocumentAsync();
+
+        var responses = document.RootElement
+            .GetProperty("paths").GetProperty(path).GetProperty("post").GetProperty("responses");
+        var schemaRef = responses.GetProperty("201")
+            .GetProperty("content").GetProperty("application/json").GetProperty("schema").GetProperty("$ref");
+
+        Assert.Equal($"#/components/schemas/{dto}", schemaRef.GetString());
+        Assert.True(responses.TryGetProperty("400", out _));
+    }
+
     [Fact]
     public async Task ContentType_IsAStringEnum()
     {
@@ -57,7 +75,11 @@ public class OpenApiDocumentTests(TestWebApplicationFactory factory) : IClassFix
             .Select(schema => schema.Name)
             .ToList();
 
-        string[] entities = ["Group", "Course", "Content", "ContentLink", "Comment", "Attachment", "Submission"];
+        string[] entities =
+        [
+            "School", "User", "Group", "Course", "Enrollment", "Content", "ContentLink", "Comment", "Attachment",
+            "Submission"
+        ];
         Assert.Empty(schemas.Intersect(entities));
     }
 

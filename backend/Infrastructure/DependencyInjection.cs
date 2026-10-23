@@ -79,7 +79,9 @@ public static class DependencyInjection
         });
 
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
+        services.AddScoped<ISchoolRepository, SchoolRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<ICourseRepository, CourseRepository>();
         services.AddScoped<IGroupRepository, GroupRepository>();
         services.AddScoped<IContentRepository, ContentRepository>();
         services.AddScoped<ISubmissionRepository, SubmissionRepository>();

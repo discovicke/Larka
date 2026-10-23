@@ -1,20 +1,27 @@
 <script setup lang="ts">
-import {reactive, ref} from 'vue'
+import {reactive} from 'vue'
 
 import {Input} from '@/components/ui/input'
+import {useDevOptions} from '@/composables/useDevOptions'
+import {useDevSubmit} from '@/composables/useDevSubmit'
 
 import DevField from '../DevField.vue'
 import DevFormCard from '../DevFormCard.vue'
 import EntitySelect from '../EntitySelect.vue'
-import {type FormResult, orNull} from '../types'
+import {orNull} from '../types'
 
 const form = reactive({schoolId: '', title: '', code: ''})
-const result = ref<FormResult | null>(null)
+const {result, busy, send} = useDevSubmit()
+const {remember} = useDevOptions()
 
-function submit() {
-  result.value = {
-    kind: 'preview',
-    body: {schoolId: orNull(form.schoolId), title: form.title, code: form.code},
+async function submit() {
+  const course = await send<{id: string, title: string, code: string}>('POST', '/api/courses', {
+    schoolId: orNull(form.schoolId),
+    title: form.title,
+    code: form.code,
+  })
+  if (course) {
+    remember('courses', {value: course.id, label: `${course.code} ${course.title}`})
   }
 }
 </script>
@@ -22,8 +29,9 @@ function submit() {
 <template>
   <DevFormCard
     title="Course"
-    description="Not sent yet: waiting for the endpoint in #32."
+    description="Link it to a group below so the group reads it."
     :result="result"
+    :busy="busy"
     @submit="submit"
   >
     <EntitySelect

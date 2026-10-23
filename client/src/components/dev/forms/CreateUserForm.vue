@@ -1,21 +1,29 @@
 <script setup lang="ts">
-import {reactive, ref} from 'vue'
+import {reactive} from 'vue'
 
 import {Input} from '@/components/ui/input'
+import {useDevOptions} from '@/composables/useDevOptions'
+import {useDevSubmit} from '@/composables/useDevSubmit'
 
 import DevField from '../DevField.vue'
 import DevFormCard from '../DevFormCard.vue'
 import EntitySelect from '../EntitySelect.vue'
 import EnumSelect from '../EnumSelect.vue'
-import {type FormResult, orNull, userRoles} from '../types'
+import {orNull, userRoles} from '../types'
 
 const form = reactive({schoolId: '', name: '', email: '', role: 'Student'})
-const result = ref<FormResult | null>(null)
+const {result, busy, send} = useDevSubmit()
+const {remember} = useDevOptions()
 
-function submit() {
-  result.value = {
-    kind: 'preview',
-    body: {schoolId: orNull(form.schoolId), name: form.name, email: form.email, role: form.role},
+async function submit() {
+  const user = await send<{id: string, name: string, role: string}>('POST', '/api/users', {
+    schoolId: orNull(form.schoolId),
+    name: form.name,
+    email: form.email,
+    role: form.role,
+  })
+  if (user) {
+    remember('users', {value: user.id, label: `${user.name} (${user.role})`})
   }
 }
 </script>
@@ -23,8 +31,9 @@ function submit() {
 <template>
   <DevFormCard
     title="User"
-    description="Not sent yet: waiting for the endpoint in #32."
+    description="The email is stored in lowercase and has to be unique."
     :result="result"
+    :busy="busy"
     @submit="submit"
   >
     <EntitySelect
