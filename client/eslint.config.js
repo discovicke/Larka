@@ -40,6 +40,9 @@ export default defineConfigWithVueTs(
       'vue/html-closing-bracket-spacing': ['error', {selfClosingTag: 'never'}],
       'vue/html-self-closing': ['error', {html: {void: 'always', normal: 'always', component: 'always'}}],
 
+      // Inga enbokstavsnamn, utom i i loopar, T för typparametrar och _ för det man inte använder.
+      'id-length': ['error', {min: 2, exceptions: ['i', 'T', '_'], properties: 'never'}],
+
       'vue/max-attributes-per-line': ['error', {singleline: {max: 3}, multiline: {max: 1}}],
       'vue/singleline-html-element-content-newline': 'off',
     },

@@ -34,19 +34,19 @@ public static class DependencyInjection
         services.AddOptions<DatabaseOptions>().Bind(config.GetSection(DatabaseOptions.SectionName));
 
         // Läses vid körning så att t.ex. tester kan byta connection string.
-        services.AddDbContext<AppDb>((sp, o) =>
+        services.AddDbContext<AppDb>((serviceProvider, options) =>
         {
-            var provider = sp.GetRequiredService<IOptions<DatabaseOptions>>().Value.Provider;
-            var connectionString = sp.GetRequiredService<IConfiguration>().GetConnectionString("Default")
+            var provider = serviceProvider.GetRequiredService<IOptions<DatabaseOptions>>().Value.Provider;
+            var connectionString = serviceProvider.GetRequiredService<IConfiguration>().GetConnectionString("Default")
                 ?? throw new InvalidOperationException("ConnectionStrings:Default saknas.");
 
             switch (provider.ToLowerInvariant())
             {
                 case "sqlite":
-                    o.UseSqlite(connectionString);
+                    options.UseSqlite(connectionString);
                     break;
                 case "postgres":
-                    o.UseNpgsql(connectionString);
+                    options.UseNpgsql(connectionString);
                     break;
                 default:
                     throw new InvalidOperationException(

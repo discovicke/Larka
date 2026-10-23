@@ -21,7 +21,8 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     private record SubmissionResponse(
         Guid Id, Guid StudentId, string Status, List<FileResponse> Files, RepoResponse? Repo, GradeResponse? Grade);
 
-    private static readonly object[] _oneFile = [new { fileName = "rapport.pdf", url = "https://files/rapport.pdf", sizeBytes = 1200 }];
+    private static readonly object[] _oneFile =
+        [new { fileName = "rapport.pdf", url = "https://files/rapport.pdf", sizeBytes = 1200 }];
 
     [Fact]
     public async Task CreateAssignment_InRepoModeWithoutTemplate_ReturnsBadRequest()
@@ -51,22 +52,23 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
 
         var submissions = await ListAsync(linkId);
         Assert.Equal(2, submissions.Count);
-        Assert.All(submissions, s => Assert.Equal("NotStarted", s.Status));
-        Assert.All(submissions, s => Assert.Null(s.Repo));
+        Assert.All(submissions, submission => Assert.Equal("NotStarted", submission.Status));
+        Assert.All(submissions, submission => Assert.Null(submission.Repo));
     }
 
     [Fact]
     public async Task LinkingRepoAssignment_ToCourse_GivesEveryStudentInReadingGroupsARepo()
     {
         var courseId = await AddCourseReadByTwoGroupsAsync();
-        var assignment = await CreateAssignmentAsync(new { submissionMode = "repo", templateRepo = "skol-org/labb-1-mall" });
+        var assignment = await CreateAssignmentAsync(
+            new { submissionMode = "repo", templateRepo = "skol-org/labb-1-mall" });
 
         var linkId = await LinkAsync(assignment, new { courseId });
 
         var submissions = await ListAsync(linkId);
         Assert.Equal(2, submissions.Count);
-        Assert.All(submissions, s => Assert.Equal("Pending", s.Repo!.CheckStatus));
-        Assert.All(submissions, s => Assert.StartsWith("skol-org/labb-", s.Repo!.RepoFullName));
+        Assert.All(submissions, submission => Assert.Equal("Pending", submission.Repo!.CheckStatus));
+        Assert.All(submissions, submission => Assert.StartsWith("skol-org/labb-", submission.Repo!.RepoFullName));
     }
 
     [Fact]
@@ -97,7 +99,7 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
         var submissions = await ListAsync(linkId);
         var submission = Assert.Single(submissions);
         Assert.Equal("Submitted", submission.Status);
-        Assert.Equal(["rapport-v2.pdf"], submission.Files.Select(f => f.FileName));
+        Assert.Equal(["rapport-v2.pdf"], submission.Files.Select(file => file.FileName));
     }
 
     [Fact]
@@ -106,7 +108,8 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
         var (groupId, _) = await AddGroupAsync(students: 0);
         var linkId = await LinkAsync(await CreateAssignmentAsync(new { submissionMode = "file" }), new { groupId });
 
-        var response = await _client.PostAsJsonAsync($"/api/links/{linkId}/submissions", new { bodyMd = "Glömde filen" });
+        var response = await _client.PostAsJsonAsync(
+            $"/api/links/{linkId}/submissions", new { bodyMd = "Glömde filen" });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -127,7 +130,8 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task NeedsWork_ThenResubmit_ThenGrade()
     {
         var (groupId, _) = await AddGroupAsync(students: 0);
-        var linkId = await LinkAsync(await CreateAssignmentAsync(new { submissionMode = "file", maxScore = 50 }), new { groupId });
+        var assignment = await CreateAssignmentAsync(new { submissionMode = "file", maxScore = 50 });
+        var linkId = await LinkAsync(assignment, new { groupId });
         var submitted = await SubmitAsync(linkId);
 
         var needsWork = await _client.PostAsJsonAsync($"/api/submissions/{submitted.Id}/grade",
@@ -149,7 +153,8 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task Grade_AboveMaxScore_ReturnsBadRequest()
     {
         var (groupId, _) = await AddGroupAsync(students: 0);
-        var linkId = await LinkAsync(await CreateAssignmentAsync(new { submissionMode = "file", maxScore = 10 }), new { groupId });
+        var assignment = await CreateAssignmentAsync(new { submissionMode = "file", maxScore = 10 });
+        var linkId = await LinkAsync(assignment, new { groupId });
         var submitted = await SubmitAsync(linkId);
 
         var response = await _client.PostAsJsonAsync($"/api/submissions/{submitted.Id}/grade",
@@ -162,7 +167,8 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task Grade_BeforeAnythingIsSubmitted_ReturnsBadRequest()
     {
         var (groupId, _) = await AddGroupAsync(students: 1);
-        var linkId = await LinkAsync(await CreateAssignmentAsync(new { submissionMode = "file", maxScore = 10 }), new { groupId });
+        var assignment = await CreateAssignmentAsync(new { submissionMode = "file", maxScore = 10 });
+        var linkId = await LinkAsync(assignment, new { groupId });
         var notStarted = Assert.Single(await ListAsync(linkId));
 
         var response = await _client.PostAsJsonAsync($"/api/submissions/{notStarted.Id}/grade",
@@ -174,9 +180,9 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     private async Task<Guid> CreateAssignmentAsync(object spec)
     {
         var body = new Dictionary<string, object?> { ["type"] = "assignment", ["title"] = "Labb 1", ["bodyMd"] = "" };
-        foreach (var p in spec.GetType().GetProperties())
+        foreach (var property in spec.GetType().GetProperties())
         {
-            body[p.Name] = p.GetValue(spec);
+            body[property.Name] = property.GetValue(spec);
         }
 
         var response = await _client.PostAsJsonAsync("/api/content", body);

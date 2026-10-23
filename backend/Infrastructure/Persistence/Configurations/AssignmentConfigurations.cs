@@ -9,39 +9,45 @@ namespace Backend.Infrastructure.Persistence.Configurations;
 
 public class AssignmentSpecConfiguration : IEntityTypeConfiguration<AssignmentSpec>
 {
-    public void Configure(EntityTypeBuilder<AssignmentSpec> b)
+    public void Configure(EntityTypeBuilder<AssignmentSpec> builder)
     {
-        b.HasKey(a => a.ContentId);
+        builder.HasKey(spec => spec.ContentId);
     }
 }
 
 public class SubmissionConfiguration : IEntityTypeConfiguration<Submission>
 {
-    public void Configure(EntityTypeBuilder<Submission> b)
+    public void Configure(EntityTypeBuilder<Submission> builder)
     {
-        b.HasOne<ContentLink>().WithMany().HasForeignKey(s => s.ContentLinkId).OnDelete(DeleteBehavior.Restrict);
-        b.HasOne<User>().WithMany().HasForeignKey(s => s.StudentId).OnDelete(DeleteBehavior.Restrict);
-        b.HasIndex(s => new { s.ContentLinkId, s.StudentId }).IsUnique();
+        builder.HasOne<ContentLink>().WithMany()
+            .HasForeignKey(submission => submission.ContentLinkId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<User>().WithMany()
+            .HasForeignKey(submission => submission.StudentId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(submission => new { submission.ContentLinkId, submission.StudentId }).IsUnique();
 
-        b.HasMany(s => s.Files).WithOne().HasForeignKey(f => f.SubmissionId).OnDelete(DeleteBehavior.Cascade);
-        b.HasOne(s => s.Repo).WithOne().HasForeignKey<StudentRepo>(r => r.SubmissionId).OnDelete(DeleteBehavior.Cascade);
-        b.HasOne(s => s.Grade).WithOne().HasForeignKey<Grade>(g => g.SubmissionId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasMany(submission => submission.Files).WithOne()
+            .HasForeignKey(file => file.SubmissionId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(submission => submission.Repo).WithOne()
+            .HasForeignKey<StudentRepo>(repo => repo.SubmissionId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(submission => submission.Grade).WithOne()
+            .HasForeignKey<Grade>(grade => grade.SubmissionId).OnDelete(DeleteBehavior.Cascade);
     }
 }
 
 public class StudentRepoConfiguration : IEntityTypeConfiguration<StudentRepo>
 {
-    public void Configure(EntityTypeBuilder<StudentRepo> b)
+    public void Configure(EntityTypeBuilder<StudentRepo> builder)
     {
-        b.HasKey(r => r.SubmissionId);
+        builder.HasKey(repo => repo.SubmissionId);
     }
 }
 
 public class GradeConfiguration : IEntityTypeConfiguration<Grade>
 {
-    public void Configure(EntityTypeBuilder<Grade> b)
+    public void Configure(EntityTypeBuilder<Grade> builder)
     {
-        b.HasKey(g => g.SubmissionId);
-        b.HasOne<User>().WithMany().HasForeignKey(g => g.GradedById).OnDelete(DeleteBehavior.Restrict);
+        builder.HasKey(grade => grade.SubmissionId);
+        builder.HasOne<User>().WithMany()
+            .HasForeignKey(grade => grade.GradedById).OnDelete(DeleteBehavior.Restrict);
     }
 }

@@ -55,7 +55,7 @@ describe('api', () => {
   it('kastar ApiError med status vid fel', async () => {
     respond(404, '', 'text/plain')
 
-    const error = await api.get('/api/nope').catch((e: unknown) => e)
+    const error = await api.get('/api/nope').catch((thrown: unknown) => thrown)
 
     expect(error).toBeInstanceOf(ApiError)
     expect((error as ApiError).status).toBe(404)
@@ -72,7 +72,7 @@ describe('api', () => {
   it('packar upp felmeddelanden som skickas som JSON-sträng', async () => {
     respond(400, '"title is required"')
 
-    const error = await api.post('/api/content', {}).catch((e: unknown) => e)
+    const error = await api.post('/api/content', {}).catch((thrown: unknown) => thrown)
 
     expect((error as ApiError).message).toBe('title is required')
   })

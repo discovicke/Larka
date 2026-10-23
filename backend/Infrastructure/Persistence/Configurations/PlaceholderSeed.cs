@@ -10,17 +10,17 @@ namespace Backend.Infrastructure.Persistence.Configurations;
 
 public class PlaceholderSchoolSeed : IEntityTypeConfiguration<School>
 {
-    public void Configure(EntityTypeBuilder<School> b)
+    public void Configure(EntityTypeBuilder<School> builder)
     {
-        b.HasData(new School { Id = PlaceholderCurrentUser.PlaceholderSchoolId, Name = "Placeholder-skolan" });
+        builder.HasData(new School { Id = PlaceholderCurrentUser.PlaceholderSchoolId, Name = "Placeholder-skolan" });
     }
 }
 
 public class PlaceholderUserSeed : IEntityTypeConfiguration<User>
 {
-    public void Configure(EntityTypeBuilder<User> b)
+    public void Configure(EntityTypeBuilder<User> builder)
     {
-        b.HasData(new User
+        builder.HasData(new User
         {
             Id = PlaceholderCurrentUser.PlaceholderUserId,
             SchoolId = PlaceholderCurrentUser.PlaceholderSchoolId,

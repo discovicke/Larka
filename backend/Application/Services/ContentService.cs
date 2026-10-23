@@ -35,9 +35,11 @@ public class ContentService(
             return ServiceResult<Content>.Invalid("title is required");
         }
 
-        if (type != ContentType.Assignment && (dto.MaxScore is not null || dto.SubmissionMode is not null || dto.TemplateRepo is not null))
+        if (type != ContentType.Assignment &&
+            (dto.MaxScore is not null || dto.SubmissionMode is not null || dto.TemplateRepo is not null))
         {
-            return ServiceResult<Content>.Invalid("maxScore, submissionMode and templateRepo are only allowed on assignments");
+            return ServiceResult<Content>.Invalid(
+                "maxScore, submissionMode and templateRepo are only allowed on assignments");
         }
 
         var mode = SubmissionMode.None;
@@ -48,10 +50,11 @@ public class ContentService(
 
         if (SubmissionService.UsesRepo(mode) != (dto.TemplateRepo is not null))
         {
-            return ServiceResult<Content>.Invalid("templateRepo is required for repo and fileOrRepo, and only allowed there");
+            return ServiceResult<Content>.Invalid(
+                "templateRepo is required for repo and fileOrRepo, and only allowed there");
         }
 
-        if (dto.TemplateRepo is not null && dto.TemplateRepo.Split('/') is not [{ Length: > 0 }, { Length: > 0 }])
+        if (dto.TemplateRepo is not null && !LooksLikeOrgAndName(dto.TemplateRepo))
         {
             return ServiceResult<Content>.Invalid("templateRepo must look like org/name");
         }
@@ -99,17 +102,18 @@ public class ContentService(
             return ServiceResult<ContentLink>.Invalid("groupId or courseId is required");
         }
 
-        if (dto.GroupId is { } groupId && !await groups.ExistsAsync(groupId, ct))
+        if (dto.GroupId is not null && !await groups.ExistsAsync(dto.GroupId.Value, ct))
         {
             return ServiceResult<ContentLink>.Invalid("group does not exist");
         }
 
-        if (dto.CourseId is { } courseId && !await groups.CourseExistsAsync(courseId, ct))
+        if (dto.CourseId is not null && !await groups.CourseExistsAsync(dto.CourseId.Value, ct))
         {
             return ServiceResult<ContentLink>.Invalid("course does not exist");
         }
 
-        if (dto is { GroupId: { } g, CourseId: { } c } && !await groups.ReadsCourseAsync(g, c, ct))
+        var linksGroupAndCourse = dto.GroupId is not null && dto.CourseId is not null;
+        if (linksGroupAndCourse && !await groups.ReadsCourseAsync(dto.GroupId!.Value, dto.CourseId!.Value, ct))
         {
             return ServiceResult<ContentLink>.Invalid("group does not read this course");
         }
@@ -178,5 +182,14 @@ public class ContentService(
     }
 
     private static ContentType? ParseType(string? type) =>
-        Enum.TryParse<ContentType>(type, true, out var t) ? t : null;
+        Enum.TryParse<ContentType>(type, true, out var contentType)
+            ? contentType
+            : null;
+
+    // "org/name": exakt ett snedstreck, med text på båda sidor.
+    private static bool LooksLikeOrgAndName(string repo)
+    {
+        var parts = repo.Split('/');
+        return parts.Length == 2 && parts[0].Length > 0 && parts[1].Length > 0;
+    }
 }

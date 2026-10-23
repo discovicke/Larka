@@ -41,7 +41,7 @@ const sources: OptionSource[] = [
 ]
 
 function perSource<T>(value: () => T): Record<OptionSource, T> {
-  return Object.fromEntries(sources.map((s) => [s, value()])) as Record<OptionSource, T>
+  return Object.fromEntries(sources.map((source) => [source, value()])) as Record<OptionSource, T>
 }
 
 // Delas av alla formulär på /dev, så en ny grupp syns i alla grupp-dropdowns efter en uppdatering.
@@ -53,7 +53,7 @@ const loading = reactive(perSource(() => false))
 const created = perSource<Option[]>(() => [])
 
 function unique(items: Option[]): Option[] {
-  return [...new Map(items.map((o) => [o.value, o])).values()]
+  return [...new Map(items.map((option) => [option.value, option])).values()]
 }
 
 async function loadGroups(): Promise<Group[]> {
@@ -64,18 +64,18 @@ async function loadGroups(): Promise<Group[]> {
 // Kurser som ingen grupp läser syns därför inte.
 async function loadCourses(): Promise<Course[]> {
   const groups = await loadGroups()
-  const perGroup = await Promise.all(groups.map((g) => api.get<Course[]>(`/api/groups/${g.id}/courses`)))
-  return [...new Map(perGroup.flat().map((c) => [c.id, c])).values()]
+  const perGroup = await Promise.all(groups.map((group) => api.get<Course[]>(`/api/groups/${group.id}/courses`)))
+  return [...new Map(perGroup.flat().map((course) => [course.id, course])).values()]
 }
 
 // Det finns inget GET för all content, så den samlas ihop från alla grupp- och kursflöden.
 async function loadFeed(): Promise<{item: FeedItem, target: string}[]> {
   const [groups, courses] = await Promise.all([loadGroups(), loadCourses()])
   const feeds = await Promise.all([
-    ...groups.map(async (g) => (await api.get<FeedItem[]>(`/api/groups/${g.id}/content`))
-      .map((item) => ({item, target: g.name}))),
-    ...courses.map(async (c) => (await api.get<FeedItem[]>(`/api/courses/${c.id}/content`))
-      .map((item) => ({item, target: c.code}))),
+    ...groups.map(async (group) => (await api.get<FeedItem[]>(`/api/groups/${group.id}/content`))
+      .map((item) => ({item, target: group.name}))),
+    ...courses.map(async (course) => (await api.get<FeedItem[]>(`/api/courses/${course.id}/content`))
+      .map((item) => ({item, target: course.code}))),
   ])
   return feeds.flat()
 }
@@ -88,8 +88,8 @@ async function loadAssignmentLinks(): Promise<Option[]> {
 }
 
 const loaders: Partial<Record<OptionSource, () => Promise<Option[]>>> = {
-  groups: async () => (await loadGroups()).map((g) => ({value: g.id, label: `${g.name} (${g.term})`})),
-  courses: async () => (await loadCourses()).map((c) => ({value: c.id, label: `${c.code} ${c.title}`})),
+  groups: async () => (await loadGroups()).map((group) => ({value: group.id, label: `${group.name} (${group.term})`})),
+  courses: async () => (await loadCourses()).map((course) => ({value: course.id, label: `${course.code} ${course.title}`})),
   contents: async () => (await loadFeed()).map(({item}) => ({
     value: item.contentId,
     label: `${item.title} (${item.type})`,
@@ -99,7 +99,7 @@ const loaders: Partial<Record<OptionSource, () => Promise<Option[]>>> = {
     const links = unique([...(await loadAssignmentLinks()), ...created.contentLinks])
     const perLink = await Promise.all(links.map(async (link) =>
       (await api.get<Submission[]>(`/api/links/${link.value}/submissions`))
-        .map((s) => ({value: s.id, label: `${link.label}: ${s.status}`}))))
+        .map((submission) => ({value: submission.id, label: `${link.label}: ${submission.status}`}))))
     return perLink.flat()
   },
   // schools och users: kräver GET-endpoints från #32.
@@ -130,7 +130,7 @@ export function useDevOptions() {
   }
 
   function labelOf(source: OptionSource, value: string): string | undefined {
-    return options[source].find((o) => o.value === value)?.label
+    return options[source].find((option) => option.value === value)?.label
   }
 
   return {options, loading, refresh, remember, labelOf}

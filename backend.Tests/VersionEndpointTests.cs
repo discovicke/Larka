@@ -16,10 +16,10 @@ public class VersionEndpointTests(TestWebApplicationFactory factory) : IClassFix
     [Fact]
     public async Task GetVersion_ReturnsDeployedVersionAndCommit()
     {
-        var client = factory.WithWebHostBuilder(b =>
+        var client = factory.WithWebHostBuilder(builder =>
         {
-            b.UseSetting("APP_VERSION", "1.2.3");
-            b.UseSetting("GIT_COMMIT", "abc123");
+            builder.UseSetting("APP_VERSION", "1.2.3");
+            builder.UseSetting("GIT_COMMIT", "abc123");
         }).CreateClient();
 
         var version = await client.GetFromJsonAsync<VersionResponse>("/version");

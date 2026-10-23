@@ -110,6 +110,8 @@ import {computed} from 'vue'   // inga mellanslag innanför { }
 return value === ''            // ? och : alltid på egna rader
   ? null
   : value
+
+groups.map((group) => group.id) // inga enbokstavsnamn, utom i i loopar, T och _
 ```
 
 ```vue

@@ -17,8 +17,11 @@ public interface IContentRepository
 
     // Publicerat innehåll med PublishAt passerad. Gruppens flöde tar även med det som är länkat
     // till en kurs gruppen läser (länkar med bara CourseId).
-    Task<List<ContentFeedItem>> GetGroupFeedAsync(Guid groupId, ContentType? type, DateTimeOffset now, CancellationToken ct);
-    Task<List<ContentFeedItem>> GetCourseFeedAsync(Guid courseId, ContentType? type, DateTimeOffset now, CancellationToken ct);
+    Task<List<ContentFeedItem>> GetGroupFeedAsync(Guid groupId, ContentType? type, DateTimeOffset now,
+        CancellationToken ct);
+
+    Task<List<ContentFeedItem>> GetCourseFeedAsync(Guid courseId, ContentType? type, DateTimeOffset now,
+        CancellationToken ct);
 
     Task<List<Comment>> GetCommentsAsync(Guid contentId, CancellationToken ct);
     void AddComment(Comment comment);

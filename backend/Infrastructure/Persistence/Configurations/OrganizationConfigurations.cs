@@ -9,48 +9,52 @@ namespace Backend.Infrastructure.Persistence.Configurations;
 
 public class UserConfiguration : IEntityTypeConfiguration<User>
 {
-    public void Configure(EntityTypeBuilder<User> b)
+    public void Configure(EntityTypeBuilder<User> builder)
     {
-        b.HasOne<School>().WithMany().HasForeignKey(u => u.SchoolId).OnDelete(DeleteBehavior.Restrict);
-        b.HasIndex(u => u.Email).IsUnique();
+        builder.HasOne<School>().WithMany().HasForeignKey(user => user.SchoolId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(user => user.Email).IsUnique();
     }
 }
 
 public class GroupConfiguration : IEntityTypeConfiguration<Group>
 {
-    public void Configure(EntityTypeBuilder<Group> b)
+    public void Configure(EntityTypeBuilder<Group> builder)
     {
-        b.HasOne<School>().WithMany().HasForeignKey(g => g.SchoolId).OnDelete(DeleteBehavior.Restrict);
-        b.HasIndex(g => new { g.SchoolId, g.Name, g.Term }).IsUnique();
+        builder.HasOne<School>().WithMany().HasForeignKey(group => group.SchoolId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(group => new { group.SchoolId, group.Name, group.Term }).IsUnique();
     }
 }
 
 public class CourseConfiguration : IEntityTypeConfiguration<Course>
 {
-    public void Configure(EntityTypeBuilder<Course> b)
+    public void Configure(EntityTypeBuilder<Course> builder)
     {
-        b.HasOne<School>().WithMany().HasForeignKey(c => c.SchoolId).OnDelete(DeleteBehavior.Restrict);
-        b.HasIndex(c => new { c.SchoolId, c.Code }).IsUnique();
+        builder.HasOne<School>().WithMany().HasForeignKey(course => course.SchoolId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(course => new { course.SchoolId, course.Code }).IsUnique();
     }
 }
 
 // Enda kopplingen mellan kurs och grupp (M-N).
 public class GroupCourseConfiguration : IEntityTypeConfiguration<GroupCourse>
 {
-    public void Configure(EntityTypeBuilder<GroupCourse> b)
+    public void Configure(EntityTypeBuilder<GroupCourse> builder)
     {
-        b.HasKey(gc => new { gc.GroupId, gc.CourseId });
-        b.HasOne<Group>().WithMany().HasForeignKey(gc => gc.GroupId).OnDelete(DeleteBehavior.Restrict);
-        b.HasOne<Course>().WithMany().HasForeignKey(gc => gc.CourseId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasKey(groupCourse => new { groupCourse.GroupId, groupCourse.CourseId });
+        builder.HasOne<Group>().WithMany()
+            .HasForeignKey(groupCourse => groupCourse.GroupId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Course>().WithMany()
+            .HasForeignKey(groupCourse => groupCourse.CourseId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 
 public class EnrollmentConfiguration : IEntityTypeConfiguration<Enrollment>
 {
-    public void Configure(EntityTypeBuilder<Enrollment> b)
+    public void Configure(EntityTypeBuilder<Enrollment> builder)
     {
-        b.HasKey(e => new { e.UserId, e.GroupId });
-        b.HasOne<User>().WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Restrict);
-        b.HasOne<Group>().WithMany().HasForeignKey(e => e.GroupId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasKey(enrollment => new { enrollment.UserId, enrollment.GroupId });
+        builder.HasOne<User>().WithMany()
+            .HasForeignKey(enrollment => enrollment.UserId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Group>().WithMany()
+            .HasForeignKey(enrollment => enrollment.GroupId).OnDelete(DeleteBehavior.Restrict);
     }
 }

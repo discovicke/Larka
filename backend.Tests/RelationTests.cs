@@ -19,9 +19,12 @@ public class RelationTests(TestWebApplicationFactory factory) : IClassFixture<Te
         var model = scope.ServiceProvider.GetRequiredService<AppDb>().Model;
 
         var missing = model.GetEntityTypes()
-            .SelectMany(e => e.GetProperties().Select(p => (Entity: e, Property: p)))
-            .Where(x => x.Property.Name != "Id" && x.Property.Name.EndsWith("Id") && !x.Property.IsForeignKey())
-            .Select(x => $"{x.Entity.ClrType.Name}.{x.Property.Name}")
+            .SelectMany(entity => entity.GetProperties().Select(property => (Entity: entity, Property: property)))
+            .Where(column =>
+                column.Property.Name != "Id"
+                && column.Property.Name.EndsWith("Id")
+                && !column.Property.IsForeignKey())
+            .Select(column => $"{column.Entity.ClrType.Name}.{column.Property.Name}")
             .ToList();
 
         Assert.Empty(missing);
@@ -67,7 +70,7 @@ public class RelationTests(TestWebApplicationFactory factory) : IClassFixture<Te
         // Ny context som inte känner till gruppen, så det är databasen som säger nej och inte EF.
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
-        db.Schools.Remove(await db.Schools.SingleAsync(s => s.Id == schoolId));
+        db.Schools.Remove(await db.Schools.SingleAsync(school => school.Id == schoolId));
 
         await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
     }
@@ -118,7 +121,7 @@ public class RelationTests(TestWebApplicationFactory factory) : IClassFixture<Te
 
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
-        db.ContentLinks.Remove(await db.ContentLinks.SingleAsync(l => l.Id == linkId));
+        db.ContentLinks.Remove(await db.ContentLinks.SingleAsync(link => link.Id == linkId));
 
         await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
     }
@@ -132,7 +135,12 @@ public class RelationTests(TestWebApplicationFactory factory) : IClassFixture<Te
             var setupDb = setup.ServiceProvider.GetRequiredService<AppDb>();
             var user = await TestData.AddUserAsync(setupDb);
             var content = new Content { AuthorId = user.Id, Type = ContentType.News, Title = "Nyhet" };
-            var notification = new Notification { UserId = user.Id, Kind = NotificationKind.NewsPublished, ContentId = content.Id };
+            var notification = new Notification
+            {
+                UserId = user.Id,
+                Kind = NotificationKind.NewsPublished,
+                ContentId = content.Id
+            };
             setupDb.Content.Add(content);
             setupDb.Notifications.Add(notification);
             await setupDb.SaveChangesAsync();
@@ -141,9 +149,9 @@ public class RelationTests(TestWebApplicationFactory factory) : IClassFixture<Te
 
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
-        await db.Content.Where(c => c.Id == contentId).ExecuteDeleteAsync();
+        await db.Content.Where(content => content.Id == contentId).ExecuteDeleteAsync();
 
-        var kept = await db.Notifications.SingleAsync(n => n.Id == notificationId);
+        var kept = await db.Notifications.SingleAsync(notification => notification.Id == notificationId);
         Assert.Null(kept.ContentId);
     }
 
@@ -154,13 +162,16 @@ public class RelationTests(TestWebApplicationFactory factory) : IClassFixture<Te
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
         var user = await TestData.AddUserAsync(db);
         var endpoint = $"https://fcm.googleapis.com/fcm/send/{Guid.NewGuid():N}";
-        db.PushSubscriptions.Add(new PushSubscription { UserId = user.Id, Endpoint = endpoint, P256dh = "k", Auth = "a" });
+        db.PushSubscriptions.Add(NewSubscription(user.Id, endpoint));
         await db.SaveChangesAsync();
 
-        db.PushSubscriptions.Add(new PushSubscription { UserId = user.Id, Endpoint = endpoint, P256dh = "k", Auth = "a" });
+        db.PushSubscriptions.Add(NewSubscription(user.Id, endpoint));
 
         await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
     }
+
+    private static PushSubscription NewSubscription(Guid userId, string endpoint) =>
+        new() { UserId = userId, Endpoint = endpoint, P256dh = "k", Auth = "a" };
 
     private static async Task<(ContentLink Link, User Student)> AddLinkWithStudentAsync(AppDb db)
     {

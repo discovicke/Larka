@@ -9,19 +9,23 @@ namespace Backend.Infrastructure.Persistence.Configurations;
 
 public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
 {
-    public void Configure(EntityTypeBuilder<Notification> b)
+    public void Configure(EntityTypeBuilder<Notification> builder)
     {
-        b.HasOne<User>().WithMany().HasForeignKey(n => n.UserId).OnDelete(DeleteBehavior.Cascade);
-        b.HasOne<Content>().WithMany().HasForeignKey(n => n.ContentId).OnDelete(DeleteBehavior.SetNull);
-        b.HasOne<Submission>().WithMany().HasForeignKey(n => n.SubmissionId).OnDelete(DeleteBehavior.SetNull);
+        builder.HasOne<User>().WithMany()
+            .HasForeignKey(notification => notification.UserId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<Content>().WithMany()
+            .HasForeignKey(notification => notification.ContentId).OnDelete(DeleteBehavior.SetNull);
+        builder.HasOne<Submission>().WithMany()
+            .HasForeignKey(notification => notification.SubmissionId).OnDelete(DeleteBehavior.SetNull);
     }
 }
 
 public class PushSubscriptionConfiguration : IEntityTypeConfiguration<PushSubscription>
 {
-    public void Configure(EntityTypeBuilder<PushSubscription> b)
+    public void Configure(EntityTypeBuilder<PushSubscription> builder)
     {
-        b.HasOne<User>().WithMany().HasForeignKey(p => p.UserId).OnDelete(DeleteBehavior.Cascade);
-        b.HasIndex(p => p.Endpoint).IsUnique();
+        builder.HasOne<User>().WithMany()
+            .HasForeignKey(subscription => subscription.UserId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasIndex(subscription => subscription.Endpoint).IsUnique();
     }
 }

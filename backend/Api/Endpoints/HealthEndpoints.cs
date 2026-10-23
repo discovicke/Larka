@@ -13,7 +13,9 @@ public static class HealthEndpoints
             {
                 context.Response.ContentType = "text/plain";
                 return context.Response.WriteAsync(
-                    report.Status == HealthStatus.Healthy ? "OK" : report.Status.ToString());
+                    report.Status == HealthStatus.Healthy
+                        ? "OK"
+                        : report.Status.ToString());
             }
         }).WithTags("Health");
 

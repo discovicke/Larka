@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace Backend.Infrastructure.Persistence;
 
-public class AppDb(DbContextOptions<AppDb> o) : DbContext(o)
+public class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
 {
     public DbSet<User> Users => Set<User>();
     public DbSet<School> Schools => Set<School>();
@@ -25,30 +25,30 @@ public class AppDb(DbContextOptions<AppDb> o) : DbContext(o)
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
 
-    protected override void ConfigureConventions(ModelConfigurationBuilder b)
+    protected override void ConfigureConventions(ModelConfigurationBuilder builder)
     {
         // SQLite kan inte sortera/jämföra DateTimeOffset, så där lagras de som tal. Postgres hanterar dem själv.
         if (Database.IsSqlite())
         {
-            b.Properties<DateTimeOffset>().HaveConversion<DateTimeOffsetToBinaryConverter>();
-            b.Properties<DateTimeOffset?>().HaveConversion<DateTimeOffsetToBinaryConverter>();
+            builder.Properties<DateTimeOffset>().HaveConversion<DateTimeOffsetToBinaryConverter>();
+            builder.Properties<DateTimeOffset?>().HaveConversion<DateTimeOffsetToBinaryConverter>();
         }
 
         // Enums sparas som text ("Student" i stället för 0), så tabellerna går att läsa direkt i databasen.
-        b.Properties<UserRole>().HaveConversion<string>();
-        b.Properties<GroupType>().HaveConversion<string>();
-        b.Properties<GroupRole>().HaveConversion<string>();
-        b.Properties<ContentType>().HaveConversion<string>();
-        b.Properties<ContentStatus>().HaveConversion<string>();
-        b.Properties<CheckStatus>().HaveConversion<string>();
-        b.Properties<SubmissionMode>().HaveConversion<string>();
-        b.Properties<SubmissionStatus>().HaveConversion<string>();
-        b.Properties<NotificationKind>().HaveConversion<string>();
+        builder.Properties<UserRole>().HaveConversion<string>();
+        builder.Properties<GroupType>().HaveConversion<string>();
+        builder.Properties<GroupRole>().HaveConversion<string>();
+        builder.Properties<ContentType>().HaveConversion<string>();
+        builder.Properties<ContentStatus>().HaveConversion<string>();
+        builder.Properties<CheckStatus>().HaveConversion<string>();
+        builder.Properties<SubmissionMode>().HaveConversion<string>();
+        builder.Properties<SubmissionStatus>().HaveConversion<string>();
+        builder.Properties<NotificationKind>().HaveConversion<string>();
     }
 
-    protected override void OnModelCreating(ModelBuilder m)
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Relationer, nycklar och unika regler ligger i Configurations/, en klass per tabell.
-        m.ApplyConfigurationsFromAssembly(typeof(AppDb).Assembly);
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDb).Assembly);
     }
 }

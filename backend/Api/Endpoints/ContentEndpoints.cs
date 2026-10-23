@@ -8,29 +8,38 @@ public static class ContentEndpoints
     public static IEndpointRouteBuilder MapContentEndpoints(this IEndpointRouteBuilder app)
     {
         // --- content: skapas fristående, publiceras med länkar ---
-        var content = app.MapGroup("/content").WithTags("Content");
+        var contentGroup = app.MapGroup("/content").WithTags("Content");
 
-        content.MapPost("", async (CreateContentDto d, ContentService service, CancellationToken ct) =>
-            (await service.CreateAsync(d, ct)).ToHttp(c => Results.Created($"/api/content/{c.Id}", c)));
+        contentGroup.MapPost("", async (CreateContentDto contentDto, ContentService service, CancellationToken ct) =>
+            (await service.CreateAsync(contentDto, ct)).ToHttp(content =>
+                Results.Created($"/api/content/{content.Id}", content)));
 
-        content.MapGet("/{id:guid}", async (Guid id, ContentService service, CancellationToken ct) =>
-            await service.GetAsync(id, ct) is { } c ? Results.Ok(c) : Results.NotFound());
+        contentGroup.MapGet("/{id:guid}", async (Guid id, ContentService service, CancellationToken ct) =>
+        {
+            var content = await service.GetAsync(id, ct);
+            return content is null
+                ? Results.NotFound()
+                : Results.Ok(content);
+        });
 
-        content.MapPost("/{id:guid}/links",
-            async (Guid id, CreateContentLinkDto d, ContentService service, CancellationToken ct) =>
-                (await service.AddLinkAsync(id, d, ct)).ToHttp(l => Results.Created($"/api/content/{id}", l)));
+        contentGroup.MapPost("/{id:guid}/links",
+            async (Guid id, CreateContentLinkDto contentLinkDto, ContentService service, CancellationToken ct) =>
+                (await service.AddLinkAsync(id, contentLinkDto, ct)).ToHttp(contentLink =>
+                    Results.Created($"/api/content/{id}", contentLink)));
 
         // --- comments + attachments ---
-        content.MapGet("/{id:guid}/comments", async (Guid id, ContentService service, CancellationToken ct) =>
+        contentGroup.MapGet("/{id:guid}/comments", async (Guid id, ContentService service, CancellationToken ct) =>
             Results.Ok(await service.GetCommentsAsync(id, ct)));
 
-        content.MapPost("/{id:guid}/comments",
-            async (Guid id, CommentDto d, ContentService service, CancellationToken ct) =>
-                (await service.AddCommentAsync(id, d, ct)).ToHttp(c => Results.Created($"/api/content/{id}/comments", c)));
+        contentGroup.MapPost("/{id:guid}/comments",
+            async (Guid id, CommentDto commentDto, ContentService service, CancellationToken ct) =>
+                (await service.AddCommentAsync(id, commentDto, ct)).ToHttp(comment =>
+                    Results.Created($"/api/content/{id}/comments", comment)));
 
-        content.MapPost("/{id:guid}/attachments",
-            async (Guid id, AttachmentDto d, ContentService service, CancellationToken ct) =>
-                (await service.AddAttachmentAsync(id, d, ct)).ToHttp(a => Results.Created($"/api/content/{id}", a)));
+        contentGroup.MapPost("/{id:guid}/attachments",
+            async (Guid id, AttachmentDto attachmentDto, ContentService service, CancellationToken ct) =>
+                (await service.AddAttachmentAsync(id, attachmentDto, ct)).ToHttp(attachment =>
+                    Results.Created($"/api/content/{id}", attachment)));
 
         // --- flöden: ?type=news|theory|assignment ---
         app.MapGet("/groups/{id:guid}/content",

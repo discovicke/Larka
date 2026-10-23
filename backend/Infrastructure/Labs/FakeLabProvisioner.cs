@@ -12,12 +12,12 @@ public class FakeLabProvisioner(IConfiguration cfg) : ILabProvisioner
     public Task<IReadOnlyList<StudentRepo>> ProvisionAsync(
         string templateRepo, string assignmentTitle, IReadOnlyList<RepoRequest> requests, CancellationToken ct)
     {
-        var repos = requests.Select(r =>
+        var repos = requests.Select(request =>
         {
-            var slug = r.Student.Email.Split('@')[0].Replace(".", "-").ToLowerInvariant();
+            var slug = request.Student.Email.Split('@')[0].Replace(".", "-").ToLowerInvariant();
             return new StudentRepo
             {
-                SubmissionId = r.SubmissionId,
+                SubmissionId = request.SubmissionId,
                 RepoFullName = $"{_org}/{assignmentTitle.ToLowerInvariant().Replace(" ", "-")}-{slug}",
                 CheckStatus = CheckStatus.Pending
             };

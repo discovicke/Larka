@@ -9,39 +9,42 @@ namespace Backend.Infrastructure.Persistence.Configurations;
 
 public class ContentConfiguration : IEntityTypeConfiguration<Content>
 {
-    public void Configure(EntityTypeBuilder<Content> b)
+    public void Configure(EntityTypeBuilder<Content> builder)
     {
-        b.HasOne<User>().WithMany().HasForeignKey(c => c.AuthorId).OnDelete(DeleteBehavior.Restrict);
-        b.HasOne(c => c.Assignment).WithOne().HasForeignKey<AssignmentSpec>(a => a.ContentId)
-            .OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<User>().WithMany().HasForeignKey(content => content.AuthorId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(content => content.Assignment).WithOne()
+            .HasForeignKey<AssignmentSpec>(spec => spec.ContentId).OnDelete(DeleteBehavior.Cascade);
     }
 }
 
 public class ContentLinkConfiguration : IEntityTypeConfiguration<ContentLink>
 {
-    public void Configure(EntityTypeBuilder<ContentLink> b)
+    public void Configure(EntityTypeBuilder<ContentLink> builder)
     {
-        b.HasOne<Content>().WithMany().HasForeignKey(l => l.ContentId).OnDelete(DeleteBehavior.Cascade);
-        b.HasOne<Group>().WithMany().HasForeignKey(l => l.GroupId).OnDelete(DeleteBehavior.Restrict);
-        b.HasOne<Course>().WithMany().HasForeignKey(l => l.CourseId).OnDelete(DeleteBehavior.Restrict);
-        b.ToTable(t => t.HasCheckConstraint(
+        builder.HasOne<Content>().WithMany().HasForeignKey(link => link.ContentId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<Group>().WithMany().HasForeignKey(link => link.GroupId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Course>().WithMany().HasForeignKey(link => link.CourseId).OnDelete(DeleteBehavior.Restrict);
+        builder.ToTable(table => table.HasCheckConstraint(
             "CK_ContentLinks_GroupOrCourse", "\"GroupId\" IS NOT NULL OR \"CourseId\" IS NOT NULL"));
     }
 }
 
 public class AttachmentConfiguration : IEntityTypeConfiguration<Attachment>
 {
-    public void Configure(EntityTypeBuilder<Attachment> b)
+    public void Configure(EntityTypeBuilder<Attachment> builder)
     {
-        b.HasOne<Content>().WithMany().HasForeignKey(a => a.ContentId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<Content>().WithMany()
+            .HasForeignKey(attachment => attachment.ContentId).OnDelete(DeleteBehavior.Cascade);
     }
 }
 
 public class CommentConfiguration : IEntityTypeConfiguration<Comment>
 {
-    public void Configure(EntityTypeBuilder<Comment> b)
+    public void Configure(EntityTypeBuilder<Comment> builder)
     {
-        b.HasOne<Content>().WithMany().HasForeignKey(c => c.ContentId).OnDelete(DeleteBehavior.Cascade);
-        b.HasOne<User>().WithMany().HasForeignKey(c => c.AuthorId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Content>().WithMany()
+            .HasForeignKey(comment => comment.ContentId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<User>().WithMany()
+            .HasForeignKey(comment => comment.AuthorId).OnDelete(DeleteBehavior.Restrict);
     }
 }

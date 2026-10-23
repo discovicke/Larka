@@ -57,9 +57,9 @@ public static class TestData
     {
         var course = new Course { SchoolId = schoolId, Title = "Kurs", Code = $"K-{Guid.NewGuid():N}"[..10] };
         db.Courses.Add(course);
-        if (groupId is { } g)
+        if (groupId is not null)
         {
-            db.GroupCourses.Add(new GroupCourse { GroupId = g, CourseId = course.Id });
+            db.GroupCourses.Add(new GroupCourse { GroupId = groupId.Value, CourseId = course.Id });
         }
 
         await db.SaveChangesAsync();

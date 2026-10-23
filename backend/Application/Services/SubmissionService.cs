@@ -26,26 +26,29 @@ public class SubmissionService(
     /// </summary>
     public async Task HandOutAsync(ContentLink link, Content content, CancellationToken ct)
     {
-        if (content.Assignment is not { SubmissionMode: not SubmissionMode.None } spec)
+        var spec = content.Assignment;
+        if (spec is null || spec.SubmissionMode == SubmissionMode.None)
         {
             return;
         }
 
-        var groupIds = link.GroupId is { } groupId
-            ? [groupId]
+        var groupIds = link.GroupId is not null
+            ? [link.GroupId.Value]
             : await groups.GetGroupIdsReadingCourseAsync(link.CourseId!.Value, ct);
         var students = await users.GetStudentsInGroupsAsync(groupIds, ct);
         var newSubmissions = students
-            .Select(s => new Submission { ContentLinkId = link.Id, StudentId = s.Id })
+            .Select(student => new Submission { ContentLinkId = link.Id, StudentId = student.Id })
             .ToList();
 
         if (UsesRepo(spec.SubmissionMode))
         {
-            var requests = newSubmissions.Zip(students, (sub, student) => new RepoRequest(sub.Id, student)).ToList();
+            var requests = newSubmissions
+                .Zip(students, (submission, student) => new RepoRequest(submission.Id, student))
+                .ToList();
             var repos = await provisioner.ProvisionAsync(spec.TemplateRepo!, content.Title, requests, ct);
             foreach (var repo in repos)
             {
-                newSubmissions.Single(s => s.Id == repo.SubmissionId).Repo = repo;
+                newSubmissions.Single(submission => submission.Id == repo.SubmissionId).Repo = repo;
             }
         }
 
@@ -66,7 +69,8 @@ public class SubmissionService(
             return ServiceResult<Submission>.NotFound("link not found");
         }
 
-        if (linked.Content.Assignment is not { SubmissionMode: not SubmissionMode.None } spec)
+        var spec = linked.Content.Assignment;
+        if (spec is null || spec.SubmissionMode == SubmissionMode.None)
         {
             return ServiceResult<Submission>.Invalid("this content takes no submissions");
         }
@@ -98,12 +102,12 @@ public class SubmissionService(
         submission.SubmittedAt = time.GetUtcNow();
         submission.BodyMd = dto.BodyMd;
         submissions.RemoveFiles(submission.Files);
-        submission.Files = files.Select(f => new SubmissionFile
+        submission.Files = files.Select(file => new SubmissionFile
         {
             SubmissionId = submission.Id,
-            FileName = f.FileName,
-            Url = f.Url,
-            SizeBytes = f.SizeBytes
+            FileName = file.FileName,
+            Url = file.Url,
+            SizeBytes = file.SizeBytes
         }).ToList();
         submissions.AddFiles(submission.Files);
 
@@ -137,9 +141,10 @@ public class SubmissionService(
             return ServiceResult<Submission>.Invalid("this assignment has no score, only feedback");
         }
 
-        if (!dto.NeedsWork && maxScore is { } max && (dto.Score is null || dto.Score < 0 || dto.Score > max))
+        var scoreOutOfRange = dto.Score is null || dto.Score < 0 || dto.Score > maxScore;
+        if (!dto.NeedsWork && maxScore is not null && scoreOutOfRange)
         {
-            return ServiceResult<Submission>.Invalid($"score must be between 0 and {max}");
+            return ServiceResult<Submission>.Invalid($"score must be between 0 and {maxScore}");
         }
 
         if (submission.Grade is null)
@@ -152,7 +157,9 @@ public class SubmissionService(
         submission.Grade.Score = dto.Score;
         submission.Grade.Feedback = dto.Feedback;
         submission.Grade.GradedAt = time.GetUtcNow();
-        submission.Status = dto.NeedsWork ? SubmissionStatus.NeedsWork : SubmissionStatus.Graded;
+        submission.Status = dto.NeedsWork
+            ? SubmissionStatus.NeedsWork
+            : SubmissionStatus.Graded;
 
         await unitOfWork.SaveChangesAsync(ct);
         return ServiceResult<Submission>.Ok(submission);

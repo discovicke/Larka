@@ -7,13 +7,14 @@ namespace Backend.Infrastructure.Persistence.Repositories;
 public class SubmissionRepository(AppDb db) : ISubmissionRepository
 {
     public Task<Submission?> GetAsync(Guid id, CancellationToken ct) =>
-        WithDetails().FirstOrDefaultAsync(s => s.Id == id, ct);
+        WithDetails().FirstOrDefaultAsync(submission => submission.Id == id, ct);
 
     public Task<Submission?> GetForStudentAsync(Guid linkId, Guid studentId, CancellationToken ct) =>
-        WithDetails().FirstOrDefaultAsync(s => s.ContentLinkId == linkId && s.StudentId == studentId, ct);
+        WithDetails().FirstOrDefaultAsync(
+            submission => submission.ContentLinkId == linkId && submission.StudentId == studentId, ct);
 
     public Task<List<Submission>> GetByLinkAsync(Guid linkId, CancellationToken ct) =>
-        WithDetails().Where(s => s.ContentLinkId == linkId).ToListAsync(ct);
+        WithDetails().Where(submission => submission.ContentLinkId == linkId).ToListAsync(ct);
 
     public void Add(Submission submission) => db.Submissions.Add(submission);
 
@@ -28,5 +29,8 @@ public class SubmissionRepository(AppDb db) : ISubmissionRepository
     public Task<List<StudentRepo>> GetAllReposAsync(CancellationToken ct) => db.StudentRepos.ToListAsync(ct);
 
     private IQueryable<Submission> WithDetails() =>
-        db.Submissions.Include(s => s.Files).Include(s => s.Repo).Include(s => s.Grade);
+        db.Submissions
+            .Include(submission => submission.Files)
+            .Include(submission => submission.Repo)
+            .Include(submission => submission.Grade);
 }

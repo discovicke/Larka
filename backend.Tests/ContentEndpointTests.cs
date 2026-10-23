@@ -17,7 +17,8 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     [Fact]
     public async Task CreateContent_ReturnsCreated_WithPlaceholderAuthor()
     {
-        var response = await _client.PostAsJsonAsync("/api/content", new { type = "news", title = "Välkommen", bodyMd = "Hej!" });
+        var response = await _client.PostAsJsonAsync(
+            "/api/content", new { type = "news", title = "Välkommen", bodyMd = "Hej!" });
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var content = await response.Content.ReadFromJsonAsync<ContentResponse>();
@@ -43,7 +44,7 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
 
         Assert.Equal(HttpStatusCode.Created, link.StatusCode);
         var feed = await _client.GetFromJsonAsync<List<FeedItem>>($"/api/groups/{groupId}/content");
-        Assert.Contains(feed!, f => f.ContentId == content.Id && f.Title == "Loopar");
+        Assert.Contains(feed!, item => item.ContentId == content.Id && item.Title == "Loopar");
     }
 
     [Fact]
@@ -58,9 +59,9 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
         var readingFeed = await _client.GetFromJsonAsync<List<FeedItem>>($"/api/groups/{readingGroupId}/content");
         var otherFeed = await _client.GetFromJsonAsync<List<FeedItem>>($"/api/groups/{otherGroupId}/content");
         var courseFeed = await _client.GetFromJsonAsync<List<FeedItem>>($"/api/courses/{courseId}/content");
-        Assert.Contains(readingFeed!, f => f.ContentId == content.Id);
-        Assert.DoesNotContain(otherFeed!, f => f.ContentId == content.Id);
-        Assert.Contains(courseFeed!, f => f.ContentId == content.Id);
+        Assert.Contains(readingFeed!, item => item.ContentId == content.Id);
+        Assert.DoesNotContain(otherFeed!, item => item.ContentId == content.Id);
+        Assert.Contains(courseFeed!, item => item.ContentId == content.Id);
     }
 
     [Fact]
@@ -74,7 +75,7 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
 
         var feed = await _client.GetFromJsonAsync<List<FeedItem>>($"/api/groups/{groupId}/content?type=news");
 
-        Assert.Equal([news.Id], feed!.Select(f => f.ContentId));
+        Assert.Equal([news.Id], feed!.Select(item => item.ContentId));
     }
 
     [Fact]
@@ -88,7 +89,7 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
 
         var feed = await _client.GetFromJsonAsync<List<FeedItem>>($"/api/groups/{groupId}/content");
 
-        Assert.DoesNotContain(feed!, f => f.ContentId == draft.Id);
+        Assert.DoesNotContain(feed!, item => item.ContentId == draft.Id);
     }
 
     [Fact]
@@ -106,7 +107,8 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     {
         var content = await CreateAsync("news", "Fel grupp");
 
-        var response = await _client.PostAsJsonAsync($"/api/content/{content.Id}/links", new { groupId = Guid.NewGuid() });
+        var response = await _client.PostAsJsonAsync(
+            $"/api/content/{content.Id}/links", new { groupId = Guid.NewGuid() });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -143,13 +145,13 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
         var (groupB, _) = await AddGroupWithCourseAsync();
         var assignment = await CreateAsync("assignment", "Labb 1");
 
-        var a = await _client.PostAsJsonAsync($"/api/content/{assignment.Id}/links",
+        var linkA = await _client.PostAsJsonAsync($"/api/content/{assignment.Id}/links",
             new { groupId = groupA, dueAt = DateTimeOffset.UtcNow.AddDays(7) });
-        var b = await _client.PostAsJsonAsync($"/api/content/{assignment.Id}/links",
+        var linkB = await _client.PostAsJsonAsync($"/api/content/{assignment.Id}/links",
             new { groupId = groupB, dueAt = DateTimeOffset.UtcNow.AddDays(14) });
 
-        Assert.Equal(HttpStatusCode.Created, a.StatusCode);
-        Assert.Equal(HttpStatusCode.Created, b.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, linkA.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, linkB.StatusCode);
     }
 
     [Fact]
@@ -167,7 +169,8 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     [Fact]
     public async Task Comment_OnContentThatDoesNotExist_ReturnsNotFound()
     {
-        var response = await _client.PostAsJsonAsync($"/api/content/{Guid.NewGuid()}/comments", new { bodyMd = "Hallå?" });
+        var response = await _client.PostAsJsonAsync(
+            $"/api/content/{Guid.NewGuid()}/comments", new { bodyMd = "Hallå?" });
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
