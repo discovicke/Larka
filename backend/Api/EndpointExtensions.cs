@@ -13,6 +13,7 @@ public static class EndpointExtensions
         api.MapUserEndpoints();
         api.MapGroupEndpoints();
         api.MapCourseEndpoints();
+        api.MapModuleEndpoints();
         api.MapContentEndpoints();
         api.MapSubmissionEndpoints();
 

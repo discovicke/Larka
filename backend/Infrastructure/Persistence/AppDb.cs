@@ -9,6 +9,7 @@ public class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
     public DbSet<User> Users => Set<User>();
     public DbSet<School> Schools => Set<School>();
     public DbSet<Course> Courses => Set<Course>();
+    public DbSet<Module> Modules => Set<Module>();
     public DbSet<GroupCourse> GroupCourses => Set<GroupCourse>();
     public DbSet<Group> Groups => Set<Group>();
     public DbSet<Enrollment> Enrollments => Set<Enrollment>();

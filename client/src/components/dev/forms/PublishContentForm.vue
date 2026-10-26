@@ -17,6 +17,7 @@ const form = reactive({
   contentId: '',
   groupId: '',
   courseId: '',
+  moduleId: '',
   publishAt: '',
   dueAt: '',
   isPinned: false,
@@ -39,6 +40,7 @@ async function submit() {
     body: {
       groupId: orNull(form.groupId),
       courseId: orNull(form.courseId),
+      moduleId: orNull(form.moduleId),
       publishAt: isoOrNull(form.publishAt),
       dueAt: isoOrNull(form.dueAt),
       isPinned: form.isPinned,
@@ -81,6 +83,13 @@ async function submit() {
       v-model="form.courseId"
       label="Course"
       source="courses"
+      optional
+    />
+    <EntitySelect
+      id="publish-module"
+      v-model="form.moduleId"
+      label="Module"
+      source="modules"
       optional
     />
     <DevField id="publish-at" label="Publish at" hint="Leave empty for now.">

@@ -76,8 +76,8 @@ public class ContentRepository(AppDb db) : IContentRepository
             .ThenByDescending(row => row.Link.PublishAt)
             .Select(row => new ContentFeedItem(
                 row.Link.Id, row.Content.Id, row.Content.Type, row.Content.Title, row.Content.BodyMd,
-                row.Content.AuthorId, row.Link.GroupId, row.Link.CourseId, row.Link.PublishAt, row.Link.DueAt,
-                row.Link.IsPinned))
+                row.Content.AuthorId, row.Link.GroupId, row.Link.CourseId, row.Link.ModuleId, row.Link.PublishAt,
+                row.Link.DueAt, row.Link.IsPinned))
             .ToListAsync(ct);
     }
 }

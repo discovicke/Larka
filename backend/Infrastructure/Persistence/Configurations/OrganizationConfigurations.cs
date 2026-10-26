@@ -34,6 +34,16 @@ public class CourseConfiguration : IEntityTypeConfiguration<Course>
     }
 }
 
+public class ModuleConfiguration : IEntityTypeConfiguration<Module>
+{
+    public void Configure(EntityTypeBuilder<Module> builder)
+    {
+        builder.HasOne<Course>().WithMany().HasForeignKey(module => module.CourseId).OnDelete(DeleteBehavior.Restrict);
+        // Inte unikt: då skulle en omsortering krocka med sig själv mitt i, eftersom raderna uppdateras en i taget.
+        builder.HasIndex(module => new { module.CourseId, module.Position });
+    }
+}
+
 // Enda kopplingen mellan kurs och grupp (M-N).
 public class GroupCourseConfiguration : IEntityTypeConfiguration<GroupCourse>
 {

@@ -15,9 +15,11 @@ public record CreateContentDto(
     string? TemplateRepo = null); // "org/mall", krävs för Repo och FileOrRepo
 
 // Minst en av GroupId och CourseId. Båda = kursen så som den går för just den gruppen.
+// ModuleId lägger innehållet i en av kursens moduler och kräver CourseId.
 public record CreateContentLinkDto(
     Guid? GroupId = null,
     Guid? CourseId = null,
+    Guid? ModuleId = null,
     DateTimeOffset? PublishAt = null,
     DateTimeOffset? DueAt = null,
     bool IsPinned = false);
@@ -60,12 +62,14 @@ public record ContentLinkDto(
     Guid ContentId,
     Guid? GroupId,
     Guid? CourseId,
+    Guid? ModuleId,
     DateTimeOffset PublishAt,
     DateTimeOffset? DueAt,
     bool IsPinned)
 {
     public static ContentLinkDto From(ContentLink link) =>
-        new(link.Id, link.ContentId, link.GroupId, link.CourseId, link.PublishAt, link.DueAt, link.IsPinned);
+        new(link.Id, link.ContentId, link.GroupId, link.CourseId, link.ModuleId, link.PublishAt, link.DueAt,
+            link.IsPinned);
 }
 
 /// <summary>En rad i flödet för en grupp eller kurs: innehållet plus hur det publicerades.</summary>
@@ -78,6 +82,7 @@ public record ContentFeedItem(
     Guid AuthorId,
     Guid? GroupId,
     Guid? CourseId,
+    Guid? ModuleId,
     DateTimeOffset PublishAt,
     DateTimeOffset? DueAt,
     bool IsPinned);

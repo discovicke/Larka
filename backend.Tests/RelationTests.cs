@@ -57,6 +57,24 @@ public class RelationTests(TestWebApplicationFactory factory) : IClassFixture<Te
     }
 
     [Fact]
+    public async Task Link_ToModuleWithoutCourse_IsRejected()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var group = await TestData.AddGroupAsync(db);
+        var course = await TestData.AddCourseAsync(db, group.SchoolId);
+        var author = await TestData.AddUserAsync(db, group.SchoolId, UserRole.Teacher);
+        var module = new Module { CourseId = course.Id, Title = "Vecka 1", Position = 1 };
+        var content = new Content { AuthorId = author.Id, Type = ContentType.Theory, Title = "Teori" };
+        db.AddRange(module, content);
+        await db.SaveChangesAsync();
+
+        db.ContentLinks.Add(new ContentLink { ContentId = content.Id, GroupId = group.Id, ModuleId = module.Id });
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+    }
+
+    [Fact]
     public async Task School_WithGroups_CannotBeDeleted()
     {
         Guid schoolId;

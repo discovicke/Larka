@@ -24,8 +24,14 @@ public class ContentLinkConfiguration : IEntityTypeConfiguration<ContentLink>
         builder.HasOne<Content>().WithMany().HasForeignKey(link => link.ContentId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne<Group>().WithMany().HasForeignKey(link => link.GroupId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Course>().WithMany().HasForeignKey(link => link.CourseId).OnDelete(DeleteBehavior.Restrict);
-        builder.ToTable(table => table.HasCheckConstraint(
-            "CK_ContentLinks_GroupOrCourse", "\"GroupId\" IS NOT NULL OR \"CourseId\" IS NOT NULL"));
+        builder.HasOne<Module>().WithMany().HasForeignKey(link => link.ModuleId).OnDelete(DeleteBehavior.Restrict);
+        builder.ToTable(table =>
+        {
+            table.HasCheckConstraint(
+                "CK_ContentLinks_GroupOrCourse", "\"GroupId\" IS NOT NULL OR \"CourseId\" IS NOT NULL");
+            table.HasCheckConstraint(
+                "CK_ContentLinks_ModuleNeedsCourse", "\"ModuleId\" IS NULL OR \"CourseId\" IS NOT NULL");
+        });
     }
 }
 

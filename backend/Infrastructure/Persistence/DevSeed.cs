@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Backend.Infrastructure.Persistence;
 
 /// <summary>
-/// Exempeldata för lokal utveckling: en klass med två kurser, en elev och lite innehåll.
+/// Exempeldata för lokal utveckling: en klass med två kurser, två veckor i DevOps, en elev och lite innehåll.
 /// Körs av EF Core efter Migrate när Database:SeedDevData är true, och bara om det inte finns
 /// några grupper än. Placeholder-skolan och placeholder-användaren finns redan via migrationen.
 /// </summary>
@@ -53,6 +53,21 @@ public static class DevSeed
         db.Groups.Add(group);
         db.Courses.AddRange(devOps, webApps);
         db.Users.Add(student);
+
+        var firstWeek = new Module
+        {
+            CourseId = devOps.Id,
+            Title = "Vecka 1 – CI/CD",
+            Description = "Bygg och testa automatiskt vid varje ändring.",
+            Position = 1
+        };
+        var secondWeek = new Module
+        {
+            CourseId = devOps.Id,
+            Title = "Vecka 2 – E2E och versions- och releasehantering",
+            Position = 2
+        };
+        db.Modules.AddRange(firstWeek, secondWeek);
         db.GroupCourses.AddRange(
             new GroupCourse { GroupId = group.Id, CourseId = devOps.Id },
             new GroupCourse { GroupId = group.Id, CourseId = webApps.Id });
@@ -86,12 +101,13 @@ public static class DevSeed
         db.Content.AddRange(news, theory, assignment);
         db.ContentLinks.AddRange(
             new ContentLink { ContentId = news.Id, GroupId = group.Id, IsPinned = true },
-            new ContentLink { ContentId = theory.Id, CourseId = devOps.Id },
+            new ContentLink { ContentId = theory.Id, CourseId = devOps.Id, ModuleId = firstWeek.Id },
             new ContentLink
             {
                 ContentId = assignment.Id,
                 GroupId = group.Id,
                 CourseId = devOps.Id,
+                ModuleId = firstWeek.Id,
                 DueAt = DateTimeOffset.UtcNow.AddDays(14)
             });
     }

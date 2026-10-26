@@ -631,6 +631,152 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/courses/{id}/modules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ModuleWithContentDto"][];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateModuleDto"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ModuleDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/courses/{id}/modules/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ReorderModulesDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ModuleDto"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/content": {
         parameters: {
             query?: never;
@@ -1259,6 +1405,8 @@ export interface components {
             groupId: null | string;
             /** Format: uuid */
             courseId: null | string;
+            /** Format: uuid */
+            moduleId: null | string;
             /** Format: date-time */
             publishAt: string;
             /** Format: date-time */
@@ -1274,6 +1422,8 @@ export interface components {
             groupId: null | string;
             /** Format: uuid */
             courseId: null | string;
+            /** Format: uuid */
+            moduleId: null | string;
             /** Format: date-time */
             publishAt: string;
             /** Format: date-time */
@@ -1316,6 +1466,8 @@ export interface components {
             groupId?: null | string;
             /** Format: uuid */
             courseId?: null | string;
+            /** Format: uuid */
+            moduleId?: null | string;
             /** Format: date-time */
             publishAt?: null | string;
             /** Format: date-time */
@@ -1335,6 +1487,10 @@ export interface components {
             type: components["schemas"]["GroupType"];
             name: string;
             term?: null | string;
+        };
+        CreateModuleDto: {
+            title: string;
+            description?: null | string;
         };
         CreateSchoolDto: {
             name: string;
@@ -1381,6 +1537,48 @@ export interface components {
             /** Format: uuid */
             groupId: string;
             role: components["schemas"]["GroupRole"];
+        };
+        /** @description En del i en modul. Tar med utkast och det som publiceras senare, så att läraren ser allt (Status, PublishAt). */
+        ModuleContentItem: {
+            /** Format: uuid */
+            linkId: string;
+            /** Format: uuid */
+            contentId: string;
+            type: components["schemas"]["ContentType"];
+            title: string;
+            status: components["schemas"]["ContentStatus"];
+            /** Format: uuid */
+            groupId: null | string;
+            /** Format: date-time */
+            publishAt: string;
+            /** Format: date-time */
+            dueAt: null | string;
+            isPinned: boolean;
+        };
+        ModuleDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            courseId: string;
+            title: string;
+            description: string;
+            /** Format: int32 */
+            position: number;
+        };
+        /** @description En modul med innehållet som ligger i den, i den ordning det publiceras. */
+        ModuleWithContentDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            courseId: string;
+            title: string;
+            description: string;
+            /** Format: int32 */
+            position: number;
+            content: components["schemas"]["ModuleContentItem"][];
+        };
+        ReorderModulesDto: {
+            moduleIds: string[];
         };
         SchoolDto: {
             /** Format: uuid */

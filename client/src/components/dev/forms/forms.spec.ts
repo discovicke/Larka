@@ -4,6 +4,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import AddGroupMemberForm from './AddGroupMemberForm.vue'
 import CreateContentForm from './CreateContentForm.vue'
 import CreateGroupForm from './CreateGroupForm.vue'
+import CreateModuleForm from './CreateModuleForm.vue'
 import CreateUserForm from './CreateUserForm.vue'
 import GradeSubmissionForm from './GradeSubmissionForm.vue'
 import PublishContentForm from './PublishContentForm.vue'
@@ -52,6 +53,8 @@ async function settle() {
 const school = {id: 'sc1', name: 'Edugrade'}
 const user = {id: 'u1', name: 'Maria Ek', role: 'Teacher'}
 const group = {id: 'g1', name: 'NET25', term: 'HT25'}
+const course = {id: 'co1', code: 'DEVOPS', title: 'DevOps'}
+const week = {id: 'm1', title: 'Vecka 1', content: []}
 const assignment = {linkId: 'l1', contentId: 'c1', type: 'Assignment', title: 'Lab 1'}
 
 function backendWithOneGroup(onPost: Handler): Handler {
@@ -67,6 +70,12 @@ function backendWithOneGroup(onPost: Handler): Handler {
     }
     if (path === '/api/groups') {
       return {status: 200, body: [group]}
+    }
+    if (path === '/api/courses') {
+      return {status: 200, body: [course]}
+    }
+    if (path === '/api/courses/co1/modules') {
+      return {status: 200, body: [week]}
     }
     if (path === '/api/groups/g1/content') {
       return {status: 200, body: [assignment]}
@@ -151,11 +160,50 @@ describe('dev forms', () => {
     expect(sent('POST', '/api/content/c1/links')).toEqual({
       groupId: 'g1',
       courseId: null,
+      moduleId: null,
       publishAt: null,
       dueAt: null,
       isPinned: false,
     })
     expect(wrapper.find('[data-test="result"]').text()).toBe('400: dueAt is only allowed on assignments')
+  })
+
+  it('publicering i en vecka skickar kursen och veckan', async () => {
+    mockApi(backendWithOneGroup(() => ({status: 201, body: {id: 'l2'}})))
+    const wrapper = mount(PublishContentForm)
+    await settle()
+
+    await wrapper.find('#publish-content').setValue('c1')
+    await wrapper.find('#publish-course').setValue('co1')
+    await wrapper.find('#publish-module').setValue('m1')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(sent('POST', '/api/content/c1/links')).toMatchObject({courseId: 'co1', moduleId: 'm1'})
+  })
+
+  it('vecka skickas till vald kurs, utan tom beskrivning', async () => {
+    mockApi(backendWithOneGroup(() => ({status: 201, body: {id: 'm2', title: 'Vecka 2'}})))
+    const wrapper = mount(CreateModuleForm)
+    await settle()
+
+    await wrapper.find('#module-course').setValue('co1')
+    await wrapper.find('#module-title').setValue('Vecka 2')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(sent('POST', '/api/courses/co1/modules')).toEqual({title: 'Vecka 2', description: null})
+    expect(wrapper.find('[data-test="result"]').text()).toContain('201')
+  })
+
+  it('vecka kräver en kurs innan något skickas', async () => {
+    mockApi(backendWithOneGroup(() => ({status: 201})))
+    const wrapper = mount(CreateModuleForm)
+
+    await wrapper.find('form').trigger('submit')
+
+    expect(wrapper.find('[data-test="result"]').text()).toBe('Pick a course.')
+    expect(posted()).toBe(false)
   })
 
   it('betyg med komplettering skickar ingen poäng', async () => {

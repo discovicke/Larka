@@ -153,6 +153,9 @@ namespace Backend.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsPinned")
                         .HasColumnType("boolean");
 
+                    b.Property<Guid?>("ModuleId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTimeOffset>("PublishAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -164,9 +167,13 @@ namespace Backend.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("GroupId");
 
+                    b.HasIndex("ModuleId");
+
                     b.ToTable("ContentLinks", t =>
                         {
                             t.HasCheckConstraint("CK_ContentLinks_GroupOrCourse", "\"GroupId\" IS NOT NULL OR \"CourseId\" IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_ContentLinks_ModuleNeedsCourse", "\"ModuleId\" IS NULL OR \"CourseId\" IS NOT NULL");
                         });
                 });
 
@@ -281,6 +288,33 @@ namespace Backend.Infrastructure.Persistence.Migrations
                     b.HasIndex("CourseId");
 
                     b.ToTable("GroupCourses");
+                });
+
+            modelBuilder.Entity("Backend.Domain.Entities.Module", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CourseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CourseId", "Position");
+
+                    b.ToTable("Modules");
                 });
 
             modelBuilder.Entity("Backend.Domain.Entities.Notification", b =>
@@ -558,6 +592,11 @@ namespace Backend.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("GroupId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Backend.Domain.Entities.Module", null)
+                        .WithMany()
+                        .HasForeignKey("ModuleId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("Backend.Domain.Entities.Course", b =>
@@ -619,6 +658,15 @@ namespace Backend.Infrastructure.Persistence.Migrations
                     b.HasOne("Backend.Domain.Entities.Group", null)
                         .WithMany()
                         .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Backend.Domain.Entities.Module", b =>
+                {
+                    b.HasOne("Backend.Domain.Entities.Course", null)
+                        .WithMany()
+                        .HasForeignKey("CourseId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

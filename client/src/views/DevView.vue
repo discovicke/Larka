@@ -5,6 +5,7 @@ import CreateCommentForm from '@/components/dev/forms/CreateCommentForm.vue'
 import CreateContentForm from '@/components/dev/forms/CreateContentForm.vue'
 import CreateCourseForm from '@/components/dev/forms/CreateCourseForm.vue'
 import CreateGroupForm from '@/components/dev/forms/CreateGroupForm.vue'
+import CreateModuleForm from '@/components/dev/forms/CreateModuleForm.vue'
 import CreateSchoolForm from '@/components/dev/forms/CreateSchoolForm.vue'
 import CreateSubmissionForm from '@/components/dev/forms/CreateSubmissionForm.vue'
 import CreateUserForm from '@/components/dev/forms/CreateUserForm.vue'
@@ -30,6 +31,7 @@ import PublishContentForm from '@/components/dev/forms/PublishContentForm.vue'
       <CreateUserForm/>
       <CreateGroupForm/>
       <CreateCourseForm/>
+      <CreateModuleForm/>
       <LinkCourseToGroupForm/>
       <AddGroupMemberForm/>
     </section>

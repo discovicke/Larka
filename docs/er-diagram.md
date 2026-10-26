@@ -4,7 +4,7 @@ Datamodellen bakom API:et. Content (nyheter, teori och uppgifter) är kärnan: d
 
 Varje relation är en riktig foreign key i databasen med ett index. Modellen gäller Postgres: lokalt i Docker, i testerna via Testcontainers och i prod på Supabase.
 
-Modellen beslutades i #34 och byggs i #37 (organisation), #38 (content), #39 (uppgifter och inlämningar) och #40 (notiser).
+Modellen beslutades i #34 och byggs i #37 (organisation), #38 (content), #39 (uppgifter och inlämningar) och #40 (notiser). Moduler (veckor) kom till i #61.
 
 ```mermaid
 erDiagram
@@ -15,11 +15,13 @@ erDiagram
     Course ||--o{ GroupCourse : "läses av"
     Group ||--o{ Enrollment : "har medlemmar"
     User ||--o{ Enrollment : "är med i"
+    Course ||--o{ Module : "delas in i"
 
     User ||--o{ Content : "skriver"
     Content ||--o{ ContentLink : "publiceras via"
     Group |o--o{ ContentLink : "får"
     Course |o--o{ ContentLink : "får"
+    Module |o--o{ ContentLink : "innehåller"
     Content ||--o| AssignmentSpec : "om Assignment"
     Content ||--o{ Attachment : "har"
     Content ||--o{ Comment : "har"
@@ -61,6 +63,13 @@ erDiagram
         string Title
         string Code
     }
+    Module {
+        uuid Id PK
+        uuid CourseId FK
+        string Title
+        string Description
+        int Position
+    }
     GroupCourse {
         uuid GroupId PK, FK
         uuid CourseId PK, FK
@@ -84,6 +93,7 @@ erDiagram
         uuid ContentId FK
         uuid GroupId FK "nullable"
         uuid CourseId FK "nullable"
+        uuid ModuleId FK "nullable, kräver CourseId"
         timestamptz PublishAt
         timestamptz DueAt "nullable"
         bool IsPinned
@@ -162,6 +172,7 @@ erDiagram
 
 - **School → User, Group, Course.** Allt hör till en skola. En användare tillhör en skola.
 - **GroupCourse (Group ↔ Course, M:N).** En klass läser flera kurser och en kurs kan läsas av flera klasser. Det här är den enda kopplingen mellan kurs och grupp. Det fanns tidigare även `Course.ProgramGroupId` ("ägande program"), men två kopplingar som kan säga olika saker togs bort till förmån för en. Committee-grupper har inga rader här.
+- **Module (Course → Module, 1:N)** delar in en kurs i delar, oftast veckor ("Vecka 2 – E2E och releasehantering"). `Position` är ordningen i kursen, 1, 2, 3 … utan luckor. Den är inte unik i databasen, eftersom en omsortering uppdaterar raderna en i taget och då skulle krocka med sig själv på vägen.
 - **Enrollment (User ↔ Group, M:N) med `Role`.** Rollen gäller _i gruppen_, så en lärare kan vara student i en annan grupp. Den är en enum i stället för fri text, så ett stavfel inte kan göra att en elev försvinner ur sin grupp. `User.Role` är fortfarande användarens roll i systemet (Admin, Teacher, Student).
 
 ### Content
@@ -171,6 +182,7 @@ erDiagram
   - bara grupp: t.ex. en nyhet till NET25
   - bara kurs: alla grupper som läser kursen (via GroupCourse)
   - grupp + kurs: kursen så som den går för just den gruppen
+- **`ModuleId` på länken lägger innehållet i en av kursens moduler.** Den är valfri, så nyheter och sådant som gäller hela kursen fungerar som förut. En modul kräver `CourseId` (check constraint), och backend kontrollerar att modulen hör till just den kursen. Den ligger på länken av samma skäl som deadlinen: samma material kan ligga i vecka 2 för en klass och vecka 3 för en annan.
 - **`PublishAt`, `DueAt` och `IsPinned` ligger på länken, inte på content.** Samma uppgift kan delas ut till två klasser med olika deadlines.
 - **AssignmentSpec (1:0..1 med Content)** finns bara när `Type = Assignment`. `SubmissionMode` avgör hur man lämnar in: `None` (bara läsa och göra), `File`, `Repo` (GitHub) eller `FileOrRepo`. En "laboration" är alltså en uppgift med inlämning, inte en egen tabell. GitHub är ett tillval, så kurser utan programmering lämnar in filer.
 - **Attachment och Comment** hör till content, inte till en länk. Bilagorna följer med när innehållet delas ut igen.
@@ -192,6 +204,7 @@ erDiagram
 | ---------------------------------------------------------- | ---------------------------------------------------- |
 | School → User, Group, Course                               | blockeras (Restrict)                                 |
 | Group, Course → GroupCourse, Enrollment, ContentLink       | blockeras                                            |
+| Course → Module, Module → ContentLink                      | blockeras                                            |
 | User → Content, Comment, Submission, Grade, Enrollment     | blockeras                                            |
 | Content → ContentLink, AssignmentSpec, Attachment, Comment | kaskad                                               |
 | ContentLink → Submission                                   | blockeras (elevarbete ska inte försvinna av misstag) |

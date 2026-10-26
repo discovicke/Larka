@@ -4,7 +4,7 @@ import type {Option} from '@/components/dev/types'
 import {api, type Schema} from '@/lib/api'
 
 export type OptionSource
-  = 'schools' | 'users' | 'groups' | 'courses' | 'contents' | 'contentLinks' | 'submissions'
+  = 'schools' | 'users' | 'groups' | 'courses' | 'modules' | 'contents' | 'contentLinks' | 'submissions'
 
 type FeedItem = Schema<'ContentFeedItem'>
 
@@ -13,6 +13,7 @@ const sources: OptionSource[] = [
   'users',
   'groups',
   'courses',
+  'modules',
   'contents',
   'contentLinks',
   'submissions',
@@ -41,6 +42,11 @@ async function loadGroups(): Promise<Schema<'GroupDto'>[]> {
 
 async function loadCourses(): Promise<Schema<'CourseDto'>[]> {
   return (await api.GET('/api/courses')).data ?? []
+}
+
+async function loadModules(course: Schema<'CourseDto'>): Promise<Option[]> {
+  const {data} = await api.GET('/api/courses/{id}/modules', {params: {path: {id: course.id}}})
+  return (data ?? []).map((module) => ({value: module.id, label: `${course.code}: ${module.title}`}))
 }
 
 async function loadGroupFeed(id: string): Promise<FeedItem[]> {
@@ -84,6 +90,7 @@ const loaders: Record<OptionSource, () => Promise<Option[]>> = {
   })),
   groups: async () => (await loadGroups()).map((group) => ({value: group.id, label: `${group.name} (${group.term})`})),
   courses: async () => (await loadCourses()).map((course) => ({value: course.id, label: `${course.code} ${course.title}`})),
+  modules: async () => (await Promise.all((await loadCourses()).map(loadModules))).flat(),
   contents: async () => (await loadFeed()).map(({item}) => ({
     value: item.contentId,
     label: `${item.title} (${item.type})`,

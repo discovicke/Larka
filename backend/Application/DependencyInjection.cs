@@ -10,6 +10,7 @@ public static class DependencyInjection
         services.AddScoped<UserService>();
         services.AddScoped<GroupService>();
         services.AddScoped<CourseService>();
+        services.AddScoped<ModuleService>();
         services.AddScoped<ContentService>();
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<SubmissionService>();

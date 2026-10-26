@@ -10,6 +10,7 @@ namespace Backend.Application.Services;
 public class ContentService(
     IContentRepository contents,
     IGroupRepository groups,
+    IModuleRepository modules,
     SubmissionService submissions,
     IUnitOfWork unitOfWork,
     ICurrentUser currentUser,
@@ -113,6 +114,12 @@ public class ContentService(
             return ServiceResult<ContentLinkDto>.Invalid("group does not read this course");
         }
 
+        var moduleError = await CheckModuleAsync(dto.ModuleId, dto.CourseId, ct);
+        if (moduleError is not null)
+        {
+            return ServiceResult<ContentLinkDto>.Invalid(moduleError);
+        }
+
         if (dto.DueAt is not null && content.Type != ContentType.Assignment)
         {
             return ServiceResult<ContentLinkDto>.Invalid("dueAt is only allowed on assignments");
@@ -123,6 +130,7 @@ public class ContentService(
             ContentId = contentId,
             GroupId = dto.GroupId,
             CourseId = dto.CourseId,
+            ModuleId = dto.ModuleId,
             PublishAt = dto.PublishAt ?? time.GetUtcNow(),
             DueAt = dto.DueAt,
             IsPinned = dto.IsPinned
@@ -178,6 +186,30 @@ public class ContentService(
         contents.AddAttachment(attachment);
         await unitOfWork.SaveChangesAsync(ct);
         return AttachmentDto.From(attachment);
+    }
+
+    /// <summary>Returnerar felet, eller null om modulen saknas eller hör till kursen.</summary>
+    private async Task<string?> CheckModuleAsync(Guid? moduleId, Guid? courseId, CancellationToken ct)
+    {
+        if (moduleId is null)
+        {
+            return null;
+        }
+
+        if (courseId is null)
+        {
+            return "moduleId requires courseId";
+        }
+
+        var module = await modules.GetAsync(moduleId.Value, ct);
+        if (module is null)
+        {
+            return "module does not exist";
+        }
+
+        return module.CourseId == courseId
+            ? null
+            : "module does not belong to the course";
     }
 
     private static ContentType? ParseType(string? type) =>

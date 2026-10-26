@@ -530,6 +530,163 @@
         }
       }
     },
+    "/api/courses/{id}/modules": {
+      "get": {
+        "tags": [
+          "Modules"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ModuleWithContentDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Modules"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateModuleDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModuleDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/courses/{id}/modules/order": {
+      "put": {
+        "tags": [
+          "Modules"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderModulesDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ModuleDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/content": {
       "post": {
         "tags": [
@@ -1226,6 +1383,7 @@
           "authorId",
           "groupId",
           "courseId",
+          "moduleId",
           "publishAt",
           "dueAt",
           "isPinned"
@@ -1267,6 +1425,13 @@
             ],
             "format": "uuid"
           },
+          "moduleId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
           "publishAt": {
             "type": "string",
             "format": "date-time"
@@ -1290,6 +1455,7 @@
           "contentId",
           "groupId",
           "courseId",
+          "moduleId",
           "publishAt",
           "dueAt",
           "isPinned"
@@ -1312,6 +1478,13 @@
             "format": "uuid"
           },
           "courseId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "moduleId": {
             "type": [
               "null",
               "string"
@@ -1472,6 +1645,13 @@
             ],
             "format": "uuid"
           },
+          "moduleId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
           "publishAt": {
             "type": [
               "null",
@@ -1531,6 +1711,23 @@
             "type": "string"
           },
           "term": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "CreateModuleDto": {
+        "required": [
+          "title"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "description": {
             "type": [
               "null",
               "string"
@@ -1685,6 +1882,144 @@
           },
           "role": {
             "$ref": "#/components/schemas/GroupRole"
+          }
+        }
+      },
+      "ModuleContentItem": {
+        "required": [
+          "linkId",
+          "contentId",
+          "type",
+          "title",
+          "status",
+          "groupId",
+          "publishAt",
+          "dueAt",
+          "isPinned"
+        ],
+        "type": "object",
+        "properties": {
+          "linkId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ContentType"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ContentStatus"
+          },
+          "groupId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "publishAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dueAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "isPinned": {
+            "type": "boolean"
+          }
+        },
+        "description": "En del i en modul. Tar med utkast och det som publiceras senare, så att läraren ser allt (Status, PublishAt)."
+      },
+      "ModuleDto": {
+        "required": [
+          "id",
+          "courseId",
+          "title",
+          "description",
+          "position"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "courseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "position": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ModuleWithContentDto": {
+        "required": [
+          "id",
+          "courseId",
+          "title",
+          "description",
+          "position",
+          "content"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "courseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "position": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ModuleContentItem"
+            }
+          }
+        },
+        "description": "En modul med innehållet som ligger i den, i den ordning det publiceras."
+      },
+      "ReorderModulesDto": {
+        "required": [
+          "moduleIds"
+        ],
+        "type": "object",
+        "properties": {
+          "moduleIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         }
       },
@@ -1925,6 +2260,9 @@
     },
     {
       "name": "Courses"
+    },
+    {
+      "name": "Modules"
     },
     {
       "name": "Content"
