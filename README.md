@@ -68,6 +68,8 @@ dotnet user-secrets set Database:SeedDevData false --project backend
 
 Filer (bilagor och inlämningar) ligger i en privat bucket i Supabase Storage, bakom `IFileStorage`. Databasen sparar bara nyckeln (`content/{contentId}/{guid}`, `submissions/{submissionId}/{guid}`), och svaren innehåller en länk som gäller i 10 minuter och skapas när filen läses.
 
+Uppladdning sker med `multipart/form-data`: bilagor till innehåll med `POST /api/content/{id}/attachments` (fältet `file`), och inlämningar med `POST /api/links/{id}/submissions` (fälten `bodyMd` och `files`). Högst 20 MB per fil, 10 filer och 50 MB per anrop, och bara filtyper som finns i `FileUploadPolicy` (pdf, bilder, txt, md, Office-filer och zip). Typen sätts från filändelsen, inte från vad klienten skickar. Eleven ser sina egna filer, och lärarna på kursen och admin ser alla inlämningars filer.
+
 Utan inställningar lagras filerna i minnet i Development (borta när appen stängs av), och i andra miljöer går det inte att spara eller läsa filer. Skapa en privat bucket, t.ex. `files`, i Supabase-projektet och ställ in:
 
 ```bash

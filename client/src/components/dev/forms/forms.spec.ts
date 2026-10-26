@@ -4,9 +4,11 @@ import {describe, expect, it} from 'vitest'
 import {type Handler, mockApi, requests, sent} from '@/test/mockApi'
 
 import AddGroupMemberForm from './AddGroupMemberForm.vue'
+import CreateAttachmentForm from './CreateAttachmentForm.vue'
 import CreateContentForm from './CreateContentForm.vue'
 import CreateGroupForm from './CreateGroupForm.vue'
 import CreateModuleForm from './CreateModuleForm.vue'
+import CreateSubmissionForm from './CreateSubmissionForm.vue'
 import CreateUserForm from './CreateUserForm.vue'
 import GradeSubmissionForm from './GradeSubmissionForm.vue'
 import PublishContentForm from './PublishContentForm.vue'
@@ -262,5 +264,53 @@ describe('dev forms', () => {
 
     expect(wrapper.find('[data-test="result"]').text()).toBe('Pick a group and a user.')
     expect(posted()).toBe(false)
+  })
+
+  it('bilaga skickas som multipart till vald content', async () => {
+    mockApi(backendWithOneGroup(() => ({status: 201, body: {id: 'a1', fileName: 'slides.pdf'}})))
+    const wrapper = mount(CreateAttachmentForm)
+    await settle()
+
+    await wrapper.find('#attachment-content').setValue('c1')
+    const input = wrapper.find('#attachment-file').element as HTMLInputElement
+    Object.defineProperty(input, 'files', {value: [new File(['pdf'], 'slides.pdf', {type: 'application/pdf'})]})
+    await wrapper.find('#attachment-file').trigger('change')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    const upload = sent('POST', '/api/content/c1/attachments') as string
+    expect(upload).toContain('name="file"')
+    expect(upload).toContain('Content-Type: application/pdf')
+    expect(wrapper.find('[data-test="result"]').text()).toContain('201')
+  })
+
+  it('bilaga kräver innehåll och fil innan något skickas', async () => {
+    mockApi(backendWithOneGroup(() => ({status: 201})))
+    const wrapper = mount(CreateAttachmentForm)
+
+    await wrapper.find('form').trigger('submit')
+
+    expect(wrapper.find('[data-test="result"]').text()).toBe('Pick the content to attach the file to.')
+    expect(posted()).toBe(false)
+  })
+
+  it('inlämning skickas med text och filer som multipart', async () => {
+    mockApi(backendWithOneGroup(() => ({status: 200, body: {id: 's2', status: 'Submitted'}})))
+    const wrapper = mount(CreateSubmissionForm)
+    await settle()
+
+    await wrapper.find('#submission-link').setValue('l1')
+    await wrapper.find('#submission-body').setValue('Se bilagan')
+    const input = wrapper.find('#submission-files').element as HTMLInputElement
+    Object.defineProperty(input, 'files', {value: [new File(['pdf'], 'rapport.pdf', {type: 'application/pdf'})]})
+    await wrapper.find('#submission-files').trigger('change')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    const submitted = sent('POST', '/api/links/l1/submissions') as string
+    expect(submitted).toContain('name="bodyMd"')
+    expect(submitted).toContain('Se bilagan')
+    expect(submitted).toContain('name="files"')
+    expect(submitted).toContain('Content-Type: application/pdf')
   })
 })

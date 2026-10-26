@@ -1,6 +1,8 @@
 using Backend.Application.Dtos;
+using Backend.Application.Files;
 using Backend.Application.Services;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Backend.Api.Endpoints;
 
@@ -14,9 +16,17 @@ public static class SubmissionEndpoints
         links.MapGet("", async (Guid id, SubmissionService service, CancellationToken ct) =>
             TypedResults.Ok(await service.GetByLinkAsync(id, ct)));
 
-        // Samma anrop för första inlämningen och för komplettering. Filer kan inte skickas hit än (#47).
-        links.MapPost("", async (Guid id, SubmitDto submitDto, SubmissionService service, CancellationToken ct) =>
-            (await service.SubmitAsync(id, submitDto, null, ct)).ToHttp(submission => TypedResults.Ok(submission)));
+        // Text och filer i samma form (multipart/form-data), som formuläret skickar dem.
+        links.MapPost("", async (
+            Guid id, [FromForm] SubmitForm form, SubmissionService service, CancellationToken ct) =>
+        {
+            var result = await FormFileUploads.WithUploadsAsync(form.Files, uploads =>
+                service.SubmitAsync(id, new SubmitDto(form.BodyMd), uploads, ct));
+            return result.ToHttp(submission => TypedResults.Ok(submission));
+        })
+            .Accepts<SubmitForm>("multipart/form-data")
+            .DisableAntiforgery() // inloggning med cookies finns inte, så inget CSRF-skydd behövs
+            .WithMetadata(new RequestSizeLimitAttribute((int)FileUploadPolicy.MaxRequestBytes));
 
         var submissions = app.MapGroup("/submissions").WithTags("Submissions");
 

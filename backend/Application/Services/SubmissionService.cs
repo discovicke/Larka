@@ -1,5 +1,6 @@
 using Backend.Application.Abstractions;
 using Backend.Application.Dtos;
+using Backend.Application.Files;
 using Backend.Application.Results;
 using Backend.Domain.Entities;
 using Backend.Domain.Enums;
@@ -61,17 +62,27 @@ public class SubmissionService(
         submissions.AddRange(newSubmissions);
     }
 
+    // Bara eleven själv och lärarna på kursen får läsa en inlämning, och därmed dess filer. Övriga får null (404).
     public async Task<SubmissionDto?> GetAsync(Guid id, CancellationToken ct)
     {
         var submission = await submissions.GetAsync(id, ct);
-        return submission is null
-            ? null
-            : await ToDtoAsync(submission, ct);
+        if (submission is null || !await MayReadAsync(submission.ContentLinkId, submission.StudentId, ct))
+        {
+            return null;
+        }
+
+        return await ToDtoAsync(submission, ct);
     }
 
+    // Lärare och admin ser alla inlämningar på utdelningen. Eleven ser bara sin egen.
     public async Task<List<SubmissionDto>> GetByLinkAsync(Guid linkId, CancellationToken ct)
     {
         var linkSubmissions = await submissions.GetByLinkAsync(linkId, ct);
+        if (!await MayReadAllAsync(linkId, ct))
+        {
+            linkSubmissions = linkSubmissions.Where(submission => submission.StudentId == currentUser.UserId).ToList();
+        }
+
         var dtos = new List<SubmissionDto>();
         foreach (var submission in linkSubmissions)
         {
@@ -79,6 +90,16 @@ public class SubmissionService(
         }
 
         return dtos;
+    }
+
+    private async Task<bool> MayReadAsync(Guid linkId, Guid studentId, CancellationToken ct) =>
+        studentId == currentUser.UserId || await MayReadAllAsync(linkId, ct);
+
+    private async Task<bool> MayReadAllAsync(Guid linkId, CancellationToken ct)
+    {
+        var user = await users.GetAsync(currentUser.UserId, ct);
+        return user?.Role == UserRole.Admin
+            || await submissions.IsTeacherOfLinkAsync(linkId, currentUser.UserId, ct);
     }
 
     // Filernas länkar skapas här, när inlämningen läses, så de går inte att dela vidare och gälla för alltid.
@@ -120,6 +141,12 @@ public class SubmissionService(
             return ServiceResult<SubmissionDto>.Invalid("this assignment does not take files");
         }
 
+        var fileError = FileUploadPolicy.Validate(files);
+        if (fileError is not null)
+        {
+            return ServiceResult<SubmissionDto>.Invalid(fileError);
+        }
+
         // Med repo är repot själva inlämningen. Annars måste det finnas något av det uppgiften tar emot.
         var hasText = modes.Contains(SubmissionMode.Text) && !string.IsNullOrWhiteSpace(dto.BodyMd);
         var hasFiles = modes.Contains(SubmissionMode.File) && files.Count > 0;
@@ -151,12 +178,12 @@ public class SubmissionService(
         {
             foreach (var upload in files)
             {
-                var key = await storage.UploadAsync(
-                    $"submissions/{submission.Id}", upload.Content, upload.ContentType, ct);
+                var contentType = FileUploadPolicy.ContentTypeFor(upload.FileName)!;
+                var key = await storage.UploadAsync($"submissions/{submission.Id}", upload.Content, contentType, ct);
                 newFiles.Add(new SubmissionFile
                 {
                     SubmissionId = submission.Id,
-                    FileName = upload.FileName,
+                    FileName = FileUploadPolicy.CleanFileName(upload.FileName),
                     StorageKey = key,
                     SizeBytes = upload.SizeBytes
                 });
@@ -198,7 +225,8 @@ public class SubmissionService(
         Guid submissionId, GradeSubmissionDto dto, CancellationToken ct)
     {
         var submission = await submissions.GetAsync(submissionId, ct);
-        if (submission is null)
+        // Svaret innehåller filernas länkar, så bara de som får läsa inlämningar får också bedöma dem.
+        if (submission is null || !await MayReadAllAsync(submission.ContentLinkId, ct))
         {
             return ServiceResult<SubmissionDto>.NotFound("submission not found");
         }

@@ -1,5 +1,8 @@
+using Backend.Application.Abstractions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace backend.Tests;
 
@@ -23,6 +26,11 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
         builder.UseEnvironment("Development");
         builder.UseSetting("ConnectionStrings:Default", _connectionString.Value);
         builder.UseSetting("Database:SeedDevData", "false");
+        builder.ConfigureTestServices(services =>
+        {
+            services.AddHttpContextAccessor();
+            services.AddSingleton<ICurrentUser, HeaderCurrentUser>();
+        });
     }
 
     protected override void Dispose(bool disposing)

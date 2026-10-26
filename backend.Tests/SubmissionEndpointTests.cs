@@ -115,8 +115,7 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
         var (groupId, _) = await AddGroupAsync(students: 0);
         var linkId = await LinkAsync(await CreateAssignmentAsync(_fileSpec), new { groupId });
 
-        var response = await _client.PostAsJsonAsync(
-            $"/api/links/{linkId}/submissions", new { bodyMd = "Glömde filen" });
+        var response = await PostSubmissionAsync(linkId, "Glömde filen");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -225,8 +224,7 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
         var assignment = await CreateAssignmentAsync(new { submissionModes = new[] { "text" } });
         var linkId = await LinkAsync(assignment, new { groupId });
 
-        var response = await _client.PostAsJsonAsync(
-            $"/api/links/{linkId}/submissions", new { bodyMd = "Mitt svar" });
+        var response = await PostSubmissionAsync(linkId, "Mitt svar");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
@@ -250,7 +248,7 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
         var assignment = await CreateAssignmentAsync(new { submissionModes = new[] { "text", "file" } });
         var linkId = await LinkAsync(assignment, new { groupId });
 
-        var withText = await _client.PostAsJsonAsync($"/api/links/{linkId}/submissions", new { bodyMd = "Svar" });
+        var withText = await PostSubmissionAsync(linkId, "Svar");
         var withFiles = await SubmitFilesAsync(linkId, "rapport.pdf");
 
         Assert.Equal(HttpStatusCode.OK, withText.StatusCode);
@@ -264,8 +262,7 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
         var assignment = await CreateAssignmentAsync(new { submissionModes = new[] { "onSite" } });
         var linkId = await LinkAsync(assignment, new { groupId });
 
-        var response = await _client.PostAsJsonAsync(
-            $"/api/links/{linkId}/submissions", new { bodyMd = "Jag var där" });
+        var response = await PostSubmissionAsync(linkId, "Jag var där");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -354,6 +351,13 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
         return (await response.Content.ReadFromJsonAsync<IdResponse>())!.Id;
     }
 
+    // Inlämningen skickas som multipart/form-data, precis som från formuläret, även när den bara har text.
+    private async Task<HttpResponseMessage> PostSubmissionAsync(Guid linkId, string bodyMd)
+    {
+        var form = new MultipartFormDataContent { { new StringContent(bodyMd), "bodyMd" } };
+        return await _client.PostAsync($"/api/links/{linkId}/submissions", form);
+    }
+
     private async Task<List<SubmissionResponse>> ListAsync(Guid linkId) =>
         (await _client.GetFromJsonAsync<List<SubmissionResponse>>($"/api/links/{linkId}/submissions"))!;
 
@@ -364,13 +368,13 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
         return (await _client.GetFromJsonAsync<SubmissionResponse>($"/api/submissions/{result.Value!.Id}"))!;
     }
 
-    // Filer kan inte skickas via HTTP än (#47), så de lämnas in genom servicen.
+    // Lämnas in genom servicen, så att testet inte beror på hur formuläret kodas (det täcks i FileUploadTests).
     private async Task<ServiceResult<SubmissionDto>> SubmitFilesAsync(Guid linkId, params string[] fileNames)
     {
         using var scope = factory.Services.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<SubmissionService>();
         var uploads = fileNames
-            .Select(name => new FileUpload(name, "application/pdf", 3, new MemoryStream([1, 2, 3])))
+            .Select(name => new FileUpload(name, 3, new MemoryStream([1, 2, 3])))
             .ToList();
         return await service.SubmitAsync(linkId, new SubmitDto(), uploads, CancellationToken.None);
     }

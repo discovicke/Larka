@@ -1,5 +1,6 @@
 using Backend.Application.Abstractions;
 using Backend.Application.Dtos;
+using Backend.Application.Files;
 using Backend.Application.Results;
 using Backend.Domain.Entities;
 using Backend.Domain.Enums;
@@ -164,19 +165,27 @@ public class ContentService(
         return CommentDto.From(comment);
     }
 
-    /// <summary>Sparar filen i lagringen under content/{contentId}. Returnerar null om innehållet inte finns.</summary>
-    public async Task<AttachmentDto?> AddAttachmentAsync(Guid contentId, FileUpload file, CancellationToken ct)
+    /// <summary>Sparar filen i lagringen under content/{contentId}. NotFound om innehållet inte finns.</summary>
+    public async Task<ServiceResult<AttachmentDto>> AddAttachmentAsync(
+        Guid contentId, FileUpload file, CancellationToken ct)
     {
         if (!await contents.ExistsAsync(contentId, ct))
         {
-            return null;
+            return ServiceResult<AttachmentDto>.NotFound("content not found");
         }
 
-        var key = await storage.UploadAsync($"content/{contentId}", file.Content, file.ContentType, ct);
+        var error = FileUploadPolicy.Validate([file]);
+        if (error is not null)
+        {
+            return ServiceResult<AttachmentDto>.Invalid(error);
+        }
+
+        var key = await storage.UploadAsync(
+            $"content/{contentId}", file.Content, FileUploadPolicy.ContentTypeFor(file.FileName)!, ct);
         var attachment = new Attachment
         {
             ContentId = contentId,
-            FileName = file.FileName,
+            FileName = FileUploadPolicy.CleanFileName(file.FileName),
             StorageKey = key,
             SizeBytes = file.SizeBytes
         };
@@ -191,7 +200,7 @@ public class ContentService(
             throw;
         }
 
-        return await ToDtoAsync(attachment, ct);
+        return ServiceResult<AttachmentDto>.Ok(await ToDtoAsync(attachment, ct));
     }
 
     /// <summary>Länkarna skapas här, när bilagorna läses. Returnerar null om innehållet inte finns.</summary>

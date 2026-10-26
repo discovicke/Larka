@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AddGroupMemberForm from '@/components/dev/forms/AddGroupMemberForm.vue'
+import CreateAttachmentForm from '@/components/dev/forms/CreateAttachmentForm.vue'
 import CreateCommentForm from '@/components/dev/forms/CreateCommentForm.vue'
 import CreateContentForm from '@/components/dev/forms/CreateContentForm.vue'
 import CreateCourseForm from '@/components/dev/forms/CreateCourseForm.vue'
@@ -39,6 +40,7 @@ import PublishContentForm from '@/components/dev/forms/PublishContentForm.vue'
       <h2 class="text-lg font-semibold">Content</h2>
       <CreateContentForm/>
       <PublishContentForm/>
+      <CreateAttachmentForm/>
       <CreateCommentForm/>
     </section>
 

@@ -13,9 +13,11 @@ export function mockApi(handler: Handler) {
   vi.stubGlobal('fetch', async (request: Request) => {
     const path = new URL(request.url).pathname
     const text = await request.text()
-    const body = text
+    // Filer skickas som multipart, och då sparas texten som den är så att testet kan leta efter fälten i den.
+    const isJson = request.headers.get('Content-Type')?.includes('json') ?? false
+    const body = text && isJson
       ? JSON.parse(text)
-      : undefined
+      : text || undefined
     requests.push({method: request.method, path, body})
     const response = handler(request.method, path, body)
     return new Response(response.body === undefined

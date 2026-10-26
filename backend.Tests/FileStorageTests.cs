@@ -25,17 +25,18 @@ public class FileStorageTests(TestWebApplicationFactory factory) : IClassFixture
 
     private record SubmissionResponse(List<FileResponse> Files);
 
-    private static FileUpload Upload(string name) => new(name, "application/pdf", 3, new MemoryStream([1, 2, 3]));
+    private static FileUpload Upload(string name) => new(name, 3, new MemoryStream([1, 2, 3]));
 
     [Fact]
     public async Task AddAttachment_StoresFileUnderContentKey_AndReturnsSignedUrl()
     {
         var contentId = await CreateContentAsync("theory");
 
-        var attachment = await WithServiceAsync<ContentService, AttachmentDto?>(
+        var result = await WithServiceAsync<ContentService, ServiceResult<AttachmentDto>>(
             service => service.AddAttachmentAsync(contentId, Upload("slides.pdf"), CancellationToken.None));
 
-        Assert.NotNull(attachment);
+        Assert.Equal(ResultStatus.Ok, result.Status);
+        var attachment = result.Value!;
         var key = Assert.Single(Storage.Keys, key => key.StartsWith($"content/{contentId}/"));
         Assert.Contains(key, attachment.Url);
         Assert.Equal("slides.pdf", attachment.FileName);
@@ -46,10 +47,10 @@ public class FileStorageTests(TestWebApplicationFactory factory) : IClassFixture
     {
         var before = Storage.Keys.Count;
 
-        var attachment = await WithServiceAsync<ContentService, AttachmentDto?>(
+        var result = await WithServiceAsync<ContentService, ServiceResult<AttachmentDto>>(
             service => service.AddAttachmentAsync(Guid.NewGuid(), Upload("x.pdf"), CancellationToken.None));
 
-        Assert.Null(attachment);
+        Assert.Equal(ResultStatus.NotFound, result.Status);
         Assert.Equal(before, Storage.Keys.Count);
     }
 
@@ -57,7 +58,7 @@ public class FileStorageTests(TestWebApplicationFactory factory) : IClassFixture
     public async Task GetAttachments_ReturnsFreshSignedUrls_AndNeverTheStorageKeyAsUrl()
     {
         var contentId = await CreateContentAsync("theory");
-        await WithServiceAsync<ContentService, AttachmentDto?>(
+        await WithServiceAsync<ContentService, ServiceResult<AttachmentDto>>(
             service => service.AddAttachmentAsync(contentId, Upload("a.pdf"), CancellationToken.None));
 
         var attachments = await _client.GetFromJsonAsync<List<AttachmentResponse>>(
@@ -80,11 +81,11 @@ public class FileStorageTests(TestWebApplicationFactory factory) : IClassFixture
     public async Task DeleteAttachment_RemovesRowAndFile()
     {
         var contentId = await CreateContentAsync("theory");
-        var attachment = await WithServiceAsync<ContentService, AttachmentDto?>(
+        var result = await WithServiceAsync<ContentService, ServiceResult<AttachmentDto>>(
             service => service.AddAttachmentAsync(contentId, Upload("a.pdf"), CancellationToken.None));
         Assert.Single(Storage.Keys, key => key.StartsWith($"content/{contentId}/"));
 
-        var response = await _client.DeleteAsync($"/api/content/{contentId}/attachments/{attachment!.Id}");
+        var response = await _client.DeleteAsync($"/api/content/{contentId}/attachments/{result.Value!.Id}");
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
         Assert.DoesNotContain(Storage.Keys, key => key.StartsWith($"content/{contentId}/"));
@@ -178,7 +179,6 @@ public class FileStorageTests(TestWebApplicationFactory factory) : IClassFixture
         var content = await _client.PostAsJsonAsync("/api/content", new
         {
             type = "assignment",
-            kind = "lab",
             title = "Labb",
             bodyMd = "",
             submissionModes = modes ?? ["file"]

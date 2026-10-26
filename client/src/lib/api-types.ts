@@ -1034,7 +1034,52 @@ export interface paths {
             };
         };
         put?: never;
-        post?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": {
+                        file: components["schemas"]["IFormFile"];
+                    };
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AttachmentDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -1203,7 +1248,7 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["SubmitDto"];
+                    "multipart/form-data": components["schemas"]["SubmitForm"];
                 };
             };
             responses: {
@@ -1565,6 +1610,9 @@ export interface components {
         GroupRole: "Student" | "Teacher" | "Mentor";
         /** @enum {unknown} */
         GroupType: "Class" | "Committee" | "Other";
+        /** Format: binary */
+        IFormFile: string;
+        IFormFileCollection: null | components["schemas"]["IFormFile"][];
         MemberDto: {
             /** Format: uuid */
             userId: string;
@@ -1655,8 +1703,9 @@ export interface components {
         SubmissionMode: "Text" | "File" | "Repo" | "OnSite";
         /** @enum {unknown} */
         SubmissionStatus: "NotStarted" | "Submitted" | "NeedsWork" | "Graded";
-        SubmitDto: {
+        SubmitForm: {
             bodyMd?: null | string;
+            files?: null | components["schemas"]["IFormFileCollection"];
         };
         UserDto: {
             /** Format: uuid */

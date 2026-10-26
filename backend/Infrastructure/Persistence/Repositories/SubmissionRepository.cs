@@ -1,5 +1,6 @@
 using Backend.Application.Abstractions;
 using Backend.Domain.Entities;
+using Backend.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace Backend.Infrastructure.Persistence.Repositories;
@@ -15,6 +16,21 @@ public class SubmissionRepository(AppDb db) : ISubmissionRepository
 
     public Task<List<Submission>> GetByLinkAsync(Guid linkId, CancellationToken ct) =>
         WithDetails().Where(submission => submission.ContentLinkId == linkId).ToListAsync(ct);
+
+    public Task<bool> IsTeacherOfLinkAsync(Guid linkId, Guid userId, CancellationToken ct)
+    {
+        var teacherGroupIds = db.Enrollments
+            .Where(enrollment => enrollment.UserId == userId && enrollment.Role == GroupRole.Teacher)
+            .Select(enrollment => enrollment.GroupId);
+
+        return db.ContentLinks
+            .Where(link => link.Id == linkId)
+            .AnyAsync(link =>
+                (link.GroupId != null && teacherGroupIds.Contains(link.GroupId.Value))
+                || (link.CourseId != null && db.GroupCourses.Any(groupCourse =>
+                    groupCourse.CourseId == link.CourseId && teacherGroupIds.Contains(groupCourse.GroupId))),
+                ct);
+    }
 
     public void Add(Submission submission) => db.Submissions.Add(submission);
 

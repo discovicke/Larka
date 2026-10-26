@@ -8,6 +8,9 @@ public interface ISubmissionRepository
     Task<Submission?> GetAsync(Guid id, CancellationToken ct);
     Task<Submission?> GetForStudentAsync(Guid linkId, Guid studentId, CancellationToken ct);
     Task<List<Submission>> GetByLinkAsync(Guid linkId, CancellationToken ct);
+
+    // Lärare på en grupp som utdelningen gäller för, eller på en grupp som läser kursen den gäller för.
+    Task<bool> IsTeacherOfLinkAsync(Guid linkId, Guid userId, CancellationToken ct);
     void Add(Submission submission);
     void AddRange(IEnumerable<Submission> submissions);
     void AddFiles(IEnumerable<SubmissionFile> files);
