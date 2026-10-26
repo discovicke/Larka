@@ -1,5 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
+using Backend.Application.Dtos;
+using Backend.Application.Results;
+using Backend.Application.Services;
 using Backend.Domain.Enums;
 using Backend.Infrastructure.Persistence;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,8 +33,6 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     private static readonly object _gradedFileSpec =
         new { submissionModes = new[] { "file" }, gradeScale = "passFailDistinction" };
 
-    private static readonly object[] _oneFile =
-        [new { fileName = "rapport.pdf", url = "https://files/rapport.pdf", sizeBytes = 1200 }];
 
     [Fact]
     public async Task CreateAssignment_InRepoModeWithoutTemplate_ReturnsBadRequest()
@@ -97,14 +98,11 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
         var (groupId, _) = await AddGroupAsync(students: 0);
         var linkId = await LinkAsync(await CreateAssignmentAsync(_fileSpec), new { groupId });
 
-        var first = await _client.PostAsJsonAsync($"/api/links/{linkId}/submissions", new { files = _oneFile });
-        var second = await _client.PostAsJsonAsync($"/api/links/{linkId}/submissions", new
-        {
-            files = new[] { new { fileName = "rapport-v2.pdf", url = "https://files/v2.pdf", sizeBytes = 1300 } }
-        });
+        var first = await SubmitFilesAsync(linkId, "rapport.pdf");
+        var second = await SubmitFilesAsync(linkId, "rapport-v2.pdf");
 
-        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
-        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+        Assert.Equal(ResultStatus.Ok, first.Status);
+        Assert.Equal(ResultStatus.Ok, second.Status);
         var submissions = await ListAsync(linkId);
         var submission = Assert.Single(submissions);
         Assert.Equal("Submitted", submission.Status);
@@ -130,9 +128,9 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
         var news = await _client.PostAsJsonAsync("/api/content", new { type = "news", title = "Nyhet", bodyMd = "" });
         var linkId = await LinkAsync((await news.Content.ReadFromJsonAsync<IdResponse>())!.Id, new { groupId });
 
-        var response = await _client.PostAsJsonAsync($"/api/links/{linkId}/submissions", new { files = _oneFile });
+        var result = await SubmitFilesAsync(linkId, "rapport.pdf");
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(ResultStatus.Invalid, result.Status);
     }
 
     [Fact]
@@ -154,8 +152,8 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
         Assert.Equal("Graded", result.Status);
         Assert.Equal("Distinction", result.Grade!.Level);
 
-        var afterGrade = await _client.PostAsJsonAsync($"/api/links/{linkId}/submissions", new { files = _oneFile });
-        Assert.Equal(HttpStatusCode.BadRequest, afterGrade.StatusCode);
+        var afterGrade = await SubmitFilesAsync(linkId, "rapport.pdf");
+        Assert.Equal(ResultStatus.Invalid, afterGrade.Status);
     }
 
     [Fact]
@@ -270,9 +268,9 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
         var assignment = await CreateAssignmentAsync(new { submissionModes = new[] { "text" } });
         var linkId = await LinkAsync(assignment, new { groupId });
 
-        var response = await _client.PostAsJsonAsync($"/api/links/{linkId}/submissions", new { files = _oneFile });
+        var result = await SubmitFilesAsync(linkId, "rapport.pdf");
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(ResultStatus.Invalid, result.Status);
     }
 
     [Fact]
@@ -283,10 +281,10 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
         var linkId = await LinkAsync(assignment, new { groupId });
 
         var withText = await _client.PostAsJsonAsync($"/api/links/{linkId}/submissions", new { bodyMd = "Svar" });
-        var withFiles = await _client.PostAsJsonAsync($"/api/links/{linkId}/submissions", new { files = _oneFile });
+        var withFiles = await SubmitFilesAsync(linkId, "rapport.pdf");
 
         Assert.Equal(HttpStatusCode.OK, withText.StatusCode);
-        Assert.Equal(HttpStatusCode.OK, withFiles.StatusCode);
+        Assert.Equal(ResultStatus.Ok, withFiles.Status);
     }
 
     [Fact]
@@ -392,9 +390,20 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
 
     private async Task<SubmissionResponse> SubmitAsync(Guid linkId)
     {
-        var response = await _client.PostAsJsonAsync($"/api/links/{linkId}/submissions", new { files = _oneFile });
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<SubmissionResponse>())!;
+        var result = await SubmitFilesAsync(linkId, "rapport.pdf");
+        Assert.Equal(ResultStatus.Ok, result.Status);
+        return (await _client.GetFromJsonAsync<SubmissionResponse>($"/api/submissions/{result.Value!.Id}"))!;
+    }
+
+    // Filer kan inte skickas via HTTP än (#47), så de lämnas in genom servicen.
+    private async Task<ServiceResult<SubmissionDto>> SubmitFilesAsync(Guid linkId, params string[] fileNames)
+    {
+        using var scope = factory.Services.CreateScope();
+        var service = scope.ServiceProvider.GetRequiredService<SubmissionService>();
+        var uploads = fileNames
+            .Select(name => new FileUpload(name, "application/pdf", 3, new MemoryStream([1, 2, 3])))
+            .ToList();
+        return await service.SubmitAsync(linkId, new SubmitDto(), uploads, CancellationToken.None);
     }
 
     private async Task<(Guid GroupId, Guid SchoolId)> AddGroupAsync(int students, int teachers = 0)

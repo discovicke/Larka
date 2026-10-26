@@ -1004,9 +1004,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -1015,19 +1013,15 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["CreateAttachmentDto"];
-                };
-            };
+            requestBody?: never;
             responses: {
-                /** @description Created */
-                201: {
+                /** @description OK */
+                200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["AttachmentDto"];
+                        "application/json": components["schemas"]["AttachmentDto"][];
                     };
                 };
                 /** @description Not Found */
@@ -1039,7 +1033,52 @@ export interface paths {
                 };
             };
         };
+        put?: never;
+        post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/content/{id}/attachments/{attachmentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    attachmentId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -1356,6 +1395,7 @@ export interface components {
             submissionModes: components["schemas"]["SubmissionMode"][];
             templateRepo: null | string;
         };
+        /** @description Url är en tidsbegränsad länk som skapas när bilagan läses, inte något som sparas. */
         AttachmentDto: {
             /** Format: uuid */
             id: string;
@@ -1443,12 +1483,6 @@ export interface components {
             schoolId: string;
             title: string;
             code: string;
-        };
-        CreateAttachmentDto: {
-            fileName: string;
-            url: string;
-            /** Format: int64 */
-            sizeBytes: number;
         };
         CreateCommentDto: {
             bodyMd: string;
@@ -1611,7 +1645,10 @@ export interface components {
             repo: null | components["schemas"]["StudentRepoDto"];
             grade: null | components["schemas"]["GradeDto"];
         };
+        /** @description Url är en tidsbegränsad länk som skapas när filen läses, inte något som sparas. */
         SubmissionFileDto: {
+            /** Format: uuid */
+            id: string;
             fileName: string;
             url: string;
             /** Format: int64 */
@@ -1623,7 +1660,6 @@ export interface components {
         SubmissionStatus: "NotStarted" | "Submitted" | "NeedsWork" | "Graded";
         SubmitDto: {
             bodyMd?: null | string;
-            files?: null | components["schemas"]["SubmissionFileDto"][];
         };
         UserDto: {
             /** Format: uuid */

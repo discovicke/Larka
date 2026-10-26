@@ -116,6 +116,8 @@ jobs:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
           APP_URL: ${{ vars.APP_URL }}
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           IMAGE: ${{ needs.image.outputs.image }}
           EXPECTED_VERSION: ${{ needs.release.outputs.version }}
           EXPECTED_COMMIT: ${{ github.sha }}

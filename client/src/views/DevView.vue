@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import AddGroupMemberForm from '@/components/dev/forms/AddGroupMemberForm.vue'
-import CreateAttachmentForm from '@/components/dev/forms/CreateAttachmentForm.vue'
 import CreateCommentForm from '@/components/dev/forms/CreateCommentForm.vue'
 import CreateContentForm from '@/components/dev/forms/CreateContentForm.vue'
 import CreateCourseForm from '@/components/dev/forms/CreateCourseForm.vue'
@@ -41,7 +40,6 @@ import PublishContentForm from '@/components/dev/forms/PublishContentForm.vue'
       <CreateContentForm/>
       <PublishContentForm/>
       <CreateCommentForm/>
-      <CreateAttachmentForm/>
     </section>
 
     <section class="flex flex-col gap-4">

@@ -12,6 +12,7 @@ public class ContentService(
     IGroupRepository groups,
     IModuleRepository modules,
     SubmissionService submissions,
+    IFileStorage storage,
     IUnitOfWork unitOfWork,
     ICurrentUser currentUser,
     TimeProvider time)
@@ -174,25 +175,73 @@ public class ContentService(
         return CommentDto.From(comment);
     }
 
-    /// <summary>Returnerar null om innehållet inte finns.</summary>
-    public async Task<AttachmentDto?> AddAttachmentAsync(Guid contentId, CreateAttachmentDto dto, CancellationToken ct)
+    /// <summary>Sparar filen i lagringen under content/{contentId}. Returnerar null om innehållet inte finns.</summary>
+    public async Task<AttachmentDto?> AddAttachmentAsync(Guid contentId, FileUpload file, CancellationToken ct)
     {
         if (!await contents.ExistsAsync(contentId, ct))
         {
             return null;
         }
 
+        var key = await storage.UploadAsync($"content/{contentId}", file.Content, file.ContentType, ct);
         var attachment = new Attachment
         {
             ContentId = contentId,
-            FileName = dto.FileName,
-            Url = dto.Url,
-            SizeBytes = dto.SizeBytes
+            FileName = file.FileName,
+            StorageKey = key,
+            SizeBytes = file.SizeBytes
         };
         contents.AddAttachment(attachment);
-        await unitOfWork.SaveChangesAsync(ct);
-        return AttachmentDto.From(attachment);
+        try
+        {
+            await unitOfWork.SaveChangesAsync(ct);
+        }
+        catch
+        {
+            await storage.DeleteAsync(key, CancellationToken.None);
+            throw;
+        }
+
+        return await ToDtoAsync(attachment, ct);
     }
+
+    /// <summary>Länkarna skapas här, när bilagorna läses. Returnerar null om innehållet inte finns.</summary>
+    public async Task<List<AttachmentDto>?> GetAttachmentsAsync(Guid contentId, CancellationToken ct)
+    {
+        if (!await contents.ExistsAsync(contentId, ct))
+        {
+            return null;
+        }
+
+        var attachments = await contents.GetAttachmentsAsync(contentId, ct);
+        var dtos = new List<AttachmentDto>();
+        foreach (var attachment in attachments)
+        {
+            dtos.Add(await ToDtoAsync(attachment, ct));
+        }
+
+        return dtos;
+    }
+
+    /// <summary>Returnerar false om bilagan inte finns.</summary>
+    public async Task<bool> DeleteAttachmentAsync(Guid contentId, Guid attachmentId, CancellationToken ct)
+    {
+        var attachment = await contents.GetAttachmentAsync(contentId, attachmentId, ct);
+        if (attachment is null)
+        {
+            return false;
+        }
+
+        contents.RemoveAttachment(attachment);
+        await unitOfWork.SaveChangesAsync(ct);
+        await storage.DeleteAsync(attachment.StorageKey, ct);
+        return true;
+    }
+
+    private async Task<AttachmentDto> ToDtoAsync(Attachment attachment, CancellationToken ct) =>
+        AttachmentDto.From(
+            attachment,
+            await storage.GetSignedUrlAsync(attachment.StorageKey, IFileStorage.SignedUrlLifetime, ct));
 
     /// <summary>Returnerar felet, eller null om modulen saknas eller hör till kursen.</summary>
     private async Task<string?> CheckModuleAsync(Guid? moduleId, Guid? courseId, CancellationToken ct)

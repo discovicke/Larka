@@ -26,4 +26,7 @@ public interface IContentRepository
     Task<List<Comment>> GetCommentsAsync(Guid contentId, CancellationToken ct);
     void AddComment(Comment comment);
     void AddAttachment(Attachment attachment);
+    Task<List<Attachment>> GetAttachmentsAsync(Guid contentId, CancellationToken ct);
+    Task<Attachment?> GetAttachmentAsync(Guid contentId, Guid attachmentId, CancellationToken ct);
+    void RemoveAttachment(Attachment attachment);
 }

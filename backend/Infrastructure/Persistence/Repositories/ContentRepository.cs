@@ -58,6 +58,18 @@ public class ContentRepository(AppDb db) : IContentRepository
 
     public void AddAttachment(Attachment attachment) => db.Attachments.Add(attachment);
 
+    public Task<List<Attachment>> GetAttachmentsAsync(Guid contentId, CancellationToken ct) =>
+        db.Attachments
+            .Where(attachment => attachment.ContentId == contentId)
+            .OrderBy(attachment => attachment.FileName)
+            .ToListAsync(ct);
+
+    public Task<Attachment?> GetAttachmentAsync(Guid contentId, Guid attachmentId, CancellationToken ct) =>
+        db.Attachments.FirstOrDefaultAsync(
+            attachment => attachment.ContentId == contentId && attachment.Id == attachmentId, ct);
+
+    public void RemoveAttachment(Attachment attachment) => db.Attachments.Remove(attachment);
+
     private Task<List<ContentFeedItem>> FeedAsync(
         IQueryable<ContentLink> links, ContentType? type, DateTimeOffset now, CancellationToken ct)
     {

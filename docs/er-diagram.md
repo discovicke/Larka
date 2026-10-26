@@ -109,7 +109,7 @@ erDiagram
         uuid Id PK
         uuid ContentId FK
         string FileName
-        string Url
+        string StorageKey
         long SizeBytes
     }
     Comment {
@@ -131,7 +131,7 @@ erDiagram
         uuid Id PK
         uuid SubmissionId FK
         string FileName
-        string Url
+        string StorageKey
         long SizeBytes
     }
     StudentRepo {
@@ -193,6 +193,7 @@ erDiagram
   GitHub är ett tillval, så kurser utan programmering lämnar in text eller filer.
 
 - **Attachment och Comment** hör till content, inte till en länk. Bilagorna följer med när innehållet delas ut igen.
+- **Filer ligger i en privat bucket, inte i databasen.** Attachment och SubmissionFile sparar `StorageKey` (`content/{contentId}/{guid}` respektive `submissions/{submissionId}/{guid}`), aldrig filnamnet eleven skickade och aldrig en url. Svaren innehåller en kortlivad länk som skapas när filen läses.
 
 ### Inlämningar
 

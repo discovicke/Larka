@@ -894,7 +894,7 @@
       }
     },
     "/api/content/{id}/attachments": {
-      "post": {
+      "get": {
         "tags": [
           "Content"
         ],
@@ -909,26 +909,54 @@
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateAttachmentDto"
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
-          "201": {
-            "description": "Created",
+          "200": {
+            "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AttachmentDto"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AttachmentDto"
+                  }
                 }
               }
             }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/content/{id}/attachments/{attachmentId}": {
+      "delete": {
+        "tags": [
+          "Content"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "attachmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
           },
           "404": {
             "description": "Not Found"
@@ -1294,7 +1322,8 @@
             "type": "integer",
             "format": "int64"
           }
-        }
+        },
+        "description": "Url är en tidsbegränsad länk som skapas när bilagan läses, inte något som sparas."
       },
       "CheckStatus": {
         "enum": [
@@ -1552,26 +1581,6 @@
           },
           "code": {
             "type": "string"
-          }
-        }
-      },
-      "CreateAttachmentDto": {
-        "required": [
-          "fileName",
-          "url",
-          "sizeBytes"
-        ],
-        "type": "object",
-        "properties": {
-          "fileName": {
-            "type": "string"
-          },
-          "url": {
-            "type": "string"
-          },
-          "sizeBytes": {
-            "type": "integer",
-            "format": "int64"
           }
         }
       },
@@ -2180,12 +2189,17 @@
       },
       "SubmissionFileDto": {
         "required": [
+          "id",
           "fileName",
           "url",
           "sizeBytes"
         ],
         "type": "object",
         "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
           "fileName": {
             "type": "string"
           },
@@ -2196,7 +2210,8 @@
             "type": "integer",
             "format": "int64"
           }
-        }
+        },
+        "description": "Url är en tidsbegränsad länk som skapas när filen läses, inte något som sparas."
       },
       "SubmissionMode": {
         "enum": [
@@ -2222,15 +2237,6 @@
               "null",
               "string"
             ]
-          },
-          "files": {
-            "type": [
-              "null",
-              "array"
-            ],
-            "items": {
-              "$ref": "#/components/schemas/SubmissionFileDto"
-            }
           }
         }
       },

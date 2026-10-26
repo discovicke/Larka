@@ -63,7 +63,7 @@ namespace Backend.Infrastructure.Persistence.Migrations
                     b.Property<long>("SizeBytes")
                         .HasColumnType("bigint");
 
-                    b.Property<string>("Url")
+                    b.Property<string>("StorageKey")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -483,12 +483,12 @@ namespace Backend.Infrastructure.Persistence.Migrations
                     b.Property<long>("SizeBytes")
                         .HasColumnType("bigint");
 
-                    b.Property<Guid>("SubmissionId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Url")
+                    b.Property<string>("StorageKey")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<Guid>("SubmissionId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 

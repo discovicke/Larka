@@ -14,9 +14,11 @@ public class SubmissionService(
     IGroupRepository groups,
     IUserRepository users,
     ILabProvisioner provisioner,
+    IFileStorage storage,
     IUnitOfWork unitOfWork,
     ICurrentUser currentUser,
-    TimeProvider time)
+    TimeProvider time,
+    ILogger<SubmissionService> logger)
 {
     public static bool UsesRepo(List<SubmissionMode> modes) => modes.Contains(SubmissionMode.Repo);
 
@@ -64,17 +66,40 @@ public class SubmissionService(
         var submission = await submissions.GetAsync(id, ct);
         return submission is null
             ? null
-            : SubmissionDto.From(submission);
+            : await ToDtoAsync(submission, ct);
     }
 
     public async Task<List<SubmissionDto>> GetByLinkAsync(Guid linkId, CancellationToken ct)
     {
         var linkSubmissions = await submissions.GetByLinkAsync(linkId, ct);
-        return linkSubmissions.Select(SubmissionDto.From).ToList();
+        var dtos = new List<SubmissionDto>();
+        foreach (var submission in linkSubmissions)
+        {
+            dtos.Add(await ToDtoAsync(submission, ct));
+        }
+
+        return dtos;
     }
 
-    /// <summary>Lämnar in (eller lämnar in igen) som inloggad elev. En inlämning per elev och utdelning.</summary>
-    public async Task<ServiceResult<SubmissionDto>> SubmitAsync(Guid linkId, SubmitDto dto, CancellationToken ct)
+    // Filernas länkar skapas här, när inlämningen läses, så de går inte att dela vidare och gälla för alltid.
+    private async Task<SubmissionDto> ToDtoAsync(Submission submission, CancellationToken ct)
+    {
+        var files = new List<SubmissionFileDto>();
+        foreach (var file in submission.Files)
+        {
+            var url = await storage.GetSignedUrlAsync(file.StorageKey, IFileStorage.SignedUrlLifetime, ct);
+            files.Add(SubmissionFileDto.From(file, url));
+        }
+
+        return SubmissionDto.From(submission, files);
+    }
+
+    /// <summary>
+    /// Lämnar in (eller lämnar in igen) som inloggad elev. En inlämning per elev och utdelning.
+    /// Filerna ersätter tidigare filer och sparas i lagringen under submissions/{submissionId}.
+    /// </summary>
+    public async Task<ServiceResult<SubmissionDto>> SubmitAsync(
+        Guid linkId, SubmitDto dto, IReadOnlyList<FileUpload>? uploads, CancellationToken ct)
     {
         var linked = await contents.GetLinkWithContentAsync(linkId, ct);
         if (linked is null)
@@ -89,7 +114,7 @@ public class SubmissionService(
         }
 
         var modes = spec.SubmissionModes;
-        var files = dto.Files ?? [];
+        var files = uploads ?? [];
         if (files.Count > 0 && !modes.Contains(SubmissionMode.File))
         {
             return ServiceResult<SubmissionDto>.Invalid("this assignment does not take files");
@@ -118,18 +143,54 @@ public class SubmissionService(
         submission.Status = SubmissionStatus.Submitted;
         submission.SubmittedAt = time.GetUtcNow();
         submission.BodyMd = dto.BodyMd;
-        submissions.RemoveFiles(submission.Files);
-        submission.Files = files.Select(file => new SubmissionFile
-        {
-            SubmissionId = submission.Id,
-            FileName = file.FileName,
-            Url = file.Url,
-            SizeBytes = file.SizeBytes
-        }).ToList();
-        submissions.AddFiles(submission.Files);
 
-        await unitOfWork.SaveChangesAsync(ct);
-        return ServiceResult<SubmissionDto>.Ok(SubmissionDto.From(submission));
+        // Nya filer ersätter de gamla, och först när allt är sparat tas de gamla bort ur lagringen.
+        var oldKeys = submission.Files.Select(file => file.StorageKey).ToList();
+        var newFiles = new List<SubmissionFile>();
+        try
+        {
+            foreach (var upload in files)
+            {
+                var key = await storage.UploadAsync(
+                    $"submissions/{submission.Id}", upload.Content, upload.ContentType, ct);
+                newFiles.Add(new SubmissionFile
+                {
+                    SubmissionId = submission.Id,
+                    FileName = upload.FileName,
+                    StorageKey = key,
+                    SizeBytes = upload.SizeBytes
+                });
+            }
+
+            submissions.RemoveFiles(submission.Files);
+            submission.Files = newFiles;
+            submissions.AddFiles(newFiles);
+            await unitOfWork.SaveChangesAsync(ct);
+        }
+        catch
+        {
+            await DeleteQuietlyAsync(newFiles.Select(file => file.StorageKey));
+            throw;
+        }
+
+        await DeleteQuietlyAsync(oldKeys);
+        return ServiceResult<SubmissionDto>.Ok(await ToDtoAsync(submission, ct));
+    }
+
+    // Allt är redan sparat här, så en fil som blir kvar i lagringen ska inte fälla anropet.
+    private async Task DeleteQuietlyAsync(IEnumerable<string> keys)
+    {
+        foreach (var key in keys)
+        {
+            try
+            {
+                await storage.DeleteAsync(key, CancellationToken.None);
+            }
+            catch (Exception exception)
+            {
+                logger.LogWarning(exception, "Could not delete {StorageKey} from file storage", key);
+            }
+        }
     }
 
     /// <summary>Sätter betyg, eller begär komplettering (NeedsWork) med bara feedback.</summary>
@@ -180,7 +241,7 @@ public class SubmissionService(
             : SubmissionStatus.Graded;
 
         await unitOfWork.SaveChangesAsync(ct);
-        return ServiceResult<SubmissionDto>.Ok(SubmissionDto.From(submission));
+        return ServiceResult<SubmissionDto>.Ok(await ToDtoAsync(submission, ct));
     }
 
     // Null om betyget passar skalan, annars varför inte.

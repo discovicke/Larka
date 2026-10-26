@@ -3,6 +3,7 @@ using Backend.Infrastructure.Auth;
 using Backend.Infrastructure.Labs;
 using Backend.Infrastructure.Persistence;
 using Backend.Infrastructure.Persistence.Repositories;
+using Backend.Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -18,6 +19,8 @@ public static class DependencyInjection
 
         services.AddSingleton<ILabProvisioner, FakeLabProvisioner>();
 
+        services.AddFileStorage(config);
+
         services.AddHealthChecks().AddDbContextCheck<AppDb>();
 
         return services;
@@ -31,6 +34,35 @@ public static class DependencyInjection
     {
         using var scope = services.CreateScope();
         scope.ServiceProvider.GetRequiredService<AppDb>().Database.Migrate();
+    }
+
+    /// <summary>
+    /// Supabase Storage när Storage:Supabase är inställt. Annars lagras filerna i minnet i Development, och i
+    /// andra miljöer felar första användningen (inte starten, så att bygget av OpenAPI-dokumentet inte påverkas).
+    /// </summary>
+    private static void AddFileStorage(this IServiceCollection services, IConfiguration config)
+    {
+        var section = config.GetSection(SupabaseStorageOptions.SectionName);
+        services.AddOptions<SupabaseStorageOptions>().Bind(section);
+
+        var supabase = section.Get<SupabaseStorageOptions>();
+        if (supabase is not null && supabase.IsConfigured)
+        {
+            services.AddHttpClient<IFileStorage, SupabaseFileStorage>((serviceProvider, http) =>
+            {
+                var storage = serviceProvider.GetRequiredService<IOptions<SupabaseStorageOptions>>().Value;
+                http.BaseAddress = new Uri($"{storage.Url.TrimEnd('/')}/storage/v1/");
+                http.DefaultRequestHeaders.Add("apikey", storage.ServiceRoleKey);
+                http.DefaultRequestHeaders.Authorization = new("Bearer", storage.ServiceRoleKey);
+            });
+            return;
+        }
+
+        services.AddSingleton<IFileStorage>(serviceProvider =>
+            serviceProvider.GetRequiredService<IHostEnvironment>().IsDevelopment()
+                ? new InMemoryFileStorage()
+                : throw new InvalidOperationException(
+                    $"{SupabaseStorageOptions.SectionName}:Url och :ServiceRoleKey saknas."));
     }
 
     private static void AddPersistence(this IServiceCollection services, IConfiguration config)

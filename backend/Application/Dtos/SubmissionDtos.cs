@@ -5,14 +5,8 @@ namespace Backend.Application.Dtos;
 
 // --- requests ---
 
-// Används även i svaret, se SubmissionDto.Files.
-public record SubmissionFileDto(string FileName, string Url, long SizeBytes)
-{
-    public static SubmissionFileDto From(SubmissionFile file) => new(file.FileName, file.Url, file.SizeBytes);
-}
-
-// Files ersätter tidigare filer vid ny inlämning (t.ex. efter komplettering).
-public record SubmitDto(string? BodyMd = null, List<SubmissionFileDto>? Files = null);
+// Filerna kommer med uppladdningen (FileUpload) och ersätter tidigare filer vid ny inlämning (t.ex. efter komplettering).
+public record SubmitDto(string? BodyMd = null);
 
 // NeedsWork = begär komplettering: bara feedback, inget betyg.
 public record GradeSubmissionDto(string Feedback, GradeLevel? Level = null, bool NeedsWork = false);
@@ -30,7 +24,7 @@ public record SubmissionDto(
     StudentRepoDto? Repo,
     GradeDto? Grade)
 {
-    public static SubmissionDto From(Submission submission)
+    public static SubmissionDto From(Submission submission, List<SubmissionFileDto> files)
     {
         var repo = submission.Repo is null
             ? null
@@ -40,8 +34,15 @@ public record SubmissionDto(
             : GradeDto.From(submission.Grade);
         return new SubmissionDto(
             submission.Id, submission.ContentLinkId, submission.StudentId, submission.Status, submission.BodyMd,
-            submission.SubmittedAt, submission.Files.Select(SubmissionFileDto.From).ToList(), repo, grade);
+            submission.SubmittedAt, files, repo, grade);
     }
+}
+
+/// <summary>Url är en tidsbegränsad länk som skapas när filen läses, inte något som sparas.</summary>
+public record SubmissionFileDto(Guid Id, string FileName, string Url, long SizeBytes)
+{
+    public static SubmissionFileDto From(SubmissionFile file, string url) =>
+        new(file.Id, file.FileName, url, file.SizeBytes);
 }
 
 public record StudentRepoDto(string RepoFullName, string? LastSha, CheckStatus CheckStatus, DateTimeOffset UpdatedAt)

@@ -64,6 +64,19 @@ dotnet user-secrets set ConnectionStrings:Default "Host=...;Port=5432;..." --pro
 dotnet user-secrets set Database:SeedDevData false --project backend
 ```
 
+### Fillagring
+
+Filer (bilagor och inlämningar) ligger i en privat bucket i Supabase Storage, bakom `IFileStorage`. Databasen sparar bara nyckeln (`content/{contentId}/{guid}`, `submissions/{submissionId}/{guid}`), och svaren innehåller en länk som gäller i 10 minuter och skapas när filen läses.
+
+Utan inställningar lagras filerna i minnet i Development (borta när appen stängs av), och i andra miljöer går det inte att spara eller läsa filer. Skapa en privat bucket, t.ex. `files`, i Supabase-projektet och ställ in:
+
+```bash
+dotnet user-secrets set Storage:Supabase:Url "https://<projekt>.supabase.co" --project backend
+dotnet user-secrets set Storage:Supabase:ServiceRoleKey "<service role key>" --project backend
+```
+
+Bucketens namn är `Storage:Supabase:Bucket` (standard `files`). Service role-nyckeln går förbi Supabases row level security och är en hemlighet: user-secrets lokalt och miljövariabeln `Storage__Supabase__ServiceRoleKey` på Render, aldrig i `appsettings`. I produktion ligger de som `SUPABASE_URL` (variabel) och `SUPABASE_SERVICE_ROLE_KEY` (secret) i GitHub-miljön `production`, och deploy-jobbet skickar dem vidare till Render. Åtkomstkontrollerna görs i backend innan en länk skapas.
+
 ### API-typer i klienten
 
 C#-DTO:erna i backend är den enda källan. Varje `dotnet build` (Debug) skriver OpenAPI-dokumentet till `client/openapi.json`, och `npm run gen:api` gör om det till TypeScript-typer i `client/src/lib/api-types.ts`. Båda filerna genereras och ska inte ändras för hand.

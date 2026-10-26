@@ -27,8 +27,6 @@ public record CreateContentLinkDto(
 
 public record CreateCommentDto(string BodyMd);
 
-public record CreateAttachmentDto(string FileName, string Url, long SizeBytes);
-
 // --- responses ---
 
 public record ContentDto(
@@ -98,8 +96,9 @@ public record CommentDto(Guid Id, Guid ContentId, Guid AuthorId, string BodyMd, 
         new(comment.Id, comment.ContentId, comment.AuthorId, comment.BodyMd, comment.CreatedAt);
 }
 
+/// <summary>Url är en tidsbegränsad länk som skapas när bilagan läses, inte något som sparas.</summary>
 public record AttachmentDto(Guid Id, Guid ContentId, string FileName, string Url, long SizeBytes)
 {
-    public static AttachmentDto From(Attachment attachment) =>
-        new(attachment.Id, attachment.ContentId, attachment.FileName, attachment.Url, attachment.SizeBytes);
+    public static AttachmentDto From(Attachment attachment, string url) =>
+        new(attachment.Id, attachment.ContentId, attachment.FileName, url, attachment.SizeBytes);
 }

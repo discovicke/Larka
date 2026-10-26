@@ -42,14 +42,21 @@ public static class ContentEndpoints
                 : TypedResults.Created($"/api/content/{id}/comments", comment);
         });
 
-        contentGroup.MapPost("/{id:guid}/attachments", async Task<Results<Created<AttachmentDto>, NotFound>> (
-            Guid id, CreateAttachmentDto attachmentDto, ContentService service, CancellationToken ct) =>
+        // Url i svaret är en kortlivad länk som skapas vid varje anrop. Uppladdning (POST) kommer i #47.
+        contentGroup.MapGet("/{id:guid}/attachments", async Task<Results<Ok<List<AttachmentDto>>, NotFound>> (
+            Guid id, ContentService service, CancellationToken ct) =>
         {
-            var attachment = await service.AddAttachmentAsync(id, attachmentDto, ct);
-            return attachment is null
+            var attachments = await service.GetAttachmentsAsync(id, ct);
+            return attachments is null
                 ? TypedResults.NotFound()
-                : TypedResults.Created($"/api/content/{id}", attachment);
+                : TypedResults.Ok(attachments);
         });
+
+        contentGroup.MapDelete("/{id:guid}/attachments/{attachmentId:guid}", async Task<Results<NoContent, NotFound>> (
+            Guid id, Guid attachmentId, ContentService service, CancellationToken ct) =>
+            await service.DeleteAttachmentAsync(id, attachmentId, ct)
+                ? TypedResults.NoContent()
+                : TypedResults.NotFound());
 
         // --- flöden: ?type=news|theory|assignment ---
         app.MapGet("/groups/{id:guid}/content",

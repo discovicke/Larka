@@ -14,9 +14,9 @@ public static class SubmissionEndpoints
         links.MapGet("", async (Guid id, SubmissionService service, CancellationToken ct) =>
             TypedResults.Ok(await service.GetByLinkAsync(id, ct)));
 
-        // Samma anrop för första inlämningen och för komplettering.
+        // Samma anrop för första inlämningen och för komplettering. Filer kan inte skickas hit än (#47).
         links.MapPost("", async (Guid id, SubmitDto submitDto, SubmissionService service, CancellationToken ct) =>
-            (await service.SubmitAsync(id, submitDto, ct)).ToHttp(submission => TypedResults.Ok(submission)));
+            (await service.SubmitAsync(id, submitDto, null, ct)).ToHttp(submission => TypedResults.Ok(submission)));
 
         var submissions = app.MapGroup("/submissions").WithTags("Submissions");
 
