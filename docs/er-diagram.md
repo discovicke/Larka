@@ -94,6 +94,7 @@ erDiagram
         uuid GroupId FK "nullable"
         uuid CourseId FK "nullable"
         uuid ModuleId FK "nullable, kräver CourseId"
+        int Position "ordning i modulen, 0 utan modul"
         timestamptz PublishAt
         timestamptz DueAt "nullable"
         bool IsPinned

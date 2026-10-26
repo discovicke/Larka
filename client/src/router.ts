@@ -88,6 +88,19 @@ export const routes: RouteRecordRaw[] = [
           ),
         },
       },
+      {
+        path: 'courses/:courseId/modules/:moduleId/content/:linkId/edit',
+        name: 'edit-content',
+        component: () => import('@/views/course/CreateContentView.vue'),
+        meta: {
+          title: 'Redigera del',
+          breadcrumbs: (route) => courseBreadcrumbs(
+            route,
+            {label: 'Innehåll', to: {name: 'course-content', params: {courseId: route.params.courseId}}},
+            {label: 'Redigera del'},
+          ),
+        },
+      },
       {path: ':pathMatch(.*)*', name: 'not-found', component: NotFoundView, meta: {title: 'Sidan finns inte'}},
     ],
   },

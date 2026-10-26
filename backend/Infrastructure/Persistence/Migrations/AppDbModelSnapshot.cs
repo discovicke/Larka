@@ -157,6 +157,9 @@ namespace Backend.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("ModuleId")
                         .HasColumnType("uuid");
 
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
                     b.Property<DateTimeOffset>("PublishAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -168,7 +171,7 @@ namespace Backend.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("GroupId");
 
-                    b.HasIndex("ModuleId");
+                    b.HasIndex("ModuleId", "Position");
 
                     b.ToTable("ContentLinks", t =>
                         {

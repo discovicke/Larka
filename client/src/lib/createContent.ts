@@ -13,6 +13,7 @@ export interface ContentForm {
   gradeScale: Schema<'GradeScale'>
   submissionModes: SubmissionMode[]
   templateRepo: string
+  isPinned: boolean
 }
 
 export type FormErrors = Partial<Record<'title' | 'dueAt' | 'templateRepo', string>>
@@ -27,6 +28,7 @@ export function emptyForm(): ContentForm {
     gradeScale: 'PassFail',
     submissionModes: [],
     templateRepo: '',
+    isPinned: false,
   }
 }
 
@@ -59,7 +61,7 @@ export function toRequests(
   status: Schema<'ContentStatus'>,
   target: {courseId: string, moduleId: string},
 ): {content: Schema<'CreateContentDto'>, link: Schema<'CreateContentLinkDto'>} {
-  const link = {...target, publishAt: isoOrNull(form.publishAt), isPinned: false}
+  const link = {...target, publishAt: isoOrNull(form.publishAt), isPinned: form.isPinned}
   if (!isAssignment(form)) {
     return {content: {type: 'Theory', title: form.title.trim(), bodyMd: form.bodyMd, status}, link}
   }
@@ -79,6 +81,40 @@ export function toRequests(
         : null,
     },
     link: {...link, dueAt: isoOrNull(form.dueAt)},
+  }
+}
+
+/** Ändringarna skickas till innehållet och länken. Typ och status ligger utanför. */
+export function toUpdateRequests(
+  form: ContentForm,
+): {content: Schema<'UpdateContentDto'>, link: Schema<'UpdateContentLinkDto'>} {
+  const link = {
+    publishAt: isoOrNull(form.publishAt),
+    dueAt: isAssignment(form)
+      ? isoOrNull(form.dueAt)
+      : null,
+    isPinned: form.isPinned,
+  }
+  if (!isAssignment(form)) {
+    return {
+      content: {title: form.title.trim(), bodyMd: form.bodyMd, gradeScale: null, submissionModes: null, templateRepo: null},
+      link,
+    }
+  }
+
+  return {
+    content: {
+      title: form.title.trim(),
+      bodyMd: form.bodyMd,
+      gradeScale: isGraded(form)
+        ? form.gradeScale
+        : null,
+      submissionModes: form.submissionModes,
+      templateRepo: usesRepo(form)
+        ? form.templateRepo.trim()
+        : null,
+    },
+    link,
   }
 }
 

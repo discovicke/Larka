@@ -6,6 +6,15 @@ import {useRoute} from 'vue-router'
 import AddModuleDialog from '@/components/course/AddModuleDialog.vue'
 import ModuleSection from '@/components/course/ModuleSection.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
+import {Button} from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty'
 import {Skeleton} from '@/components/ui/skeleton'
 import {api, errorMessage, type Schema} from '@/lib/api'
@@ -16,6 +25,10 @@ const courseId = computed(() => String(route.params.courseId))
 const modules = ref<Schema<'ModuleWithContentDto'>[]>([])
 const loading = ref(true)
 const error = ref('')
+const deleteOpen = ref(false)
+const partToDelete = ref<Schema<'ModuleContentItem'> | null>(null)
+const deleting = ref(false)
+const deleteError = ref('')
 
 async function load() {
   error.value = ''
@@ -38,6 +51,73 @@ async function move(index: number, direction: -1 | 1) {
     await load()
   } catch (exception) {
     error.value = errorMessage(exception)
+  }
+}
+
+async function movePart(
+  module: Schema<'ModuleWithContentDto'>,
+  item: Schema<'ModuleContentItem'>,
+  direction: -1 | 1,
+) {
+  const linkIds = module.content.map((part) => part.linkId)
+  const index = linkIds.indexOf(item.linkId)
+  if (index < 0) {
+    return
+  }
+
+  const [moved] = linkIds.splice(index, 1)
+  linkIds.splice(index + direction, 0, moved)
+  try {
+    await api.PUT('/api/courses/{id}/modules/{moduleId}/content/order', {
+      params: {path: {id: courseId.value, moduleId: module.id}},
+      body: {linkIds},
+    })
+    await load()
+  } catch (exception) {
+    error.value = errorMessage(exception)
+  }
+}
+
+async function togglePartStatus(item: Schema<'ModuleContentItem'>) {
+  const status = item.status === 'Draft'
+    ? 'Published'
+    : 'Draft'
+  try {
+    await api.PUT('/api/content/{id}/status', {
+      params: {path: {id: item.contentId}},
+      body: {status},
+    })
+    await load()
+  } catch (exception) {
+    error.value = errorMessage(exception)
+  }
+}
+
+function askDeletePart(item: Schema<'ModuleContentItem'>) {
+  partToDelete.value = item
+  deleteError.value = ''
+  deleteOpen.value = true
+}
+
+async function deletePart() {
+  const part = partToDelete.value
+  if (!part) {
+    return
+  }
+
+  deleting.value = true
+  deleteError.value = ''
+  try {
+    await api.DELETE('/api/content/{id}/links/{linkId}', {
+      params: {path: {id: part.contentId, linkId: part.linkId}},
+    })
+    deleteOpen.value = false
+    partToDelete.value = null
+    await load()
+  } catch (exception) {
+    deleteError.value = errorMessage(exception)
+  } finally {
+    deleting.value = false
   }
 }
 
@@ -78,8 +158,33 @@ watch(courseId, () => {
         :can-move-up="index > 0"
         :can-move-down="index < modules.length - 1"
         @move="(direction) => move(index, direction)"
+        @move-part="(item, direction) => movePart(module, item, direction)"
+        @toggle-part-status="togglePartStatus"
+        @delete-part="askDeletePart"
       />
       <AddModuleDialog :course-id="courseId" @created="load"/>
     </template>
+
+    <Dialog v-model:open="deleteOpen">
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Ta bort del?</DialogTitle>
+          <DialogDescription>
+            {{ partToDelete?.title }} tas bort från veckan. Det går inte att ångra.
+          </DialogDescription>
+        </DialogHeader>
+        <Alert v-if="deleteError" variant="destructive">
+          <AlertDescription>{{ deleteError }}</AlertDescription>
+        </Alert>
+        <DialogFooter>
+          <Button variant="outline" :disabled="deleting" @click="deleteOpen = false">
+            Avbryt
+          </Button>
+          <Button variant="destructive" :disabled="deleting" @click="deletePart">
+            Ta bort
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>

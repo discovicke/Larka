@@ -14,6 +14,17 @@ public interface IContentRepository
     void Add(Content content);
     void AddLink(ContentLink link);
     Task<LinkedContent?> GetLinkWithContentAsync(Guid linkId, CancellationToken ct);
+    Task<LinkedContent?> GetLinkWithContentAsync(Guid contentId, Guid linkId, CancellationToken ct);
+
+    /// <summary>Nästa position i modulen, eller 1 om den är tom.</summary>
+    Task<int> GetNextLinkPositionAsync(Guid moduleId, CancellationToken ct);
+
+    /// <summary>Modulens länkar i ordning, så att positionerna kan kompakteras.</summary>
+    Task<List<ContentLink>> GetLinksForModuleAsync(Guid moduleId, CancellationToken ct);
+
+    Task<int> CountLinksAsync(Guid contentId, CancellationToken ct);
+    void RemoveLink(ContentLink link);
+    void RemoveContent(Content content);
 
     // Publicerat innehåll med PublishAt passerad. Gruppens flöde tar även med det som är länkat
     // till en kurs gruppen läser (länkar med bara CourseId).

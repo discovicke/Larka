@@ -13,6 +13,7 @@ public interface ISubmissionRepository
     Task<bool> IsTeacherOfLinkAsync(Guid linkId, Guid userId, CancellationToken ct);
     void Add(Submission submission);
     void AddRange(IEnumerable<Submission> submissions);
+    void Remove(Submission submission);
     void AddFiles(IEnumerable<SubmissionFile> files);
     void RemoveFiles(IEnumerable<SubmissionFile> files);
     void AddGrade(Grade grade);

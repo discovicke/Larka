@@ -36,6 +36,8 @@ public class SubmissionRepository(AppDb db) : ISubmissionRepository
 
     public void AddRange(IEnumerable<Submission> submissions) => db.Submissions.AddRange(submissions);
 
+    public void Remove(Submission submission) => db.Submissions.Remove(submission);
+
     public void AddFiles(IEnumerable<SubmissionFile> files) => db.SubmissionFiles.AddRange(files);
 
     public void RemoveFiles(IEnumerable<SubmissionFile> files) => db.SubmissionFiles.RemoveRange(files);

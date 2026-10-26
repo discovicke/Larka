@@ -32,6 +32,45 @@ public class ContentRepository(AppDb db) : IContentRepository
         return new LinkedContent(link, content);
     }
 
+    public async Task<LinkedContent?> GetLinkWithContentAsync(
+        Guid contentId, Guid linkId, CancellationToken ct)
+    {
+        var link = await db.ContentLinks.FirstOrDefaultAsync(
+            contentLink => contentLink.Id == linkId && contentLink.ContentId == contentId, ct);
+        if (link is null)
+        {
+            return null;
+        }
+
+        var content = await db.Content
+            .Include(linkedContent => linkedContent.Assignment)
+            .SingleAsync(linkedContent => linkedContent.Id == contentId, ct);
+        return new LinkedContent(link, content);
+    }
+
+    public async Task<int> GetNextLinkPositionAsync(Guid moduleId, CancellationToken ct)
+    {
+        var lastPosition = await db.ContentLinks
+            .Where(link => link.ModuleId == moduleId)
+            .MaxAsync(link => (int?)link.Position, ct);
+        return (lastPosition ?? 0) + 1;
+    }
+
+    public Task<List<ContentLink>> GetLinksForModuleAsync(Guid moduleId, CancellationToken ct) =>
+        db.ContentLinks
+            .Where(link => link.ModuleId == moduleId)
+            .OrderBy(link => link.Position)
+            .ThenBy(link => link.PublishAt)
+            .ThenBy(link => link.Id)
+            .ToListAsync(ct);
+
+    public Task<int> CountLinksAsync(Guid contentId, CancellationToken ct) =>
+        db.ContentLinks.CountAsync(link => link.ContentId == contentId, ct);
+
+    public void RemoveLink(ContentLink link) => db.ContentLinks.Remove(link);
+
+    public void RemoveContent(Content content) => db.Content.Remove(content);
+
     public Task<List<ContentFeedItem>> GetGroupFeedAsync(
         Guid groupId, ContentType? type, DateTimeOffset now, CancellationToken ct)
     {

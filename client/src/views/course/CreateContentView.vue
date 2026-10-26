@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {PhChalkboardTeacher, PhFiles, PhGithubLogo, PhTextAa} from '@phosphor-icons/vue'
-import {type Component, computed, reactive, ref} from 'vue'
+import {type Component, computed, onMounted, reactive, ref} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 
 import MarkdownEditor from '@/components/editor/MarkdownEditor.vue'
@@ -22,17 +22,19 @@ import {Input} from '@/components/ui/input'
 import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
 import {RadioGroup, RadioGroupItem} from '@/components/ui/radio-group'
 import {Skeleton} from '@/components/ui/skeleton'
-import {api, errorMessage, type Schema} from '@/lib/api'
-import {partTypes} from '@/lib/content'
+import {ApiError, api, errorMessage, type Schema} from '@/lib/api'
+import {partTypeOf, partTypes} from '@/lib/content'
 import {
   emptyForm,
   isAssignment,
   isGraded,
   publishSteps,
   toRequests,
+  toUpdateRequests,
   usesRepo,
   validate,
 } from '@/lib/createContent'
+import {toDateTimeLocal} from '@/lib/form'
 import NotFoundView from '@/views/NotFoundView.vue'
 
 const submissionModes: {value: Schema<'SubmissionMode'>, label: string, description: string, icon: Component}[] = [
@@ -54,6 +56,10 @@ const route = useRoute()
 const router = useRouter()
 const courseId = String(route.params.courseId)
 const moduleId = String(route.params.moduleId)
+const linkId = computed(() => route.params.linkId
+  ? String(route.params.linkId)
+  : null)
+const isEditing = computed(() => linkId.value !== null)
 
 const form = reactive(emptyForm())
 
@@ -66,19 +72,68 @@ const saving = ref(false)
 const serverError = ref('')
 
 const module = ref<Schema<'ModuleWithContentDto'>>()
+const part = ref<Schema<'ModuleContentItem'>>()
 const loading = ref(true)
-api.GET('/api/courses/{id}/modules', {params: {path: {id: courseId}}})
-  .then(({data}) => {
-    module.value = data?.find((candidate) => candidate.id === moduleId)
-  })
-  .catch(() => {
-    module.value = undefined
-  })
-  .finally(() => {
-    loading.value = false
-  })
+const notFound = ref(false)
+const loadError = ref('')
+const currentPartType = computed(() =>
+  partTypes.find((candidate) => candidate.value === form.partType) ?? partTypes[0])
 
 const backToCourse = {name: 'course-content', params: {courseId}}
+
+async function load() {
+  loading.value = true
+  notFound.value = false
+  loadError.value = ''
+  try {
+    const {data} = await api.GET('/api/courses/{id}/modules', {params: {path: {id: courseId}}})
+    const foundModule = data?.find((candidate) => candidate.id === moduleId)
+    if (!foundModule) {
+      notFound.value = true
+      return
+    }
+
+    module.value = foundModule
+    if (!isEditing.value) {
+      return
+    }
+
+    const foundPart = foundModule.content.find((candidate) => candidate.linkId === linkId.value)
+    if (!foundPart || foundPart.type === 'News') {
+      notFound.value = true
+      return
+    }
+
+    part.value = foundPart
+    const {data: content} = await api.GET('/api/content/{id}', {
+      params: {path: {id: foundPart.contentId}},
+    })
+    if (!content) {
+      notFound.value = true
+      return
+    }
+
+    form.partType = partTypeOf(foundPart)
+    form.title = content.title
+    form.bodyMd = content.bodyMd
+    form.publishAt = toDateTimeLocal(foundPart.publishAt)
+    form.dueAt = toDateTimeLocal(foundPart.dueAt)
+    form.gradeScale = content.assignment?.gradeScale ?? 'PassFail'
+    form.submissionModes = content.assignment?.submissionModes ?? []
+    form.templateRepo = content.assignment?.templateRepo ?? ''
+    form.isPinned = foundPart.isPinned
+  } catch (exception) {
+    if (exception instanceof ApiError && exception.status === 404) {
+      notFound.value = true
+    } else {
+      loadError.value = errorMessage(exception)
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(load)
 
 function toggleMode(mode: Schema<'SubmissionMode'>, checked: boolean) {
   form.submissionModes = checked
@@ -86,7 +141,7 @@ function toggleMode(mode: Schema<'SubmissionMode'>, checked: boolean) {
     : form.submissionModes.filter((selected) => selected !== mode)
 }
 
-async function save(status: Schema<'ContentStatus'>) {
+async function save(status: Schema<'ContentStatus'> = 'Published') {
   triedToSave.value = true
   if (Object.keys(validate(form)).length > 0) {
     return
@@ -95,9 +150,27 @@ async function save(status: Schema<'ContentStatus'>) {
   saving.value = true
   serverError.value = ''
   try {
-    const {content, link} = toRequests(form, status, {courseId, moduleId})
-    const {data: created} = await api.POST('/api/content', {body: content})
-    await api.POST('/api/content/{id}/links', {params: {path: {id: created!.id}}, body: link})
+    if (isEditing.value) {
+      const current = part.value
+      if (!current) {
+        return
+      }
+
+      const {content, link} = toUpdateRequests(form)
+      await api.PUT('/api/content/{id}', {
+        params: {path: {id: current.contentId}},
+        body: content,
+      })
+      await api.PUT('/api/content/{id}/links/{linkId}', {
+        params: {path: {id: current.contentId, linkId: current.linkId}},
+        body: link,
+      })
+    } else {
+      const {content, link} = toRequests(form, status, {courseId, moduleId})
+      const {data: created} = await api.POST('/api/content', {body: content})
+      await api.POST('/api/content/{id}/links', {params: {path: {id: created!.id}}, body: link})
+    }
+
     await router.push(backToCourse)
   } catch (exception) {
     serverError.value = errorMessage(exception)
@@ -109,19 +182,34 @@ async function save(status: Schema<'ContentStatus'>) {
 
 <template>
   <Skeleton v-if="loading" class="h-64 w-full"/>
-  <NotFoundView v-else-if="!module"/>
-  <div v-else class="flex flex-wrap items-start gap-6">
+  <NotFoundView v-else-if="notFound"/>
+  <Alert v-else-if="loadError" variant="destructive">
+    <AlertDescription class="flex flex-wrap items-center justify-between gap-3">
+      <span>{{ loadError }}</span>
+      <Button variant="outline" size="sm" @click="load">Försök igen</Button>
+    </AlertDescription>
+  </Alert>
+  <div v-else-if="module" class="flex flex-wrap items-start gap-6">
     <PageActions>
       <Button variant="outline" as-child>
         <RouterLink :to="backToCourse">Avbryt</RouterLink>
       </Button>
-      <Button variant="outline" :disabled="saving" @click="save('Draft')">Spara utkast</Button>
-      <Button :disabled="saving" @click="save('Published')">Publicera</Button>
+      <template v-if="isEditing">
+        <Button :disabled="saving" @click="save()">Spara</Button>
+      </template>
+      <template v-else>
+        <Button variant="outline" :disabled="saving" @click="save('Draft')">Spara utkast</Button>
+        <Button :disabled="saving" @click="save('Published')">Publicera</Button>
+      </template>
     </PageActions>
 
-    <form class="flex min-w-0 flex-[999_1_560px] flex-col gap-5" @submit.prevent="save('Published')">
+    <form class="flex min-w-0 flex-[999_1_560px] flex-col gap-5" @submit.prevent="save()">
       <div class="flex flex-col gap-1">
-        <h1 class="text-3xl leading-tight">Ny del</h1>
+        <h1 class="text-3xl leading-tight">
+          {{ isEditing
+            ? 'Redigera del'
+            : 'Ny del' }}
+        </h1>
         <p class="text-muted-foreground">{{ module.title }}</p>
       </div>
 
@@ -131,7 +219,24 @@ async function save(status: Schema<'ContentStatus'>) {
 
       <FieldSet>
         <FieldLegend>Typ av del</FieldLegend>
-        <RadioGroup v-model="form.partType" class="grid grid-cols-[repeat(auto-fit,minmax(min(150px,100%),1fr))] gap-2.5">
+        <div
+          v-if="isEditing"
+          class="flex items-center gap-3 rounded-[11px] border bg-stone-50 p-3"
+          data-test="fixed-part-type"
+        >
+          <component :is="currentPartType.icon" class="size-5"/>
+          <div class="flex flex-col">
+            <span class="font-medium">{{ currentPartType.label }}</span>
+            <span class="text-muted-foreground text-xs">
+              Typen kan inte ändras efter att delen skapats.
+            </span>
+          </div>
+        </div>
+        <RadioGroup
+          v-else
+          v-model="form.partType"
+          class="grid grid-cols-[repeat(auto-fit,minmax(min(150px,100%),1fr))] gap-2.5"
+        >
           <FieldLabel
             v-for="partType in partTypes"
             :key="partType.value"
@@ -242,16 +347,27 @@ async function save(status: Schema<'ContentStatus'>) {
     </form>
 
     <aside class="flex min-w-0 flex-[1_1_280px] flex-col gap-3 rounded-[11px] border bg-stone-50 p-4 shadow-xs">
-      <h2 class="font-sans text-sm tracking-normal">När du publicerar</h2>
-      <ol class="flex flex-col gap-3 text-[13px] text-stone-700" data-test="publish-steps">
-        <li v-for="(step, index) in publishSteps(form)" :key="step" class="flex gap-2.5">
-          <span
-            class="bg-primary text-primary-foreground flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold"
-          >{{ index + 1 }}</span>
-          <span>{{ step }}</span>
-        </li>
-      </ol>
-      <p class="text-muted-foreground text-xs">Sparar du som utkast syns delen inte för eleverna.</p>
+      <template v-if="isEditing">
+        <h2 class="font-sans text-sm tracking-normal">När du sparar</h2>
+        <p class="text-[13px] text-stone-700">
+          Ändringarna syns direkt för eleverna. Delen behåller sin status.
+        </p>
+        <p class="text-muted-foreground text-xs">
+          Publicera eller avpublicera delen från veckolistan.
+        </p>
+      </template>
+      <template v-else>
+        <h2 class="font-sans text-sm tracking-normal">När du publicerar</h2>
+        <ol class="flex flex-col gap-3 text-[13px] text-stone-700" data-test="publish-steps">
+          <li v-for="(step, index) in publishSteps(form)" :key="step" class="flex gap-2.5">
+            <span
+              class="bg-primary text-primary-foreground flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold"
+            >{{ index + 1 }}</span>
+            <span>{{ step }}</span>
+          </li>
+        </ol>
+        <p class="text-muted-foreground text-xs">Sparar du som utkast syns delen inte för eleverna.</p>
+      </template>
     </aside>
   </div>
 </template>

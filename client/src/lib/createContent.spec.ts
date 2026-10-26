@@ -1,6 +1,13 @@
 import {describe, expect, it} from 'vitest'
 
-import {type ContentForm, emptyForm, publishSteps, toRequests, validate} from './createContent'
+import {
+  type ContentForm,
+  emptyForm,
+  publishSteps,
+  toRequests,
+  toUpdateRequests,
+  validate,
+} from './createContent'
 
 const target = {courseId: 'c1', moduleId: 'm1'}
 
@@ -43,6 +50,38 @@ describe('toRequests', () => {
     const {content} = toRequests(form({partType: 'Submission', submissionModes: ['File'], templateRepo: 'org/mall'}), 'Published', target)
 
     expect(content.templateRepo).toBeNull()
+  })
+})
+
+describe('toUpdateRequests', () => {
+  it('teori uppdaterar bara innehållet och behåller pin', () => {
+    const {content, link} = toUpdateRequests(form({bodyMd: '**Läs**', isPinned: true}))
+
+    expect(content).toEqual({
+      title: 'Titel',
+      bodyMd: '**Läs**',
+      gradeScale: null,
+      submissionModes: null,
+      templateRepo: null,
+    })
+    expect(link).toEqual({publishAt: null, dueAt: null, isPinned: true})
+  })
+
+  it('en inlämning uppdaterar skala, sätt, mallrepo och deadline', () => {
+    const {content, link} = toUpdateRequests(form({
+      partType: 'Submission',
+      gradeScale: 'PassFailDistinction',
+      submissionModes: ['Text', 'Repo'],
+      templateRepo: ' org/mall ',
+      dueAt: '2026-11-01T10:00',
+    }))
+
+    expect(content).toMatchObject({
+      gradeScale: 'PassFailDistinction',
+      submissionModes: ['Text', 'Repo'],
+      templateRepo: 'org/mall',
+    })
+    expect(link.dueAt).toBe(new Date('2026-11-01T10:00').toISOString())
   })
 })
 

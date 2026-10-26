@@ -10,6 +10,9 @@ public record CreateModuleDto(string Title, string? Description = null);
 // Alla kursens moduler i den nya ordningen, var och en exakt en gång.
 public record ReorderModulesDto(List<Guid> ModuleIds);
 
+// Alla modulens delar i den nya ordningen, var och en exakt en gång.
+public record ReorderContentDto(List<Guid> LinkIds);
+
 // --- responses ---
 
 public record ModuleDto(Guid Id, Guid CourseId, string Title, string Description, int Position)

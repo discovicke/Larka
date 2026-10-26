@@ -26,10 +26,31 @@ public static class ContentEndpoints
                 : TypedResults.Ok(content);
         });
 
+        contentGroup.MapPut("/{id:guid}", async (
+            Guid id, UpdateContentDto contentDto, ContentService service, CancellationToken ct) =>
+            (await service.UpdateAsync(id, contentDto, ct)).ToHttp(TypedResults.Ok));
+
+        contentGroup.MapPut("/{id:guid}/status", async Task<Results<Ok<ContentDto>, NotFound>> (
+            Guid id, UpdateContentStatusDto statusDto, ContentService service, CancellationToken ct) =>
+        {
+            var content = await service.UpdateStatusAsync(id, statusDto, ct);
+            return content is null
+                ? TypedResults.NotFound()
+                : TypedResults.Ok(content);
+        });
+
         contentGroup.MapPost("/{id:guid}/links",
             async (Guid id, CreateContentLinkDto contentLinkDto, ContentService service, CancellationToken ct) =>
                 (await service.AddLinkAsync(id, contentLinkDto, ct)).ToHttp(contentLink =>
                     TypedResults.Created($"/api/content/{id}", contentLink)));
+
+        contentGroup.MapPut("/{id:guid}/links/{linkId:guid}", async (
+            Guid id, Guid linkId, UpdateContentLinkDto linkDto, ContentService service, CancellationToken ct) =>
+            (await service.UpdateLinkAsync(id, linkId, linkDto, ct)).ToHttp(TypedResults.Ok));
+
+        contentGroup.MapDelete("/{id:guid}/links/{linkId:guid}", async (
+            Guid id, Guid linkId, ContentService service, CancellationToken ct) =>
+            (await service.DeleteLinkAsync(id, linkId, ct)).ToHttp(_ => TypedResults.NoContent()));
 
         // --- comments + attachments ---
         contentGroup.MapGet("/{id:guid}/comments", async (Guid id, ContentService service, CancellationToken ct) =>

@@ -8,6 +8,7 @@ namespace backend.Tests;
 public class MigrationTests
 {
     private const string _beforeContentModel = "20261023094126_InitialCreate";
+    private const string _beforeContentLinkPosition = "20261026125058_RemoveAssignmentKind";
 
     // Faller om någon ändrat en entitet eller konfiguration utan att köra `dotnet ef migrations add`.
     // Då skulle prod-databasen inte få ändringen. Behöver ingen databas.
@@ -50,6 +51,61 @@ public class MigrationTests
         {
             PostgresServer.DropDatabase(name);
         }
+    }
+
+    // Länkarna får Position i den ordning de visades innan kolumnen fanns: PublishAt, sedan titel.
+    [Fact]
+    public void ContentLinkPositionMigration_BackfillsExistingLinks()
+    {
+        var name = $"migration_{Guid.NewGuid():N}";
+        var options = new DbContextOptionsBuilder<AppDb>().UseNpgsql(PostgresServer.CreateDatabase(name)).Options;
+
+        try
+        {
+            using var db = new AppDb(options);
+            db.GetService<IMigrator>().Migrate(_beforeContentLinkPosition);
+            InsertLegacyLinks(db);
+
+            db.Database.Migrate();
+
+            var positions = Query(db, """
+                SELECT content."Title" || ':' || link."Position" AS "Value"
+                FROM "ContentLinks" AS link
+                JOIN "Content" AS content ON content."Id" = link."ContentId"
+                ORDER BY link."Position"
+                """);
+            Assert.Equal(["Tidigare:1", "Senare:2"], positions);
+        }
+        finally
+        {
+            PostgresServer.DropDatabase(name);
+        }
+    }
+
+    // Lägger in två länkar i samma modul, där den som publiceras först också ska visas först.
+    private static void InsertLegacyLinks(AppDb db)
+    {
+        var school = Guid.NewGuid();
+        var teacher = Guid.NewGuid();
+        var course = Guid.NewGuid();
+        var module = Guid.NewGuid();
+        var earlier = Guid.NewGuid();
+        var later = Guid.NewGuid();
+        Execute(db, $"""
+            INSERT INTO "Schools" ("Id", "Name") VALUES ('{school}', 'Skola');
+            INSERT INTO "Users" ("Id", "SchoolId", "Name", "Email", "Role")
+                VALUES ('{teacher}', '{school}', 'Lärare', 'larare@skola.se', 'Teacher');
+            INSERT INTO "Courses" ("Id", "SchoolId", "Title", "Code")
+                VALUES ('{course}', '{school}', 'Kurs', 'KURS');
+            INSERT INTO "Modules" ("Id", "CourseId", "Title", "Description", "Position")
+                VALUES ('{module}', '{course}', 'Vecka 1', '', 1);
+            INSERT INTO "Content" ("Id", "AuthorId", "Type", "Title", "BodyMd", "Status", "CreatedAt")
+                VALUES ('{earlier}', '{teacher}', 'Theory', 'Tidigare', '', 'Published', now()),
+                       ('{later}', '{teacher}', 'Theory', 'Senare', '', 'Published', now());
+            INSERT INTO "ContentLinks" ("Id", "ContentId", "CourseId", "ModuleId", "PublishAt", "IsPinned")
+                VALUES ('{Guid.NewGuid()}', '{later}', '{course}', '{module}', '2026-01-02T08:00:00Z', false),
+                       ('{Guid.NewGuid()}', '{earlier}', '{course}', '{module}', '2026-01-01T08:00:00Z', false);
+            """);
     }
 
     // Lägger in två uppgifter (en med poäng och FileOrRepo, en utan poäng) och fyra betyg.

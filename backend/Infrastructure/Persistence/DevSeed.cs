@@ -105,13 +105,20 @@ public static class DevSeed
         db.Content.AddRange(news, theory, assignment);
         db.ContentLinks.AddRange(
             new ContentLink { ContentId = news.Id, GroupId = group.Id, IsPinned = true },
-            new ContentLink { ContentId = theory.Id, CourseId = devOps.Id, ModuleId = firstWeek.Id },
+            new ContentLink
+            {
+                ContentId = theory.Id,
+                CourseId = devOps.Id,
+                ModuleId = firstWeek.Id,
+                Position = 1
+            },
             new ContentLink
             {
                 ContentId = assignment.Id,
                 GroupId = group.Id,
                 CourseId = devOps.Id,
                 ModuleId = firstWeek.Id,
+                Position = 2,
                 DueAt = DateTimeOffset.UtcNow.AddDays(14)
             });
     }

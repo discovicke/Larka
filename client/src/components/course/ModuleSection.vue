@@ -1,5 +1,16 @@
 <script setup lang="ts">
-import {PhArrowDown, PhArrowUp, PhCaretDown, PhDotsThree, PhInfo, PhPlus} from '@phosphor-icons/vue'
+import {
+  PhArrowDown,
+  PhArrowUp,
+  PhCaretDown,
+  PhDotsThree,
+  PhEye,
+  PhEyeSlash,
+  PhInfo,
+  PhPencilSimple,
+  PhPlus,
+  PhTrash,
+} from '@phosphor-icons/vue'
 import {ref} from 'vue'
 
 import {Badge} from '@/components/ui/badge'
@@ -15,15 +26,27 @@ import {Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle} f
 import type {Schema} from '@/lib/api'
 import {formatDate, partOf} from '@/lib/content'
 
-defineProps<{
+const props = defineProps<{
   module: Schema<'ModuleWithContentDto'>
   canMoveUp: boolean
   canMoveDown: boolean
 }>()
 
-const emit = defineEmits<{move: [direction: -1 | 1]}>()
+const emit = defineEmits<{
+  move: [direction: -1 | 1]
+  movePart: [item: Schema<'ModuleContentItem'>, direction: -1 | 1]
+  togglePartStatus: [item: Schema<'ModuleContentItem'>]
+  deletePart: [item: Schema<'ModuleContentItem'>]
+}>()
 
 const open = ref(true)
+
+function editRoute(item: Schema<'ModuleContentItem'>) {
+  return {
+    name: 'edit-content',
+    params: {courseId: props.module.courseId, moduleId: props.module.id, linkId: item.linkId},
+  }
+}
 
 function detailsOf(item: Schema<'ModuleContentItem'>): string {
   const label = partOf(item).label
@@ -90,7 +113,7 @@ function badgeOf(item: Schema<'ModuleContentItem'>): {label: string, class: stri
       </p>
 
       <Item
-        v-for="item in module.content"
+        v-for="(item, index) in module.content"
         :key="item.linkId"
         size="sm"
         class="rounded-none border-0 border-t border-t-stone-100 pl-3"
@@ -100,13 +123,59 @@ function badgeOf(item: Schema<'ModuleContentItem'>): {label: string, class: stri
           <component :is="partOf(item).icon"/>
         </ItemMedia>
         <ItemContent class="min-w-60">
-          <ItemTitle class="font-normal">{{ item.title }}</ItemTitle>
+          <ItemTitle class="font-normal">
+            <RouterLink
+              v-if="item.type !== 'News'"
+              :to="editRoute(item)"
+              class="hover:underline"
+            >
+              {{ item.title }}
+            </RouterLink>
+            <template v-else>{{ item.title }}</template>
+          </ItemTitle>
         </ItemContent>
         <ItemDescription class="text-[13px]">{{ detailsOf(item) }}</ItemDescription>
         <ItemActions>
           <Badge variant="outline" class="h-[22px] rounded-[5px]" :class="badgeOf(item).class">
             {{ badgeOf(item).label }}
           </Badge>
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <Button variant="ghost" size="icon-sm" :aria-label="`Fler val för ${item.title}`">
+                <PhDotsThree/>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem v-if="item.type !== 'News'" as-child>
+                <RouterLink :to="editRoute(item)">
+                  <PhPencilSimple/>
+                  Redigera
+                </RouterLink>
+              </DropdownMenuItem>
+              <DropdownMenuItem @select="emit('togglePartStatus', item)">
+                <PhEye v-if="item.status === 'Draft'"/>
+                <PhEyeSlash v-else/>
+                {{ item.status === 'Draft'
+                  ? 'Publicera'
+                  : 'Avpublicera' }}
+              </DropdownMenuItem>
+              <DropdownMenuItem :disabled="index === 0" @select="emit('movePart', item, -1)">
+                <PhArrowUp/>
+                Flytta upp
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                :disabled="index === module.content.length - 1"
+                @select="emit('movePart', item, 1)"
+              >
+                <PhArrowDown/>
+                Flytta ner
+              </DropdownMenuItem>
+              <DropdownMenuItem variant="destructive" @select="emit('deletePart', item)">
+                <PhTrash/>
+                Ta bort
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </ItemActions>
       </Item>
 

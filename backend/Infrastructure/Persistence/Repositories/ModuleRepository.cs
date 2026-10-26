@@ -25,7 +25,7 @@ public class ModuleRepository(AppDb db) : IModuleRepository
                           join spec in db.AssignmentSpecs on content.Id equals spec.ContentId into specs
                           from spec in specs.DefaultIfEmpty()
                           where link.CourseId == courseId && link.ModuleId != null
-                          orderby link.PublishAt, content.Title
+                          orderby link.Position, link.PublishAt, content.Title
                           select new
                           {
                               ModuleId = link.ModuleId!.Value,

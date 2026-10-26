@@ -25,6 +25,7 @@ public class ContentLinkConfiguration : IEntityTypeConfiguration<ContentLink>
         builder.HasOne<Group>().WithMany().HasForeignKey(link => link.GroupId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Course>().WithMany().HasForeignKey(link => link.CourseId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Module>().WithMany().HasForeignKey(link => link.ModuleId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(link => new { link.ModuleId, link.Position });
         builder.ToTable(table =>
         {
             table.HasCheckConstraint(

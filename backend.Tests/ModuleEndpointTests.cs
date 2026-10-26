@@ -12,7 +12,7 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
     private record ModuleResponse(Guid Id, Guid CourseId, string Title, string Description, int Position);
 
     private record ModuleItem(
-        Guid ContentId, string Title, string Status, string? GradeScale, DateTimeOffset PublishAt);
+        Guid LinkId, Guid ContentId, string Title, string Status, string? GradeScale, DateTimeOffset PublishAt);
 
     private record ModuleWithContent(Guid Id, string Title, int Position, List<ModuleItem> Content);
 
@@ -126,7 +126,7 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
         var modules = await GetModulesAsync(courseId);
         var weekContent = modules.Single(module => module.Id == week.Id).Content;
         Assert.Equal(
-            [("Utkast", "Draft"), ("Senare", "Published")],
+            [("Senare", "Published"), ("Utkast", "Draft")],
             weekContent.Select(item => (item.Title, item.Status)));
         Assert.Empty(modules.Single(module => module.Id == otherWeek.Id).Content);
     }
@@ -146,6 +146,92 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
 
         var content = (await GetModulesAsync(courseId)).Single().Content;
         Assert.Equal([("Teori", null), ("Övning", "None")], content.Select(item => (item.Title, item.GradeScale)));
+    }
+
+    [Fact]
+    public async Task NewLink_IsLastInTheModule_EvenWhenItPublishesFirst()
+    {
+        var courseId = await AddCourseAsync();
+        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var later = await CreateContentAsync("Senare", "published");
+        var earlier = await CreateContentAsync("Tidigare", "published");
+
+        await LinkAsync(later.Id, new { courseId, moduleId = week.Id, publishAt = "2026-01-02T08:00:00Z" });
+        await LinkAsync(earlier.Id, new { courseId, moduleId = week.Id, publishAt = "2026-01-01T08:00:00Z" });
+
+        var content = (await GetModulesAsync(courseId)).Single().Content;
+        Assert.Equal(["Senare", "Tidigare"], content.Select(item => item.Title));
+    }
+
+    [Fact]
+    public async Task ReorderContent_SetsTheNewOrder()
+    {
+        var courseId = await AddCourseAsync();
+        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var first = await CreateContentAsync("Första", "published");
+        var second = await CreateContentAsync("Andra", "published");
+        var third = await CreateContentAsync("Tredje", "published");
+        await LinkAsync(first.Id, new { courseId, moduleId = week.Id, publishAt = "2026-01-01T08:00:00Z" });
+        await LinkAsync(second.Id, new { courseId, moduleId = week.Id, publishAt = "2026-01-02T08:00:00Z" });
+        await LinkAsync(third.Id, new { courseId, moduleId = week.Id, publishAt = "2026-01-03T08:00:00Z" });
+        var linkIds = (await GetModulesAsync(courseId)).Single().Content.Select(item => item.LinkId).ToList();
+
+        var response = await _client.PutAsJsonAsync(
+            $"/api/courses/{courseId}/modules/{week.Id}/content/order",
+            new { linkIds = new[] { linkIds[2], linkIds[0], linkIds[1] } });
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        var content = (await GetModulesAsync(courseId)).Single().Content;
+        Assert.Equal(["Tredje", "Första", "Andra"], content.Select(item => item.Title));
+    }
+
+    [Fact]
+    public async Task ReorderContent_WithoutEveryLinkOnce_ReturnsBadRequest()
+    {
+        var courseId = await AddCourseAsync();
+        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var otherWeek = await CreateModuleAsync(courseId, "Vecka 2");
+        var first = await CreateContentAsync("Första", "published");
+        var second = await CreateContentAsync("Andra", "published");
+        var other = await CreateContentAsync("Annan vecka", "published");
+        await LinkAsync(first.Id, new { courseId, moduleId = week.Id });
+        await LinkAsync(second.Id, new { courseId, moduleId = week.Id });
+        await LinkAsync(other.Id, new { courseId, moduleId = otherWeek.Id });
+        var content = (await GetModulesAsync(courseId)).Single(module => module.Id == week.Id).Content;
+        var firstLink = content.Single(item => item.Title == "Första").LinkId;
+        var secondLink = content.Single(item => item.Title == "Andra").LinkId;
+        var otherLink = (await GetModulesAsync(courseId))
+            .Single(module => module.Id == otherWeek.Id).Content.Single().LinkId;
+
+        Guid[][] invalidOrders =
+        [
+            [firstLink],
+            [firstLink, firstLink],
+            [firstLink, otherLink],
+            [firstLink, secondLink, otherLink]
+        ];
+        foreach (var linkIds in invalidOrders)
+        {
+            var response = await _client.PutAsJsonAsync(
+                $"/api/courses/{courseId}/modules/{week.Id}/content/order", new { linkIds });
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task ReorderContent_ForModuleOfAnotherCourse_ReturnsNotFound()
+    {
+        var courseId = await AddCourseAsync();
+        var otherCourseWeek = await CreateModuleAsync(await AddCourseAsync(), "Vecka 1");
+        var content = await CreateContentAsync("Teori", "published");
+        await LinkAsync(content.Id, new { courseId, moduleId = otherCourseWeek.Id });
+
+        var response = await _client.PutAsJsonAsync(
+            $"/api/courses/{courseId}/modules/{otherCourseWeek.Id}/content/order",
+            new { linkIds = Array.Empty<Guid>() });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Fact]

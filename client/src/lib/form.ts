@@ -13,3 +13,13 @@ export function isoOrNull(value: string): string | null {
     ? null
     : new Date(value).toISOString()
 }
+
+/** Gör om ISO 8601 till värdet ett datetime-local-fält visar, i lokal tid. */
+export function toDateTimeLocal(value: string | null | undefined): string {
+  if (!value) {
+    return ''
+  }
+  const date = new Date(value)
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+  return local.toISOString().slice(0, 16)
+}

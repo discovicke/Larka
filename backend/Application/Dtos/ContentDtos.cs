@@ -26,6 +26,23 @@ public record CreateContentLinkDto(
 
 public record CreateCommentDto(string BodyMd);
 
+// Typen får inte ändras efter skapandet, så den finns inte med här. Status ändras via /status.
+// Fälten för uppgifter skickas som null för teori och som tomma värden för en övning.
+public record UpdateContentDto(
+    string Title,
+    string BodyMd,
+    GradeScale? GradeScale = null,
+    List<SubmissionMode>? SubmissionModes = null,
+    string? TemplateRepo = null);
+
+public record UpdateContentStatusDto(ContentStatus Status);
+
+// ModuleId flyttas i ett eget flöde, eftersom flytten också påverkar ordningen och beroenden.
+public record UpdateContentLinkDto(
+    DateTimeOffset? PublishAt = null,
+    DateTimeOffset? DueAt = null,
+    bool IsPinned = false);
+
 // --- responses ---
 
 public record ContentDto(

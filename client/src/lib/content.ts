@@ -27,7 +27,7 @@ export function partOf(item: {type: Schema<'ContentType'>, gradeScale: Schema<'G
   return partTypes.find((partType) => partType.value === partTypeOf(item)) ?? partTypes[0]
 }
 
-function partTypeOf(item: {type: Schema<'ContentType'>, gradeScale: Schema<'GradeScale'> | null}): PartType {
+export function partTypeOf(item: {type: Schema<'ContentType'>, gradeScale: Schema<'GradeScale'> | null}): PartType {
   if (item.type !== 'Assignment') {
     return 'Theory'
   }
