@@ -9,7 +9,7 @@ import {api} from '@/lib/api'
 import DevField from '../DevField.vue'
 import DevFormCard from '../DevFormCard.vue'
 import EntitySelect from '../EntitySelect.vue'
-import {orNull} from '../types'
+import {orNull} from '@/lib/form'
 
 const form = reactive({courseId: '', title: '', description: ''})
 const {result, busy, submit: run, fail} = useDevSubmit()

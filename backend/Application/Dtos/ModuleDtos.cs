@@ -38,6 +38,7 @@ public record ModuleContentItem(
     Guid LinkId,
     Guid ContentId,
     ContentType Type,
+    GradeScale? GradeScale, // bara för uppgifter: None = övning, annars inlämning
     string Title,
     ContentStatus Status,
     Guid? GroupId,

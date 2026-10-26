@@ -38,22 +38,12 @@ public class ContentService(
             return ValidationResult<ContentDto>.Invalid("title is required");
         }
 
-        var hasAssignmentFields = dto.Kind is not null || dto.GradeScale is not null
-            || dto.SubmissionModes is not null || dto.TemplateRepo is not null;
+        var hasAssignmentFields = dto.GradeScale is not null || dto.SubmissionModes is not null
+            || dto.TemplateRepo is not null;
         if (type != ContentType.Assignment && hasAssignmentFields)
         {
             return ValidationResult<ContentDto>.Invalid(
-                "kind, gradeScale, submissionModes and templateRepo are only allowed on assignments");
-        }
-
-        if (type == ContentType.Assignment && dto.Kind is null)
-        {
-            return ValidationResult<ContentDto>.Invalid("kind is required for assignments");
-        }
-
-        if (dto.Kind == AssignmentKind.Exercise && scale != GradeScale.None)
-        {
-            return ValidationResult<ContentDto>.Invalid("an exercise is not graded, so it has no gradeScale");
+                "gradeScale, submissionModes and templateRepo are only allowed on assignments");
         }
 
         if (SubmissionService.UsesRepo(modes) != (dto.TemplateRepo is not null))
@@ -79,7 +69,6 @@ public class ContentService(
             content.Assignment = new AssignmentSpec
             {
                 ContentId = content.Id,
-                Kind = dto.Kind!.Value,
                 GradeScale = scale,
                 SubmissionModes = modes,
                 TemplateRepo = dto.TemplateRepo

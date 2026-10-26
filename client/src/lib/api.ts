@@ -21,6 +21,13 @@ export class ApiError extends Error {
   }
 }
 
+/** Felmeddelandet att visa för användaren, t.ex. "title is required" från backend. */
+export function errorMessage(exception: unknown): string {
+  return exception instanceof Error
+    ? exception.message
+    : 'Något gick fel. Försök igen.'
+}
+
 function parseBody(text: string, contentType: string | null): unknown {
   if (!text) {
     return undefined
@@ -31,7 +38,7 @@ function parseBody(text: string, contentType: string | null): unknown {
 }
 
 // Backend skickar fel som en JSON-sträng ("title is required") eller som ProblemDetails.
-function errorMessage(body: unknown, fallback: string): string {
+function messageFromBody(body: unknown, fallback: string): string {
   if (typeof body === 'string' && body) {
     return body
   }
@@ -50,7 +57,7 @@ const throwOnError: Middleware = {
     }
 
     const body = parseBody(await response.clone().text(), response.headers.get('Content-Type'))
-    throw new ApiError(response.status, errorMessage(body, response.statusText || `HTTP ${response.status}`))
+    throw new ApiError(response.status, messageFromBody(body, response.statusText || `HTTP ${response.status}`))
   },
 }
 

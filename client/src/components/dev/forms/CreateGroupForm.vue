@@ -11,7 +11,7 @@ import DevField from '../DevField.vue'
 import DevFormCard from '../DevFormCard.vue'
 import EntitySelect from '../EntitySelect.vue'
 import EnumSelect from '../EnumSelect.vue'
-import {orNull} from '../types'
+import {orNull} from '@/lib/form'
 
 const form = reactive({schoolId: '', type: 'Class' as Schema<'GroupType'>, name: '', term: ''})
 const {result, busy, submit: run, fail} = useDevSubmit()

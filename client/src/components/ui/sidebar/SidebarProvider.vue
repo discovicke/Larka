@@ -46,6 +46,11 @@ function toggleSidebar() {
 }
 
 useEventListener('keydown', (event: KeyboardEvent) => {
+  // I textfält och editorn betyder ⌘B fetstil.
+  const target = event.target as HTMLElement | null
+  if (target?.closest('input, textarea, [contenteditable="true"]')) {
+    return
+  }
   if (event.key === SIDEBAR_KEYBOARD_SHORTCUT && (event.metaKey || event.ctrlKey)) {
     event.preventDefault()
     toggleSidebar()

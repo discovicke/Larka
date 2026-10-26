@@ -1,0 +1,257 @@
+<script setup lang="ts">
+import {PhChalkboardTeacher, PhFiles, PhGithubLogo, PhTextAa} from '@phosphor-icons/vue'
+import {type Component, computed, reactive, ref} from 'vue'
+import {useRoute, useRouter} from 'vue-router'
+
+import MarkdownEditor from '@/components/editor/MarkdownEditor.vue'
+import PageActions from '@/components/layout/PageActions.vue'
+import {Alert, AlertDescription} from '@/components/ui/alert'
+import {Button} from '@/components/ui/button'
+import {Checkbox} from '@/components/ui/checkbox'
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+  FieldTitle,
+} from '@/components/ui/field'
+import {Input} from '@/components/ui/input'
+import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
+import {RadioGroup, RadioGroupItem} from '@/components/ui/radio-group'
+import {Skeleton} from '@/components/ui/skeleton'
+import {api, errorMessage, type Schema} from '@/lib/api'
+import {partTypes} from '@/lib/content'
+import {
+  emptyForm,
+  isAssignment,
+  isGraded,
+  publishSteps,
+  toRequests,
+  usesRepo,
+  validate,
+} from '@/lib/createContent'
+import NotFoundView from '@/views/NotFoundView.vue'
+
+const submissionModes: {value: Schema<'SubmissionMode'>, label: string, description: string, icon: Component}[] = [
+  {value: 'File', label: 'Filer och foton', description: 'Dokument, bilder, mätprotokoll. Funkar från mobilen.', icon: PhFiles},
+  {value: 'Text', label: 'Text', description: 'Eleven skriver svaret direkt i RebornLMS.', icon: PhTextAa},
+  {value: 'OnSite', label: 'Bedöms på plats', description: 'Du bockar av moment på lektionen, ingen inlämning.', icon: PhChalkboardTeacher},
+  {value: 'Repo', label: 'GitHub-repo', description: 'Varje elev får ett eget repo från din mall.', icon: PhGithubLogo},
+]
+
+const gradeScales: {value: Schema<'GradeScale'>, label: string}[] = [
+  {value: 'PassFail', label: 'IG – G'},
+  {value: 'PassFailDistinction', label: 'IG – G – VG'},
+]
+
+// Valt kort: mörk ram som i mockupen, i stället för shadcns tonade bakgrund.
+const choiceCard = 'has-data-checked:border-primary has-data-checked:bg-transparent has-data-checked:ring-1 has-data-checked:ring-primary'
+
+const route = useRoute()
+const router = useRouter()
+const courseId = String(route.params.courseId)
+const moduleId = String(route.params.moduleId)
+
+const form = reactive(emptyForm())
+
+// Felen visas först när läraren försökt spara.
+const triedToSave = ref(false)
+const errors = computed(() => triedToSave.value
+  ? validate(form)
+  : {})
+const saving = ref(false)
+const serverError = ref('')
+
+const module = ref<Schema<'ModuleWithContentDto'>>()
+const loading = ref(true)
+api.GET('/api/courses/{id}/modules', {params: {path: {id: courseId}}})
+  .then(({data}) => {
+    module.value = data?.find((candidate) => candidate.id === moduleId)
+  })
+  .catch(() => {
+    module.value = undefined
+  })
+  .finally(() => {
+    loading.value = false
+  })
+
+const backToCourse = {name: 'course-content', params: {courseId}}
+
+function toggleMode(mode: Schema<'SubmissionMode'>, checked: boolean) {
+  form.submissionModes = checked
+    ? [...form.submissionModes, mode]
+    : form.submissionModes.filter((selected) => selected !== mode)
+}
+
+async function save(status: Schema<'ContentStatus'>) {
+  triedToSave.value = true
+  if (Object.keys(validate(form)).length > 0) {
+    return
+  }
+
+  saving.value = true
+  serverError.value = ''
+  try {
+    const {content, link} = toRequests(form, status, {courseId, moduleId})
+    const {data: created} = await api.POST('/api/content', {body: content})
+    await api.POST('/api/content/{id}/links', {params: {path: {id: created!.id}}, body: link})
+    await router.push(backToCourse)
+  } catch (exception) {
+    serverError.value = errorMessage(exception)
+  } finally {
+    saving.value = false
+  }
+}
+</script>
+
+<template>
+  <Skeleton v-if="loading" class="h-64 w-full"/>
+  <NotFoundView v-else-if="!module"/>
+  <div v-else class="flex flex-wrap items-start gap-6">
+    <PageActions>
+      <Button variant="outline" as-child>
+        <RouterLink :to="backToCourse">Avbryt</RouterLink>
+      </Button>
+      <Button variant="outline" :disabled="saving" @click="save('Draft')">Spara utkast</Button>
+      <Button :disabled="saving" @click="save('Published')">Publicera</Button>
+    </PageActions>
+
+    <form class="flex min-w-0 flex-[999_1_560px] flex-col gap-5" @submit.prevent="save('Published')">
+      <div class="flex flex-col gap-1">
+        <h1 class="text-3xl leading-tight">Ny del</h1>
+        <p class="text-muted-foreground">{{ module.title }}</p>
+      </div>
+
+      <Alert v-if="serverError" variant="destructive">
+        <AlertDescription>{{ serverError }}</AlertDescription>
+      </Alert>
+
+      <FieldSet>
+        <FieldLegend>Typ av del</FieldLegend>
+        <RadioGroup v-model="form.partType" class="grid grid-cols-[repeat(auto-fit,minmax(min(150px,100%),1fr))] gap-2.5">
+          <FieldLabel
+            v-for="partType in partTypes"
+            :key="partType.value"
+            :for="`part-${partType.value}`"
+            :class="choiceCard"
+          >
+            <Field orientation="horizontal">
+              <FieldContent>
+                <component :is="partType.icon" class="size-5"/>
+                <FieldTitle>{{ partType.label }}</FieldTitle>
+                <FieldDescription class="text-xs">{{ partType.description }}</FieldDescription>
+              </FieldContent>
+              <RadioGroupItem :id="`part-${partType.value}`" :value="partType.value"/>
+            </Field>
+          </FieldLabel>
+        </RadioGroup>
+      </FieldSet>
+
+      <section class="flex flex-col gap-4 rounded-[11px] border p-5">
+        <h2 class="text-base">Grundinfo</h2>
+        <Field :data-invalid="!!errors.title">
+          <FieldLabel for="title">Titel</FieldLabel>
+          <Input id="title" v-model="form.title" :aria-invalid="!!errors.title"/>
+          <FieldError v-if="errors.title">{{ errors.title }}</FieldError>
+        </Field>
+        <Field>
+          <FieldLabel for="description">Beskrivning</FieldLabel>
+          <MarkdownEditor id="description" v-model="form.bodyMd" label="Beskrivning"/>
+        </Field>
+        <div class="grid grid-cols-[repeat(auto-fit,minmax(min(200px,100%),1fr))] gap-4">
+          <Field>
+            <FieldLabel for="publish-at">Publiceras</FieldLabel>
+            <Input id="publish-at" v-model="form.publishAt" type="datetime-local"/>
+            <FieldDescription class="text-xs">Tomt = direkt.</FieldDescription>
+          </Field>
+          <Field v-if="isAssignment(form)" :data-invalid="!!errors.dueAt">
+            <FieldLabel for="due-at">Slutar</FieldLabel>
+            <Input
+              id="due-at"
+              v-model="form.dueAt"
+              type="datetime-local"
+              :aria-invalid="!!errors.dueAt"
+            />
+            <FieldError v-if="errors.dueAt">{{ errors.dueAt }}</FieldError>
+          </Field>
+          <Field v-if="isGraded(form)">
+            <FieldLabel for="grade-scale">Betygsskala</FieldLabel>
+            <NativeSelect id="grade-scale" v-model="form.gradeScale" class="w-full">
+              <NativeSelectOption v-for="scale in gradeScales" :key="scale.value" :value="scale.value">
+                {{ scale.label }}
+              </NativeSelectOption>
+            </NativeSelect>
+          </Field>
+        </div>
+      </section>
+
+      <section v-if="isAssignment(form)" class="flex flex-col gap-3.5 rounded-[11px] border p-5">
+        <div class="flex flex-col">
+          <h2 class="text-base">Hur lämnar eleven in?</h2>
+          <span class="text-muted-foreground text-[13px]">Välj ett eller flera sätt, eller inget</span>
+        </div>
+        <div class="grid grid-cols-[repeat(auto-fit,minmax(min(190px,100%),1fr))] gap-2.5">
+          <FieldLabel
+            v-for="mode in submissionModes"
+            :key="mode.value"
+            :for="`mode-${mode.value}`"
+            :class="choiceCard"
+          >
+            <Field orientation="horizontal">
+              <Checkbox
+                :id="`mode-${mode.value}`"
+                :model-value="form.submissionModes.includes(mode.value)"
+                @update:model-value="(checked) => toggleMode(mode.value, checked === true)"
+              />
+              <FieldContent>
+                <FieldTitle>
+                  <component :is="mode.icon"/>
+                  {{ mode.label }}
+                </FieldTitle>
+                <FieldDescription class="text-xs">{{ mode.description }}</FieldDescription>
+              </FieldContent>
+            </Field>
+          </FieldLabel>
+        </div>
+      </section>
+
+      <!-- Resten av GitHub-inställningarna (reponamn, arbetssätt, regler) kommer i #69. -->
+      <section v-if="usesRepo(form)" class="flex flex-col gap-4 rounded-[11px] border p-5">
+        <div class="flex items-center gap-3">
+          <PhGithubLogo class="size-5"/>
+          <div class="flex flex-col">
+            <h2 class="text-base">GitHub-inställningar</h2>
+            <span class="text-muted-foreground text-[13px]">Varje elev får ett eget privat repo från din mall</span>
+          </div>
+        </div>
+        <Field :data-invalid="!!errors.templateRepo">
+          <FieldLabel for="template-repo">Mallrepo</FieldLabel>
+          <Input
+            id="template-repo"
+            v-model="form.templateRepo"
+            class="font-mono text-[13px]"
+            placeholder="edugrade-net25/mall-lab2-release-pipeline"
+            :aria-invalid="!!errors.templateRepo"
+          />
+          <FieldError v-if="errors.templateRepo">{{ errors.templateRepo }}</FieldError>
+        </Field>
+      </section>
+    </form>
+
+    <aside class="flex min-w-0 flex-[1_1_280px] flex-col gap-3 rounded-[11px] border bg-stone-50 p-4 shadow-xs">
+      <h2 class="font-sans text-sm tracking-normal">När du publicerar</h2>
+      <ol class="flex flex-col gap-3 text-[13px] text-stone-700" data-test="publish-steps">
+        <li v-for="(step, index) in publishSteps(form)" :key="step" class="flex gap-2.5">
+          <span
+            class="bg-primary text-primary-foreground flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold"
+          >{{ index + 1 }}</span>
+          <span>{{ step }}</span>
+        </li>
+      </ol>
+      <p class="text-muted-foreground text-xs">Sparar du som utkast syns delen inte för eleverna.</p>
+    </aside>
+  </div>
+</template>

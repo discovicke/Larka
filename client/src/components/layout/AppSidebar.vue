@@ -32,7 +32,8 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from '@/components/ui/sidebar'
-import {exampleCounts, exampleCourses, exampleSchool, exampleUser} from '@/data/exampleData'
+import {useCourses} from '@/composables/useCourses'
+import {exampleCounts, exampleSchool, exampleUser} from '@/data/exampleData'
 
 interface NavItem {
   label: string
@@ -49,6 +50,7 @@ const mainNav: NavItem[] = [
 ]
 
 const route = useRoute()
+const {courses} = useCourses()
 
 function isCourseActive(courseId: string) {
   return route.params.courseId === courseId
@@ -121,19 +123,14 @@ function isCourseActive(courseId: string) {
       <SidebarGroup>
         <SidebarGroupLabel>Mina kurser</SidebarGroupLabel>
         <SidebarMenu>
-          <SidebarMenuItem v-for="course in exampleCourses" :key="course.id">
+          <SidebarMenuItem v-for="course in courses" :key="course.id">
             <SidebarMenuButton
               as-child
               :tooltip="course.title"
               :is-active="isCourseActive(course.id)"
             >
               <RouterLink :to="{name: 'course-content', params: {courseId: course.id}}">
-                <span
-                  class="size-2 shrink-0 rounded-[2px]"
-                  :class="course.marker === 'active'
-                    ? 'bg-primary'
-                    : 'bg-muted-foreground/50'"
-                />
+                <span class="bg-primary size-2 shrink-0 rounded-[2px]"/>
                 <span>{{ course.title }}</span>
               </RouterLink>
             </SidebarMenuButton>

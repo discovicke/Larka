@@ -1,6 +1,7 @@
 using Backend.Application.Abstractions;
 using Backend.Application.Dtos;
 using Backend.Domain.Entities;
+using Backend.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace Backend.Infrastructure.Persistence.Repositories;
@@ -21,14 +22,16 @@ public class ModuleRepository(AppDb db) : IModuleRepository
     {
         var rows = await (from link in db.ContentLinks
                           join content in db.Content on link.ContentId equals content.Id
+                          join spec in db.AssignmentSpecs on content.Id equals spec.ContentId into specs
+                          from spec in specs.DefaultIfEmpty()
                           where link.CourseId == courseId && link.ModuleId != null
                           orderby link.PublishAt, content.Title
                           select new
                           {
                               ModuleId = link.ModuleId!.Value,
                               Item = new ModuleContentItem(
-                                  link.Id, content.Id, content.Type, content.Title, content.Status, link.GroupId,
-                                  link.PublishAt, link.DueAt, link.IsPinned)
+                                  link.Id, content.Id, content.Type, (GradeScale?)spec!.GradeScale, content.Title,
+                                  content.Status, link.GroupId, link.PublishAt, link.DueAt, link.IsPinned)
                           })
             .ToListAsync(ct);
         return rows.ToLookup(row => row.ModuleId, row => row.Item);

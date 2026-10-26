@@ -7,10 +7,11 @@ import {
   type RouterHistory,
 } from 'vue-router'
 
-import {findCourse} from '@/data/exampleData'
+import {useCourses} from '@/composables/useCourses'
 import AppLayout from '@/layouts/AppLayout.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
 import PlaceholderView from '@/views/PlaceholderView.vue'
+import CourseContentView from '@/views/course/CourseContentView.vue'
 import CourseLayout from '@/views/course/CourseLayout.vue'
 
 export interface Breadcrumb {
@@ -29,7 +30,7 @@ declare module 'vue-router' {
 function courseBreadcrumbs(route: RouteLocationNormalizedLoaded, ...rest: Breadcrumb[]): Breadcrumb[] {
   const courseId = String(route.params.courseId)
   const course: Breadcrumb = {
-    label: findCourse(courseId)?.title ?? 'Kurs',
+    label: useCourses().findCourse(courseId)?.title ?? 'Kurs',
     to: {name: 'course-content', params: {courseId}},
   }
   return [{label: 'Kurser'}, course, ...rest]
@@ -63,8 +64,7 @@ export const routes: RouteRecordRaw[] = [
           {
             path: 'content',
             name: 'course-content',
-            component: PlaceholderView,
-            props: {nested: true},
+            component: CourseContentView,
             // Innehåll är kursens startsida, så brödsmulan slutar på kursen.
             meta: {title: 'Innehåll', breadcrumbs: (route) => courseBreadcrumbs(route)},
           },
@@ -77,7 +77,8 @@ export const routes: RouteRecordRaw[] = [
       {
         path: 'courses/:courseId/modules/:moduleId/new',
         name: 'create-content',
-        component: PlaceholderView,
+        // Laddas först när sidan öppnas, så att editorn inte hamnar i resten av appen.
+        component: () => import('@/views/course/CreateContentView.vue'),
         meta: {
           title: 'Ny del',
           breadcrumbs: (route) => courseBreadcrumbs(

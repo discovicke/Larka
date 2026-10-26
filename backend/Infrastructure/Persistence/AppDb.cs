@@ -34,7 +34,6 @@ public class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
         builder.Properties<ContentType>().HaveConversion<string>();
         builder.Properties<ContentStatus>().HaveConversion<string>();
         builder.Properties<CheckStatus>().HaveConversion<string>();
-        builder.Properties<AssignmentKind>().HaveConversion<string>();
         builder.Properties<GradeScale>().HaveConversion<string>();
         builder.Properties<GradeLevel>().HaveConversion<string>();
         builder.Properties<SubmissionStatus>().HaveConversion<string>();

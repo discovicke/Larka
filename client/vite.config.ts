@@ -13,6 +13,10 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  build: {
+    // Editorn (Tiptap) är en egen chunk på drygt 500 kB som bara laddas på sidan för att skapa innehåll.
+    chunkSizeWarningLimit: 600,
+  },
   server: {
     // Vite skickar API-anropen vidare till backend, så webbläsaren pratar bara med en origin (ingen CORS).
     proxy: {

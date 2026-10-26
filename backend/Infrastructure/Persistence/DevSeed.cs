@@ -97,7 +97,6 @@ public static class DevSeed
             BodyMd = "Skapa ett GitHub Actions-workflow som bygger och testar projektet.",
             Assignment = new AssignmentSpec
             {
-                Kind = AssignmentKind.Lab,
                 GradeScale = GradeScale.PassFailDistinction,
                 SubmissionModes = [SubmissionMode.Text, SubmissionMode.File]
             }

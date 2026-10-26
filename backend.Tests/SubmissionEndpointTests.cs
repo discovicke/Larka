@@ -15,7 +15,7 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
 
     private record IdResponse(Guid Id);
 
-    private record AssignmentResponse(string Kind, string GradeScale, List<string> SubmissionModes);
+    private record AssignmentResponse(string GradeScale, List<string> SubmissionModes);
 
     private record ContentResponse(Guid Id, AssignmentResponse? Assignment);
 
@@ -38,7 +38,7 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task CreateAssignment_InRepoModeWithoutTemplate_ReturnsBadRequest()
     {
         var response = await _client.PostAsJsonAsync("/api/content",
-            new { type = "assignment", kind = "lab", title = "Labb", bodyMd = "", submissionModes = new[] { "repo" } });
+            new { type = "assignment", title = "Labb", bodyMd = "", submissionModes = new[] { "repo" } });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -186,39 +186,11 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     }
 
     [Fact]
-    public async Task CreateAssignment_WithoutKind_ReturnsBadRequest()
-    {
-        var response = await _client.PostAsJsonAsync("/api/content",
-            new { type = "assignment", title = "Labb", bodyMd = "" });
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task CreateExercise_WithGradeScale_ReturnsBadRequest()
-    {
-        var response = await _client.PostAsJsonAsync("/api/content",
-            new { type = "assignment", kind = "exercise", title = "Övning", bodyMd = "", gradeScale = "passFail" });
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task CreateNews_WithKind_ReturnsBadRequest()
-    {
-        var response = await _client.PostAsJsonAsync("/api/content",
-            new { type = "news", kind = "lab", title = "Nyhet", bodyMd = "" });
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
-    [Fact]
     public async Task CreateAssignment_WithTemplateButNoRepoMode_ReturnsBadRequest()
     {
         var response = await _client.PostAsJsonAsync("/api/content", new
         {
             type = "assignment",
-            kind = "lab",
             title = "Labb",
             bodyMd = "",
             submissionModes = new[] { "file" },
@@ -234,7 +206,6 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
         var response = await _client.PostAsJsonAsync("/api/content", new
         {
             type = "assignment",
-            kind = "exam",
             title = "Prov",
             bodyMd = "",
             gradeScale = "passFailDistinction",
@@ -243,8 +214,7 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var content = (await response.Content.ReadFromJsonAsync<ContentResponse>())!;
-        Assert.Equal("Exam", content.Assignment!.Kind);
-        Assert.Equal("PassFailDistinction", content.Assignment.GradeScale);
+        Assert.Equal("PassFailDistinction", content.Assignment!.GradeScale);
         Assert.Equal(["Text", "File", "OnSite"], content.Assignment.SubmissionModes);
     }
 
@@ -364,7 +334,6 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
         var body = new Dictionary<string, object?>
         {
             ["type"] = "assignment",
-            ["kind"] = "lab",
             ["title"] = "Labb 1",
             ["bodyMd"] = ""
         };

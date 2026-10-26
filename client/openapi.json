@@ -1258,25 +1258,14 @@
           }
         }
       },
-      "AssignmentKind": {
-        "enum": [
-          "Exercise",
-          "Lab",
-          "Exam"
-        ]
-      },
       "AssignmentSpecDto": {
         "required": [
-          "kind",
           "gradeScale",
           "submissionModes",
           "templateRepo"
         ],
         "type": "object",
         "properties": {
-          "kind": {
-            "$ref": "#/components/schemas/AssignmentKind"
-          },
           "gradeScale": {
             "$ref": "#/components/schemas/GradeScale"
           },
@@ -1622,16 +1611,6 @@
               }
             ]
           },
-          "kind": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/AssignmentKind"
-              }
-            ]
-          },
           "gradeScale": {
             "oneOf": [
               {
@@ -1941,6 +1920,7 @@
           "linkId",
           "contentId",
           "type",
+          "gradeScale",
           "title",
           "status",
           "groupId",
@@ -1960,6 +1940,16 @@
           },
           "type": {
             "$ref": "#/components/schemas/ContentType"
+          },
+          "gradeScale": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/GradeScale"
+              }
+            ]
           },
           "title": {
             "type": "string"

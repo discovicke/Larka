@@ -9,7 +9,6 @@ import {useDevOptions} from '@/composables/useDevOptions'
 import {useDevSubmit} from '@/composables/useDevSubmit'
 import {api, type Schema} from '@/lib/api'
 import {
-  assignmentKindValues,
   contentStatusValues,
   contentTypeValues,
   gradeScaleValues,
@@ -19,14 +18,13 @@ import {
 import DevField from '../DevField.vue'
 import DevFormCard from '../DevFormCard.vue'
 import EnumSelect from '../EnumSelect.vue'
-import {orNull} from '../types'
+import {orNull} from '@/lib/form'
 
 const form = reactive({
   type: 'News' as Schema<'ContentType'>,
   title: '',
   bodyMd: '',
   status: 'Published' as Schema<'ContentStatus'>,
-  kind: 'Lab' as Schema<'AssignmentKind'>,
   gradeScale: 'None' as Schema<'GradeScale'>,
   submissionModes: [] as Schema<'SubmissionMode'>[],
   templateRepo: '',
@@ -35,7 +33,6 @@ const {result, busy, submit: run} = useDevSubmit()
 const {remember} = useDevOptions()
 
 const isAssignment = computed(() => form.type === 'Assignment')
-const isGraded = computed(() => form.kind !== 'Exercise')
 const usesRepo = computed(() => form.submissionModes.includes('Repo'))
 
 function toggleMode(mode: Schema<'SubmissionMode'>, checked: boolean) {
@@ -45,8 +42,7 @@ function toggleMode(mode: Schema<'SubmissionMode'>, checked: boolean) {
     : others
 }
 
-// Backend tar bara emot uppgiftsfälten på uppgifter, betygsskala bara på det som betygsätts (inte övningar)
-// och templateRepo bara när GitHub är ett sätt att lämna in.
+// Backend tar bara emot uppgiftsfälten på uppgifter, och templateRepo bara när GitHub är ett sätt att lämna in.
 function body(): Schema<'CreateContentDto'> {
   const base = {type: form.type, title: form.title, bodyMd: form.bodyMd, status: form.status}
   if (!isAssignment.value) {
@@ -55,10 +51,7 @@ function body(): Schema<'CreateContentDto'> {
 
   return {
     ...base,
-    kind: form.kind,
-    gradeScale: isGraded.value
-      ? form.gradeScale
-      : null,
+    gradeScale: form.gradeScale,
     submissionModes: form.submissionModes,
     templateRepo: usesRepo.value
       ? orNull(form.templateRepo)
@@ -103,16 +96,9 @@ async function submit() {
 
     <template v-if="isAssignment">
       <EnumSelect
-        id="content-kind"
-        v-model="form.kind"
-        label="Kind (Exercise = ungraded, Lab = graded part, Exam = examining)"
-        :values="assignmentKindValues"
-      />
-      <EnumSelect
-        v-if="isGraded"
         id="content-grade-scale"
         v-model="form.gradeScale"
-        label="Grade scale (PassFail = IG-G, PassFailDistinction = IG-G-VG)"
+        label="Grade scale (None = exercise, PassFail = IG-G, PassFailDistinction = IG-G-VG)"
         :values="gradeScaleValues"
       />
       <DevField id="content-modes" label="How students hand in" hint="Pick none, one or several.">

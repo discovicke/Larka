@@ -11,7 +11,7 @@ import {api} from '@/lib/api'
 import DevField from '../DevField.vue'
 import DevFormCard from '../DevFormCard.vue'
 import EntitySelect from '../EntitySelect.vue'
-import {isoOrNull, orNull} from '../types'
+import {isoOrNull, orNull} from '@/lib/form'
 
 const form = reactive({
   contentId: '',

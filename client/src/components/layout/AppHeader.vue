@@ -28,7 +28,7 @@ const breadcrumbs = computed<Crumb[]>(() => {
 </script>
 
 <template>
-  <header class="bg-background flex h-14 shrink-0 items-center gap-2 border-b px-4 md:px-6">
+  <header class="bg-background flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-b px-4 py-2 md:px-6">
     <SidebarTrigger aria-label="Visa/dölj sidomeny" class="size-7"/>
     <Separator orientation="vertical" class="data-[orientation=vertical]:h-4 data-[orientation=vertical]:self-center"/>
 
@@ -36,7 +36,11 @@ const breadcrumbs = computed<Crumb[]>(() => {
       <BreadcrumbList class="flex-nowrap">
         <template v-for="(crumb, index) in breadcrumbs" :key="crumb.label">
           <BreadcrumbSeparator v-if="index > 0"/>
-          <BreadcrumbItem class="min-w-0">
+          <BreadcrumbItem
+            :class="index === breadcrumbs.length - 1
+              ? 'min-w-0'
+              : 'shrink-0'"
+          >
             <BreadcrumbPage v-if="index === breadcrumbs.length - 1" class="truncate font-medium">
               {{ crumb.label }}
             </BreadcrumbPage>

@@ -10,8 +10,7 @@ public record CreateContentDto(
     string Title,
     string BodyMd,
     ContentStatus? Status = null,
-    AssignmentKind? Kind = null, // uppgiftsfälten gäller bara uppgifter, och Kind krävs där
-    GradeScale? GradeScale = null, // utan värde = ingen betygsättning
+    GradeScale? GradeScale = null, // uppgiftsfälten gäller bara uppgifter. Utan skala = övning, med = inlämning
     List<SubmissionMode>? SubmissionModes = null, // ett eller flera sätt att lämna in
     string? TemplateRepo = null); // "org/mall", krävs för Repo och bara där
 
@@ -51,13 +50,12 @@ public record ContentDto(
 }
 
 public record AssignmentSpecDto(
-    AssignmentKind Kind,
     GradeScale GradeScale,
     List<SubmissionMode> SubmissionModes,
     string? TemplateRepo)
 {
     public static AssignmentSpecDto From(AssignmentSpec spec) =>
-        new(spec.Kind, spec.GradeScale, spec.SubmissionModes, spec.TemplateRepo);
+        new(spec.GradeScale, spec.SubmissionModes, spec.TemplateRepo);
 }
 
 public record ContentLinkDto(

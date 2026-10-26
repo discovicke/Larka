@@ -1,5 +1,7 @@
 import {flushPromises, mount} from '@vue/test-utils'
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {describe, expect, it} from 'vitest'
+
+import {type Handler, mockApi, requests, sent} from '@/test/mockApi'
 
 import AddGroupMemberForm from './AddGroupMemberForm.vue'
 import CreateContentForm from './CreateContentForm.vue'
@@ -8,36 +10,6 @@ import CreateModuleForm from './CreateModuleForm.vue'
 import CreateUserForm from './CreateUserForm.vue'
 import GradeSubmissionForm from './GradeSubmissionForm.vue'
 import PublishContentForm from './PublishContentForm.vue'
-
-type Handler = (method: string, path: string, body: unknown) => {status: number, body?: unknown}
-
-const fetchMock = vi.fn<(request: Request) => Promise<Response>>()
-
-// Det som formulären skickat, som metod, sökväg och body.
-const requests: {method: string, path: string, body: unknown}[] = []
-
-// Svarar på GET för dropdowns och låter testet bestämma svaret på formulärets anrop.
-function mockApi(handler: Handler) {
-  fetchMock.mockImplementation(async (request) => {
-    const path = new URL(request.url).pathname
-    const text = await request.text()
-    const body = text
-      ? JSON.parse(text)
-      : undefined
-    requests.push({method: request.method, path, body})
-    const response = handler(request.method, path, body)
-    return new Response(response.body === undefined
-      ? null
-      : JSON.stringify(response.body), {
-      status: response.status,
-      headers: {'Content-Type': 'application/json'},
-    })
-  })
-}
-
-function sent(method: string, path: string) {
-  return requests.find((request) => request.method === method && request.path === path)?.body
-}
 
 function posted() {
   return requests.some((request) => request.method === 'POST')
@@ -88,16 +60,6 @@ function backendWithOneGroup(onPost: Handler): Handler {
 }
 
 describe('dev forms', () => {
-  beforeEach(() => {
-    vi.stubGlobal('fetch', fetchMock)
-  })
-
-  afterEach(() => {
-    fetchMock.mockReset()
-    requests.length = 0
-    vi.unstubAllGlobals()
-  })
-
   it('content skickar inte uppgiftsfälten för en nyhet', async () => {
     mockApi(backendWithOneGroup(() => ({status: 201, body: {id: 'c2', title: 'Hej', type: 'News'}})))
     const wrapper = mount(CreateContentForm)
@@ -115,13 +77,12 @@ describe('dev forms', () => {
     expect(wrapper.find('[data-test="result"]').text()).toContain('201')
   })
 
-  it('content skickar uppgiftsfälten för en laboration med text och repo', async () => {
+  it('content skickar uppgiftsfälten för en inlämning med text och repo', async () => {
     mockApi(backendWithOneGroup(() => ({status: 201, body: {id: 'c2', title: 'Lab', type: 'Assignment'}})))
     const wrapper = mount(CreateContentForm)
 
     await wrapper.find('#content-type').setValue('Assignment')
     await wrapper.find('#content-title').setValue('Lab')
-    await wrapper.find('#content-kind').setValue('Lab')
     await wrapper.find('#content-grade-scale').setValue('PassFailDistinction')
     await wrapper.find('#content-mode-Text').trigger('click')
     await wrapper.find('#content-mode-Repo').trigger('click')
@@ -131,30 +92,9 @@ describe('dev forms', () => {
 
     expect(sent('POST', '/api/content')).toMatchObject({
       type: 'Assignment',
-      kind: 'Lab',
       gradeScale: 'PassFailDistinction',
       submissionModes: ['Text', 'Repo'],
       templateRepo: 'org/lab',
-    })
-  })
-
-  it('content skickar ingen betygsskala för en övning', async () => {
-    mockApi(backendWithOneGroup(() => ({status: 201, body: {id: 'c3', title: 'Övning', type: 'Assignment'}})))
-    const wrapper = mount(CreateContentForm)
-
-    await wrapper.find('#content-type').setValue('Assignment')
-    await wrapper.find('#content-title').setValue('Övning')
-    await wrapper.find('#content-grade-scale').setValue('PassFail')
-    await wrapper.find('#content-kind').setValue('Exercise')
-    await wrapper.find('form').trigger('submit')
-    await flushPromises()
-
-    expect(wrapper.find('#content-grade-scale').exists()).toBe(false)
-    expect(sent('POST', '/api/content')).toMatchObject({
-      kind: 'Exercise',
-      gradeScale: null,
-      submissionModes: [],
-      templateRepo: null,
     })
   })
 

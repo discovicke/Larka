@@ -2,7 +2,9 @@
 import {computed} from 'vue'
 import {useRoute} from 'vue-router'
 
-import {findCourse} from '@/data/exampleData'
+import {Alert, AlertDescription} from '@/components/ui/alert'
+import {Skeleton} from '@/components/ui/skeleton'
+import {useCourses} from '@/composables/useCourses'
 import NotFoundView from '@/views/NotFoundView.vue'
 
 const tabs = [
@@ -14,17 +16,21 @@ const tabs = [
 ]
 
 const route = useRoute()
+const {status, findCourse} = useCourses()
 const course = computed(() => findCourse(String(route.params.courseId)))
 </script>
 
 <template>
-  <NotFoundView v-if="!course"/>
+  <Skeleton v-if="status === 'loading'" class="h-24 w-full"/>
+  <Alert v-else-if="status === 'failed'" variant="destructive">
+    <AlertDescription>Kunde inte hämta kurserna. Ladda om sidan.</AlertDescription>
+  </Alert>
+  <NotFoundView v-else-if="!course"/>
   <template v-else>
     <div class="flex flex-col gap-4 border-b">
       <div class="flex flex-col gap-1">
         <span class="text-muted-foreground font-mono text-xs">KURS · {{ course.code }}</span>
         <h1 class="text-3xl leading-tight">{{ course.title }}</h1>
-        <p class="text-muted-foreground">{{ course.period }}</p>
       </div>
 
       <nav aria-label="Kursens sidor" class="flex flex-wrap gap-5">

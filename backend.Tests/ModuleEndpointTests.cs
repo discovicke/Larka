@@ -11,7 +11,8 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
 
     private record ModuleResponse(Guid Id, Guid CourseId, string Title, string Description, int Position);
 
-    private record ModuleItem(Guid ContentId, string Title, string Status, DateTimeOffset PublishAt);
+    private record ModuleItem(
+        Guid ContentId, string Title, string Status, string? GradeScale, DateTimeOffset PublishAt);
 
     private record ModuleWithContent(Guid Id, string Title, int Position, List<ModuleItem> Content);
 
@@ -128,6 +129,23 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
             [("Utkast", "Draft"), ("Senare", "Published")],
             weekContent.Select(item => (item.Title, item.Status)));
         Assert.Empty(modules.Single(module => module.Id == otherWeek.Id).Content);
+    }
+
+    [Fact]
+    public async Task ModuleContent_HasTheGradeScaleOfAssignments()
+    {
+        var courseId = await AddCourseAsync();
+        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var theory = await CreateContentAsync("Teori", "published");
+        var exercise = await _client.PostAsJsonAsync(
+            "/api/content", new { type = "assignment", title = "Övning", bodyMd = "" });
+        var exerciseId = (await exercise.Content.ReadFromJsonAsync<ContentResponse>())!.Id;
+
+        await LinkAsync(theory.Id, new { courseId, moduleId = week.Id, publishAt = "2026-01-01T08:00:00Z" });
+        await LinkAsync(exerciseId, new { courseId, moduleId = week.Id, publishAt = "2026-01-02T08:00:00Z" });
+
+        var content = (await GetModulesAsync(courseId)).Single().Content;
+        Assert.Equal([("Teori", null), ("Övning", "None")], content.Select(item => (item.Title, item.GradeScale)));
     }
 
     [Fact]

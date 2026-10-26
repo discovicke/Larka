@@ -1387,10 +1387,7 @@ export interface components {
             userId: string;
             role?: components["schemas"]["GroupRole"];
         };
-        /** @enum {unknown} */
-        AssignmentKind: "Exercise" | "Lab" | "Exam";
         AssignmentSpecDto: {
-            kind: components["schemas"]["AssignmentKind"];
             gradeScale: components["schemas"]["GradeScale"];
             submissionModes: components["schemas"]["SubmissionMode"][];
             templateRepo: null | string;
@@ -1492,7 +1489,6 @@ export interface components {
             title: string;
             bodyMd: string;
             status?: null | components["schemas"]["ContentStatus"];
-            kind?: null | components["schemas"]["AssignmentKind"];
             gradeScale?: null | components["schemas"]["GradeScale"];
             submissionModes?: null | components["schemas"]["SubmissionMode"][];
             templateRepo?: null | string;
@@ -1583,6 +1579,7 @@ export interface components {
             /** Format: uuid */
             contentId: string;
             type: components["schemas"]["ContentType"];
+            gradeScale: null | components["schemas"]["GradeScale"];
             title: string;
             status: components["schemas"]["ContentStatus"];
             /** Format: uuid */
@@ -1692,7 +1689,6 @@ type ReadonlyArray<T> = [
 ] extends [
     unknown[]
 ] ? Readonly<Exclude<T, undefined>> : Readonly<Exclude<T, undefined>[]>;
-export const assignmentKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AssignmentKind"]> = ["Exercise", "Lab", "Exam"];
 export const checkStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CheckStatus"]> = ["Pending", "Green", "Red"];
 export const contentStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["ContentStatus"]> = ["Draft", "Published"];
 export const contentTypeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["ContentType"]> = ["News", "Theory", "Assignment"];

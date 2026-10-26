@@ -1,25 +1,28 @@
-import {flushPromises, mount} from '@vue/test-utils'
-import {afterEach, describe, expect, it} from 'vitest'
+import {beforeEach, describe, expect, it} from 'vitest'
 import {defineComponent, h} from 'vue'
 import {createMemoryHistory, type Router} from 'vue-router'
 
-import App from '@/App.vue'
 import PageActions from '@/components/layout/PageActions.vue'
 import {createAppRouter} from '@/router'
+import {mockApi} from '@/test/mockApi'
+import {renderApp} from '@/test/renderApp'
 
-let wrapper: ReturnType<typeof mount> | undefined
-
-async function render(path: string, router: Router = createAppRouter(createMemoryHistory())) {
-  await router.push(path)
-  // Fäst i dokumentet så att <PageActions> (Teleport) hittar headern.
-  wrapper = mount(App, {global: {plugins: [router]}, attachTo: document.body})
-  await flushPromises()
-  return wrapper
+async function render(path: string, router?: Router) {
+  return (await renderApp(path, router)).wrapper
 }
 
-afterEach(() => {
-  wrapper?.unmount()
-  wrapper = undefined
+const devOps = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps'}
+
+beforeEach(() => {
+  mockApi((_method, path) => {
+    if (path === '/api/courses') {
+      return {status: 200, body: [devOps]}
+    }
+    if (path === '/api/courses/c1/modules') {
+      return {status: 200, body: [{id: 'm1', courseId: 'c1', title: 'Vecka 1', description: '', position: 1, content: []}]}
+    }
+    return {status: 404}
+  })
 })
 
 describe('AppLayout', () => {
@@ -51,7 +54,7 @@ describe('AppLayout', () => {
   })
 
   it('brödsmulorna följer sidan', async () => {
-    const page = await render('/courses/devops/modules/1/new')
+    const page = await render('/courses/c1/modules/1/new')
 
     const breadcrumbs = page.findAll('[data-slot="breadcrumb"] li:not([role="presentation"])')
 
@@ -59,7 +62,7 @@ describe('AppLayout', () => {
   })
 
   it('kurssidan visar kursen och markerar fliken man är på', async () => {
-    const page = await render('/courses/devops/news')
+    const page = await render('/courses/c1/news')
 
     expect(page.find('h1').text()).toBe('DevOps')
     expect(page.find('[data-test="tab-course-news"]').attributes('aria-current')).toBe('page')

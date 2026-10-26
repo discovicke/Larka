@@ -37,10 +37,10 @@ public class MigrationTests
             db.Database.Migrate();
 
             var specs = Query(db, """
-                SELECT "Kind" || '/' || "GradeScale" || '/' || array_to_string("SubmissionModes", '+') AS "Value"
+                SELECT "GradeScale" || '/' || array_to_string("SubmissionModes", '+') AS "Value"
                 FROM "AssignmentSpecs" ORDER BY "GradeScale"
                 """);
-            Assert.Equal(["Lab/None/File", "Lab/PassFailDistinction/File+Repo"], specs);
+            Assert.Equal(["None/File", "PassFailDistinction/File+Repo"], specs);
             var levels = Query(db, """
                 SELECT COALESCE("Level", 'none') AS "Value" FROM "Grades" ORDER BY "Feedback"
                 """);

@@ -31,10 +31,6 @@ namespace Backend.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("Kind")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.PrimitiveCollection<string[]>("SubmissionModes")
                         .IsRequired()
                         .HasColumnType("text[]");
