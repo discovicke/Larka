@@ -1,28 +1,37 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Data.Sqlite;
 
 namespace backend.Tests;
 
 /// <summary>
-/// Startar appen mot en egen SQLite-fil per testklass så att testerna inte rör dev-databasen.
+/// Startar appen mot en egen Postgres-databas per testklass så att testerna inte rör dev-databasen.
+/// Tabellerna skapas av migrationerna när appen startar, precis som i dev och prod.
 /// </summary>
 public class TestWebApplicationFactory : WebApplicationFactory<Program>
 {
-    private readonly string _dbPath = Path.Combine(Path.GetTempPath(), $"rebornlms-tests-{Guid.NewGuid()}.db");
+    private readonly string _databaseName = $"tests_{Guid.NewGuid():N}";
+    private readonly Lazy<string> _connectionString;
+
+    public TestWebApplicationFactory()
+    {
+        // WithWebHostBuilder kör ConfigureWebHost igen, men samma databas ska återanvändas.
+        _connectionString = new Lazy<string>(() => PostgresServer.CreateDatabase(_databaseName));
+    }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
-        builder.UseSetting("Database:Provider", "Sqlite");
-        builder.UseSetting("ConnectionStrings:Default", $"Data Source={_dbPath}");
+        builder.UseSetting("ConnectionStrings:Default", _connectionString.Value);
         builder.UseSetting("Database:SeedDevData", "false");
     }
 
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);
-        SqliteConnection.ClearAllPools();
-        File.Delete(_dbPath);
+
+        if (_connectionString.IsValueCreated)
+        {
+            PostgresServer.DropDatabase(_databaseName);
+        }
     }
 }

@@ -32,10 +32,5 @@ pnpm-debug.log*
 [Oo]bj/
 *.user
 
-# Lokal SQLite-databas (dev)
-*.db
-*.db-shm
-*.db-wal
-
 # Test output
 coverage/

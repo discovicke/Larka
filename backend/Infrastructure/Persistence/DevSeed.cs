@@ -7,7 +7,7 @@ namespace Backend.Infrastructure.Persistence;
 
 /// <summary>
 /// Exempeldata för lokal utveckling: en klass med två kurser, en elev och lite innehåll.
-/// Körs av EF Core efter Migrate/EnsureCreated när Database:SeedDevData är true, och bara om det inte finns
+/// Körs av EF Core efter Migrate när Database:SeedDevData är true, och bara om det inte finns
 /// några grupper än. Placeholder-skolan och placeholder-användaren finns redan via migrationen.
 /// </summary>
 public static class DevSeed

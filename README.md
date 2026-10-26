@@ -24,7 +24,7 @@ npm run dev
 
 ### Databas
 
-Lokalt kör backend mot Postgres i Docker (`npm run db`, data sparas i en Docker-volym). I prod är det Supabase Postgres. Testerna använder en egen SQLite-fil per testklass och behöver ingen Docker.
+Lokalt kör backend mot Postgres i Docker (`npm run db`, data sparas i en Docker-volym). I prod är det Supabase Postgres. Testerna startar en tillfällig Postgres med Testcontainers (en container per körning, en databas per testklass) och kör migrationerna, så `dotnet test` kräver att Docker körs.
 
 Vid start kör backend de migrationer som saknas (`Database.Migrate()`), både lokalt och i prod. Render free tier har inget pre-deploy-steg, så det sker när appen startar. En tom lokal databas får också exempeldata (en klass, två kurser och lite innehåll) från [`DevSeed`](backend/Infrastructure/Persistence/DevSeed.cs).
 

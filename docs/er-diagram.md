@@ -2,7 +2,7 @@
 
 Datamodellen bakom API:et. Content (nyheter, teori och uppgifter) är kärnan: det lever fristående, skrivs alltid av en användare och publiceras till grupper och kurser via `ContentLink`.
 
-Varje relation är en riktig foreign key i databasen med ett index. Modellen gäller både SQLite (lokalt och i tester) och Postgres (Supabase i prod).
+Varje relation är en riktig foreign key i databasen med ett index. Modellen gäller Postgres: lokalt i Docker, i testerna via Testcontainers och i prod på Supabase.
 
 Modellen beslutades i #34 och byggs i #37 (organisation), #38 (content), #39 (uppgifter och inlämningar) och #40 (notiser).
 

@@ -1,7 +1,6 @@
 using Backend.Domain.Entities;
 using Backend.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace Backend.Infrastructure.Persistence;
 
@@ -27,13 +26,6 @@ public class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
 
     protected override void ConfigureConventions(ModelConfigurationBuilder builder)
     {
-        // SQLite kan inte sortera/jämföra DateTimeOffset, så där lagras de som tal. Postgres hanterar dem själv.
-        if (Database.IsSqlite())
-        {
-            builder.Properties<DateTimeOffset>().HaveConversion<DateTimeOffsetToBinaryConverter>();
-            builder.Properties<DateTimeOffset?>().HaveConversion<DateTimeOffsetToBinaryConverter>();
-        }
-
         // Enums sparas som text ("Student" i stället för 0), så tabellerna går att läsa direkt i databasen.
         builder.Properties<UserRole>().HaveConversion<string>();
         builder.Properties<GroupType>().HaveConversion<string>();
