@@ -6,7 +6,26 @@ Live: https://net25-devops-grupp-4.onrender.com (gratisinstansen somnar efter 15
 
 Design: [mockup](https://claude.ai/artifact/PPjCF4RnekzyfrvJrYF8LC), se [docs/design.md](docs/design.md).
 
+## Om projektet
+
+RebornLMS är ett lärplattformssystem (LMS) för skolor. Lärare skapar kurser och innehåll (nyheter, teori och uppgifter) och publicerar det till grupper. Studenter lämnar in uppgifter, får betyg och kommentarer och notiser. Admin hanterar skolor, användare och grupper.
+
+| Del         | Teknik                                      | Mapp                 |
+| ----------- | ------------------------------------------- | -------------------- |
+| Backend     | ASP.NET Core (.NET 10), EF Core, Postgres   | `backend/`           |
+| Klient      | Vue 3, Vite, TypeScript, shadcn-vue         | `client/`            |
+| Tester      | xUnit (Testcontainers mot Postgres), Vitest | `backend.Tests/`     |
+| Egna regler | Roslyn-analyzers för kodstilen              | `backend.Analyzers/` |
+
+Datamodellen finns i [docs/er-diagram.md](docs/er-diagram.md) och designen i [docs/design.md](docs/design.md).
+
 ## Köra lokalt
+
+Du behöver:
+
+- [.NET SDK 10](https://dotnet.microsoft.com/download)
+- [Node.js 24](https://nodejs.org/) med npm
+- [Docker](https://www.docker.com/) (Postgres lokalt och i `dotnet test`)
 
 ```bash
 npm install            # i repots rot, en gång (husky + concurrently)
@@ -162,7 +181,7 @@ groups.map((group) => group.id) // inga enbokstavsnamn, utom i i loopar, T och _
 
 I C# gäller även regler som `dotnet format` inte har själv: max 120 tecken per rad, `?` och `:` i en ternary på egna rader, inga namn på en bokstav och inga property patterns. Se [docs/code-style-csharp.md](docs/code-style-csharp.md).
 
-Ställ in editorn så att den formaterar med samma verktyg som CI. I Rider/WebStorm:
+Ställ in editorn så att den formaterar med samma verktyg som CI. I VS Code: installera tilläggen ESLint, Prettier och C# Dev Kit, och slå på _Format on Save_ (ESLint fixar JS, TS och Vue, Prettier resten). I Rider/WebStorm:
 
 - _Languages & Frameworks → JavaScript → Code Quality Tools → ESLint_: "Automatic ESLint configuration" och "Run eslint --fix on save"
 - _Languages & Frameworks → JavaScript → Prettier_: "Automatic Prettier configuration", "Run on save" och "Run for files" satt till `**/*.{json,md,yml,yaml,css,html}`. Standardmönstret gäller bara JS, TS och Vue, alltså tvärtom mot vad vi vill.
