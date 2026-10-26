@@ -12,6 +12,9 @@ public class AssignmentSpecConfiguration : IEntityTypeConfiguration<AssignmentSp
     public void Configure(EntityTypeBuilder<AssignmentSpec> builder)
     {
         builder.HasKey(spec => spec.ContentId);
+
+        // Listan sparas som en textarray ("Text", "File"), som övriga enums, så den går att läsa i databasen.
+        builder.PrimitiveCollection(spec => spec.SubmissionModes).ElementType().HasConversion<string>();
     }
 }
 

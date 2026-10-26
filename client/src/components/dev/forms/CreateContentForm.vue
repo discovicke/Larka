@@ -1,34 +1,52 @@
 <script setup lang="ts">
 import {computed, reactive} from 'vue'
 
+import {Checkbox} from '@/components/ui/checkbox'
 import {Input} from '@/components/ui/input'
+import {Label} from '@/components/ui/label'
 import {Textarea} from '@/components/ui/textarea'
 import {useDevOptions} from '@/composables/useDevOptions'
 import {useDevSubmit} from '@/composables/useDevSubmit'
 import {api, type Schema} from '@/lib/api'
-import {contentStatusValues, contentTypeValues, submissionModeValues} from '@/lib/api-types'
+import {
+  assignmentKindValues,
+  contentStatusValues,
+  contentTypeValues,
+  gradeScaleValues,
+  submissionModeValues,
+} from '@/lib/api-types'
 
 import DevField from '../DevField.vue'
 import DevFormCard from '../DevFormCard.vue'
 import EnumSelect from '../EnumSelect.vue'
-import {numberOrNull, orNull} from '../types'
+import {orNull} from '../types'
 
 const form = reactive({
   type: 'News' as Schema<'ContentType'>,
   title: '',
   bodyMd: '',
   status: 'Published' as Schema<'ContentStatus'>,
-  maxScore: '',
-  submissionMode: 'None' as Schema<'SubmissionMode'>,
+  kind: 'Lab' as Schema<'AssignmentKind'>,
+  gradeScale: 'None' as Schema<'GradeScale'>,
+  submissionModes: [] as Schema<'SubmissionMode'>[],
   templateRepo: '',
 })
 const {result, busy, submit: run} = useDevSubmit()
 const {remember} = useDevOptions()
 
 const isAssignment = computed(() => form.type === 'Assignment')
-const usesRepo = computed(() => ['Repo', 'FileOrRepo'].includes(form.submissionMode))
+const isGraded = computed(() => form.kind !== 'Exercise')
+const usesRepo = computed(() => form.submissionModes.includes('Repo'))
 
-// Backend tar bara emot uppgiftsfälten på uppgifter, och templateRepo bara för repo-lägen.
+function toggleMode(mode: Schema<'SubmissionMode'>, checked: boolean) {
+  const others = form.submissionModes.filter((selected) => selected !== mode)
+  form.submissionModes = checked
+    ? [...others, mode]
+    : others
+}
+
+// Backend tar bara emot uppgiftsfälten på uppgifter, betygsskala bara på det som betygsätts (inte övningar)
+// och templateRepo bara när GitHub är ett sätt att lämna in.
 function body(): Schema<'CreateContentDto'> {
   const base = {type: form.type, title: form.title, bodyMd: form.bodyMd, status: form.status}
   if (!isAssignment.value) {
@@ -37,8 +55,11 @@ function body(): Schema<'CreateContentDto'> {
 
   return {
     ...base,
-    maxScore: numberOrNull(form.maxScore),
-    submissionMode: form.submissionMode,
+    kind: form.kind,
+    gradeScale: isGraded.value
+      ? form.gradeScale
+      : null,
+    submissionModes: form.submissionModes,
     templateRepo: usesRepo.value
       ? orNull(form.templateRepo)
       : null,
@@ -81,20 +102,33 @@ async function submit() {
     />
 
     <template v-if="isAssignment">
-      <DevField id="content-max-score" label="Max score" hint="Leave empty for feedback only.">
-        <Input
-          id="content-max-score"
-          v-model="form.maxScore"
-          type="number"
-          min="1"
-        />
-      </DevField>
       <EnumSelect
-        id="content-submission-mode"
-        v-model="form.submissionMode"
-        label="Submission mode"
-        :values="submissionModeValues"
+        id="content-kind"
+        v-model="form.kind"
+        label="Kind (Exercise = ungraded, Lab = graded part, Exam = examining)"
+        :values="assignmentKindValues"
       />
+      <EnumSelect
+        v-if="isGraded"
+        id="content-grade-scale"
+        v-model="form.gradeScale"
+        label="Grade scale (PassFail = IG-G, PassFailDistinction = IG-G-VG)"
+        :values="gradeScaleValues"
+      />
+      <DevField id="content-modes" label="How students hand in" hint="Pick none, one or several.">
+        <Label
+          v-for="mode in submissionModeValues"
+          :key="mode"
+          :for="`content-mode-${mode}`"
+        >
+          <Checkbox
+            :id="`content-mode-${mode}`"
+            :model-value="form.submissionModes.includes(mode)"
+            @update:model-value="(value) => toggleMode(mode, value === true)"
+          />
+          {{ mode }}
+        </Label>
+      </DevField>
       <DevField
         v-if="usesRepo"
         id="content-template-repo"

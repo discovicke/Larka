@@ -2,18 +2,18 @@
 import {reactive} from 'vue'
 
 import {Checkbox} from '@/components/ui/checkbox'
-import {Input} from '@/components/ui/input'
 import {Label} from '@/components/ui/label'
 import {Textarea} from '@/components/ui/textarea'
 import {useDevSubmit} from '@/composables/useDevSubmit'
-import {api} from '@/lib/api'
+import {api, type Schema} from '@/lib/api'
+import {gradeLevelValues} from '@/lib/api-types'
 
 import DevField from '../DevField.vue'
 import DevFormCard from '../DevFormCard.vue'
 import EntitySelect from '../EntitySelect.vue'
-import {numberOrNull} from '../types'
+import EnumSelect from '../EnumSelect.vue'
 
-const form = reactive({submissionId: '', score: '', feedback: '', needsWork: false})
+const form = reactive({submissionId: '', level: '', feedback: '', needsWork: false})
 const {result, busy, submit: run, fail} = useDevSubmit()
 
 async function submit() {
@@ -22,13 +22,13 @@ async function submit() {
     return
   }
 
-  // Komplettering får bara feedback, ingen poäng.
+  // Komplettering får bara feedback, inget betyg.
   await run(() => api.POST('/api/submissions/{id}/grade', {
     params: {path: {id: form.submissionId}},
     body: {
-      score: form.needsWork
+      level: form.needsWork || form.level === ''
         ? null
-        : numberOrNull(form.score),
+        : form.level as Schema<'GradeLevel'>,
       feedback: form.feedback,
       needsWork: form.needsWork,
     },
@@ -59,19 +59,14 @@ async function submit() {
       />
       Needs work (ask for a resubmission)
     </Label>
-    <DevField
+    <EnumSelect
       v-if="!form.needsWork"
-      id="grade-score"
-      label="Score"
-      hint="Leave empty if the assignment has no score."
-    >
-      <Input
-        id="grade-score"
-        v-model="form.score"
-        type="number"
-        min="0"
-      />
-    </DevField>
+      id="grade-level"
+      v-model="form.level"
+      label="Grade (Fail = IG, Pass = G, Distinction = VG)"
+      empty-label="No grade, feedback only"
+      :values="gradeLevelValues"
+    />
     <DevField id="grade-feedback" label="Feedback">
       <Textarea id="grade-feedback" v-model="form.feedback" rows="3"/>
     </DevField>

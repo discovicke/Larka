@@ -95,7 +95,12 @@ public static class DevSeed
             Type = ContentType.Assignment,
             Title = "Sätt upp en CI-pipeline",
             BodyMd = "Skapa ett GitHub Actions-workflow som bygger och testar projektet.",
-            Assignment = new AssignmentSpec { MaxScore = 10, SubmissionMode = SubmissionMode.File }
+            Assignment = new AssignmentSpec
+            {
+                Kind = AssignmentKind.Lab,
+                GradeScale = GradeScale.PassFailDistinction,
+                SubmissionModes = [SubmissionMode.Text, SubmissionMode.File]
+            }
         };
 
         db.Content.AddRange(news, theory, assignment);

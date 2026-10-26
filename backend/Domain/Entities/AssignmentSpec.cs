@@ -6,7 +6,8 @@ namespace Backend.Domain.Entities;
 public class AssignmentSpec
 {
     public Guid ContentId { get; set; }
-    public int? MaxScore { get; set; } // null = bara feedback, inga poäng
-    public SubmissionMode SubmissionMode { get; set; } = SubmissionMode.None;
-    public string? TemplateRepo { get; set; } // "org/mall", krävs när SubmissionMode använder repo
+    public AssignmentKind Kind { get; set; }
+    public GradeScale GradeScale { get; set; } = GradeScale.None; // None = bara feedback, alltid för Exercise
+    public List<SubmissionMode> SubmissionModes { get; set; } = []; // tom = ingen inlämning
+    public string? TemplateRepo { get; set; } // "org/mall", krävs när SubmissionModes har Repo
 }

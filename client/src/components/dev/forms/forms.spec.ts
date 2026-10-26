@@ -115,23 +115,46 @@ describe('dev forms', () => {
     expect(wrapper.find('[data-test="result"]').text()).toContain('201')
   })
 
-  it('content skickar uppgiftsfälten för en uppgift med repo', async () => {
+  it('content skickar uppgiftsfälten för en laboration med text och repo', async () => {
     mockApi(backendWithOneGroup(() => ({status: 201, body: {id: 'c2', title: 'Lab', type: 'Assignment'}})))
     const wrapper = mount(CreateContentForm)
 
     await wrapper.find('#content-type').setValue('Assignment')
     await wrapper.find('#content-title').setValue('Lab')
-    await wrapper.find('#content-max-score').setValue('10')
-    await wrapper.find('#content-submission-mode').setValue('Repo')
+    await wrapper.find('#content-kind').setValue('Lab')
+    await wrapper.find('#content-grade-scale').setValue('PassFailDistinction')
+    await wrapper.find('#content-mode-Text').trigger('click')
+    await wrapper.find('#content-mode-Repo').trigger('click')
     await wrapper.find('#content-template-repo').setValue('org/lab')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
     expect(sent('POST', '/api/content')).toMatchObject({
       type: 'Assignment',
-      maxScore: 10,
-      submissionMode: 'Repo',
+      kind: 'Lab',
+      gradeScale: 'PassFailDistinction',
+      submissionModes: ['Text', 'Repo'],
       templateRepo: 'org/lab',
+    })
+  })
+
+  it('content skickar ingen betygsskala för en övning', async () => {
+    mockApi(backendWithOneGroup(() => ({status: 201, body: {id: 'c3', title: 'Övning', type: 'Assignment'}})))
+    const wrapper = mount(CreateContentForm)
+
+    await wrapper.find('#content-type').setValue('Assignment')
+    await wrapper.find('#content-title').setValue('Övning')
+    await wrapper.find('#content-grade-scale').setValue('PassFail')
+    await wrapper.find('#content-kind').setValue('Exercise')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.find('#content-grade-scale').exists()).toBe(false)
+    expect(sent('POST', '/api/content')).toMatchObject({
+      kind: 'Exercise',
+      gradeScale: null,
+      submissionModes: [],
+      templateRepo: null,
     })
   })
 
@@ -206,7 +229,7 @@ describe('dev forms', () => {
     expect(posted()).toBe(false)
   })
 
-  it('betyg med komplettering skickar ingen poäng', async () => {
+  it('betyg med komplettering skickar inget betyg', async () => {
     mockApi(backendWithOneGroup(() => ({status: 200, body: {id: 's1', status: 'NeedsWork'}})))
     const wrapper = mount(GradeSubmissionForm)
     await settle()
@@ -218,9 +241,27 @@ describe('dev forms', () => {
     await flushPromises()
 
     expect(sent('POST', '/api/submissions/s1/grade')).toEqual({
-      score: null,
+      level: null,
       feedback: 'Gör om',
       needsWork: true,
+    })
+  })
+
+  it('betyg skickar vald nivå', async () => {
+    mockApi(backendWithOneGroup(() => ({status: 200, body: {id: 's1', status: 'Graded'}})))
+    const wrapper = mount(GradeSubmissionForm)
+    await settle()
+
+    await wrapper.find('#grade-submission').setValue('s1')
+    await wrapper.find('#grade-level').setValue('Distinction')
+    await wrapper.find('#grade-feedback').setValue('Bra')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(sent('POST', '/api/submissions/s1/grade')).toEqual({
+      level: 'Distinction',
+      feedback: 'Bra',
+      needsWork: false,
     })
   })
 

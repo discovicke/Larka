@@ -14,8 +14,8 @@ public record SubmissionFileDto(string FileName, string Url, long SizeBytes)
 // Files ersätter tidigare filer vid ny inlämning (t.ex. efter komplettering).
 public record SubmitDto(string? BodyMd = null, List<SubmissionFileDto>? Files = null);
 
-// NeedsWork = begär komplettering: bara feedback, ingen poäng.
-public record GradeSubmissionDto(string Feedback, int? Score = null, bool NeedsWork = false);
+// NeedsWork = begär komplettering: bara feedback, inget betyg.
+public record GradeSubmissionDto(string Feedback, GradeLevel? Level = null, bool NeedsWork = false);
 
 // --- responses ---
 
@@ -50,7 +50,7 @@ public record StudentRepoDto(string RepoFullName, string? LastSha, CheckStatus C
         new(repo.RepoFullName, repo.LastSha, repo.CheckStatus, repo.UpdatedAt);
 }
 
-public record GradeDto(Guid GradedById, int? Score, string Feedback, DateTimeOffset GradedAt)
+public record GradeDto(Guid GradedById, GradeLevel? Level, string Feedback, DateTimeOffset GradedAt)
 {
-    public static GradeDto From(Grade grade) => new(grade.GradedById, grade.Score, grade.Feedback, grade.GradedAt);
+    public static GradeDto From(Grade grade) => new(grade.GradedById, grade.Level, grade.Feedback, grade.GradedAt);
 }

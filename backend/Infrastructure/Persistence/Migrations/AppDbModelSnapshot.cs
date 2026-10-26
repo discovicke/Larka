@@ -27,12 +27,17 @@ namespace Backend.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("ContentId")
                         .HasColumnType("uuid");
 
-                    b.Property<int?>("MaxScore")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("SubmissionMode")
+                    b.Property<string>("GradeScale")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.PrimitiveCollection<string[]>("SubmissionModes")
+                        .IsRequired()
+                        .HasColumnType("text[]");
 
                     b.Property<string>("TemplateRepo")
                         .HasColumnType("text");
@@ -236,8 +241,8 @@ namespace Backend.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("GradedById")
                         .HasColumnType("uuid");
 
-                    b.Property<int?>("Score")
-                        .HasColumnType("integer");
+                    b.Property<string>("Level")
+                        .HasColumnType("text");
 
                     b.HasKey("SubmissionId");
 

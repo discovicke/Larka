@@ -10,9 +10,10 @@ public record CreateContentDto(
     string Title,
     string BodyMd,
     ContentStatus? Status = null,
-    int? MaxScore = null,
-    SubmissionMode? SubmissionMode = null, // bara för uppgifter
-    string? TemplateRepo = null); // "org/mall", krävs för Repo och FileOrRepo
+    AssignmentKind? Kind = null, // uppgiftsfälten gäller bara uppgifter, och Kind krävs där
+    GradeScale? GradeScale = null, // utan värde = ingen betygsättning
+    List<SubmissionMode>? SubmissionModes = null, // ett eller flera sätt att lämna in
+    string? TemplateRepo = null); // "org/mall", krävs för Repo och bara där
 
 // Minst en av GroupId och CourseId. Båda = kursen så som den går för just den gruppen.
 // ModuleId lägger innehållet i en av kursens moduler och kräver CourseId.
@@ -51,10 +52,14 @@ public record ContentDto(
     }
 }
 
-public record AssignmentSpecDto(int? MaxScore, SubmissionMode SubmissionMode, string? TemplateRepo)
+public record AssignmentSpecDto(
+    AssignmentKind Kind,
+    GradeScale GradeScale,
+    List<SubmissionMode> SubmissionModes,
+    string? TemplateRepo)
 {
     public static AssignmentSpecDto From(AssignmentSpec spec) =>
-        new(spec.MaxScore, spec.SubmissionMode, spec.TemplateRepo);
+        new(spec.Kind, spec.GradeScale, spec.SubmissionModes, spec.TemplateRepo);
 }
 
 public record ContentLinkDto(

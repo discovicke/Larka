@@ -53,6 +53,19 @@ public class OpenApiDocumentTests(TestWebApplicationFactory factory) : IClassFix
         Assert.Equal(["News", "Theory", "Assignment"], values);
     }
 
+    // GradeLevel används bara som nullbar, och null ska stå på egenskaperna, inte i enumens värden.
+    [Fact]
+    public async Task GradeLevel_HasNoNullValue()
+    {
+        using var document = await GetDocumentAsync();
+
+        var values = Schema(document, "GradeLevel").GetProperty("enum")
+            .EnumerateArray()
+            .Select(value => value.GetString());
+
+        Assert.Equal(["Fail", "Pass", "Distinction"], values);
+    }
+
     [Fact]
     public async Task CreateContentDto_RequiresOnlyTheNonNullableFields()
     {

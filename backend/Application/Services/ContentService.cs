@@ -29,35 +29,40 @@ public class ContentService(
     {
         var type = dto.Type;
         var status = dto.Status ?? ContentStatus.Published;
-        var mode = dto.SubmissionMode ?? SubmissionMode.None;
+        var modes = (dto.SubmissionModes ?? []).Distinct().ToList();
+        var scale = dto.GradeScale ?? GradeScale.None;
 
         if (string.IsNullOrWhiteSpace(dto.Title))
         {
             return ValidationResult<ContentDto>.Invalid("title is required");
         }
 
-        var hasAssignmentFields =
-            dto.MaxScore is not null || dto.SubmissionMode is not null || dto.TemplateRepo is not null;
+        var hasAssignmentFields = dto.Kind is not null || dto.GradeScale is not null
+            || dto.SubmissionModes is not null || dto.TemplateRepo is not null;
         if (type != ContentType.Assignment && hasAssignmentFields)
         {
             return ValidationResult<ContentDto>.Invalid(
-                "maxScore, submissionMode and templateRepo are only allowed on assignments");
+                "kind, gradeScale, submissionModes and templateRepo are only allowed on assignments");
         }
 
-        if (SubmissionService.UsesRepo(mode) != (dto.TemplateRepo is not null))
+        if (type == ContentType.Assignment && dto.Kind is null)
         {
-            return ValidationResult<ContentDto>.Invalid(
-                "templateRepo is required for repo and fileOrRepo, and only allowed there");
+            return ValidationResult<ContentDto>.Invalid("kind is required for assignments");
+        }
+
+        if (dto.Kind == AssignmentKind.Exercise && scale != GradeScale.None)
+        {
+            return ValidationResult<ContentDto>.Invalid("an exercise is not graded, so it has no gradeScale");
+        }
+
+        if (SubmissionService.UsesRepo(modes) != (dto.TemplateRepo is not null))
+        {
+            return ValidationResult<ContentDto>.Invalid("templateRepo is required for repo, and only allowed there");
         }
 
         if (dto.TemplateRepo is not null && !LooksLikeOrgAndName(dto.TemplateRepo))
         {
             return ValidationResult<ContentDto>.Invalid("templateRepo must look like org/name");
-        }
-
-        if (dto.MaxScore < 1)
-        {
-            return ValidationResult<ContentDto>.Invalid("maxScore must be at least 1");
         }
 
         var content = new Content
@@ -73,8 +78,9 @@ public class ContentService(
             content.Assignment = new AssignmentSpec
             {
                 ContentId = content.Id,
-                MaxScore = dto.MaxScore,
-                SubmissionMode = mode,
+                Kind = dto.Kind!.Value,
+                GradeScale = scale,
+                SubmissionModes = modes,
                 TemplateRepo = dto.TemplateRepo
             };
         }

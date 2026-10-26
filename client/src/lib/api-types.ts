@@ -1348,10 +1348,12 @@ export interface components {
             userId: string;
             role?: components["schemas"]["GroupRole"];
         };
+        /** @enum {unknown} */
+        AssignmentKind: "Exercise" | "Lab" | "Exam";
         AssignmentSpecDto: {
-            /** Format: int32 */
-            maxScore: null | number;
-            submissionMode: components["schemas"]["SubmissionMode"];
+            kind: components["schemas"]["AssignmentKind"];
+            gradeScale: components["schemas"]["GradeScale"];
+            submissionModes: components["schemas"]["SubmissionMode"][];
             templateRepo: null | string;
         };
         AttachmentDto: {
@@ -1456,9 +1458,9 @@ export interface components {
             title: string;
             bodyMd: string;
             status?: null | components["schemas"]["ContentStatus"];
-            /** Format: int32 */
-            maxScore?: null | number;
-            submissionMode?: null | components["schemas"]["SubmissionMode"];
+            kind?: null | components["schemas"]["AssignmentKind"];
+            gradeScale?: null | components["schemas"]["GradeScale"];
+            submissionModes?: null | components["schemas"]["SubmissionMode"][];
             templateRepo?: null | string;
         };
         CreateContentLinkDto: {
@@ -1505,16 +1507,18 @@ export interface components {
         GradeDto: {
             /** Format: uuid */
             gradedById: string;
-            /** Format: int32 */
-            score: null | number;
+            level: null | components["schemas"]["GradeLevel"];
             feedback: string;
             /** Format: date-time */
             gradedAt: string;
         };
+        /** @enum {unknown} */
+        GradeLevel: "Fail" | "Pass" | "Distinction";
+        /** @enum {unknown} */
+        GradeScale: "None" | "PassFail" | "PassFailDistinction";
         GradeSubmissionDto: {
             feedback: string;
-            /** Format: int32 */
-            score?: null | number;
+            level?: null | components["schemas"]["GradeLevel"];
             /** @default false */
             needsWork: boolean;
         };
@@ -1614,7 +1618,7 @@ export interface components {
             sizeBytes: number;
         };
         /** @enum {unknown} */
-        SubmissionMode: "None" | "File" | "Repo" | "FileOrRepo";
+        SubmissionMode: "Text" | "File" | "Repo" | "OnSite";
         /** @enum {unknown} */
         SubmissionStatus: "NotStarted" | "Submitted" | "NeedsWork" | "Graded";
         SubmitDto: {
@@ -1652,12 +1656,15 @@ type ReadonlyArray<T> = [
 ] extends [
     unknown[]
 ] ? Readonly<Exclude<T, undefined>> : Readonly<Exclude<T, undefined>[]>;
+export const assignmentKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AssignmentKind"]> = ["Exercise", "Lab", "Exam"];
 export const checkStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CheckStatus"]> = ["Pending", "Green", "Red"];
 export const contentStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["ContentStatus"]> = ["Draft", "Published"];
 export const contentTypeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["ContentType"]> = ["News", "Theory", "Assignment"];
+export const gradeLevelValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GradeLevel"]> = ["Fail", "Pass", "Distinction"];
+export const gradeScaleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GradeScale"]> = ["None", "PassFail", "PassFailDistinction"];
 export const groupRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GroupRole"]> = ["Student", "Teacher", "Mentor"];
 export const groupTypeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GroupType"]> = ["Class", "Committee", "Other"];
-export const submissionModeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["SubmissionMode"]> = ["None", "File", "Repo", "FileOrRepo"];
+export const submissionModeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["SubmissionMode"]> = ["Text", "File", "Repo", "OnSite"];
 export const submissionStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["SubmissionStatus"]> = ["NotStarted", "Submitted", "NeedsWork", "Graded"];
 export const userRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["UserRole"]> = ["Admin", "Teacher", "Student"];
 export type operations = Record<string, never>;

@@ -141,7 +141,7 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     {
         var (groupA, _) = await AddGroupWithCourseAsync();
         var (groupB, _) = await AddGroupWithCourseAsync();
-        var assignment = await CreateAsync("assignment", "Labb 1");
+        var assignment = await CreateAsync("assignment", "Labb 1", kind: "lab");
 
         var linkA = await _client.PostAsJsonAsync($"/api/content/{assignment.Id}/links",
             new { groupId = groupA, dueAt = DateTimeOffset.UtcNow.AddDays(7) });
@@ -173,9 +173,9 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
-    private async Task<ContentResponse> CreateAsync(string type, string title)
+    private async Task<ContentResponse> CreateAsync(string type, string title, string? kind = null)
     {
-        var response = await _client.PostAsJsonAsync("/api/content", new { type, title, bodyMd = "" });
+        var response = await _client.PostAsJsonAsync("/api/content", new { type, title, bodyMd = "", kind });
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<ContentResponse>())!;
     }

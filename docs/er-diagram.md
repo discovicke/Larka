@@ -100,8 +100,9 @@ erDiagram
     }
     AssignmentSpec {
         uuid ContentId PK, FK
-        int MaxScore "nullable"
-        SubmissionMode SubmissionMode "None | File | Repo | FileOrRepo"
+        AssignmentKind Kind "Exercise | Lab | Exam"
+        GradeScale GradeScale "None | PassFail | PassFailDistinction"
+        SubmissionMode[] SubmissionModes "Text | File | Repo | OnSite, tom = ingen inlämning"
         string TemplateRepo "nullable"
     }
     Attachment {
@@ -143,7 +144,7 @@ erDiagram
     Grade {
         uuid SubmissionId PK, FK
         uuid GradedById FK
-        int Score "nullable"
+        GradeLevel Level "nullable, Fail | Pass | Distinction (IG | G | VG)"
         string Feedback
         timestamptz GradedAt
     }
@@ -184,14 +185,20 @@ erDiagram
   - grupp + kurs: kursen så som den går för just den gruppen
 - **`ModuleId` på länken lägger innehållet i en av kursens moduler.** Den är valfri, så nyheter och sådant som gäller hela kursen fungerar som förut. En modul kräver `CourseId` (check constraint), och backend kontrollerar att modulen hör till just den kursen. Den ligger på länken av samma skäl som deadlinen: samma material kan ligga i vecka 2 för en klass och vecka 3 för en annan.
 - **`PublishAt`, `DueAt` och `IsPinned` ligger på länken, inte på content.** Samma uppgift kan delas ut till två klasser med olika deadlines.
-- **AssignmentSpec (1:0..1 med Content)** finns bara när `Type = Assignment`. `SubmissionMode` avgör hur man lämnar in: `None` (bara läsa och göra), `File`, `Repo` (GitHub) eller `FileOrRepo`. En "laboration" är alltså en uppgift med inlämning, inte en egen tabell. GitHub är ett tillval, så kurser utan programmering lämnar in filer.
+- **AssignmentSpec (1:0..1 med Content)** finns bara när `Type = Assignment`. Tre fält styr uppgiften, och de motsvarar formuläret "Skapa del":
+  - `Kind` är typen av del: `Exercise` (övning, ingen betygsättning), `Lab` (laboration, en betygsatt del) eller `Exam` (inlämning som examinerar). Det är en egen enum på AssignmentSpec och inte fler värden i `ContentType`, så content är fortfarande bara nyhet, teori eller uppgift. En övning kan inte ha betygsskala.
+  - `GradeScale` är betygsskalan: `None` (bara feedback), `PassFail` (IG-G) eller `PassFailDistinction` (IG-G-VG).
+  - `SubmissionModes` är hur man lämnar in, en lista där flera sätt kan kombineras: `Text` (textsvar i `Submission.BodyMd`), `File` (filer och foton), `Repo` (GitHub, kräver `TemplateRepo`) och `OnSite` (läraren bedömer på plats). En tom lista betyder ingen inlämning, t.ex. "läs kapitel 3". Listan sparas som en array i databasen.
+
+  GitHub är ett tillval, så kurser utan programmering lämnar in text eller filer.
+
 - **Attachment och Comment** hör till content, inte till en länk. Bilagorna följer med när innehållet delas ut igen.
 
 ### Inlämningar
 
 - **Submission hör till en ContentLink, inte till content.** Det är på länken deadlinen finns, och en elev lämnar in till uppgiften så som den delades ut till hens grupp. Det finns en rad per elev och länk (unik), och `Status` (`NotStarted`, `Submitted`, `NeedsWork`, `Graded`) visar var eleven är. Statusbytena styr notiserna.
 - **SubmissionFile (1:N)** innehåller uppladdade filer, **StudentRepo (1:0..1)** elevens GitHub-repo när uppgiften använder repo-läge. Repot skapas när uppgiften delas ut, så då finns submission-raden redan med status `NotStarted`.
-- **Grade (1:0..1 med Submission)** sparar vem som rättade (`GradedById`) och när. `Score` ligger mellan 0 och uppgiftens `MaxScore`. Uppgifter utan `MaxScore` får bara feedback. Vid komplettering sätts status `NeedsWork` och Grade har feedback men ingen poäng, och eleven kan lämna in igen. En rättad inlämning går inte att lämna in igen.
+- **Grade (1:0..1 med Submission)** sparar vem som rättade (`GradedById`) och när. `Level` är betyget (`Fail`, `Pass`, `Distinction`, alltså IG, G, VG) och måste passa uppgiftens `GradeScale`: på `PassFail` finns inget `Distinction`, och på `None` får inlämningen bara feedback. Vid komplettering sätts status `NeedsWork` och Grade har feedback men inget betyg, och eleven kan lämna in igen. En rättad inlämning går inte att lämna in igen. Uppgifter med `OnSite` kan rättas utan att eleven lämnat in något.
 
 ### Notiser
 

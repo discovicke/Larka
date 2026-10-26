@@ -21,7 +21,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     // Tal skickas som tal. Webbstandarden tar även emot "10", och då dokumenteras de som tal eller text.
     options.SerializerOptions.NumberHandling = JsonNumberHandling.Strict;
 });
-builder.Services.AddOpenApi();
+builder.Services.AddOpenApi(options => options.AddSchemaTransformer<EnumSchemaTransformer>());
 
 // Ogiltig JSON i en request ger 400 med en kort text, både lokalt och i prod (se BadRequestExceptionHandler).
 builder.Services.Configure<RouteHandlerOptions>(options => options.ThrowOnBadRequest = true);

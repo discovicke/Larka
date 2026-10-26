@@ -1230,23 +1230,33 @@
           }
         }
       },
+      "AssignmentKind": {
+        "enum": [
+          "Exercise",
+          "Lab",
+          "Exam"
+        ]
+      },
       "AssignmentSpecDto": {
         "required": [
-          "maxScore",
-          "submissionMode",
+          "kind",
+          "gradeScale",
+          "submissionModes",
           "templateRepo"
         ],
         "type": "object",
         "properties": {
-          "maxScore": {
-            "type": [
-              "null",
-              "integer"
-            ],
-            "format": "int32"
+          "kind": {
+            "$ref": "#/components/schemas/AssignmentKind"
           },
-          "submissionMode": {
-            "$ref": "#/components/schemas/SubmissionMode"
+          "gradeScale": {
+            "$ref": "#/components/schemas/GradeScale"
+          },
+          "submissionModes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubmissionMode"
+            }
           },
           "templateRepo": {
             "type": [
@@ -1603,22 +1613,34 @@
               }
             ]
           },
-          "maxScore": {
-            "type": [
-              "null",
-              "integer"
-            ],
-            "format": "int32"
-          },
-          "submissionMode": {
+          "kind": {
             "oneOf": [
               {
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/SubmissionMode"
+                "$ref": "#/components/schemas/AssignmentKind"
               }
             ]
+          },
+          "gradeScale": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/GradeScale"
+              }
+            ]
+          },
+          "submissionModes": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/SubmissionMode"
+            }
           },
           "templateRepo": {
             "type": [
@@ -1773,7 +1795,7 @@
       "GradeDto": {
         "required": [
           "gradedById",
-          "score",
+          "level",
           "feedback",
           "gradedAt"
         ],
@@ -1783,12 +1805,15 @@
             "type": "string",
             "format": "uuid"
           },
-          "score": {
-            "type": [
-              "null",
-              "integer"
-            ],
-            "format": "int32"
+          "level": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/GradeLevel"
+              }
+            ]
           },
           "feedback": {
             "type": "string"
@@ -1799,6 +1824,20 @@
           }
         }
       },
+      "GradeLevel": {
+        "enum": [
+          "Fail",
+          "Pass",
+          "Distinction"
+        ]
+      },
+      "GradeScale": {
+        "enum": [
+          "None",
+          "PassFail",
+          "PassFailDistinction"
+        ]
+      },
       "GradeSubmissionDto": {
         "required": [
           "feedback"
@@ -1808,12 +1847,15 @@
           "feedback": {
             "type": "string"
           },
-          "score": {
-            "type": [
-              "null",
-              "integer"
-            ],
-            "format": "int32"
+          "level": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/GradeLevel"
+              }
+            ]
           },
           "needsWork": {
             "type": "boolean",
@@ -2158,10 +2200,10 @@
       },
       "SubmissionMode": {
         "enum": [
-          "None",
+          "Text",
           "File",
           "Repo",
-          "FileOrRepo"
+          "OnSite"
         ]
       },
       "SubmissionStatus": {
