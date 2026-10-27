@@ -1,0 +1,56 @@
+name: E2E
+
+# Rökprovning mot den deployade appen. Testerna läser bara: de skapar, ändrar och tar aldrig
+# bort något i produktion. Dagligen och på begäran, aldrig på PR:er.
+on:
+  schedule:
+    # Varje dag 05:17 UTC.
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+
+# En körning i taget. Två samtidiga kallstarter mot Render hjälper ingen.
+concurrency:
+  group: e2e
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: e2e
+    env:
+      # Render-adressen som standard, men går att byta med repository-variabeln E2E_BASE_URL.
+      E2E_BASE_URL: ${{ vars.E2E_BASE_URL || 'https://net25-devops-grupp-4.onrender.com' }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Test
+        run: npx playwright test
+
+      # Rapporten och spåren, så att det går att se vad som gick fel i en körning.
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+          retention-days: 14

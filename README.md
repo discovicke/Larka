@@ -167,6 +167,26 @@ npm run test
 
 `npm run format` i repots rot fixar formateringen i hela repot (Prettier, ESLint och `dotnet format`), och `npm run format:check` kontrollerar den.
 
+### E2E mot den deployade appen
+
+[`e2e/`](e2e) innehåller Playwright-tester som kör mot den deployade appen: att `/health` och `/version` svarar, att startsidan och sidomenyn laddar, att en kurs går att öppna med nyhetsfliken, att `Alla grupper` visar tabellen utan sidledes scroll och att en okänd sökväg visar 404. Varje test körs både som desktop och som mobil.
+
+De körs varje dag 05:17 UTC och manuellt via _Actions › E2E › Run workflow_. Testerna **läser bara** appen: de skapar, ändrar eller tar aldrig bort något i produktion, och de kräver ingen inloggning. Adressen kommer från repository-variabeln `E2E_BASE_URL`, med https://net25-devops-grupp-4.onrender.com som standard.
+
+```bash
+cd e2e
+npm ci
+npx playwright install chromium
+
+# Mot den deployade appen
+npx playwright test
+
+# Mot den lokala dev-instansen
+E2E_BASE_URL=http://localhost:5173 npx playwright test
+```
+
+Render-instansen somnar efter 15 minuter utan trafik, så `global-setup.ts` väntar tills `/health` svarar innan testerna börjar (upp till 3 minuter).
+
 ### Kodstil
 
 Tre verktyg delar på formateringen, och `npm run format` kör alla:
