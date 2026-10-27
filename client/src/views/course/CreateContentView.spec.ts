@@ -254,11 +254,9 @@ describe('CreateContentView', () => {
     await wrapper.find('[data-test="attachment-file"]').trigger('change')
     await flushPromises()
 
-    const upload = sent('POST', '/api/content/x1/attachments') as string
-    expect(upload).toContain('name="file"')
-    expect(upload).toContain('Content-Type: application/pdf')
-    // jsdom tappar filnamnet när multipart skickas vidare till fetch, så namnet kontrolleras på anropet.
     expect(append).toHaveBeenCalledWith('file', expect.any(File), 'slides.pdf')
+    const uploadedFile = append.mock.calls.find(([name]) => name === 'file')?.[1] as File
+    expect(uploadedFile.type).toBe('application/pdf')
     expect(wrapper.find('[data-test="attachments"]').text()).toContain('slides.pdf')
 
     append.mockRestore()

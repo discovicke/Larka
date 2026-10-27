@@ -20,9 +20,13 @@ export function mockApi(handler: Handler) {
       ? input
       : new Request(new URL(input, window.location.origin), init)
     const path = new URL(request.url).pathname
-    const text = await request.text()
-    // Filer skickas som multipart, och då sparas texten som den är så att testet kan leta efter fälten i den.
-    const isJson = request.headers.get('Content-Type')?.includes('json') ?? false
+    const contentType = request.headers.get('Content-Type')
+    // jsdom kan inte läsa tillbaka multipart från en Request. Testerna kontrollerar
+    // i stället FormData.append, så vi rör inte den body:n här.
+    const text = contentType?.includes('multipart/form-data')
+      ? ''
+      : await request.text()
+    const isJson = contentType?.includes('json') ?? false
     const body = text && isJson
       ? JSON.parse(text)
       : text || undefined

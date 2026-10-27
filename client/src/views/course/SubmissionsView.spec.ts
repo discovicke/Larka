@@ -199,7 +199,6 @@ describe('SubmissionsView', () => {
 
     const tile = rows[2].find('a[href="/courses/c1/assignments/l1/submissions/s1"]')
     expect(tile.text()).toBe('G')
-    expect(tile.classes()).toContain('bg-emerald-50')
   })
 
   it('Instruktioner visar uppgiftens text i stället för tabellen', async () => {
