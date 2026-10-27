@@ -10,7 +10,6 @@ import NotFoundView from '@/views/NotFoundView.vue'
 const tabs = [
   {label: 'Innehåll', routeName: 'course-content'},
   {label: 'Nyheter', routeName: 'course-news'},
-  {label: 'Kanaler', routeName: 'course-channels'},
   {label: 'Personal', routeName: 'course-staff'},
   {label: 'Om', routeName: 'course-about'},
 ]

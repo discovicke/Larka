@@ -18,7 +18,6 @@ describe('router', () => {
     ['/groups', 'groups'],
     ['/courses/devops/content', 'course-content'],
     ['/courses/devops/news', 'course-news'],
-    ['/courses/devops/channels', 'course-channels'],
     ['/courses/devops/staff', 'course-staff'],
     ['/courses/devops/about', 'course-about'],
     ['/courses/devops/modules/1/new', 'create-content'],

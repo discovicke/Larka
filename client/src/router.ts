@@ -77,7 +77,6 @@ export const routes: RouteRecordRaw[] = [
             component: CourseNewsView,
             meta: {title: 'Nyheter', breadcrumbs: (route) => courseBreadcrumbs(route, {label: 'Nyheter'})},
           },
-          courseTab('channels', 'course-channels', 'Kanaler'),
           courseTab('staff', 'course-staff', 'Personal'),
           courseTab('about', 'course-about', 'Om'),
         ],
