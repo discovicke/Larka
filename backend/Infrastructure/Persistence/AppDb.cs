@@ -15,6 +15,8 @@ public class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
     public DbSet<Enrollment> Enrollments => Set<Enrollment>();
     public DbSet<Content> Content => Set<Content>();
     public DbSet<ContentLink> ContentLinks => Set<ContentLink>();
+    public DbSet<ContentLinkDependency> ContentLinkDependencies => Set<ContentLinkDependency>();
+    public DbSet<PartCompletion> PartCompletions => Set<PartCompletion>();
     public DbSet<AssignmentSpec> AssignmentSpecs => Set<AssignmentSpec>();
     public DbSet<Submission> Submissions => Set<Submission>();
     public DbSet<SubmissionFile> SubmissionFiles => Set<SubmissionFile>();
@@ -37,6 +39,7 @@ public class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
         builder.Properties<GradeScale>().HaveConversion<string>();
         builder.Properties<GradeLevel>().HaveConversion<string>();
         builder.Properties<SubmissionStatus>().HaveConversion<string>();
+        builder.Properties<CompletionRule>().HaveConversion<string>();
         builder.Properties<NotificationKind>().HaveConversion<string>();
     }
 

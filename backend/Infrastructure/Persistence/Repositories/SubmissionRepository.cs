@@ -14,6 +14,11 @@ public class SubmissionRepository(AppDb db) : ISubmissionRepository
         WithDetails().FirstOrDefaultAsync(
             submission => submission.ContentLinkId == linkId && submission.StudentId == studentId, ct);
 
+    public Task<List<Submission>> GetForStudentAsync(
+        Guid studentId, IReadOnlyCollection<Guid> linkIds, CancellationToken ct) =>
+        WithDetails().Where(submission =>
+            submission.StudentId == studentId && linkIds.Contains(submission.ContentLinkId)).ToListAsync(ct);
+
     public Task<List<Submission>> GetByLinkAsync(Guid linkId, CancellationToken ct) =>
         WithDetails().Where(submission => submission.ContentLinkId == linkId).ToListAsync(ct);
 

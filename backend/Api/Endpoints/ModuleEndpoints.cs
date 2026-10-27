@@ -32,6 +32,10 @@ public static class ModuleEndpoints
             (await service.ReorderModuleContentAsync(id, moduleId, reorderDto, ct))
                 .ToHttp(_ => TypedResults.NoContent()));
 
+        modules.MapPut("/{moduleId:guid}/roadmap", async (
+            Guid id, Guid moduleId, SaveRoadmapDto roadmapDto, RoadmapService service, CancellationToken ct) =>
+            (await service.SaveAsync(id, moduleId, roadmapDto, ct)).ToHttp(TypedResults.Ok));
+
         return app;
     }
 }

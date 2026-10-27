@@ -22,6 +22,25 @@ public interface IContentRepository
     /// <summary>Modulens länkar i ordning, så att positionerna kan kompakteras.</summary>
     Task<List<ContentLink>> GetLinksForModuleAsync(Guid moduleId, CancellationToken ct);
 
+    /// <summary>Modulens delar med innehåll (och AssignmentSpec), i Position-ordning.</summary>
+    Task<List<LinkedContent>> GetLinksWithContentForModuleAsync(Guid moduleId, CancellationToken ct);
+
+    /// <summary>
+    /// Delarna i kursens moduler som en grupp ser: gruppens egna länkar och kursens gemensamma.
+    /// Används av elevvyn, som bara visar innehåll som ligger i en vecka.
+    /// </summary>
+    Task<List<LinkedContent>> GetLinksWithContentForGroupCourseAsync(
+        Guid groupId, Guid courseId, CancellationToken ct);
+
+    /// <summary>Alla beroenden mellan delar i modulen.</summary>
+    Task<List<ContentLinkDependency>> GetDependenciesForModuleAsync(Guid moduleId, CancellationToken ct);
+
+    /// <summary>Alla beroenden mellan delar i kursens moduler.</summary>
+    Task<List<ContentLinkDependency>> GetDependenciesForCourseAsync(Guid courseId, CancellationToken ct);
+
+    void AddDependency(ContentLinkDependency dependency);
+    void RemoveDependencies(IEnumerable<ContentLinkDependency> dependencies);
+
     Task<int> CountLinksAsync(Guid contentId, CancellationToken ct);
     void RemoveLink(ContentLink link);
     void RemoveContent(Content content);

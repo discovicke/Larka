@@ -5,6 +5,7 @@ import {useRoute} from 'vue-router'
 
 import AddModuleDialog from '@/components/course/AddModuleDialog.vue'
 import ModuleSection from '@/components/course/ModuleSection.vue'
+import RoadmapDialog from '@/components/course/RoadmapDialog.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Button} from '@/components/ui/button'
 import {
@@ -29,6 +30,8 @@ const deleteOpen = ref(false)
 const partToDelete = ref<Schema<'ModuleContentItem'> | null>(null)
 const deleting = ref(false)
 const deleteError = ref('')
+const roadmapOpen = ref(false)
+const roadmapModule = ref<Schema<'ModuleWithContentDto'> | null>(null)
 
 async function load() {
   error.value = ''
@@ -99,6 +102,17 @@ function askDeletePart(item: Schema<'ModuleContentItem'>) {
   deleteOpen.value = true
 }
 
+function openRoadmap(module: Schema<'ModuleWithContentDto'>) {
+  roadmapModule.value = module
+  roadmapOpen.value = true
+}
+
+function applyRoadmap(saved: Schema<'ModuleWithContentDto'>) {
+  modules.value = modules.value.map((module) => module.id === saved.id
+    ? saved
+    : module)
+}
+
 async function deletePart() {
   const part = partToDelete.value
   if (!part) {
@@ -161,6 +175,14 @@ watch(courseId, () => {
         @move-part="(item, direction) => movePart(module, item, direction)"
         @toggle-part-status="togglePartStatus"
         @delete-part="askDeletePart"
+        @open-roadmap="openRoadmap(module)"
+      />
+      <RoadmapDialog
+        v-if="roadmapModule"
+        v-model:open="roadmapOpen"
+        :module="roadmapModule"
+        :course-id="courseId"
+        @saved="applyRoadmap"
       />
       <AddModuleDialog :course-id="courseId" @created="load"/>
     </template>

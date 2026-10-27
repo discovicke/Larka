@@ -23,6 +23,9 @@ import PublishContentForm from '@/components/dev/forms/PublishContentForm.vue'
         which only show the body until their endpoint exists. Dropdowns load on page load, use
         the refresh button after creating something in another tab or in Swagger.
       </p>
+      <RouterLink to="/dev/student" class="text-primary w-fit text-sm underline">
+        Öppna elevvyn (student)
+      </RouterLink>
     </header>
 
     <section class="flex flex-col gap-4">

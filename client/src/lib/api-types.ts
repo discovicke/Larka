@@ -871,6 +871,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/courses/{id}/modules/{moduleId}/roadmap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    moduleId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SaveRoadmapDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ModuleWithContentDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/content": {
         parameters: {
             query?: never;
@@ -1769,6 +1838,123 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/groups/{groupId}/courses/{courseId}/modules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    groupId: string;
+                    courseId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StudentModuleWithContentDto"][];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/groups/{groupId}/courses/{courseId}/links/{linkId}/completion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    groupId: string;
+                    courseId: string;
+                    linkId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetCompletionDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StudentModuleWithContentDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1807,6 +1993,8 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
         };
+        /** @enum {unknown} */
+        CompletionRule: "Submitted" | "Approved";
         ContentDto: {
             /** Format: uuid */
             id: string;
@@ -1966,7 +2154,10 @@ export interface components {
             groupId: string;
             role: components["schemas"]["GroupRole"];
         };
-        /** @description En del i en modul. Tar med utkast och det som publiceras senare, så att läraren ser allt (Status, PublishAt). */
+        /**
+         * @description En del i en modul. Tar med utkast och det som publiceras senare, så att läraren ser allt (Status, PublishAt).
+         *     BlockedBy är de delar i samma vecka som måste vara klara först.
+         */
         ModuleContentItem: {
             /** Format: uuid */
             linkId: string;
@@ -1974,6 +2165,7 @@ export interface components {
             contentId: string;
             type: components["schemas"]["ContentType"];
             gradeScale: null | components["schemas"]["GradeScale"];
+            completionRule: null | components["schemas"]["CompletionRule"];
             title: string;
             status: components["schemas"]["ContentStatus"];
             /** Format: uuid */
@@ -1983,6 +2175,7 @@ export interface components {
             /** Format: date-time */
             dueAt: null | string;
             isPinned: boolean;
+            blockedBy: string[];
         };
         ModuleDto: {
             /** Format: uuid */
@@ -2012,10 +2205,70 @@ export interface components {
         ReorderModulesDto: {
             moduleIds: string[];
         };
+        RoadmapLinkDto: {
+            /** Format: uuid */
+            linkId: string;
+            blockedByLinkIds: string[];
+            completionRule?: null | components["schemas"]["CompletionRule"];
+        };
+        SaveRoadmapDto: {
+            links: components["schemas"]["RoadmapLinkDto"][];
+        };
         SchoolDto: {
             /** Format: uuid */
             id: string;
             name: string;
+        };
+        SetCompletionDto: {
+            completed: boolean;
+        };
+        /**
+         * @description En förutsättning som eleven saknar. Title är null när förutsättningen inte är publicerad än,
+         *     så att ett utkast inte läcker sin titel.
+         */
+        StudentBlockerDto: {
+            /** Format: uuid */
+            linkId: string;
+            title: null | string;
+            isSatisfied: boolean;
+        };
+        /**
+         * @description En del i veckan. BodyMd är null när delen är låst, så att texten inte går att läsa i förväg.
+         *     CanMarkDone är true för teori och uppgifter utan inlämningssätt; uppgifter med inlämning
+         *     blir klara genom Submission och har Submitted/Grade i stället.
+         */
+        StudentContentItem: {
+            /** Format: uuid */
+            linkId: string;
+            /** Format: uuid */
+            contentId: string;
+            type: components["schemas"]["ContentType"];
+            gradeScale: null | components["schemas"]["GradeScale"];
+            title: string;
+            bodyMd: null | string;
+            /** Format: date-time */
+            publishAt: string;
+            /** Format: date-time */
+            dueAt: null | string;
+            isPinned: boolean;
+            isLocked: boolean;
+            isCompleted: boolean;
+            canMarkDone: boolean;
+            blockedBy: components["schemas"]["StudentBlockerDto"][];
+            submissionStatus: null | components["schemas"]["SubmissionStatus"];
+            gradeLevel: null | components["schemas"]["GradeLevel"];
+        };
+        /** @description En vecka som eleven ser den: bara publicerat innehåll, med lås och avklarande. */
+        StudentModuleWithContentDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            courseId: string;
+            title: string;
+            description: string;
+            /** Format: int32 */
+            position: number;
+            content: components["schemas"]["StudentContentItem"][];
         };
         StudentRepoDto: {
             repoFullName: string;
@@ -2106,6 +2359,7 @@ type ReadonlyArray<T> = [
     unknown[]
 ] ? Readonly<Exclude<T, undefined>> : Readonly<Exclude<T, undefined>[]>;
 export const checkStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CheckStatus"]> = ["Pending", "Green", "Red"];
+export const completionRuleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CompletionRule"]> = ["Submitted", "Approved"];
 export const contentStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["ContentStatus"]> = ["Draft", "Published"];
 export const contentTypeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["ContentType"]> = ["News", "Theory", "Assignment"];
 export const gradeLevelValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GradeLevel"]> = ["Fail", "Pass", "Distinction"];

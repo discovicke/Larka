@@ -16,6 +16,7 @@ public static class EndpointExtensions
         api.MapModuleEndpoints();
         api.MapContentEndpoints();
         api.MapSubmissionEndpoints();
+        api.MapStudentContentEndpoints();
 
         // Okända /api-anrop ska ge 404, inte klientens index.html.
         api.MapFallback(() => Results.NotFound());

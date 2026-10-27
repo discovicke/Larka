@@ -1,4 +1,5 @@
 using Backend.Domain.Entities;
+using Backend.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -15,6 +16,9 @@ public class AssignmentSpecConfiguration : IEntityTypeConfiguration<AssignmentSp
 
         // Listan sparas som en textarray ("Text", "File"), som övriga enums, så den går att läsa i databasen.
         builder.PrimitiveCollection(spec => spec.SubmissionModes).ElementType().HasConversion<string>();
+
+        // Standardvärdet gäller rader som skapas utanför EF och de som fanns innan kolumnen kom.
+        builder.Property(spec => spec.CompletionRule).HasDefaultValue(CompletionRule.Submitted);
     }
 }
 

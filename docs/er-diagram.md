@@ -4,7 +4,7 @@ Datamodellen bakom API:et. Content (nyheter, teori och uppgifter) är kärnan: d
 
 Varje relation är en riktig foreign key i databasen med ett index. Modellen gäller Postgres: lokalt i Docker, i testerna via Testcontainers och i prod på Supabase.
 
-Modellen beslutades i #34 och byggs i #37 (organisation), #38 (content), #39 (uppgifter och inlämningar) och #40 (notiser). Moduler (veckor) kom till i #61.
+Modellen beslutades i #34 och byggs i #37 (organisation), #38 (content), #39 (uppgifter och inlämningar) och #40 (notiser). Moduler (veckor) kom till i #61, och roadmap med låsta delar i #89–#91.
 
 ```mermaid
 erDiagram
@@ -27,6 +27,10 @@ erDiagram
     Content ||--o{ Comment : "har"
     User ||--o{ Comment : "skriver"
 
+    ContentLink ||--o{ ContentLinkDependency : "är låst av"
+    ContentLink ||--o{ ContentLinkDependency : "låser upp"
+    ContentLink ||--o{ PartCompletion : "klarmarkeras"
+    User ||--o{ PartCompletion : "klarmarkerar"
     ContentLink ||--o{ Submission : "tar emot"
     User ||--o{ Submission : "lämnar in"
     Submission ||--o{ SubmissionFile : "har"
@@ -101,10 +105,20 @@ erDiagram
     }
     AssignmentSpec {
         uuid ContentId PK, FK
-        AssignmentKind Kind "Exercise | Lab | Exam"
         GradeScale GradeScale "None | PassFail | PassFailDistinction"
         SubmissionMode[] SubmissionModes "Text | File | Repo | OnSite, tom = ingen inlämning"
+        CompletionRule CompletionRule "Submitted | Approved, standard Submitted"
         string TemplateRepo "nullable"
+    }
+    ContentLinkDependency {
+        uuid BlockedLinkId PK, FK
+        uuid BlockingLinkId PK, FK
+    }
+    PartCompletion {
+        uuid Id PK
+        uuid ContentLinkId FK
+        uuid StudentId FK
+        timestamptz CompletedAt
     }
     Attachment {
         uuid Id PK
@@ -186,15 +200,23 @@ erDiagram
   - grupp + kurs: kursen så som den går för just den gruppen
 - **`ModuleId` på länken lägger innehållet i en av kursens moduler.** Den är valfri, så nyheter och sådant som gäller hela kursen fungerar som förut. En modul kräver `CourseId` (check constraint), och backend kontrollerar att modulen hör till just den kursen. Den ligger på länken av samma skäl som deadlinen: samma material kan ligga i vecka 2 för en klass och vecka 3 för en annan.
 - **`PublishAt`, `DueAt` och `IsPinned` ligger på länken, inte på content.** Samma uppgift kan delas ut till två klasser med olika deadlines.
-- **AssignmentSpec (1:0..1 med Content)** finns bara när `Type = Assignment`. Tre fält styr uppgiften, och de motsvarar formuläret "Skapa del":
-  - `Kind` är typen av del: `Exercise` (övning, ingen betygsättning), `Lab` (laboration, en betygsatt del) eller `Exam` (inlämning som examinerar). Det är en egen enum på AssignmentSpec och inte fler värden i `ContentType`, så content är fortfarande bara nyhet, teori eller uppgift. En övning kan inte ha betygsskala.
-  - `GradeScale` är betygsskalan: `None` (bara feedback), `PassFail` (IG-G) eller `PassFailDistinction` (IG-G-VG).
+- **AssignmentSpec (1:0..1 med Content)** finns bara när `Type = Assignment`. Fälten styr uppgiften, och de motsvarar formuläret "Skapa del":
+  - `GradeScale` är betygsskalan: `None` (bara feedback), `PassFail` (IG-G) eller `PassFailDistinction` (IG-G-VG). `None` gör uppgiften till en övning.
   - `SubmissionModes` är hur man lämnar in, en lista där flera sätt kan kombineras: `Text` (textsvar i `Submission.BodyMd`), `File` (filer och foton), `Repo` (GitHub, kräver `TemplateRepo`) och `OnSite` (läraren bedömer på plats). En tom lista betyder ingen inlämning, t.ex. "läs kapitel 3". Listan sparas som en array i databasen.
+  - `CompletionRule` avgör när uppgiften räknas som klar för nästa del i veckan: `Submitted` (det räcker att eleven lämnat in, standard) eller `Approved` (kräver G/VG). Bara uppgifter med inlämningssätt använder den; teori och uppgifter utan inlämning klarmarkerar eleven själv.
 
   GitHub är ett tillval, så kurser utan programmering lämnar in text eller filer.
 
 - **Attachment och Comment** hör till content, inte till en länk. Bilagorna följer med när innehållet delas ut igen.
 - **Filer ligger i en privat bucket, inte i databasen.** Attachment och SubmissionFile sparar `StorageKey` (`content/{contentId}/{guid}` respektive `submissions/{submissionId}/{guid}`), aldrig filnamnet eleven skickade och aldrig en url. Svaren innehåller en kortlivad länk som skapas när filen läses.
+
+### Roadmap och låsta delar
+
+- **ContentLinkDependency** är en riktning: `BlockedLinkId` är låst av `BlockingLinkId`. Båda är länkar i samma vecka, och paret är primärnyckel så samma beroende bara kan finnas en gång. Beroenden går bara inom en modul; backend avvisar andras veckor, självberoenden, dubbletter och cykler.
+- **Veckans ordning följer roadmapen.** När roadmapen sparas sorteras länkarna om så att en del alltid ligger efter sina förutsättningar, oavsett i vilken ordning delarna skapades. Delar utan inbördes beroende behåller sin ordning. Nyheter ligger kvar i veckan men ingår inte i beroendena.
+- **Utkast i veckan publiceras när läraren sparar roadmapen.** Roadmapen omfattar veckans alla delar, och då får inget utkast ligga kvar och göra veckan omöjlig att slutföra. `PublishAt` lämnas orörd, så en schemalagd del publiceras fortfarande vid sitt datum.
+- **PartCompletion** är elevens egen klarmarkering av en teori-del eller en uppgift utan inlämningssätt. En rad per elev och länk (unik). Uppgifter med inlämningssätt blir aldrig klarmarkerade manuellt; de räknas som klara via `Submission` och `AssignmentSpec.CompletionRule`.
+- **En del är tillgänglig** när innehållet är publicerat, `PublishAt` har passerat och alla delar som pekar på den via `BlockedLinkId` är klara. En låst del visas med lås och sina förutsättningar, men `BodyMd` skickas inte till eleven.
 
 ### Inlämningar
 
@@ -217,6 +239,8 @@ erDiagram
 | User → Content, Comment, Submission, Grade, Enrollment     | blockeras                                            |
 | Content → ContentLink, AssignmentSpec, Attachment, Comment | kaskad                                               |
 | ContentLink → Submission                                   | blockeras (elevarbete ska inte försvinna av misstag) |
+| ContentLink → ContentLinkDependency                        | kaskad                                               |
+| ContentLink → PartCompletion                               | kaskad (en klarmarkering är inte elevarbete)         |
 | Submission → SubmissionFile, StudentRepo, Grade            | kaskad                                               |
 | User → Notification, PushSubscription                      | kaskad                                               |
 | Content, Submission → Notification                         | sätts till null                                      |
@@ -229,6 +253,7 @@ Principen: det man äger raderas med en (content med sina bilagor, en inlämning
 - `Group (SchoolId, Name, Term)`
 - `Course (SchoolId, Code)`
 - `Submission (ContentLinkId, StudentId)`
+- `PartCompletion (ContentLinkId, StudentId)`
 - `PushSubscription.Endpoint`
 
 ## Enums

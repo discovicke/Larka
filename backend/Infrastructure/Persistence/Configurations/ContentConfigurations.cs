@@ -36,6 +36,35 @@ public class ContentLinkConfiguration : IEntityTypeConfiguration<ContentLink>
     }
 }
 
+// Beroenden hör till en vecka, så båda sidorna är ContentLinks. Raderna följer med när en del tas bort.
+public class ContentLinkDependencyConfiguration : IEntityTypeConfiguration<ContentLinkDependency>
+{
+    public void Configure(EntityTypeBuilder<ContentLinkDependency> builder)
+    {
+        builder.HasKey(dependency => new { dependency.BlockedLinkId, dependency.BlockingLinkId });
+        builder.HasOne<ContentLink>().WithMany()
+            .HasForeignKey(dependency => dependency.BlockedLinkId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<ContentLink>().WithMany()
+            .HasForeignKey(dependency => dependency.BlockingLinkId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasIndex(dependency => dependency.BlockingLinkId);
+        builder.ToTable(table => table.HasCheckConstraint(
+            "CK_ContentLinkDependencies_NotSelf", "\"BlockedLinkId\" <> \"BlockingLinkId\""));
+    }
+}
+
+// En rad per elev och del. Klarmarkeringen är elevens egen och tas bort med delen.
+public class PartCompletionConfiguration : IEntityTypeConfiguration<PartCompletion>
+{
+    public void Configure(EntityTypeBuilder<PartCompletion> builder)
+    {
+        builder.HasOne<ContentLink>().WithMany()
+            .HasForeignKey(completion => completion.ContentLinkId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<User>().WithMany()
+            .HasForeignKey(completion => completion.StudentId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(completion => new { completion.ContentLinkId, completion.StudentId }).IsUnique();
+    }
+}
+
 public class AttachmentConfiguration : IEntityTypeConfiguration<Attachment>
 {
     public void Configure(EntityTypeBuilder<Attachment> builder)

@@ -789,6 +789,85 @@
         }
       }
     },
+    "/api/courses/{id}/modules/{moduleId}/roadmap": {
+      "put": {
+        "tags": [
+          "Modules"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "moduleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveRoadmapDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModuleWithContentDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/content": {
       "post": {
         "tags": [
@@ -1697,6 +1776,146 @@
           }
         }
       }
+    },
+    "/api/groups/{groupId}/courses/{courseId}/modules": {
+      "get": {
+        "tags": [
+          "Student content"
+        ],
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "courseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StudentModuleWithContentDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/groups/{groupId}/courses/{courseId}/links/{linkId}/completion": {
+      "put": {
+        "tags": [
+          "Student content"
+        ],
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "courseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "linkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetCompletionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentModuleWithContentDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1809,6 +2028,12 @@
             "format": "date-time"
           }
         }
+      },
+      "CompletionRule": {
+        "enum": [
+          "Submitted",
+          "Approved"
+        ]
       },
       "ContentDto": {
         "required": [
@@ -2392,12 +2617,14 @@
           "contentId",
           "type",
           "gradeScale",
+          "completionRule",
           "title",
           "status",
           "groupId",
           "publishAt",
           "dueAt",
-          "isPinned"
+          "isPinned",
+          "blockedBy"
         ],
         "type": "object",
         "properties": {
@@ -2419,6 +2646,16 @@
               },
               {
                 "$ref": "#/components/schemas/GradeScale"
+              }
+            ]
+          },
+          "completionRule": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CompletionRule"
               }
             ]
           },
@@ -2448,9 +2685,16 @@
           },
           "isPinned": {
             "type": "boolean"
+          },
+          "blockedBy": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         },
-        "description": "En del i en modul. Tar med utkast och det som publiceras senare, så att läraren ser allt (Status, PublishAt)."
+        "description": "En del i en modul. Tar med utkast och det som publiceras senare, så att läraren ser allt (Status, PublishAt).\nBlockedBy är de delar i samma vecka som måste vara klara först."
       },
       "ModuleDto": {
         "required": [
@@ -2550,6 +2794,50 @@
           }
         }
       },
+      "RoadmapLinkDto": {
+        "required": [
+          "linkId",
+          "blockedByLinkIds"
+        ],
+        "type": "object",
+        "properties": {
+          "linkId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "blockedByLinkIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "completionRule": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CompletionRule"
+              }
+            ]
+          }
+        }
+      },
+      "SaveRoadmapDto": {
+        "required": [
+          "links"
+        ],
+        "type": "object",
+        "properties": {
+          "links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoadmapLinkDto"
+            }
+          }
+        }
+      },
       "SchoolDto": {
         "required": [
           "id",
@@ -2565,6 +2853,181 @@
             "type": "string"
           }
         }
+      },
+      "SetCompletionDto": {
+        "required": [
+          "completed"
+        ],
+        "type": "object",
+        "properties": {
+          "completed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "StudentBlockerDto": {
+        "required": [
+          "linkId",
+          "title",
+          "isSatisfied"
+        ],
+        "type": "object",
+        "properties": {
+          "linkId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "isSatisfied": {
+            "type": "boolean"
+          }
+        },
+        "description": "En förutsättning som eleven saknar. Title är null när förutsättningen inte är publicerad än,\nså att ett utkast inte läcker sin titel."
+      },
+      "StudentContentItem": {
+        "required": [
+          "linkId",
+          "contentId",
+          "type",
+          "gradeScale",
+          "title",
+          "bodyMd",
+          "publishAt",
+          "dueAt",
+          "isPinned",
+          "isLocked",
+          "isCompleted",
+          "canMarkDone",
+          "blockedBy",
+          "submissionStatus",
+          "gradeLevel"
+        ],
+        "type": "object",
+        "properties": {
+          "linkId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ContentType"
+          },
+          "gradeScale": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/GradeScale"
+              }
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "bodyMd": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "publishAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dueAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "isPinned": {
+            "type": "boolean"
+          },
+          "isLocked": {
+            "type": "boolean"
+          },
+          "isCompleted": {
+            "type": "boolean"
+          },
+          "canMarkDone": {
+            "type": "boolean"
+          },
+          "blockedBy": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StudentBlockerDto"
+            }
+          },
+          "submissionStatus": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SubmissionStatus"
+              }
+            ]
+          },
+          "gradeLevel": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/GradeLevel"
+              }
+            ]
+          }
+        },
+        "description": "En del i veckan. BodyMd är null när delen är låst, så att texten inte går att läsa i förväg.\nCanMarkDone är true för teori och uppgifter utan inlämningssätt; uppgifter med inlämning\nblir klara genom Submission och har Submitted/Grade i stället."
+      },
+      "StudentModuleWithContentDto": {
+        "required": [
+          "id",
+          "courseId",
+          "title",
+          "description",
+          "position",
+          "content"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "courseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "position": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StudentContentItem"
+            }
+          }
+        },
+        "description": "En vecka som eleven ser den: bara publicerat innehåll, med lås och avklarande."
       },
       "StudentRepoDto": {
         "required": [
@@ -2877,6 +3340,9 @@
     },
     {
       "name": "Submissions"
+    },
+    {
+      "name": "Student content"
     }
   ]
 }

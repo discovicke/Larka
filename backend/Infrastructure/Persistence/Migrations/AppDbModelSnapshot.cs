@@ -27,6 +27,12 @@ namespace Backend.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("ContentId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("CompletionRule")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("Submitted");
+
                     b.Property<string>("GradeScale")
                         .IsRequired()
                         .HasColumnType("text");
@@ -178,6 +184,24 @@ namespace Backend.Infrastructure.Persistence.Migrations
                             t.HasCheckConstraint("CK_ContentLinks_GroupOrCourse", "\"GroupId\" IS NOT NULL OR \"CourseId\" IS NOT NULL");
 
                             t.HasCheckConstraint("CK_ContentLinks_ModuleNeedsCourse", "\"ModuleId\" IS NULL OR \"CourseId\" IS NOT NULL");
+                        });
+                });
+
+            modelBuilder.Entity("Backend.Domain.Entities.ContentLinkDependency", b =>
+                {
+                    b.Property<Guid>("BlockedLinkId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BlockingLinkId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("BlockedLinkId", "BlockingLinkId");
+
+                    b.HasIndex("BlockingLinkId");
+
+                    b.ToTable("ContentLinkDependencies", t =>
+                        {
+                            t.HasCheckConstraint("CK_ContentLinkDependencies_NotSelf", "\"BlockedLinkId\" <> \"BlockingLinkId\"");
                         });
                 });
 
@@ -355,6 +379,31 @@ namespace Backend.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("Notifications");
+                });
+
+            modelBuilder.Entity("Backend.Domain.Entities.PartCompletion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ContentLinkId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StudentId");
+
+                    b.HasIndex("ContentLinkId", "StudentId")
+                        .IsUnique();
+
+                    b.ToTable("PartCompletions");
                 });
 
             modelBuilder.Entity("Backend.Domain.Entities.PushSubscription", b =>
@@ -603,6 +652,21 @@ namespace Backend.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
+            modelBuilder.Entity("Backend.Domain.Entities.ContentLinkDependency", b =>
+                {
+                    b.HasOne("Backend.Domain.Entities.ContentLink", null)
+                        .WithMany()
+                        .HasForeignKey("BlockedLinkId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Backend.Domain.Entities.ContentLink", null)
+                        .WithMany()
+                        .HasForeignKey("BlockingLinkId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Backend.Domain.Entities.Course", b =>
                 {
                     b.HasOne("Backend.Domain.Entities.School", null)
@@ -691,6 +755,21 @@ namespace Backend.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Backend.Domain.Entities.PartCompletion", b =>
+                {
+                    b.HasOne("Backend.Domain.Entities.ContentLink", null)
+                        .WithMany()
+                        .HasForeignKey("ContentLinkId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Backend.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 

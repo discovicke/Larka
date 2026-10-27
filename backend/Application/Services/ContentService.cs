@@ -179,6 +179,12 @@ public class ContentService(
             spec.GradeScale = dto.GradeScale ?? GradeScale.None;
             spec.SubmissionModes = (dto.SubmissionModes ?? []).Distinct().ToList();
             spec.TemplateRepo = dto.TemplateRepo;
+            // En regel som inte längre kan uppfyllas får inte låsa nästa del för alltid.
+            if (spec.GradeScale == GradeScale.None || spec.SubmissionModes.Count == 0)
+            {
+                spec.CompletionRule = CompletionRule.Submitted;
+            }
+
             content.Assignment = spec;
         }
 

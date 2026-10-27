@@ -94,6 +94,7 @@ public static class DependencyInjection
         services.AddScoped<IModuleRepository, ModuleRepository>();
         services.AddScoped<IGroupRepository, GroupRepository>();
         services.AddScoped<IContentRepository, ContentRepository>();
+        services.AddScoped<IPartCompletionRepository, PartCompletionRepository>();
         services.AddScoped<ISubmissionRepository, SubmissionRepository>();
     }
 }

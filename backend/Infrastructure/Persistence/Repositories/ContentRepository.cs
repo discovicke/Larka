@@ -64,6 +64,51 @@ public class ContentRepository(AppDb db) : IContentRepository
             .ThenBy(link => link.Id)
             .ToListAsync(ct);
 
+    public async Task<List<LinkedContent>> GetLinksWithContentForModuleAsync(
+        Guid moduleId, CancellationToken ct)
+    {
+        var links = await db.ContentLinks
+            .Where(link => link.ModuleId == moduleId)
+            .OrderBy(link => link.Position)
+            .ThenBy(link => link.PublishAt)
+            .ThenBy(link => link.Id)
+            .ToListAsync(ct);
+        return await WithContentAsync(links, ct);
+    }
+
+    public async Task<List<LinkedContent>> GetLinksWithContentForGroupCourseAsync(
+        Guid groupId, Guid courseId, CancellationToken ct)
+    {
+        var links = await db.ContentLinks
+            .Where(link => link.CourseId == courseId
+                && (link.GroupId == groupId || link.GroupId == null)
+                && link.ModuleId != null)
+            .OrderBy(link => link.Position)
+            .ThenBy(link => link.PublishAt)
+            .ThenBy(link => link.Id)
+            .ToListAsync(ct);
+        return await WithContentAsync(links, ct);
+    }
+
+    public Task<List<ContentLinkDependency>> GetDependenciesForModuleAsync(
+        Guid moduleId, CancellationToken ct) =>
+        db.ContentLinkDependencies
+            .Where(dependency => db.ContentLinks.Any(link =>
+                link.Id == dependency.BlockedLinkId && link.ModuleId == moduleId))
+            .ToListAsync(ct);
+
+    public Task<List<ContentLinkDependency>> GetDependenciesForCourseAsync(
+        Guid courseId, CancellationToken ct) =>
+        db.ContentLinkDependencies
+            .Where(dependency => db.ContentLinks.Any(link =>
+                link.Id == dependency.BlockedLinkId && link.CourseId == courseId))
+            .ToListAsync(ct);
+
+    public void AddDependency(ContentLinkDependency dependency) => db.ContentLinkDependencies.Add(dependency);
+
+    public void RemoveDependencies(IEnumerable<ContentLinkDependency> dependencies) =>
+        db.ContentLinkDependencies.RemoveRange(dependencies);
+
     public Task<int> CountLinksAsync(Guid contentId, CancellationToken ct) =>
         db.ContentLinks.CountAsync(link => link.ContentId == contentId, ct);
 
@@ -108,6 +153,25 @@ public class ContentRepository(AppDb db) : IContentRepository
             attachment => attachment.ContentId == contentId && attachment.Id == attachmentId, ct);
 
     public void RemoveAttachment(Attachment attachment) => db.Attachments.Remove(attachment);
+
+    // Innehållet hämtas i en egen fråga, så att AssignmentSpec följer med och svaret blir en rad per länk.
+    private async Task<List<LinkedContent>> WithContentAsync(
+        List<ContentLink> links, CancellationToken ct)
+    {
+        if (links.Count == 0)
+        {
+            return [];
+        }
+
+        var contentIds = links.Select(link => link.ContentId).Distinct().ToList();
+        var contents = await db.Content
+            .Include(content => content.Assignment)
+            .Where(content => contentIds.Contains(content.Id))
+            .ToDictionaryAsync(content => content.Id, ct);
+        return links
+            .Select(link => new LinkedContent(link, contents[link.ContentId]))
+            .ToList();
+    }
 
     private Task<List<ContentFeedItem>> FeedAsync(
         IQueryable<ContentLink> links, ContentType? type, DateTimeOffset now, CancellationToken ct)

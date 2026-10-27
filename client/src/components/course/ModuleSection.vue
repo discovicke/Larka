@@ -7,9 +7,12 @@ import {
   PhEye,
   PhEyeSlash,
   PhInfo,
+  PhLock,
+  PhLockOpen,
   PhPencilSimple,
   PhPlus,
   PhTrash,
+  PhTreeStructure,
 } from '@phosphor-icons/vue'
 import {ref} from 'vue'
 
@@ -20,6 +23,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle} from '@/components/ui/item'
@@ -34,12 +38,23 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   move: [direction: -1 | 1]
+  openRoadmap: []
   movePart: [item: Schema<'ModuleContentItem'>, direction: -1 | 1]
   togglePartStatus: [item: Schema<'ModuleContentItem'>]
   deletePart: [item: Schema<'ModuleContentItem'>]
 }>()
 
 const open = ref(true)
+
+function lockedByCount(item: Schema<'ModuleContentItem'>): number {
+  return (item.blockedBy ?? []).length
+}
+
+function unlockCountOf(item: Schema<'ModuleContentItem'>): number {
+  return props.module.content
+    .filter((candidate) => (candidate.blockedBy ?? []).includes(item.linkId))
+    .length
+}
 
 function editRoute(item: Schema<'ModuleContentItem'>) {
   return {
@@ -102,6 +117,11 @@ function badgeOf(item: Schema<'ModuleContentItem'>): {label: string, class: stri
             <PhArrowDown/>
             Flytta ner
           </DropdownMenuItem>
+          <DropdownMenuSeparator/>
+          <DropdownMenuItem @select="emit('openRoadmap')">
+            <PhTreeStructure/>
+            Roadmap
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
@@ -133,6 +153,23 @@ function badgeOf(item: Schema<'ModuleContentItem'>): {label: string, class: stri
             </RouterLink>
             <template v-else>{{ item.title }}</template>
           </ItemTitle>
+          <div
+            v-if="lockedByCount(item) > 0 || unlockCountOf(item) > 0"
+            class="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px]"
+          >
+            <span v-if="lockedByCount(item) > 0" class="flex items-center gap-1">
+              <PhLock class="size-3"/>
+              Låst av {{ lockedByCount(item) }} {{ lockedByCount(item) === 1
+                ? 'del'
+                : 'delar' }}
+            </span>
+            <span v-if="unlockCountOf(item) > 0" class="flex items-center gap-1">
+              <PhLockOpen class="size-3"/>
+              Låser upp {{ unlockCountOf(item) }} {{ unlockCountOf(item) === 1
+                ? 'del'
+                : 'delar' }}
+            </span>
+          </div>
         </ItemContent>
         <ItemDescription class="text-[13px]">{{ detailsOf(item) }}</ItemDescription>
         <ItemActions>

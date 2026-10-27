@@ -9,5 +9,6 @@ public class AssignmentSpec
     public Guid ContentId { get; set; }
     public GradeScale GradeScale { get; set; } = GradeScale.None; // None = bara feedback
     public List<SubmissionMode> SubmissionModes { get; set; } = []; // tom = ingen inlämning
+    public CompletionRule CompletionRule { get; set; } = CompletionRule.Submitted; // när nästa del låses upp
     public string? TemplateRepo { get; set; } // "org/mall", krävs när SubmissionModes har Repo
 }

@@ -1,7 +1,6 @@
 using Backend.Application.Abstractions;
 using Backend.Application.Dtos;
 using Backend.Domain.Entities;
-using Backend.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace Backend.Infrastructure.Persistence.Repositories;
@@ -26,15 +25,51 @@ public class ModuleRepository(AppDb db) : IModuleRepository
                           from spec in specs.DefaultIfEmpty()
                           where link.CourseId == courseId && link.ModuleId != null
                           orderby link.Position, link.PublishAt, content.Title
-                          select new
-                          {
-                              ModuleId = link.ModuleId!.Value,
-                              Item = new ModuleContentItem(
-                                  link.Id, content.Id, content.Type, (GradeScale?)spec!.GradeScale, content.Title,
-                                  content.Status, link.GroupId, link.PublishAt, link.DueAt, link.IsPinned)
-                          })
+                          select new { ModuleId = link.ModuleId!.Value, Link = link, Content = content, Spec = spec })
             .ToListAsync(ct);
-        return rows.ToLookup(row => row.ModuleId, row => row.Item);
+
+        var linkIds = rows.Select(row => row.Link.Id).ToList();
+        var dependencies = linkIds.Count == 0
+            ? []
+            : await db.ContentLinkDependencies
+                .Where(dependency => linkIds.Contains(dependency.BlockedLinkId))
+                .ToListAsync(ct);
+        // Veckans ordning, så att "Låst av"-chipsen alltid visas i samma följd som delarna.
+        var orderByLinkId = rows
+            .Select((row, index) => (LinkId: row.Link.Id, Order: index))
+            .ToDictionary(entry => entry.LinkId, entry => entry.Order);
+        var blockedBy = dependencies
+            .GroupBy(dependency => dependency.BlockedLinkId)
+            .ToDictionary(
+                group => group.Key,
+                group => group
+                    .Select(dependency => dependency.BlockingLinkId)
+                    .OrderBy(linkId => orderByLinkId.GetValueOrDefault(linkId, int.MaxValue))
+                    .ToList());
+
+        return rows
+            .Select(row => new
+            {
+                row.ModuleId,
+                Item = new ModuleContentItem(
+                    row.Link.Id,
+                    row.Content.Id,
+                    row.Content.Type,
+                    row.Spec is null
+                        ? null
+                        : row.Spec.GradeScale,
+                    row.Spec is null || row.Spec.SubmissionModes.Count == 0
+                        ? null
+                        : row.Spec.CompletionRule,
+                    row.Content.Title,
+                    row.Content.Status,
+                    row.Link.GroupId,
+                    row.Link.PublishAt,
+                    row.Link.DueAt,
+                    row.Link.IsPinned,
+                    blockedBy.GetValueOrDefault(row.Link.Id) ?? [])
+            })
+            .ToLookup(row => row.ModuleId, row => row.Item);
     }
 
     public void Add(Module module) => db.Modules.Add(module);

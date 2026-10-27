@@ -7,6 +7,11 @@ public interface ISubmissionRepository
 {
     Task<Submission?> GetAsync(Guid id, CancellationToken ct);
     Task<Submission?> GetForStudentAsync(Guid linkId, Guid studentId, CancellationToken ct);
+
+    /// <summary>Elevens inlämningar på de länkarna, med betyg. Används av elevvyn.</summary>
+    Task<List<Submission>> GetForStudentAsync(
+        Guid studentId, IReadOnlyCollection<Guid> linkIds, CancellationToken ct);
+
     Task<List<Submission>> GetByLinkAsync(Guid linkId, CancellationToken ct);
 
     // Lärare på en grupp som utdelningen gäller för, eller på en grupp som läser kursen den gäller för.

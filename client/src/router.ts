@@ -116,6 +116,12 @@ export const routes: RouteRecordRaw[] = [
   },
   // Verktyg för att skapa testdata. Länkas inte i navigationen och ligger utanför layouten.
   {path: '/dev', name: 'dev', component: () => import('@/views/DevView.vue'), meta: {title: 'Testdata'}},
+  {
+    path: '/dev/student',
+    name: 'dev-student',
+    component: () => import('@/views/student/StudentCourseContentView.vue'),
+    meta: {title: 'Elevvy'},
+  },
 ]
 
 export function createAppRouter(history: RouterHistory = createWebHistory()) {

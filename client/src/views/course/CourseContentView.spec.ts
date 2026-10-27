@@ -84,6 +84,18 @@ describe('CourseContentView', () => {
     expect(wrapper.text()).toContain('Inga veckor än')
   })
 
+  it('visar veckans låsningar och hur många delar en del låser upp', async () => {
+    backend([week('m1', 'Vecka 1', [
+      {...submission, blockedBy: []},
+      {...exercise, blockedBy: ['l1']},
+    ])])
+
+    const {wrapper} = await renderApp('/courses/c1/content')
+
+    expect(wrapper.text()).toContain('Låser upp 1 del')
+    expect(wrapper.text()).toContain('Låst av 1 del')
+  })
+
   it('flytta ner skickar den nya ordningen', async () => {
     backend([week('m1', 'Vecka 1'), week('m2', 'Vecka 2')])
     const {wrapper} = await renderApp('/courses/c1/content')
