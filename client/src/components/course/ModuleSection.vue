@@ -97,7 +97,7 @@ function badgeOf(item: Schema<'ModuleContentItem'>): {label: string, class: stri
     v-model:open="open"
     as="section"
     :aria-label="module.title"
-    class="overflow-hidden rounded-[11px] border"
+    class="bg-card text-card-foreground overflow-hidden rounded-[11px] border"
   >
     <div class="bg-muted/40 flex items-center gap-2.5 py-2 pr-3 pl-2" :class="{'border-b': open}">
       <CollapsibleTrigger as-child>
@@ -164,7 +164,7 @@ function badgeOf(item: Schema<'ModuleContentItem'>): {label: string, class: stri
         v-for="(item, index) in module.content"
         :key="item.linkId"
         size="sm"
-        class="rounded-none border-0 border-t border-t-stone-100 pl-3"
+        class="rounded-none border-0 border-t pl-3"
         data-test="module-item"
       >
         <ItemMedia variant="icon" class="text-muted-foreground">

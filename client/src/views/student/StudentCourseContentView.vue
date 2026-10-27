@@ -470,7 +470,7 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
 
         <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div class="flex flex-col gap-6">
-            <section v-if="selectedItem.isLocked" class="flex flex-col items-start gap-3 rounded-xl border border-dashed p-6">
+            <section v-if="selectedItem.isLocked" class="bg-card flex flex-col items-start gap-3 rounded-xl border border-dashed p-6">
               <span class="bg-muted grid size-10 place-items-center rounded-full">
                 <PhLock class="text-muted-foreground size-5"/>
               </span>
@@ -501,7 +501,7 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
 
             <section
               v-if="selectedItem.type !== 'News' && !selectedItem.isLocked"
-              class="overflow-hidden rounded-xl border"
+              class="bg-card overflow-hidden rounded-xl border"
               aria-labelledby="unlocks-h"
             >
               <div class="bg-muted/40 border-b px-4 py-2.5">
@@ -528,7 +528,7 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
           </div>
 
           <aside class="flex flex-col gap-4">
-            <section class="flex flex-col gap-3 rounded-xl border p-4" aria-labelledby="status-h">
+            <section class="bg-card flex flex-col gap-3 rounded-xl border p-4" aria-labelledby="status-h">
               <h2 id="status-h" class="text-sm font-semibold">Din status</h2>
               <div class="flex items-center gap-2">
                 <component :is="rowIcon(selectedItem)" class="size-5" :class="rowIconClass(selectedItem)"/>
@@ -577,7 +577,7 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
               </template>
             </section>
 
-            <section v-if="selectedItem.dueAt" class="flex flex-col gap-2 rounded-xl border p-4">
+            <section v-if="selectedItem.dueAt" class="bg-card flex flex-col gap-2 rounded-xl border p-4">
               <h2 class="flex items-center gap-2 text-sm font-semibold">
                 <PhCalendarBlank class="text-muted-foreground size-4"/>
                 Deadline
@@ -643,7 +643,7 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
               :default-open="true"
               as="section"
               :aria-label="module.title"
-              class="overflow-hidden rounded-xl border"
+              class="bg-card text-card-foreground overflow-hidden rounded-xl border"
             >
               <CollapsibleTrigger
                 class="group bg-muted/50 hover:bg-muted/70 flex w-full items-center gap-3 px-4 py-3 text-left transition-colors"
@@ -783,7 +783,7 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
               :aria-label="module.title"
               variant="outline"
               size="sm"
-              class="rounded-xl px-4 py-3"
+              class="bg-card rounded-xl px-4 py-3"
               data-test="student-module-locked"
             >
               <ItemMedia variant="icon" class="text-muted-foreground">
@@ -804,7 +804,7 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
         </div>
 
         <aside class="flex flex-col gap-4">
-          <section class="flex flex-col gap-3 rounded-xl border p-4">
+          <section class="bg-card flex flex-col gap-3 rounded-xl border p-4">
             <h2 class="text-sm font-semibold">Din progress</h2>
             <div class="flex items-baseline gap-1.5">
               <span class="text-2xl font-semibold">{{ completedCount }}</span>
