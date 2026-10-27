@@ -14,6 +14,26 @@ public class ContentRepository(AppDb db) : IContentRepository
     public Task<bool> ExistsAsync(Guid id, CancellationToken ct) =>
         db.Content.AnyAsync(content => content.Id == id, ct);
 
+    public Task<bool> IsTeacherOfContentAsync(Guid contentId, Guid userId, CancellationToken ct)
+    {
+        var teacherGroupIds = db.Enrollments
+            .Where(enrollment => enrollment.UserId == userId && enrollment.Role == GroupRole.Teacher)
+            .Select(enrollment => enrollment.GroupId);
+
+        return db.ContentLinks
+            .Where(link => link.ContentId == contentId)
+            .AnyAsync(link =>
+                (link.GroupId != null && teacherGroupIds.Contains(link.GroupId.Value))
+                || (link.CourseId != null && db.GroupCourses.Any(groupCourse =>
+                    groupCourse.CourseId == link.CourseId && teacherGroupIds.Contains(groupCourse.GroupId)))
+                || (link.ModuleId != null && db.Modules.Any(module =>
+                    module.Id == link.ModuleId
+                    && db.GroupCourses.Any(groupCourse =>
+                        groupCourse.CourseId == module.CourseId
+                        && teacherGroupIds.Contains(groupCourse.GroupId)))),
+                ct);
+    }
+
     public void Add(Content content) => db.Content.Add(content);
 
     public void AddLink(ContentLink link) => db.ContentLinks.Add(link);

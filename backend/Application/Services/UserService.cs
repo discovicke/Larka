@@ -6,7 +6,11 @@ using Backend.Domain.Entities;
 
 namespace Backend.Application.Services;
 
-public class UserService(IUserRepository users, ISchoolRepository schools, IUnitOfWork unitOfWork)
+public class UserService(
+    IUserRepository users,
+    ISchoolRepository schools,
+    IPermissions permissions,
+    IUnitOfWork unitOfWork)
 {
     public async Task<List<UserDto>> GetAllAsync(CancellationToken ct)
     {
@@ -23,33 +27,38 @@ public class UserService(IUserRepository users, ISchoolRepository schools, IUnit
     }
 
     // Rollen är en enum i DTO:n, så okända roller stoppas redan när JSON läses in (400).
-    public async Task<ValidationResult<UserDto>> CreateAsync(CreateUserDto dto, CancellationToken ct)
+    public async Task<ServiceResult<UserDto>> CreateAsync(CreateUserDto dto, CancellationToken ct)
     {
+        if (!await permissions.IsAdminAsync(ct))
+        {
+            return ServiceResult<UserDto>.Forbidden();
+        }
+
         if (string.IsNullOrWhiteSpace(dto.Name))
         {
-            return ValidationResult<UserDto>.Invalid("name is required");
+            return ServiceResult<UserDto>.Invalid("name is required");
         }
 
         // E-post lagras med små bokstäver så att samma adress inte kan finnas två gånger med olika versaler.
         var email = dto.Email?.Trim().ToLowerInvariant() ?? "";
         if (!MailAddress.TryCreate(email, out var parsed) || parsed.Address != email)
         {
-            return ValidationResult<UserDto>.Invalid("email is not a valid address");
+            return ServiceResult<UserDto>.Invalid("email is not a valid address");
         }
 
         if (await users.GetByEmailAsync(email, ct) is not null)
         {
-            return ValidationResult<UserDto>.Invalid("email is already in use");
+            return ServiceResult<UserDto>.Invalid("email is already in use");
         }
 
         if (!await schools.ExistsAsync(dto.SchoolId, ct))
         {
-            return ValidationResult<UserDto>.Invalid("school does not exist");
+            return ServiceResult<UserDto>.Invalid("school does not exist");
         }
 
         var user = new User { SchoolId = dto.SchoolId, Name = dto.Name.Trim(), Email = email, Role = dto.Role };
         users.Add(user);
         await unitOfWork.SaveChangesAsync(ct);
-        return ValidationResult<UserDto>.Ok(UserDto.From(user));
+        return ServiceResult<UserDto>.Ok(UserDto.From(user));
     }
 }

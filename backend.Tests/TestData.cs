@@ -44,9 +44,10 @@ public static class TestData
         return group;
     }
 
-    public static async Task<User> AddMemberAsync(AppDb db, Group group, GroupRole role = GroupRole.Student)
+    public static async Task<User> AddMemberAsync(
+        AppDb db, Group group, GroupRole role = GroupRole.Student, UserRole userRole = UserRole.Student)
     {
-        var user = await AddUserAsync(db, group.SchoolId);
+        var user = await AddUserAsync(db, group.SchoolId, userRole);
         db.Enrollments.Add(new Enrollment { UserId = user.Id, GroupId = group.Id, Role = role });
         await db.SaveChangesAsync();
         return user;

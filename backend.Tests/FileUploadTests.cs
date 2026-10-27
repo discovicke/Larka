@@ -142,7 +142,7 @@ public class FileUploadTests(TestWebApplicationFactory factory) : IClassFixture<
     }
 
     [Fact]
-    public async Task Grading_ByAStudent_ReturnsNotFound_AndGradesNothing()
+    public async Task Grading_ByAStudent_ReturnsForbidden_AndGradesNothing()
     {
         var assignment = await CreateFileAssignmentAsync(studentCount: 2);
         var submitted = await SubmitFileAsync(assignment.LinkId, assignment.Students[0]);
@@ -150,7 +150,7 @@ public class FileUploadTests(TestWebApplicationFactory factory) : IClassFixture<
         var response = await SendAsync(HttpMethod.Post, $"/api/submissions/{submitted.Id}/grade",
             assignment.Students[1], JsonContent.Create(new { feedback = "Bra" }));
 
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         var own = await SendAsync(HttpMethod.Get, $"/api/submissions/{submitted.Id}", assignment.Students[0]);
         Assert.Equal("Submitted", (await own.Content.ReadFromJsonAsync<SubmissionResponse>())!.Status);
     }

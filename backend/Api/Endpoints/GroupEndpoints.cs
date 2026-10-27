@@ -31,19 +31,26 @@ public static class GroupEndpoints
         groups.MapGet("/{id:guid}/courses", async (Guid id, GroupService service, CancellationToken ct) =>
             TypedResults.Ok(await service.GetCoursesAsync(id, ct)));
 
-        groups.MapPost("/{id:guid}/courses/{courseId:guid}", async Task<Results<Created, Conflict, NotFound<string>>> (
-            Guid id, Guid courseId, GroupService service, CancellationToken ct) =>
-        {
-            var result = await service.AddCourseAsync(id, courseId, ct);
-            if (result.Status == ResultStatus.NotFound)
+        groups.MapPost("/{id:guid}/courses/{courseId:guid}",
+            async Task<Results<Created, Conflict, NotFound<string>, ProblemHttpResult>> (
+                Guid id, Guid courseId, GroupService service, CancellationToken ct) =>
             {
-                return TypedResults.NotFound(result.Error!);
-            }
+                var result = await service.AddCourseAsync(id, courseId, ct);
+                if (result.Status == ResultStatus.Forbidden)
+                {
+                    return TypedResults.Problem(
+                        statusCode: StatusCodes.Status403Forbidden, detail: result.Error);
+                }
 
-            return result.Value
-                ? TypedResults.Created()
-                : TypedResults.Conflict();
-        });
+                if (result.Status == ResultStatus.NotFound)
+                {
+                    return TypedResults.NotFound(result.Error!);
+                }
+
+                return result.Value
+                    ? TypedResults.Created()
+                    : TypedResults.Conflict();
+            });
 
         groups.MapPost("/{id:guid}/members",
             async (Guid id, AddMemberDto memberDto, GroupService service, CancellationToken ct) =>

@@ -14,6 +14,7 @@ public class SubmissionService(
     IContentRepository contents,
     IGroupRepository groups,
     IUserRepository users,
+    IPermissions permissions,
     ILabProvisioner provisioner,
     IFileStorage storage,
     IUnitOfWork unitOfWork,
@@ -95,12 +96,8 @@ public class SubmissionService(
     private async Task<bool> MayReadAsync(Guid linkId, Guid studentId, CancellationToken ct) =>
         studentId == currentUser.UserId || await MayReadAllAsync(linkId, ct);
 
-    private async Task<bool> MayReadAllAsync(Guid linkId, CancellationToken ct)
-    {
-        var user = await users.GetAsync(currentUser.UserId, ct);
-        return user?.Role == UserRole.Admin
-            || await submissions.IsTeacherOfLinkAsync(linkId, currentUser.UserId, ct);
-    }
+    private async Task<bool> MayReadAllAsync(Guid linkId, CancellationToken ct) =>
+        await permissions.CanTeachLinkAsync(linkId, ct);
 
     // Filernas länkar skapas här, när inlämningen läses, så de går inte att dela vidare och gälla för alltid.
     private async Task<SubmissionDto> ToDtoAsync(Submission submission, CancellationToken ct)
@@ -225,10 +222,15 @@ public class SubmissionService(
         Guid submissionId, GradeSubmissionDto dto, CancellationToken ct)
     {
         var submission = await submissions.GetAsync(submissionId, ct);
-        // Svaret innehåller filernas länkar, så bara de som får läsa inlämningar får också bedöma dem.
-        if (submission is null || !await MayReadAllAsync(submission.ContentLinkId, ct))
+        if (submission is null)
         {
             return ServiceResult<SubmissionDto>.NotFound("submission not found");
+        }
+
+        // Svaret innehåller filernas länkar, så bara lärarna på länken får också bedöma den.
+        if (!await MayReadAllAsync(submission.ContentLinkId, ct))
+        {
+            return ServiceResult<SubmissionDto>.Forbidden();
         }
 
         var linked = await contents.GetLinkWithContentAsync(submission.ContentLinkId, ct);

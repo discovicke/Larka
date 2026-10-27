@@ -8,7 +8,7 @@ Design: [mockup](https://claude.ai/artifact/PPjCF4RnekzyfrvJrYF8LC), se [docs/de
 
 ## Om projektet
 
-RebornLMS är ett lärplattformssystem (LMS) för skolor. Lärare skapar kurser och innehåll (nyheter, teori och uppgifter) och publicerar det till grupper. Studenter lämnar in uppgifter, får betyg och kommentarer och notiser. Admin hanterar skolor, användare och grupper.
+RebornLMS är ett lärplattformssystem (LMS) för skolor. Lärare skapar innehåll (nyheter, teori och uppgifter) och publicerar det till grupper. Studenter lämnar in uppgifter, får betyg och kommentarer och notiser. Admin hanterar skolor, användare, kurser och grupper.
 
 | Del         | Teknik                                      | Mapp                 |
 | ----------- | ------------------------------------------- | -------------------- |
@@ -90,6 +90,47 @@ dotnet build backend && npm --prefix client run gen:api
 ```
 
 CI faller om någon av filerna inte stämmer med koden.
+
+## Roller och behörigheter
+
+API:et avgör vad en användare får göra. Klienten hämtar rollerna från `GET /api/me` och kan dölja knappar och
+sidor, men det är bara för att göra gränssnittet tydligare: den som anropar API:et direkt möts av samma regler.
+Vem som är inloggad ligger bakom `ICurrentUser` (placeholder tills inloggning finns i #141).
+
+| Roll                         | Får                                                                                                                                                                    |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Admin (`User.Role`)          | Allt, i hela skolan. Skapa och ändra skolor, användare, grupper, medlemskap, kurser och gruppens kurser.                                                               |
+| Lärare                       | Skapa innehåll. Ändra, publicera och ta bort eget innehåll, och innehåll som är länkat till en kurs hen undervisar: moduler, länkar, bilagor och betyg på inlämningar. |
+| Elev                         | Läsa flöden, moduler och innehåll, lämna in, kommentera och klarmarkera delar.                                                                                         |
+| Lärare i en annan kurs/grupp | Får 403 på det som hör till kursen eller gruppen hen inte undervisar.                                                                                                  |
+
+En lärare är den som har `GroupRole.Teacher` i en grupp som läser kursen (`GroupCourse`), oavsett om
+`User.Role` är Teacher eller Admin. Admin räknas som lärare på alla skolans kurser.
+
+Nekas anropet svarar API:et `403 Forbidden` som ProblemDetails med texten `Du har inte behörighet.`. Läsning
+och elevens egna handlingar är öppna, och en elev ser bara sina egna inlämningar.
+
+### Välja användare i utveckling
+
+Med `Auth:DevUserSwitch` på (satt i `appsettings.Development.json`) läser backend användaren från headern
+`X-Dev-User` i stället för placeholder-användaren. Utan headern används placeholder-användaren, som är Admin.
+Bara lokalt: i produktion är regeln avstängd och #141 tar bort den.
+
+```bash
+curl -H "X-Dev-User: 00000000-0000-0000-0000-000000000002" http://localhost:5257/api/me
+```
+
+Dev-seeden skapar de här användarna i NET25:
+
+| Användare        | Id                                     | Roll    |
+| ---------------- | -------------------------------------- | ------- |
+| Placeholder      | `00000000-0000-0000-0000-000000000001` | Admin   |
+| Lärare Lärarsson | `00000000-0000-0000-0000-000000000002` | Teacher |
+| Elev Elevsson    | `00000000-0000-0000-0000-000000000003` | Student |
+| Elev Tvåsson     | `00000000-0000-0000-0000-000000000004` | Student |
+
+Seeden körs bara när databasen är tom. Har du en äldre dev-databas utan de nya användarna, börja om från en tom
+databas: `docker compose down -v && npm run db`.
 
 ## Publicera
 

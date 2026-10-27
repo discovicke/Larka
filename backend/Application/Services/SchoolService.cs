@@ -5,7 +5,7 @@ using Backend.Domain.Entities;
 
 namespace Backend.Application.Services;
 
-public class SchoolService(ISchoolRepository schools, IUnitOfWork unitOfWork)
+public class SchoolService(ISchoolRepository schools, IPermissions permissions, IUnitOfWork unitOfWork)
 {
     public async Task<List<SchoolDto>> GetAllAsync(CancellationToken ct)
     {
@@ -21,16 +21,21 @@ public class SchoolService(ISchoolRepository schools, IUnitOfWork unitOfWork)
             : SchoolDto.From(school);
     }
 
-    public async Task<ValidationResult<SchoolDto>> CreateAsync(CreateSchoolDto dto, CancellationToken ct)
+    public async Task<ServiceResult<SchoolDto>> CreateAsync(CreateSchoolDto dto, CancellationToken ct)
     {
+        if (!await permissions.IsAdminAsync(ct))
+        {
+            return ServiceResult<SchoolDto>.Forbidden();
+        }
+
         if (string.IsNullOrWhiteSpace(dto.Name))
         {
-            return ValidationResult<SchoolDto>.Invalid("name is required");
+            return ServiceResult<SchoolDto>.Invalid("name is required");
         }
 
         var school = new School { Name = dto.Name.Trim() };
         schools.Add(school);
         await unitOfWork.SaveChangesAsync(ct);
-        return ValidationResult<SchoolDto>.Ok(SchoolDto.From(school));
+        return ServiceResult<SchoolDto>.Ok(SchoolDto.From(school));
     }
 }

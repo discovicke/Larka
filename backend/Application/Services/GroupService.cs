@@ -9,6 +9,7 @@ public class GroupService(
     IGroupRepository groups,
     ISchoolRepository schools,
     IUserRepository users,
+    IPermissions permissions,
     IUnitOfWork unitOfWork)
 {
     public async Task<List<GroupDto>> GetAllAsync(CancellationToken ct)
@@ -26,29 +27,34 @@ public class GroupService(
     }
 
     // Typen är en enum i DTO:n, så okända typer stoppas redan när JSON läses in (400).
-    public async Task<ValidationResult<GroupDto>> CreateAsync(CreateGroupDto dto, CancellationToken ct)
+    public async Task<ServiceResult<GroupDto>> CreateAsync(CreateGroupDto dto, CancellationToken ct)
     {
+        if (!await permissions.IsAdminAsync(ct))
+        {
+            return ServiceResult<GroupDto>.Forbidden();
+        }
+
         if (string.IsNullOrWhiteSpace(dto.Name))
         {
-            return ValidationResult<GroupDto>.Invalid("name is required");
+            return ServiceResult<GroupDto>.Invalid("name is required");
         }
 
         if (!await schools.ExistsAsync(dto.SchoolId, ct))
         {
-            return ValidationResult<GroupDto>.Invalid("school does not exist");
+            return ServiceResult<GroupDto>.Invalid("school does not exist");
         }
 
         var name = dto.Name.Trim();
         var term = dto.Term?.Trim() ?? "";
         if (await groups.NameExistsAsync(dto.SchoolId, name, term, ct))
         {
-            return ValidationResult<GroupDto>.Invalid("the school already has a group with this name and term");
+            return ServiceResult<GroupDto>.Invalid("the school already has a group with this name and term");
         }
 
         var group = new Group { SchoolId = dto.SchoolId, Type = dto.Type, Name = name, Term = term };
         groups.Add(group);
         await unitOfWork.SaveChangesAsync(ct);
-        return ValidationResult<GroupDto>.Ok(GroupDto.From(group));
+        return ServiceResult<GroupDto>.Ok(GroupDto.From(group));
     }
 
     // Tom lista = fristående grupp (t.ex. committee).
@@ -61,6 +67,11 @@ public class GroupService(
     /// <summary>Värdet är false om gruppen redan läser kursen.</summary>
     public async Task<ServiceResult<bool>> AddCourseAsync(Guid groupId, Guid courseId, CancellationToken ct)
     {
+        if (!await permissions.IsAdminAsync(ct))
+        {
+            return ServiceResult<bool>.Forbidden();
+        }
+
         if (!await groups.ExistsAsync(groupId, ct))
         {
             return ServiceResult<bool>.NotFound("group not found");
@@ -84,6 +95,11 @@ public class GroupService(
     // Rollen gäller bara i den här gruppen. En lärare kan vara elev i en annan grupp.
     public async Task<ServiceResult<MemberDto>> AddMemberAsync(Guid groupId, AddMemberDto dto, CancellationToken ct)
     {
+        if (!await permissions.IsAdminAsync(ct))
+        {
+            return ServiceResult<MemberDto>.Forbidden();
+        }
+
         var group = await groups.GetAsync(groupId, ct);
         if (group is null)
         {

@@ -35,14 +35,9 @@ public static class ContentEndpoints
             Guid id, UpdateContentDto contentDto, ContentService service, CancellationToken ct) =>
             (await service.UpdateAsync(id, contentDto, ct)).ToHttp(TypedResults.Ok));
 
-        contentGroup.MapPut("/{id:guid}/status", async Task<Results<Ok<ContentDto>, NotFound>> (
+        contentGroup.MapPut("/{id:guid}/status", async (
             Guid id, UpdateContentStatusDto statusDto, ContentService service, CancellationToken ct) =>
-        {
-            var content = await service.UpdateStatusAsync(id, statusDto, ct);
-            return content is null
-                ? TypedResults.NotFound()
-                : TypedResults.Ok(content);
-        });
+            (await service.UpdateStatusAsync(id, statusDto, ct)).ToHttp(TypedResults.Ok));
 
         contentGroup.MapPost("/{id:guid}/links",
             async (Guid id, CreateContentLinkDto contentLinkDto, ContentService service, CancellationToken ct) =>
@@ -95,11 +90,9 @@ public static class ContentEndpoints
             .DisableAntiforgery() // inloggning med cookies finns inte, så inget CSRF-skydd behövs
             .WithMetadata(new RequestSizeLimitAttribute((int)FileUploadPolicy.MaxRequestBytes));
 
-        contentGroup.MapDelete("/{id:guid}/attachments/{attachmentId:guid}", async Task<Results<NoContent, NotFound>> (
+        contentGroup.MapDelete("/{id:guid}/attachments/{attachmentId:guid}", async (
             Guid id, Guid attachmentId, ContentService service, CancellationToken ct) =>
-            await service.DeleteAttachmentAsync(id, attachmentId, ct)
-                ? TypedResults.NoContent()
-                : TypedResults.NotFound());
+            (await service.DeleteAttachmentAsync(id, attachmentId, ct)).ToHttp(_ => TypedResults.NoContent()));
 
         // --- flöden: ?type=news|theory|assignment ---
         app.MapGet("/groups/{id:guid}/content",

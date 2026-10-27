@@ -12,6 +12,7 @@ public class RoadmapService(
     IContentRepository contents,
     IModuleRepository modules,
     IGroupRepository groups,
+    IPermissions permissions,
     IUnitOfWork unitOfWork,
     ModuleService moduleService)
 {
@@ -21,6 +22,11 @@ public class RoadmapService(
         if (!await groups.CourseExistsAsync(courseId, ct))
         {
             return ServiceResult<ModuleWithContentDto>.NotFound("course not found");
+        }
+
+        if (!await permissions.CanTeachCourseAsync(courseId, ct))
+        {
+            return ServiceResult<ModuleWithContentDto>.Forbidden();
         }
 
         var module = await modules.GetAsync(moduleId, ct);

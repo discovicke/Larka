@@ -15,7 +15,17 @@ public static class DependencyInjection
     {
         services.AddPersistence(config);
 
-        services.AddSingleton<ICurrentUser, PlaceholderCurrentUser>();
+        // Dev-klienten får välja användare med X-Dev-User när Auth:DevUserSwitch är på (bara lokalt).
+        // Annars, och i produktion, är det placeholder-användaren. #141 ersätter båda.
+        if (config.GetValue<bool>("Auth:DevUserSwitch"))
+        {
+            services.AddHttpContextAccessor();
+            services.AddSingleton<ICurrentUser, DevHeaderCurrentUser>();
+        }
+        else
+        {
+            services.AddSingleton<ICurrentUser, PlaceholderCurrentUser>();
+        }
 
         services.AddSingleton<ILabProvisioner, FakeLabProvisioner>();
 

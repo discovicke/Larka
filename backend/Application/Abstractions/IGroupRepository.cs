@@ -1,6 +1,10 @@
 using Backend.Domain.Entities;
+using Backend.Domain.Enums;
 
 namespace Backend.Application.Abstractions;
+
+/// <summary>Användarens starkaste roll i en kurs, via grupperna som läser den.</summary>
+public record CourseRole(Guid CourseId, GroupRole Role);
 
 public interface IGroupRepository
 {
@@ -13,6 +17,15 @@ public interface IGroupRepository
     Task<List<Guid>> GetGroupIdsReadingCourseAsync(Guid courseId, CancellationToken ct);
     Task<bool> ReadsCourseAsync(Guid groupId, Guid courseId, CancellationToken ct);
     Task<bool> IsMemberAsync(Guid groupId, Guid userId, CancellationToken ct);
+
+    /// <summary>Användaren är lärare i gruppen.</summary>
+    Task<bool> IsTeacherAsync(Guid groupId, Guid userId, CancellationToken ct);
+
+    /// <summary>Användaren är lärare i en grupp som läser kursen.</summary>
+    Task<bool> IsTeacherOfCourseAsync(Guid courseId, Guid userId, CancellationToken ct);
+
+    /// <summary>Användarens starkaste roll per kurs, Teacher före Mentor före Student.</summary>
+    Task<List<CourseRole>> GetCourseRolesAsync(Guid userId, CancellationToken ct);
     void Add(Group group);
     void AddCourse(GroupCourse groupCourse);
     void AddMember(Enrollment enrollment);

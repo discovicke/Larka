@@ -11,6 +11,7 @@ public static class EndpointExtensions
         var api = app.MapGroup("/api");
         api.MapSchoolEndpoints();
         api.MapUserEndpoints();
+        api.MapMeEndpoints();
         api.MapGroupEndpoints();
         api.MapCourseEndpoints();
         api.MapModuleEndpoints();

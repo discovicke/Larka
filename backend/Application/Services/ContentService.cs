@@ -15,6 +15,7 @@ public class ContentService(
     IGroupRepository groups,
     IModuleRepository modules,
     SubmissionService submissions,
+    IPermissions permissions,
     IFileStorage storage,
     IUnitOfWork unitOfWork,
     ICurrentUser currentUser,
@@ -30,47 +31,62 @@ public class ContentService(
     }
 
     // Typ, status och läge är enums i DTO:n, så okända värden stoppas redan när JSON läses in (400).
-    public async Task<ValidationResult<ContentDto>> CreateAsync(CreateContentDto dto, CancellationToken ct)
+    public async Task<ServiceResult<ContentDto>> CreateAsync(CreateContentDto dto, CancellationToken ct)
     {
+        if (!await permissions.CanCreateContentAsync(ct))
+        {
+            return ServiceResult<ContentDto>.Forbidden();
+        }
+
         var built = BuildContent(dto);
         if (built.Error is not null)
         {
-            return ValidationResult<ContentDto>.Invalid(built.Error);
+            return ServiceResult<ContentDto>.Invalid(built.Error);
         }
 
         var content = built.Value!;
         contents.Add(content);
         await unitOfWork.SaveChangesAsync(ct);
-        return ValidationResult<ContentDto>.Ok(ContentDto.From(content));
+        return ServiceResult<ContentDto>.Ok(ContentDto.From(content));
     }
 
     // Innehåll och länk skapas tillsammans. Ett enda SaveChanges gör att ett fel i länken inte lämnar
     // ett content utan länk, och att utdelningen av uppgifter hamnar i samma transaktion.
-    public async Task<ValidationResult<CreatedContentWithLinkDto>> CreateWithLinkAsync(
+    public async Task<ServiceResult<CreatedContentWithLinkDto>> CreateWithLinkAsync(
         CreateContentWithLinkDto dto, CancellationToken ct)
     {
+        if (!await permissions.CanCreateContentAsync(ct))
+        {
+            return ServiceResult<CreatedContentWithLinkDto>.Forbidden();
+        }
+
         if (dto.Content is null || dto.Link is null)
         {
-            return ValidationResult<CreatedContentWithLinkDto>.Invalid("content and link are required");
+            return ServiceResult<CreatedContentWithLinkDto>.Invalid("content and link are required");
         }
 
         var built = BuildContent(dto.Content);
         if (built.Error is not null)
         {
-            return ValidationResult<CreatedContentWithLinkDto>.Invalid(built.Error);
+            return ServiceResult<CreatedContentWithLinkDto>.Invalid(built.Error);
         }
 
         var content = built.Value!;
         var linkError = await CheckLinkAsync(content, dto.Link, ct);
         if (linkError is not null)
         {
-            return ValidationResult<CreatedContentWithLinkDto>.Invalid(linkError);
+            return ServiceResult<CreatedContentWithLinkDto>.Invalid(linkError);
+        }
+
+        if (!await MayLinkAsync(dto.Link, ct))
+        {
+            return ServiceResult<CreatedContentWithLinkDto>.Forbidden();
         }
 
         contents.Add(content);
         var link = await AddLinkCoreAsync(content, dto.Link, ct);
         await unitOfWork.SaveChangesAsync(ct);
-        return ValidationResult<CreatedContentWithLinkDto>.Ok(
+        return ServiceResult<CreatedContentWithLinkDto>.Ok(
             new CreatedContentWithLinkDto(ContentDto.From(content), ContentLinkDto.From(link)));
     }
 
@@ -89,6 +105,12 @@ public class ContentService(
             return ServiceResult<ContentLinkDto>.Invalid(linkError);
         }
 
+        // En länk till en kurs kräver lärare på kursen, en länk till bara en grupp lärare i gruppen.
+        if (!await MayLinkAsync(dto, ct))
+        {
+            return ServiceResult<ContentLinkDto>.Forbidden();
+        }
+
         var link = await AddLinkCoreAsync(content, dto, ct);
         await unitOfWork.SaveChangesAsync(ct);
         return ServiceResult<ContentLinkDto>.Ok(ContentLinkDto.From(link));
@@ -105,6 +127,11 @@ public class ContentService(
         if (linked is null)
         {
             return ServiceResult<MoveContentLinkResultDto>.NotFound("link not found");
+        }
+
+        if (!await permissions.CanTeachLinkAsync(linkId, ct))
+        {
+            return ServiceResult<MoveContentLinkResultDto>.Forbidden();
         }
 
         var link = linked.Link;
@@ -167,18 +194,24 @@ public class ContentService(
             new MoveContentLinkResultDto(link.Id, targetModule.Id, link.Position, affectedLinkIds));
     }
 
-    /// <summary>Returnerar null om innehållet inte finns.</summary>
-    public async Task<ContentDto?> UpdateStatusAsync(Guid id, UpdateContentStatusDto dto, CancellationToken ct)
+    /// <summary>NotFound om innehållet inte finns, 403 om användaren inte får ändra det.</summary>
+    public async Task<ServiceResult<ContentDto>> UpdateStatusAsync(
+        Guid id, UpdateContentStatusDto dto, CancellationToken ct)
     {
         var content = await contents.GetAsync(id, ct);
         if (content is null)
         {
-            return null;
+            return ServiceResult<ContentDto>.NotFound("content not found");
+        }
+
+        if (!await MayEditAsync(content, ct))
+        {
+            return ServiceResult<ContentDto>.Forbidden();
         }
 
         content.Status = dto.Status;
         await unitOfWork.SaveChangesAsync(ct);
-        return ContentDto.From(content);
+        return ServiceResult<ContentDto>.Ok(ContentDto.From(content));
     }
 
     /// <summary>Uppdaterar innehållet. Typen är låst och status ändras via UpdateStatusAsync.</summary>
@@ -189,6 +222,11 @@ public class ContentService(
         if (content is null)
         {
             return ServiceResult<ContentDto>.NotFound("content not found");
+        }
+
+        if (!await MayEditAsync(content, ct))
+        {
+            return ServiceResult<ContentDto>.Forbidden();
         }
 
         if (string.IsNullOrWhiteSpace(dto.Title))
@@ -235,6 +273,11 @@ public class ContentService(
             return ServiceResult<ContentLinkDto>.NotFound("link not found");
         }
 
+        if (!await permissions.CanTeachLinkAsync(linkId, ct))
+        {
+            return ServiceResult<ContentLinkDto>.Forbidden();
+        }
+
         if (dto.DueAt is not null && linked.Content.Type != ContentType.Assignment)
         {
             return ServiceResult<ContentLinkDto>.Invalid("dueAt is only allowed on assignments");
@@ -254,6 +297,11 @@ public class ContentService(
         if (!await groups.CourseExistsAsync(courseId, ct))
         {
             return ServiceResult<bool>.NotFound("course not found");
+        }
+
+        if (!await permissions.CanTeachCourseAsync(courseId, ct))
+        {
+            return ServiceResult<bool>.Forbidden();
         }
 
         var module = await modules.GetAsync(moduleId, ct);
@@ -297,6 +345,11 @@ public class ContentService(
         if (linked is null)
         {
             return ServiceResult<bool>.NotFound("link not found");
+        }
+
+        if (!await permissions.CanTeachLinkAsync(linkId, ct))
+        {
+            return ServiceResult<bool>.Forbidden();
         }
 
         if (StudentWorkPolicy.IsPublishedGradedAssignment(linked.Content))
@@ -381,9 +434,15 @@ public class ContentService(
     public async Task<ServiceResult<AttachmentDto>> AddAttachmentAsync(
         Guid contentId, FileUpload file, CancellationToken ct)
     {
-        if (!await contents.ExistsAsync(contentId, ct))
+        var content = await contents.GetAsync(contentId, ct);
+        if (content is null)
         {
             return ServiceResult<AttachmentDto>.NotFound("content not found");
+        }
+
+        if (!await MayEditAsync(content, ct))
+        {
+            return ServiceResult<AttachmentDto>.Forbidden();
         }
 
         var error = FileUploadPolicy.Validate([file]);
@@ -433,19 +492,31 @@ public class ContentService(
         return dtos;
     }
 
-    /// <summary>Returnerar false om bilagan inte finns.</summary>
-    public async Task<bool> DeleteAttachmentAsync(Guid contentId, Guid attachmentId, CancellationToken ct)
+    /// <summary>NotFound om bilagan inte finns, 403 om användaren inte får ändra innehållet.</summary>
+    public async Task<ServiceResult<bool>> DeleteAttachmentAsync(
+        Guid contentId, Guid attachmentId, CancellationToken ct)
     {
         var attachment = await contents.GetAttachmentAsync(contentId, attachmentId, ct);
         if (attachment is null)
         {
-            return false;
+            return ServiceResult<bool>.NotFound("attachment not found");
+        }
+
+        var content = await contents.GetAsync(contentId, ct);
+        if (content is null)
+        {
+            return ServiceResult<bool>.NotFound("content not found");
+        }
+
+        if (!await MayEditAsync(content, ct))
+        {
+            return ServiceResult<bool>.Forbidden();
         }
 
         contents.RemoveAttachment(attachment);
         await unitOfWork.SaveChangesAsync(ct);
         await storage.DeleteAsync(attachment.StorageKey, ct);
-        return true;
+        return ServiceResult<bool>.Ok(true);
     }
 
     private ValidationResult<Content> BuildContent(CreateContentDto dto)
@@ -566,6 +637,17 @@ public class ContentService(
             ? "templateRepo must look like org/name"
             : null;
     }
+
+    // Lärare på någon av innehållets länkar, admin, eller den som skrev innehållet.
+    private async Task<bool> MayEditAsync(Content content, CancellationToken ct) =>
+        content.AuthorId == currentUser.UserId || await permissions.CanTeachContentAsync(content.Id, ct);
+
+    // En länk till en kurs kräver lärare på kursen, en länk till bara en grupp lärare i gruppen.
+    // CheckLinkAsync har redan kontrollerat att minst en av dem finns.
+    private async Task<bool> MayLinkAsync(CreateContentLinkDto dto, CancellationToken ct) =>
+        dto.CourseId is not null
+            ? await permissions.CanTeachCourseAsync(dto.CourseId.Value, ct)
+            : await permissions.CanTeachGroupAsync(dto.GroupId!.Value, ct);
 
     private async Task DeleteStorageFileQuietlyAsync(string key)
     {

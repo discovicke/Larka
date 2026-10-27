@@ -1,5 +1,6 @@
 using Backend.Application.Abstractions;
 using Backend.Domain.Entities;
+using Backend.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace Backend.Infrastructure.Persistence.Repositories;
@@ -42,6 +43,51 @@ public class GroupRepository(AppDb db) : IGroupRepository
 
     public Task<bool> IsMemberAsync(Guid groupId, Guid userId, CancellationToken ct) =>
         db.Enrollments.AnyAsync(enrollment => enrollment.GroupId == groupId && enrollment.UserId == userId, ct);
+
+    public Task<bool> IsTeacherAsync(Guid groupId, Guid userId, CancellationToken ct) =>
+        db.Enrollments.AnyAsync(
+            enrollment => enrollment.GroupId == groupId
+                && enrollment.UserId == userId
+                && enrollment.Role == GroupRole.Teacher,
+            ct);
+
+    public Task<bool> IsTeacherOfCourseAsync(Guid courseId, Guid userId, CancellationToken ct)
+    {
+        var teacherGroupIds = db.Enrollments
+            .Where(enrollment => enrollment.UserId == userId && enrollment.Role == GroupRole.Teacher)
+            .Select(enrollment => enrollment.GroupId);
+
+        return db.GroupCourses.AnyAsync(
+            groupCourse => groupCourse.CourseId == courseId && teacherGroupIds.Contains(groupCourse.GroupId), ct);
+    }
+
+    public async Task<List<CourseRole>> GetCourseRolesAsync(Guid userId, CancellationToken ct)
+    {
+        var rows = await db.Enrollments
+            .Where(enrollment => enrollment.UserId == userId)
+            .Join(
+                db.GroupCourses,
+                enrollment => enrollment.GroupId,
+                groupCourse => groupCourse.GroupId,
+                (enrollment, groupCourse) => new { groupCourse.CourseId, enrollment.Role })
+            .ToListAsync(ct);
+
+        return rows
+            .GroupBy(row => row.CourseId)
+            .Select(group => new CourseRole(group.Key, Strongest(group.Select(row => row.Role))))
+            .ToList();
+    }
+
+    // Lärare går före mentor, som går före elev.
+    private static GroupRole Strongest(IEnumerable<GroupRole> roles) =>
+        roles.OrderByDescending(Rank).First();
+
+    private static int Rank(GroupRole role) => role switch
+    {
+        GroupRole.Teacher => 3,
+        GroupRole.Mentor => 2,
+        _ => 1
+    };
 
     public void Add(Group group) => db.Groups.Add(group);
 

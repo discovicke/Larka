@@ -6,7 +6,12 @@ using Backend.Domain.Entities;
 namespace Backend.Application.Services;
 
 // En kurs hör till en skola. Vilka grupper som läser den sätts med POST /api/groups/{id}/courses/{courseId}.
-public class CourseService(ICourseRepository courses, ISchoolRepository schools, IUnitOfWork unitOfWork)
+// Bara admin får skapa kurser, som för skolor, användare och grupper.
+public class CourseService(
+    ICourseRepository courses,
+    ISchoolRepository schools,
+    IPermissions permissions,
+    IUnitOfWork unitOfWork)
 {
     public async Task<List<CourseDto>> GetAllAsync(CancellationToken ct)
     {
@@ -22,32 +27,37 @@ public class CourseService(ICourseRepository courses, ISchoolRepository schools,
             : CourseDto.From(course);
     }
 
-    public async Task<ValidationResult<CourseDto>> CreateAsync(CreateCourseDto dto, CancellationToken ct)
+    public async Task<ServiceResult<CourseDto>> CreateAsync(CreateCourseDto dto, CancellationToken ct)
     {
+        if (!await permissions.IsAdminAsync(ct))
+        {
+            return ServiceResult<CourseDto>.Forbidden();
+        }
+
         if (string.IsNullOrWhiteSpace(dto.Title))
         {
-            return ValidationResult<CourseDto>.Invalid("title is required");
+            return ServiceResult<CourseDto>.Invalid("title is required");
         }
 
         if (string.IsNullOrWhiteSpace(dto.Code))
         {
-            return ValidationResult<CourseDto>.Invalid("code is required");
+            return ServiceResult<CourseDto>.Invalid("code is required");
         }
 
         if (!await schools.ExistsAsync(dto.SchoolId, ct))
         {
-            return ValidationResult<CourseDto>.Invalid("school does not exist");
+            return ServiceResult<CourseDto>.Invalid("school does not exist");
         }
 
         var code = dto.Code.Trim();
         if (await courses.CodeExistsAsync(dto.SchoolId, code, ct))
         {
-            return ValidationResult<CourseDto>.Invalid("the school already has a course with this code");
+            return ServiceResult<CourseDto>.Invalid("the school already has a course with this code");
         }
 
         var course = new Course { SchoolId = dto.SchoolId, Title = dto.Title.Trim(), Code = code };
         courses.Add(course);
         await unitOfWork.SaveChangesAsync(ct);
-        return ValidationResult<CourseDto>.Ok(CourseDto.From(course));
+        return ServiceResult<CourseDto>.Ok(CourseDto.From(course));
     }
 }

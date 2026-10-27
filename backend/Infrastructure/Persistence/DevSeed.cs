@@ -6,12 +6,17 @@ using Microsoft.EntityFrameworkCore;
 namespace Backend.Infrastructure.Persistence;
 
 /// <summary>
-/// Exempeldata för lokal utveckling: en klass med två kurser, två veckor i DevOps, en elev och lite innehåll.
-/// Körs av EF Core efter Migrate när Database:SeedDevData är true, och bara om det inte finns
-/// några grupper än. Placeholder-skolan och placeholder-användaren finns redan via migrationen.
+/// Exempeldata för lokal utveckling: en klass med två kurser, två veckor i DevOps, en lärare, två elever
+/// och lite innehåll. Körs av EF Core efter Migrate när Database:SeedDevData är true, och bara om det inte
+/// finns några grupper än. Placeholder-skolan och placeholder-användaren finns redan via migrationen.
+/// Användar-id:na är fasta så att dev-klienten kan välja användare med X-Dev-User.
 /// </summary>
 public static class DevSeed
 {
+    public static readonly Guid TeacherUserId = new("00000000-0000-0000-0000-000000000002");
+    public static readonly Guid StudentUserId = new("00000000-0000-0000-0000-000000000003");
+    public static readonly Guid SecondStudentUserId = new("00000000-0000-0000-0000-000000000004");
+
     public static void Seed(AppDb db)
     {
         if (db.Groups.Any())
@@ -42,17 +47,34 @@ public static class DevSeed
         var group = new Group { SchoolId = schoolId, Name = "NET25", Term = "HT25" };
         var devOps = new Course { SchoolId = schoolId, Title = "DevOps", Code = "DEVOPS" };
         var webApps = new Course { SchoolId = schoolId, Title = "Webbapplikationer i C#", Code = "WEBB" };
+        var teacher = new User
+        {
+            Id = TeacherUserId,
+            SchoolId = schoolId,
+            Name = "Lärare Lärarsson",
+            Email = "larare@rebornlms.local",
+            Role = UserRole.Teacher
+        };
         var student = new User
         {
+            Id = StudentUserId,
             SchoolId = schoolId,
             Name = "Elev Elevsson",
             Email = "elev@rebornlms.local",
             Role = UserRole.Student
         };
+        var secondStudent = new User
+        {
+            Id = SecondStudentUserId,
+            SchoolId = schoolId,
+            Name = "Elev Tvåsson",
+            Email = "elev2@rebornlms.local",
+            Role = UserRole.Student
+        };
 
         db.Groups.Add(group);
         db.Courses.AddRange(devOps, webApps);
-        db.Users.Add(student);
+        db.Users.AddRange(teacher, student, secondStudent);
 
         var firstWeek = new Module
         {
@@ -73,7 +95,9 @@ public static class DevSeed
             new GroupCourse { GroupId = group.Id, CourseId = webApps.Id });
         db.Enrollments.AddRange(
             new Enrollment { UserId = teacherId, GroupId = group.Id, Role = GroupRole.Teacher },
-            new Enrollment { UserId = student.Id, GroupId = group.Id, Role = GroupRole.Student });
+            new Enrollment { UserId = teacher.Id, GroupId = group.Id, Role = GroupRole.Teacher },
+            new Enrollment { UserId = student.Id, GroupId = group.Id, Role = GroupRole.Student },
+            new Enrollment { UserId = secondStudent.Id, GroupId = group.Id, Role = GroupRole.Student });
 
         var news = new Content
         {

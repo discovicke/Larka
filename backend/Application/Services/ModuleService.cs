@@ -12,6 +12,7 @@ public class ModuleService(
     IContentRepository contents,
     ISubmissionRepository submissions,
     IPartCompletionRepository completions,
+    IPermissions permissions,
     IFileStorage storage,
     IUnitOfWork unitOfWork,
     ILogger<ModuleService> logger)
@@ -34,6 +35,11 @@ public class ModuleService(
     /// <summary>Den nya modulen hamnar sist i kursen.</summary>
     public async Task<ServiceResult<ModuleDto>> CreateAsync(Guid courseId, CreateModuleDto dto, CancellationToken ct)
     {
+        if (!await permissions.CanTeachCourseAsync(courseId, ct))
+        {
+            return ServiceResult<ModuleDto>.Forbidden();
+        }
+
         if (await courses.GetAsync(courseId, ct) is null)
         {
             return ServiceResult<ModuleDto>.NotFound("course not found");
@@ -61,6 +67,11 @@ public class ModuleService(
     public async Task<ServiceResult<ModuleDto>> UpdateAsync(
         Guid courseId, Guid moduleId, UpdateModuleDto dto, CancellationToken ct)
     {
+        if (!await permissions.CanTeachCourseAsync(courseId, ct))
+        {
+            return ServiceResult<ModuleDto>.Forbidden();
+        }
+
         if (await courses.GetAsync(courseId, ct) is null)
         {
             return ServiceResult<ModuleDto>.NotFound("course not found");
@@ -90,6 +101,11 @@ public class ModuleService(
     /// </summary>
     public async Task<ServiceResult<bool>> DeleteAsync(Guid courseId, Guid moduleId, CancellationToken ct)
     {
+        if (!await permissions.CanTeachCourseAsync(courseId, ct))
+        {
+            return ServiceResult<bool>.Forbidden();
+        }
+
         if (await courses.GetAsync(courseId, ct) is null)
         {
             return ServiceResult<bool>.NotFound("course not found");
@@ -174,6 +190,11 @@ public class ModuleService(
     public async Task<ServiceResult<List<ModuleDto>>> ReorderAsync(
         Guid courseId, ReorderModulesDto dto, CancellationToken ct)
     {
+        if (!await permissions.CanTeachCourseAsync(courseId, ct))
+        {
+            return ServiceResult<List<ModuleDto>>.Forbidden();
+        }
+
         if (await courses.GetAsync(courseId, ct) is null)
         {
             return ServiceResult<List<ModuleDto>>.NotFound("course not found");
