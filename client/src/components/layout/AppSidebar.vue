@@ -7,6 +7,7 @@ import {
   PhListChecks,
   PhMagnifyingGlass,
   PhTray,
+  PhUsersThree,
 } from '@phosphor-icons/vue'
 import type {Component} from 'vue'
 import {useRoute} from 'vue-router'
@@ -132,6 +133,24 @@ function isCourseActive(courseId: string) {
               <RouterLink :to="{name: 'course-content', params: {courseId: course.id}}">
                 <span class="bg-primary size-2 shrink-0 rounded-[2px]"/>
                 <span>{{ course.title }}</span>
+              </RouterLink>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarGroup>
+
+      <SidebarGroup>
+        <SidebarGroupLabel>Skola</SidebarGroupLabel>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              as-child
+              tooltip="Alla grupper"
+              :is-active="route.name === 'groups'"
+            >
+              <RouterLink :to="{name: 'groups'}">
+                <PhUsersThree/>
+                <span>Alla grupper</span>
               </RouterLink>
             </SidebarMenuButton>
           </SidebarMenuItem>

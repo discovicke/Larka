@@ -9,6 +9,7 @@ import {
 
 import {useCourses} from '@/composables/useCourses'
 import AppLayout from '@/layouts/AppLayout.vue'
+import GroupsView from '@/views/GroupsView.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
 import PlaceholderView from '@/views/PlaceholderView.vue'
 import CourseContentView from '@/views/course/CourseContentView.vue'
@@ -57,6 +58,7 @@ export const routes: RouteRecordRaw[] = [
       {path: 'calendar', name: 'calendar', component: PlaceholderView, meta: {title: 'Kalender'}},
       {path: 'inbox', name: 'inbox', component: PlaceholderView, meta: {title: 'Inkorg'}},
       {path: 'grading', name: 'grading', component: PlaceholderView, meta: {title: 'Att bedöma'}},
+      {path: 'groups', name: 'groups', component: GroupsView, meta: {title: 'Alla grupper'}},
       {
         path: 'courses/:courseId',
         component: CourseLayout,
