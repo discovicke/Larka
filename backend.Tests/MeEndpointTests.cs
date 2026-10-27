@@ -96,7 +96,7 @@ public class MeEndpointTests(TestWebApplicationFactory factory) : IClassFixture<
     private async Task<HttpResponseMessage> SendAsync(Guid userId)
     {
         var request = new HttpRequestMessage(HttpMethod.Get, "/api/me");
-        request.Headers.Add(HeaderCurrentUser.Header, userId.ToString());
+        request.Headers.Add(TestAuthHandler.Header, userId.ToString());
         return await _client.SendAsync(request);
     }
 }

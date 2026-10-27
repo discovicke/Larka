@@ -7,8 +7,11 @@ public static class EndpointExtensions
     public static IEndpointRouteBuilder MapApiEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapHealthEndpoints();
+        app.MapAuthEndpoints();
 
-        var api = app.MapGroup("/api");
+        // Allt under /api kräver ett giltigt token. /api/auth ligger utanför gruppen.
+        var api = app.MapGroup("/api").RequireAuthorization();
+
         api.MapSchoolEndpoints();
         api.MapUserEndpoints();
         api.MapMeEndpoints();

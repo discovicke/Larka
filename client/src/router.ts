@@ -10,10 +10,12 @@ import {
 import {useCourses} from '@/composables/useCourses'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import AppLayout from '@/layouts/AppLayout.vue'
+import {auth} from '@/lib/auth'
 import type {Action} from '@/lib/permissions'
 import GradingView from '@/views/GradingView.vue'
 import GroupsView from '@/views/GroupsView.vue'
 import InboxView from '@/views/InboxView.vue'
+import LoginView from '@/views/LoginView.vue'
 import MaterialView from '@/views/MaterialView.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
 import PlaceholderView from '@/views/PlaceholderView.vue'
@@ -37,6 +39,8 @@ declare module 'vue-router' {
     fullBleed?: boolean
     // Behörigheten som krävs för sidan, t.ex. 'grade'. Kontrolleras i beforeEach med can().
     requires?: Action
+    // Sidan kräver ingen inloggning, t.ex. själva inloggningssidan.
+    public?: boolean
   }
 }
 
@@ -163,6 +167,8 @@ export const routes: RouteRecordRaw[] = [
       {path: ':pathMatch(.*)*', name: 'not-found', component: NotFoundView, meta: {title: 'Sidan finns inte'}},
     ],
   },
+  // Inloggningen ligger utanför layouten: sidomenyn och headern kräver en inloggad användare.
+  {path: '/login', name: 'login', component: LoginView, meta: {title: 'Logga in', public: true}},
   // Verktyg för att skapa testdata. Länkas inte i navigationen och ligger utanför layouten.
   {path: '/dev', name: 'dev', component: () => import('@/views/DevView.vue'), meta: {title: 'Testdata'}},
   {
@@ -173,8 +179,22 @@ export const routes: RouteRecordRaw[] = [
   },
 ]
 
+// Bara inloggade får se sidorna. Den som inte är inloggad skickas till inloggningen, med sidan i redirect.
+function authGuard(to: RouteLocationNormalizedLoaded): RouteLocationRaw | true {
+  if (to.meta.public) {
+    return to.name === 'login' && auth.isSignedIn()
+      ? {name: 'today'}
+      : true
+  }
+  // Sidan man ville till följer med, så att den öppnas igen efter inloggningen.
+  return auth.isSignedIn()
+    ? true
+    : {name: 'login', query: {redirect: to.fullPath}}
+}
+
 export function createAppRouter(history: RouterHistory = createWebHistory()) {
   const router = createRouter({history, routes})
+  router.beforeEach(authGuard)
   // Sidor som kräver en behörighet kontrolleras först när användaren är hämtad.
   // Svarar /api/me inte släpps sidan igenom: API:et svarar ändå 403 för den som inte får, och
   // ett tillfälligt fel ska inte låsa ute alla.

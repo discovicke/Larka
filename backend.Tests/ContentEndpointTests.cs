@@ -3,8 +3,8 @@ using System.Net.Http.Json;
 using Backend.Application.Abstractions;
 using Backend.Domain.Entities;
 using Backend.Domain.Enums;
-using Backend.Infrastructure.Auth;
 using Backend.Infrastructure.Persistence;
+using Backend.Infrastructure.Persistence.Configurations;
 using Backend.Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -57,7 +57,7 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var content = await response.Content.ReadFromJsonAsync<ContentResponse>();
         Assert.Equal("News", content!.Type);
-        Assert.Equal(PlaceholderCurrentUser.PlaceholderUserId, content.AuthorId);
+        Assert.Equal(PlaceholderIds.UserId, content.AuthorId);
     }
 
     [Fact]

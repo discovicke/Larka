@@ -1,7 +1,8 @@
 import createClient, {type Middleware} from 'openapi-fetch'
 
 import type {components, paths} from './api-types'
-import {devUserId} from './devUser'
+import {auth} from './auth'
+import {redirectToLogin} from './auth/redirect'
 
 // Klienten och API:et har samma origin (Vite-proxy lokalt, backend serverar klienten i prod),
 // så alla anrop går till samma origin som sidan. Ingen CORS behövs.
@@ -54,9 +55,27 @@ export function messageFromBody(body: unknown, fallback: string): string {
   return fallback
 }
 
+// Tokenet skickas med på alla anrop, när man är inloggad.
+const addBearer: Middleware = {
+  onRequest({request}) {
+    const token = auth.accessToken()
+    if (token) {
+      request.headers.set('Authorization', `Bearer ${token}`)
+    }
+    return request
+  },
+}
+
 // Svar som inte är 2xx kastas som ApiError, så anropen bara behöver hantera det lyckade svaret.
+// Ett 401 betyder att tokenet inte gäller längre: logga ut och visa inloggningen i stället.
+// Inloggningen själv är undantagen, där betyder 401 bara fel lösenord.
 const throwOnError: Middleware = {
-  async onResponse({response}) {
+  async onResponse({request, response}) {
+    if (response.status === 401 && new URL(request.url).pathname !== '/api/auth/login') {
+      await auth.signOut()
+      redirectToLogin(window.location.pathname + window.location.search)
+    }
+
     if (response.ok) {
       return undefined
     }
@@ -66,27 +85,13 @@ const throwOnError: Middleware = {
   },
 }
 
-// Utvecklingsläget kan svara som en annan användare än den inloggade (#140).
-// Headern läggs bara på i dev-bygget; tas bort när inloggning (#141) finns.
-const withDevUser: Middleware = {
-  onRequest({request}) {
-    const userId = import.meta.env.DEV
-      ? devUserId()
-      : null
-    if (userId) {
-      request.headers.set('X-Dev-User', userId)
-    }
-  },
-}
-
 export const api = createClient<paths>({
   baseUrl: typeof window === 'undefined'
     ? ''
     : window.location.origin,
   // Slås upp vid varje anrop, så att testerna kan byta ut fetch.
-  // När inloggning via Entra ID finns läggs Authorization-headern till i en middleware.
   fetch: (request) => globalThis.fetch(request),
 })
 
+api.use(addBearer)
 api.use(throwOnError)
-api.use(withDevUser)

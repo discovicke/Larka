@@ -1,13 +1,13 @@
 import {flushPromises} from '@vue/test-utils'
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {defineComponent, h} from 'vue'
 import {createMemoryHistory, type Router} from 'vue-router'
 
 import PageActions from '@/components/layout/PageActions.vue'
-import {api} from '@/lib/api'
-import {devUserId, setDevUser} from '@/lib/devUser'
+import {auth} from '@/lib/auth'
 import {createAppRouter} from '@/router'
-import {mockApi, requests, sentHeaders} from '@/test/mockApi'
+import {signOutForTests} from '@/test/auth'
+import {mockApi, requests} from '@/test/mockApi'
 import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
@@ -45,8 +45,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  setDevUser(null)
-  vi.unstubAllEnvs()
+  signOutForTests()
 })
 
 describe('AppLayout', () => {
@@ -152,22 +151,23 @@ describe('AppLayout', () => {
     expect(page.find('[data-slot="sidebar"]').text()).not.toContain('Att bedöma')
   })
 
-  it('byter användare i utvecklingsläget och skickar X-Dev-User med nästa anrop', async () => {
-    vi.stubEnv('DEV', true)
-
+  it('användarmenyn har Logga ut', async () => {
     const page = await render('/')
-
     await page.find('[data-test="user-menu"]').trigger('click')
     await flushPromises()
-    expect(document.body.textContent).toContain('Visa som')
-    expect(document.body.textContent).toContain('Elev')
 
-    ;(document.querySelector('[data-test="dev-user-u2"]') as HTMLElement).click()
+    expect(document.querySelector('[data-test="sign-out"]')).not.toBeNull()
+  })
+
+  it('Logga ut loggar ut och går till inloggningen', async () => {
+    const {wrapper, router} = await renderApp('/')
+    await wrapper.find('[data-test="user-menu"]').trigger('click')
     await flushPromises()
 
-    expect(devUserId()).toBe('u2')
+    ;(document.querySelector('[data-test="sign-out"]') as HTMLElement).click()
+    await flushPromises()
 
-    await api.GET('/api/users')
-    expect(sentHeaders('GET', '/api/users')?.get('X-Dev-User')).toBe('u2')
+    expect(auth.isSignedIn()).toBe(false)
+    expect(router.currentRoute.value.name).toBe('login')
   })
 })

@@ -1,6 +1,7 @@
 using Backend.Domain.Entities;
 using Backend.Domain.Enums;
-using Backend.Infrastructure.Auth;
+using Backend.Infrastructure.Persistence.Configurations;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace Backend.Infrastructure.Persistence;
@@ -9,13 +10,19 @@ namespace Backend.Infrastructure.Persistence;
 /// Exempeldata för lokal utveckling: en klass med två kurser, två veckor i DevOps, en lärare, två elever
 /// och lite innehåll. Körs av EF Core efter Migrate när Database:SeedDevData är true, och bara om det inte
 /// finns några grupper än. Placeholder-skolan och placeholder-användaren finns redan via migrationen.
-/// Användar-id:na är fasta så att dev-klienten kan välja användare med X-Dev-User.
+/// Användar-id:na är fasta så att de går att känna igen i dev-databasen och i testerna.
+/// Alla seedade användare får lösenordet DevPassword, som bara finns här (dev-databasen).
 /// </summary>
 public static class DevSeed
 {
+    // Dev only: samma lösenord för alla seedade användare, så att inloggningen kan prövas lokalt.
+    public const string DevPassword = "dev-password";
+
     public static readonly Guid TeacherUserId = new("00000000-0000-0000-0000-000000000002");
     public static readonly Guid StudentUserId = new("00000000-0000-0000-0000-000000000003");
     public static readonly Guid SecondStudentUserId = new("00000000-0000-0000-0000-000000000004");
+
+    private static readonly PasswordHasher<User> _passwordHasher = new();
 
     public static void Seed(AppDb db)
     {
@@ -41,8 +48,8 @@ public static class DevSeed
 
     private static void AddExampleData(AppDb db)
     {
-        var schoolId = PlaceholderCurrentUser.PlaceholderSchoolId;
-        var teacherId = PlaceholderCurrentUser.PlaceholderUserId;
+        var schoolId = PlaceholderIds.SchoolId;
+        var teacherId = PlaceholderIds.UserId;
 
         var group = new Group { SchoolId = schoolId, Name = "NET25", Term = "HT25" };
         var devOps = new Course { SchoolId = schoolId, Title = "DevOps", Code = "DEVOPS" };
@@ -71,6 +78,18 @@ public static class DevSeed
             Email = "elev2@rebornlms.local",
             Role = UserRole.Student
         };
+
+        // Bara utveckling: alla seedade användare, även admin från migrationen, har samma lösenord.
+        foreach (var user in new[] { teacher, student, secondStudent })
+        {
+            user.PasswordHash = _passwordHasher.HashPassword(user, DevPassword);
+        }
+
+        var admin = db.Users.FirstOrDefault(user => user.Id == PlaceholderIds.UserId);
+        if (admin is not null)
+        {
+            admin.PasswordHash = _passwordHasher.HashPassword(admin, DevPassword);
+        }
 
         db.Groups.Add(group);
         db.Courses.AddRange(devOps, webApps);

@@ -388,7 +388,7 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     private HttpClient StudentClient(Guid studentId)
     {
         var student = factory.CreateClient();
-        student.DefaultRequestHeaders.Add(HeaderCurrentUser.Header, studentId.ToString());
+        student.DefaultRequestHeaders.Add(TestAuthHandler.Header, studentId.ToString());
         return student;
     }
 

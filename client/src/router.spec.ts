@@ -1,7 +1,9 @@
-import {describe, expect, it} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {createMemoryHistory} from 'vue-router'
 
 import {createAppRouter} from './router'
+
+import {signInForTests, signOutForTests} from '@/test/auth'
 
 async function open(path: string) {
   const router = createAppRouter(createMemoryHistory())
@@ -10,6 +12,10 @@ async function open(path: string) {
 }
 
 describe('router', () => {
+  beforeEach(() => {
+    signInForTests()
+  })
+
   it.each([
     ['/', 'today'],
     ['/calendar', 'calendar'],
@@ -49,5 +55,44 @@ describe('router', () => {
     await open('/calendar')
 
     expect(document.title).toBe('Kalender · RebornLMS')
+  })
+})
+
+describe('router med inloggning', () => {
+  afterEach(() => {
+    signOutForTests()
+  })
+
+  it('utloggad skickas till inloggningen med sidan man ville till', async () => {
+    signOutForTests()
+
+    const route = await open('/groups?sort=namn')
+
+    expect(route.name).toBe('login')
+    expect(route.query.redirect).toBe('/groups?sort=namn')
+  })
+
+  it('inloggad kommer till sidorna', async () => {
+    signInForTests()
+
+    const route = await open('/groups')
+
+    expect(route.name).toBe('groups')
+  })
+
+  it('inloggningssidan är publik', async () => {
+    signOutForTests()
+
+    const route = await open('/login')
+
+    expect(route.name).toBe('login')
+  })
+
+  it('inloggad skickas från inloggningssidan till startsidan', async () => {
+    signInForTests()
+
+    const route = await open('/login')
+
+    expect(route.name).toBe('today')
   })
 })

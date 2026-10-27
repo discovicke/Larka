@@ -256,7 +256,7 @@ public class FileUploadTests(TestWebApplicationFactory factory) : IClassFixture<
         HttpMethod method, string url, Guid asUser, HttpContent? content = null)
     {
         var request = new HttpRequestMessage(method, url) { Content = content };
-        request.Headers.Add(HeaderCurrentUser.Header, asUser.ToString());
+        request.Headers.Add(TestAuthHandler.Header, asUser.ToString());
         return await _client.SendAsync(request);
     }
 

@@ -305,7 +305,7 @@ public class AuthorizationTests(TestWebApplicationFactory factory) : IClassFixtu
         var request = new HttpRequestMessage(method, url) { Content = content };
         if (asUser != Guid.Empty)
         {
-            request.Headers.Add(HeaderCurrentUser.Header, asUser.ToString());
+            request.Headers.Add(TestAuthHandler.Header, asUser.ToString());
         }
 
         return await _client.SendAsync(request);

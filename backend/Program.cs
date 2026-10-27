@@ -3,6 +3,8 @@ using System.Text.Json.Serialization;
 using Backend.Api;
 using Backend.Application;
 using Backend.Infrastructure;
+using Backend.Infrastructure.Auth;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,7 +23,13 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     // Tal skickas som tal. Webbstandarden tar även emot "10", och då dokumenteras de som tal eller text.
     options.SerializerOptions.NumberHandling = JsonNumberHandling.Strict;
 });
-builder.Services.AddOpenApi(options => options.AddSchemaTransformer<EnumSchemaTransformer>());
+builder.Services.AddOpenApi(options =>
+{
+    options.AddSchemaTransformer<EnumSchemaTransformer>();
+
+    // Bearer-knappen i Swagger UI, så att dokumentet kan prövas med tokenet från /api/auth/login.
+    options.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
+});
 
 // Ogiltig JSON i en request ger 400 med en kort text, både lokalt och i prod (se BadRequestExceptionHandler).
 builder.Services.Configure<RouteHandlerOptions>(options => options.ThrowOnBadRequest = true);
@@ -34,7 +42,11 @@ var app = builder.Build();
 var isGeneratingOpenApiDocument = Assembly.GetEntryAssembly()?.GetName().Name == "GetDocument.Insider";
 if (!isGeneratingOpenApiDocument)
 {
+    // Saknad eller för kort JWT-nyckel ska stoppa starten med ett tydligt fel, inte första inloggningen.
+    _ = app.Services.GetRequiredService<IOptions<JwtOptions>>().Value;
+
     app.Services.MigrateDatabase();
+    await app.Services.SeedAccountsAsync();
 }
 
 app.UseExceptionHandler();
@@ -42,6 +54,10 @@ app.UseExceptionHandler();
 // OpenAPI-dokumentet finns på /openapi/v1.json och Swagger UI på /swagger.
 app.MapOpenApi();
 app.UseSwaggerUI(options => options.SwaggerEndpoint("/openapi/v1.json", "RebornLMS API"));
+
+// Användaren läses från token (ClaimsCurrentUser) innan endpoints prövar behörigheten.
+app.UseAuthentication();
+app.UseAuthorization();
 
 // Klienten byggs in i wwwroot vid dotnet publish. Lokalt körs den via Vite i stället.
 app.UseDefaultFiles();

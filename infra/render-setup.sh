@@ -11,10 +11,11 @@
 #   CONNECTION_STRING  Supabase session pooler (.NET-format)
 #   SUPABASE_URL                 https://<projekt>.supabase.co
 #   SUPABASE_SERVICE_ROLE_KEY    service role-nyckeln för Storage, går förbi row level security
+#   AUTH_JWT_KEY                 JWT-nyckeln för inloggningen (minst 32 byte), som Auth__Jwt__Key
 set -euo pipefail
 
 : "${RENDER_API_KEY:?saknas}" "${GHCR_USERNAME:?saknas}" "${GHCR_TOKEN:?saknas}" "${CONNECTION_STRING:?saknas}"
-: "${SUPABASE_URL:?saknas}" "${SUPABASE_SERVICE_ROLE_KEY:?saknas}"
+: "${SUPABASE_URL:?saknas}" "${SUPABASE_SERVICE_ROLE_KEY:?saknas}" "${AUTH_JWT_KEY:?saknas}"
 
 NAME=net25-devops-grupp-4
 IMAGE=ghcr.io/eduedugrade/net25-devops-grupp-4:latest
@@ -39,13 +40,15 @@ else
 fi
 
 # PORT: aspnet-imagen lyssnar på 8080. APP_VERSION och GIT_COMMIT bakas in i imagen vid bygget.
-env_vars=$(jq -n --arg cs "$CONNECTION_STRING" --arg sbUrl "$SUPABASE_URL" --arg sbKey "$SUPABASE_SERVICE_ROLE_KEY" '[
+env_vars=$(jq -n --arg cs "$CONNECTION_STRING" --arg sbUrl "$SUPABASE_URL" --arg sbKey "$SUPABASE_SERVICE_ROLE_KEY" \
+  --arg jwtKey "$AUTH_JWT_KEY" '[
   {key: "ASPNETCORE_ENVIRONMENT", value: "Production"},
   {key: "Database__Provider", value: "Postgres"},
   {key: "PORT", value: "8080"},
   {key: "ConnectionStrings__Default", value: $cs},
   {key: "Storage__Supabase__Url", value: $sbUrl},
-  {key: "Storage__Supabase__ServiceRoleKey", value: $sbKey}
+  {key: "Storage__Supabase__ServiceRoleKey", value: $sbKey},
+  {key: "Auth__Jwt__Key", value: $jwtKey}
 ]')
 
 # Frankfurt = samma region som Supabase. Deployer triggas av GitHub Actions, inte av Render.

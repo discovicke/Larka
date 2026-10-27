@@ -1,6 +1,9 @@
-import {expect, test, type Locator, type Page} from '@playwright/test'
+import {type Locator, type Page} from '@playwright/test'
+
+import {expect, test} from '../fixtures'
 
 // Testerna är bara läsning: de öppnar sidor och tittar, och klickar aldrig på något som sparar.
+// Med inloggning, som eleven, om inget annat anges (fixtures.ts).
 
 const mobileSidebar = (page: Page) => page.locator('[data-slot="sidebar"][data-mobile="true"]')
 
@@ -55,7 +58,8 @@ test('en kurs går att öppna och nyhetsfliken fungerar', async ({page, request}
   const response = await request.get('/api/courses')
   expect(response.status()).toBe(200)
   const courses: {id: string, title: string}[] = await response.json()
-  test.skip(courses.length === 0, 'Inga kurser i appen, så det finns ingen kurs att öppna')
+  // Eleven ligger i en klass som är kopplad till kurser, så det ska alltid finnas en kurs att öppna.
+  expect(courses.length).toBeGreaterThan(0)
 
   const [course] = courses
   await page.goto('/')
@@ -91,4 +95,15 @@ test('okänd sökväg visar sidan finns inte', async ({page}) => {
   await page.goto('/finns-inte')
 
   await expect(page.getByRole('heading', {name: 'Sidan finns inte'})).toBeVisible()
+})
+
+test.describe('utan inloggning', () => {
+  test.use({signedIn: false})
+
+  test('utloggad skickas från /groups till inloggningen', async ({page}) => {
+    await page.goto('/groups')
+
+    await expect(page).toHaveURL(/\/login\?redirect=/)
+    await expect(page.getByRole('button', {name: 'Logga in', exact: true})).toBeVisible()
+  })
 })

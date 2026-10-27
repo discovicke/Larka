@@ -1,6 +1,14 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 import {api, ApiError, errorMessage} from './api'
+import {auth} from './auth'
+import {redirectToLogin} from './auth/redirect'
+import {signInForTests, signOutForTests} from '@/test/auth'
+
+// jsdom låter oss inte byta ut window.location.assign, så omdirigeringen mockas i stället.
+vi.mock('./auth/redirect', () => ({
+  redirectToLogin: vi.fn(),
+}))
 
 const fetchMock = vi.fn<(request: Request) => Promise<Response>>()
 
@@ -98,5 +106,55 @@ describe('api', () => {
       .catch((thrown: unknown) => thrown)
 
     expect(errorMessage(error)).toBe('title is required')
+  })
+})
+
+describe('api med inloggning', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', fetchMock)
+    vi.mocked(redirectToLogin).mockClear()
+  })
+
+  afterEach(() => {
+    fetchMock.mockReset()
+    vi.unstubAllGlobals()
+    signOutForTests()
+  })
+
+  it('skickar med Bearer-token när man är inloggad', async () => {
+    signInForTests()
+    respond(200, JSON.stringify({id: 'u1'}))
+
+    await api.GET('/api/me')
+
+    expect(sentRequest().headers.get('Authorization')).toBe('Bearer test-token')
+  })
+
+  it('skickar ingen Authorization när man är utloggad', async () => {
+    respond(200, JSON.stringify({version: '1.0.0', commit: 'abc'}))
+
+    await api.GET('/version')
+
+    expect(sentRequest().headers.get('Authorization')).toBeNull()
+  })
+
+  it('ett 401 loggar ut och skickar till inloggningen med sidan man var på', async () => {
+    signInForTests()
+    window.history.replaceState({}, '', '/groups')
+    respond(401, JSON.stringify({detail: 'Ogiltigt token'}))
+
+    await api.GET('/api/me').catch(() => undefined)
+
+    expect(auth.isSignedIn()).toBe(false)
+    expect(redirectToLogin).toHaveBeenCalledWith('/groups')
+  })
+
+  it('ett 401 från inloggningen skickar inte vidare', async () => {
+    respond(401, JSON.stringify({detail: 'Fel e-post eller lösenord.'}))
+
+    await api.POST('/api/auth/login', {body: {username: 'elev', password: 'fel'}})
+      .catch(() => undefined)
+
+    expect(redirectToLogin).not.toHaveBeenCalled()
   })
 })

@@ -95,7 +95,7 @@ CI faller om någon av filerna inte stämmer med koden.
 
 API:et avgör vad en användare får göra. Klienten hämtar rollerna från `GET /api/me` och kan dölja knappar och
 sidor, men det är bara för att göra gränssnittet tydligare: den som anropar API:et direkt möts av samma regler.
-Vem som är inloggad ligger bakom `ICurrentUser` (placeholder tills inloggning finns i #141).
+Vem som är inloggad ligger bakom `ICurrentUser`, som läser användaren från JWT-tokenet. Se [Inloggning](#inloggning).
 
 | Roll                         | Får                                                                                                                                                                    |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -110,27 +110,52 @@ En lärare är den som har `GroupRole.Teacher` i en grupp som läser kursen (`Gr
 Nekas anropet svarar API:et `403 Forbidden` som ProblemDetails med texten `Du har inte behörighet.`. Läsning
 och elevens egna handlingar är öppna, och en elev ser bara sina egna inlämningar.
 
-### Välja användare i utveckling
+### Inloggning
 
-Med `Auth:DevUserSwitch` på (satt i `appsettings.Development.json`) läser backend användaren från headern
-`X-Dev-User` i stället för placeholder-användaren. Utan headern används placeholder-användaren, som är Admin.
-Bara lokalt: i produktion är regeln avstängd och #141 tar bort den.
+Inloggning med lösenord och JWT är alltid på. Allt under `/api` kräver ett token, utom `/api/auth/*`. `/health`, `/version` och Swagger UI är öppna. Klienten skickar tokenet som `Authorization: Bearer` och skickar användaren till `/login` när det saknas eller har gått ut.
+
+Inloggningen tar användarnamn eller e-post och lösenord, och jämför e-posten utan hänsyn till versaler. Alla fel ger
+samma svar, `401` med texten `Fel e-post eller lösenord.`.
+
+**Konton.** Tre konton läggs in vid varje start, i alla miljöer, och deras lösenord sätts om vid varje start:
+
+| Användarnamn | Lösenord | Roll    |
+| ------------ | -------- | ------- |
+| `admin`      | `admin`  | Admin   |
+| `larare`     | `larare` | Teacher |
+| `elev`       | `elev`   | Student |
+
+Vid start skapas också klassen `Demo-klass` (läraren och eleven i den), och om skolan saknar kurser kursen `Demo-kurs`
+(kod `DEMO`) med en vecka. Ingen annan användare rörs. Kontona är offentliga, så prod-data är öppen för den som prövar dem.
+
+**JWT-nyckeln** (`Auth:Jwt:Key`) är en hemlighet på minst 32 byte, och appen stoppar vid start om den saknas. Lokalt sätts
+den med `dotnet user-secrets set Auth:Jwt:Key "<minst 32 tecken>" --project backend`, och på Render som `Auth__Jwt__Key`
+(GitHub-hemligheten `AUTH_JWT_KEY`, se [Deploy](#deploy)). I Development finns en dev-nyckel i `appsettings.Development.json`.
+
+Microsoft Entra ID (#79) kan läggas till senare som ett andra JWT-schema, utan att resten ändras. Klienten döljer bara
+sidor och knappar. Det är API:et som prövar åtkomsten.
+
+**Dev-inloggningar.** Dev-seeden (tom lokal databas) ger alla seedade användare lösenordet `dev-password`:
+
+| Användare        | E-post                        | Id                                     | Roll    |
+| ---------------- | ----------------------------- | -------------------------------------- | ------- |
+| Placeholder      | `placeholder@rebornlms.local` | `00000000-0000-0000-0000-000000000001` | Admin   |
+| Lärare Lärarsson | `larare@rebornlms.local`      | `00000000-0000-0000-0000-000000000002` | Teacher |
+| Elev Elevsson    | `elev@rebornlms.local`        | `00000000-0000-0000-0000-000000000003` | Student |
+| Elev Tvåsson     | `elev2@rebornlms.local`       | `00000000-0000-0000-0000-000000000004` | Student |
 
 ```bash
-curl -H "X-Dev-User: 00000000-0000-0000-0000-000000000002" http://localhost:5257/api/me
+curl -X POST http://localhost:5257/api/auth/login -H "Content-Type: application/json" \
+  -d '{"username":"larare@rebornlms.local","password":"dev-password"}'
+curl -H "Authorization: Bearer <accessToken>" http://localhost:5257/api/me
 ```
 
-Dev-seeden skapar de här användarna i NET25:
+Seeden körs bara när databasen är tom. Har du en äldre dev-databas utan de nya användarna, börja om från en tom databas:
+`docker compose down -v && npm run db`.
 
-| Användare        | Id                                     | Roll    |
-| ---------------- | -------------------------------------- | ------- |
-| Placeholder      | `00000000-0000-0000-0000-000000000001` | Admin   |
-| Lärare Lärarsson | `00000000-0000-0000-0000-000000000002` | Teacher |
-| Elev Elevsson    | `00000000-0000-0000-0000-000000000003` | Student |
-| Elev Tvåsson     | `00000000-0000-0000-0000-000000000004` | Student |
-
-Seeden körs bara när databasen är tom. Har du en äldre dev-databas utan de nya användarna, börja om från en tom
-databas: `docker compose down -v && npm run db`.
+**Produktion** seedar inga lösenord utöver de tre kontona. Användare som skapas senare saknar lösenord tills det finns
+ett admin-UI. Sätt det med ett engångskommando eller SQL: hasha det med ASP.NET Core `PasswordHasher<User>` och skriv
+hashen i `Users.PasswordHash`.
 
 ## Publicera
 
@@ -152,6 +177,8 @@ Allt som når `main` deployas automatiskt av [`cd.yml`](.github/workflows/cd.yml
 Render kör imagen i Frankfurt, databasen är Supabase Postgres i samma region. Misslyckas en deploy behåller Render den gamla versionen live. `GET /version` visar vilken version och commit som körs.
 
 Tjänsten skapas och konfigureras med [`infra/render-setup.sh`](infra/render-setup.sh). GitHub-miljön `production` innehåller `RENDER_API_KEY` och `RENDER_SERVICE_ID` (secrets) och `APP_URL` (variabel).
+
+JWT-nyckeln finns som hemligheten `AUTH_JWT_KEY` i `production`, och deploy-jobbet skickar den till Render som `Auth__Jwt__Key`. Den måste finnas innan en deploy körs. Ingen annan inloggningsinställning behövs.
 
 ## Bidra
 
@@ -212,7 +239,7 @@ npm run test
 
 [`e2e/`](e2e) innehåller Playwright-tester som kör mot den deployade appen: att `/health` och `/version` svarar, att startsidan och sidomenyn laddar, att en kurs går att öppna med nyhetsfliken, att `Alla grupper` visar tabellen utan sidledes scroll och att en okänd sökväg visar 404. Varje test körs både som desktop och som mobil.
 
-De körs varje dag 05:17 UTC och manuellt via _Actions › E2E › Run workflow_. Testerna **läser bara** appen: de skapar, ändrar eller tar aldrig bort något i produktion, och de kräver ingen inloggning. Adressen kommer från repository-variabeln `E2E_BASE_URL`, med https://net25-devops-grupp-4.onrender.com som standard.
+De körs varje dag 05:17 UTC och manuellt via _Actions › E2E › Run workflow_. Testerna **läser bara** appen: de skapar, ändrar eller tar aldrig bort något i produktion. De loggar in som eleven i demokontona (`elev`), eftersom sidorna i appen kräver inloggning. Adressen kommer från repository-variabeln `E2E_BASE_URL`, med https://net25-devops-grupp-4.onrender.com som standard.
 
 ```bash
 cd e2e
@@ -226,7 +253,7 @@ npx playwright test
 E2E_BASE_URL=http://localhost:5173 npx playwright test
 ```
 
-Render-instansen somnar efter 15 minuter utan trafik, så `global-setup.ts` väntar tills `/health` svarar innan testerna börjar (upp till 3 minuter).
+Render-instansen somnar efter 15 minuter utan trafik, så `global-setup.ts` väntar tills `/health` svarar innan testerna börjar (upp till 3 minuter). Sedan loggar den in och sparar tokenet i `e2e/.auth/token.json` (checkas inte in), som testernas fixture lägger i sessionStorage precis som klienten. Standardkontot är `elev`. Byt med `E2E_USERNAME` och `E2E_PASSWORD`, t.ex. `E2E_USERNAME=larare E2E_PASSWORD=larare npx playwright test`. Ett test prövar också att utloggad skickas från `/groups` till inloggningen.
 
 ### Kodstil
 

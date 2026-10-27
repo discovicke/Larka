@@ -1,11 +1,16 @@
+using System.Text;
 using Backend.Application.Abstractions;
+using Backend.Domain.Entities;
 using Backend.Infrastructure.Auth;
 using Backend.Infrastructure.Labs;
 using Backend.Infrastructure.Persistence;
 using Backend.Infrastructure.Persistence.Repositories;
 using Backend.Infrastructure.Storage;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 
 namespace Backend.Infrastructure;
 
@@ -14,18 +19,7 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration config)
     {
         services.AddPersistence(config);
-
-        // Dev-klienten får välja användare med X-Dev-User när Auth:DevUserSwitch är på (bara lokalt).
-        // Annars, och i produktion, är det placeholder-användaren. #141 ersätter båda.
-        if (config.GetValue<bool>("Auth:DevUserSwitch"))
-        {
-            services.AddHttpContextAccessor();
-            services.AddSingleton<ICurrentUser, DevHeaderCurrentUser>();
-        }
-        else
-        {
-            services.AddSingleton<ICurrentUser, PlaceholderCurrentUser>();
-        }
+        services.AddAuth(config);
 
         services.AddSingleton<ILabProvisioner, FakeLabProvisioner>();
 
@@ -44,6 +38,58 @@ public static class DependencyInjection
     {
         using var scope = services.CreateScope();
         scope.ServiceProvider.GetRequiredService<AppDb>().Database.Migrate();
+    }
+
+    /// <summary>Lägger in inloggningskontona vid varje start, i alla miljöer. Idempotent.</summary>
+    public static async Task SeedAccountsAsync(this IServiceProvider services)
+    {
+        using var scope = services.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<AccountSeed>().SeedAsync(CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Inloggning med användarnamn eller e-post och lösenord, och JWT-token. Allt under /api kräver token, och
+    /// användaren läses från token (ClaimsCurrentUser). Microsoft Entra ID (#79) lägger till ett eget JWT-schema
+    /// vid sidan av det här, utan att något annat ändras.
+    /// </summary>
+    private static void AddAuth(this IServiceCollection services, IConfiguration config)
+    {
+        // Nyckeln kontrolleras när den används (Program), så att appen stoppar tydligt vid start om den saknas.
+        services.AddOptions<JwtOptions>()
+            .Bind(config.GetSection(JwtOptions.SectionName))
+            .Validate(
+                options => options.HasValidKey,
+                "Auth:Jwt:Key saknas eller är kortare än 32 byte. Sätt den med user-secrets lokalt och som "
+                + "Auth__Jwt__Key på Render.")
+            .Validate(options => options.HasValidLifetime, "Auth:Jwt:LifetimeMinutes måste vara större än 0.");
+
+        services.AddScoped<ITokenService, JwtTokenService>();
+        services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
+        services.AddScoped<AccountSeed>();
+        services.AddHttpContextAccessor();
+        services.AddScoped<ICurrentUser, ClaimsCurrentUser>();
+
+        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
+        services.AddAuthorization();
+
+        // Läses först när ett anrop autentiseras, så att ett saknat token ger 401 i stället för fel vid start.
+        services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+            .Configure<IOptions<JwtOptions>>((bearer, jwtOptions) =>
+            {
+                var jwt = jwtOptions.Value;
+                bearer.MapInboundClaims = false;
+                bearer.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidIssuer = jwt.Issuer,
+                    ValidateAudience = true,
+                    ValidAudience = jwt.Audience,
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Key)),
+                    ClockSkew = TimeSpan.FromMinutes(1)
+                };
+            });
     }
 
     /// <summary>

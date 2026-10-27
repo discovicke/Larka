@@ -9,4 +9,7 @@ public class User
     public string Name { get; set; } = "";
     public string Email { get; set; } = "";
     public UserRole Role { get; set; }
+
+    // Hash från ASP.NET Cores PasswordHasher, för den enkla inloggningen. Null betyder att användaren inte kan logga in med lösenord.
+    public string? PasswordHash { get; set; }
 }

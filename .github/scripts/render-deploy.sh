@@ -5,6 +5,7 @@ set -euo pipefail
 
 : "${RENDER_API_KEY:?saknas}" "${RENDER_SERVICE_ID:?saknas, kör infra/render-setup.sh}" "${APP_URL:?saknas}"
 : "${SUPABASE_URL:?saknas}" "${SUPABASE_SERVICE_ROLE_KEY:?saknas}"
+: "${AUTH_JWT_KEY:?saknas, lägg den som secret i GitHub-miljön production}"
 : "${IMAGE:?saknas}""${EXPECTED_VERSION:?saknas}" "${EXPECTED_COMMIT:?saknas}"
 
 API="https://api.render.com/v1/services/$RENDER_SERVICE_ID"
@@ -13,9 +14,10 @@ api() {
   curl -fsS -H "Authorization: Bearer $RENDER_API_KEY" -H "Content-Type: application/json" "$@"
 }
 
-# Filagringen (Supabase Storage) ställs in här så att nyckeln bara behöver finnas i GitHub-miljön production.
-# Ett anrop per variabel, så att övriga miljövariabler på tjänsten lämnas orörda.
-for pair in "Storage__Supabase__Url=$SUPABASE_URL" "Storage__Supabase__ServiceRoleKey=$SUPABASE_SERVICE_ROLE_KEY"; do
+# Filagringen (Supabase Storage) och JWT-nyckeln ställs in här så att hemligheterna bara behöver finnas i GitHub-miljön
+# production. Ett anrop per variabel, så att övriga miljövariabler på tjänsten lämnas orörda.
+for pair in "Storage__Supabase__Url=$SUPABASE_URL" "Storage__Supabase__ServiceRoleKey=$SUPABASE_SERVICE_ROLE_KEY" \
+  "Auth__Jwt__Key=$AUTH_JWT_KEY"; do
   api -X PUT "$API/env-vars/${pair%%=*}" -d "$(jq -n --arg value "${pair#*=}" '{value: $value}')" >/dev/null
 done
 

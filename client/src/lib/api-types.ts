@@ -39,6 +39,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["LoginDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LoginResultDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/schools": {
         parameters: {
             query?: never;
@@ -2586,6 +2625,16 @@ export interface components {
         /** Format: binary */
         IFormFile: string;
         IFormFileCollection: null | components["schemas"]["IFormFile"][];
+        /** @description Användarnamn eller e-post, och lösenord. Jämförs med e-posten utan hänsyn till versaler. */
+        LoginDto: {
+            username: string;
+            password: string;
+        };
+        LoginResultDto: {
+            accessToken: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
         /** @description Den inloggade användaren, skolan och rollen per kurs. */
         MeDto: {
             /** Format: uuid */

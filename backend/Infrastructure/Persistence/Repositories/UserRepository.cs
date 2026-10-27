@@ -15,8 +15,12 @@ public class UserRepository(AppDb db) : IUserRepository
 
     public void Add(User user) => db.Users.Add(user);
 
-    public Task<User?> GetByEmailAsync(string email, CancellationToken ct) =>
-        db.Users.FirstOrDefaultAsync(user => user.Email == email, ct);
+    public Task<User?> GetByEmailAsync(string email, CancellationToken ct)
+    {
+        // E-post jämförs utan hänsyn till versaler och inledande/trailing blanksteg.
+        var normalized = email.Trim().ToLowerInvariant();
+        return db.Users.FirstOrDefaultAsync(user => user.Email.ToLower() == normalized, ct);
+    }
 
     // En elev som är med i flera av grupperna kommer bara med en gång.
     public async Task<List<User>> GetStudentsInGroupsAsync(IReadOnlyCollection<Guid> groupIds, CancellationToken ct)
