@@ -1,7 +1,7 @@
 import {flushPromises} from '@vue/test-utils'
 import {describe, expect, it} from 'vitest'
 
-import {mockApi, sent} from '@/test/mockApi'
+import {mockApi, requests, sent} from '@/test/mockApi'
 import {renderApp} from '@/test/renderApp'
 
 const course = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps'}
@@ -99,6 +99,38 @@ function backend(posts: unknown[], comments: Record<string, unknown[]> = {}) {
         },
       }
     }
+    const content = path.match(/^\/api\/content\/([^/]+)$/)
+    if (content && method === 'PUT') {
+      const sentBody = body as {title: string, bodyMd: string}
+      return {
+        status: 200,
+        body: {
+          id: content[1],
+          authorId: 'u1',
+          type: 'News',
+          title: sentBody.title,
+          bodyMd: sentBody.bodyMd,
+          status: 'Published',
+          createdAt: '2026-10-19T10:00:00Z',
+          assignment: null,
+        },
+      }
+    }
+    const link = path.match(/^\/api\/content\/([^/]+)\/links\/([^/]+)$/)
+    if (link && method === 'PUT') {
+      const sentBody = body as {publishAt: string, dueAt: null, isPinned: boolean}
+      return {
+        status: 200,
+        body: {
+          id: link[2],
+          contentId: link[1],
+          groupId: null,
+          courseId: 'c1',
+          moduleId: null,
+          ...sentBody,
+        },
+      }
+    }
     return {status: 404}
   })
 }
@@ -116,6 +148,29 @@ async function fill(selector: string, value: string) {
   field.value = value
   field.dispatchEvent(new Event('input'))
   await flushPromises()
+}
+
+async function openNewsMenu(wrapper: Awaited<ReturnType<typeof renderApp>>['wrapper']) {
+  await wrapper.find('[data-test="news-menu"]').trigger('keydown', {key: 'Enter'})
+  await flushPromises()
+}
+
+function newsAction(label: string): HTMLElement {
+  const item = [...document.querySelectorAll('[role="menuitem"]')]
+    .find((candidate) => candidate.textContent?.trim() === label)
+  if (!item) {
+    throw new Error(`No menu item: ${label}`)
+  }
+  return item as HTMLElement
+}
+
+function dialogButton(label: string): HTMLElement {
+  const button = [...document.querySelectorAll('[role="dialog"] button')]
+    .find((candidate) => candidate.textContent?.trim() === label)
+  if (!button) {
+    throw new Error(`No dialog button: ${label}`)
+  }
+  return button as HTMLElement
 }
 
 describe('CourseNewsView', () => {
@@ -222,5 +277,112 @@ describe('CourseNewsView', () => {
     })
     expect(sent('POST', '/api/content/x9/links')).toEqual({courseId: 'c1', isPinned: true})
     expect(document.querySelector('[role="dialog"]')).toBeNull()
+  })
+
+  it('redigerar nyheten och laddar om listan', async () => {
+    backend([oldest, newest, pinned])
+
+    const {wrapper} = await renderApp('/courses/c1/news')
+
+    await openNewsMenu(wrapper)
+    newsAction('Redigera').click()
+    await flushPromises()
+    await fill('#news-edit-title', 'Studiebesök flyttat')
+
+    const form = document.querySelector('[role="dialog"] form') as HTMLFormElement
+    form.dispatchEvent(new Event('submit'))
+    await flushPromises()
+    await flushPromises()
+
+    expect(sent('PUT', '/api/content/x2')).toEqual({
+      title: 'Studiebesök flyttat',
+      bodyMd: 'Studiebesök – brödtext',
+    })
+    expect(requests.filter((request) => request.method === 'GET' && request.path === '/api/courses/c1/content'))
+      .toHaveLength(2)
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+  })
+
+  it('fäster nyheten och behåller publiceringstiden', async () => {
+    backend([oldest, newest, pinned])
+
+    const {wrapper} = await renderApp('/courses/c1/news?post=l3')
+
+    await openNewsMenu(wrapper)
+    newsAction('Fäst överst').click()
+    await flushPromises()
+
+    expect(sent('PUT', '/api/content/x3/links/l3')).toEqual({
+      publishAt: '2026-10-10T10:00:00Z',
+      dueAt: null,
+      isPinned: true,
+    })
+  })
+
+  it('raderar nyheten från kursen efter bekräftelse', async () => {
+    let current = [oldest, newest, pinned]
+    mockApi((method, path) => {
+      if (path === '/api/courses') {
+        return {status: 200, body: [course]}
+      }
+      if (path === '/api/users') {
+        return {status: 200, body: [teacher, student]}
+      }
+      if (path === '/api/courses/c1/content') {
+        return {status: 200, body: current}
+      }
+      if (method === 'DELETE') {
+        current = current.filter((post) => post.linkId !== 'l2')
+        return {status: 204}
+      }
+      return {status: 200, body: []}
+    })
+
+    const {wrapper} = await renderApp('/courses/c1/news')
+
+    await openNewsMenu(wrapper)
+    newsAction('Ta bort').click()
+    await flushPromises()
+    expect(document.body.textContent).toContain('Nyheten tas bort från kursen.')
+
+    dialogButton('Ta bort').click()
+    await flushPromises()
+    await flushPromises()
+
+    expect(requests).toContainEqual({
+      method: 'DELETE',
+      path: '/api/content/x2/links/l2',
+      body: undefined,
+    })
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    expect(titles(wrapper)).toEqual(['Inlämning flyttad', 'Välkommen till kursen'])
+  })
+
+  it('visar ett fel när nyheten inte kan tas bort', async () => {
+    mockApi((method, path) => {
+      if (path === '/api/courses') {
+        return {status: 200, body: [course]}
+      }
+      if (path === '/api/users') {
+        return {status: 200, body: [teacher, student]}
+      }
+      if (path === '/api/courses/c1/content') {
+        return {status: 200, body: [pinned]}
+      }
+      if (method === 'DELETE') {
+        return {status: 500, body: 'Server error'}
+      }
+      return {status: 200, body: []}
+    })
+
+    const {wrapper} = await renderApp('/courses/c1/news')
+
+    await openNewsMenu(wrapper)
+    newsAction('Ta bort').click()
+    await flushPromises()
+    dialogButton('Ta bort').click()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Kunde inte ta bort nyheten.')
   })
 })
