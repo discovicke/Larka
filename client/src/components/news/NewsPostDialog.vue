@@ -2,6 +2,7 @@
 import {PhPlus} from '@phosphor-icons/vue'
 import {reactive, ref} from 'vue'
 
+import MarkdownEditor from '@/components/editor/MarkdownEditor.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Button} from '@/components/ui/button'
 import {Checkbox} from '@/components/ui/checkbox'
@@ -16,7 +17,6 @@ import {
 } from '@/components/ui/dialog'
 import {Field, FieldGroup, FieldLabel} from '@/components/ui/field'
 import {Input} from '@/components/ui/input'
-import {Textarea} from '@/components/ui/textarea'
 import {api} from '@/lib/api'
 
 const props = defineProps<{courseId: string}>()
@@ -25,9 +25,16 @@ const emit = defineEmits<{created: [linkId: string]}>()
 const open = ref(false)
 const saving = ref(false)
 const failed = ref(false)
+const bodyError = ref(false)
 const form = reactive({title: '', bodyMd: '', isPinned: false})
 
 async function save() {
+  // MarkdownEditor har ingen required, så texten kontrolleras här.
+  bodyError.value = form.bodyMd.trim() === ''
+  if (bodyError.value) {
+    return
+  }
+
   saving.value = true
   failed.value = false
   try {
@@ -39,6 +46,7 @@ async function save() {
       body: {courseId: props.courseId, isPinned: form.isPinned},
     })
     Object.assign(form, {title: '', bodyMd: '', isPinned: false})
+    bodyError.value = false
     open.value = false
     emit('created', link!.id)
   } catch {
@@ -75,13 +83,8 @@ async function save() {
           </Field>
           <Field>
             <FieldLabel for="news-body">Text</FieldLabel>
-            <Textarea
-              id="news-body"
-              v-model="form.bodyMd"
-              placeholder="Skriv nyheten här."
-              rows="6"
-              required
-            />
+            <MarkdownEditor id="news-body" v-model="form.bodyMd" label="Text"/>
+            <p v-if="bodyError" class="text-destructive text-sm">Skriv en text.</p>
           </Field>
           <Field orientation="horizontal">
             <Checkbox

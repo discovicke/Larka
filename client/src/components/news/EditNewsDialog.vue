@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {reactive, ref, watch} from 'vue'
 
+import MarkdownEditor from '@/components/editor/MarkdownEditor.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Button} from '@/components/ui/button'
 import {
@@ -13,7 +14,6 @@ import {
 } from '@/components/ui/dialog'
 import {Field, FieldGroup, FieldLabel} from '@/components/ui/field'
 import {Input} from '@/components/ui/input'
-import {Textarea} from '@/components/ui/textarea'
 import {api, type Schema} from '@/lib/api'
 
 const props = defineProps<{post: Schema<'ContentFeedItem'>}>()
@@ -23,6 +23,7 @@ const open = defineModel<boolean>('open', {required: true})
 
 const saving = ref(false)
 const failed = ref(false)
+const bodyError = ref(false)
 const form = reactive({title: '', bodyMd: ''})
 
 watch(open, (isOpen) => {
@@ -30,10 +31,17 @@ watch(open, (isOpen) => {
     form.title = props.post.title
     form.bodyMd = props.post.bodyMd
     failed.value = false
+    bodyError.value = false
   }
 })
 
 async function save() {
+  // MarkdownEditor har ingen required, så texten kontrolleras här.
+  bodyError.value = form.bodyMd.trim() === ''
+  if (bodyError.value) {
+    return
+  }
+
   saving.value = true
   failed.value = false
   try {
@@ -71,13 +79,8 @@ async function save() {
           </Field>
           <Field>
             <FieldLabel for="news-edit-body">Text</FieldLabel>
-            <Textarea
-              id="news-edit-body"
-              v-model="form.bodyMd"
-              placeholder="Skriv nyheten här."
-              rows="6"
-              required
-            />
+            <MarkdownEditor id="news-edit-body" v-model="form.bodyMd" label="Text"/>
+            <p v-if="bodyError" class="text-destructive text-sm">Skriv en text.</p>
           </Field>
         </FieldGroup>
         <Alert v-if="failed" variant="destructive">

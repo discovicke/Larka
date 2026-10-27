@@ -9,6 +9,7 @@ import {
 } from '@phosphor-icons/vue'
 import {computed, ref, watch} from 'vue'
 
+import MarkdownView from '@/components/editor/MarkdownView.vue'
 import EditNewsDialog from '@/components/news/EditNewsDialog.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Avatar, AvatarFallback} from '@/components/ui/avatar'
@@ -31,7 +32,7 @@ import {Skeleton} from '@/components/ui/skeleton'
 import {Textarea} from '@/components/ui/textarea'
 import {api, type Schema} from '@/lib/api'
 import {formatDate} from '@/lib/content'
-import {initials, paragraphs} from '@/lib/news'
+import {initials} from '@/lib/news'
 
 const props = defineProps<{
   post: Schema<'ContentFeedItem'>
@@ -212,9 +213,7 @@ watch(() => props.post.linkId, () => {
       </div>
     </div>
 
-    <p v-for="(paragraph, index) in paragraphs(post.bodyMd)" :key="index" class="whitespace-pre-line">
-      {{ paragraph }}
-    </p>
+    <MarkdownView :markdown="post.bodyMd"/>
 
     <section aria-labelledby="comments-heading" class="flex flex-col gap-4 border-t pt-3">
       <h3 id="comments-heading" class="text-base font-semibold">{{ commentCount }}</h3>

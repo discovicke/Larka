@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest'
 
-import {dayGroup, initials, mergeNews, paragraphs, sortNews} from './news'
+import {dayGroup, initials, mergeNews, sortNews} from './news'
 
 function post(linkId: string, publishAt: string, isPinned = false) {
   return {linkId, publishAt, isPinned}
@@ -122,16 +122,5 @@ describe('dayGroup', () => {
 
     expect(dayGroup('2026-10-25T12:00:00', afterDst)).toBe('Igår')
     expect(dayGroup('2026-10-24T12:00:00', afterDst)).toBe('Tidigare')
-  })
-})
-
-describe('paragraphs', () => {
-  it('delar på tomma rader och trimmar', () => {
-    expect(paragraphs('Första stycket.\n\n  Andra stycket.  ')).toEqual(['Första stycket.', 'Andra stycket.'])
-  })
-
-  it('hoppar över tomma stycken', () => {
-    expect(paragraphs('Bara ett stycke.')).toEqual(['Bara ett stycke.'])
-    expect(paragraphs('\n\n  \n\n')).toEqual([])
   })
 })

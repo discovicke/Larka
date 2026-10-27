@@ -162,6 +162,18 @@ describe('InboxView', () => {
     expect(detail.find('h1').text()).toBe('Studiebesök')
   })
 
+  it('visar nyhetens text formaterad som markdown', async () => {
+    backend({
+      courses: {
+        c1: [news('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1', bodyMd: 'Ligger under **Kurser**'})],
+      },
+    })
+
+    const {wrapper} = await renderApp('/inbox')
+
+    expect(wrapper.find('[aria-label="Nyhet"] strong').text()).toBe('Kurser')
+  })
+
   it('visar en nyhet som är publicerad i både en kurs och en grupp bara en gång, med båda namnen', async () => {
     backend({
       courses: {

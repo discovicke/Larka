@@ -101,11 +101,3 @@ export function dayGroup(iso: string, now: Date): 'Idag' | 'Igår' | 'Tidigare' 
   }
   return 'Tidigare'
 }
-
-/** Brödtexten delad i stycken på tomma rader, utan tomma stycken. */
-export function paragraphs(bodyMd: string): string[] {
-  return bodyMd
-    .split(/\n\s*\n/)
-    .map((paragraph) => paragraph.trim())
-    .filter((paragraph) => paragraph !== '')
-}

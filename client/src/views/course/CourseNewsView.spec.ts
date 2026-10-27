@@ -150,6 +150,20 @@ async function fill(selector: string, value: string) {
   await flushPromises()
 }
 
+// Textfältet i nyhetsdialogen är en MarkdownEditor; markdown-läget har en textarea som går att fylla.
+async function fillBody(selector: string, value: string) {
+  dialogButton('Markdown').click()
+  await flushPromises()
+  await fill(selector, value)
+}
+
+async function submitDialogForm() {
+  const form = document.querySelector('[role="dialog"] form') as HTMLFormElement
+  form.dispatchEvent(new Event('submit'))
+  await flushPromises()
+  await flushPromises()
+}
+
 async function openNewsMenu(wrapper: Awaited<ReturnType<typeof renderApp>>['wrapper']) {
   await wrapper.find('[data-test="news-menu"]').trigger('keydown', {key: 'Enter'})
   await flushPromises()
@@ -226,6 +240,14 @@ describe('CourseNewsView', () => {
     expect((wrapper.find('#comment-body').element as HTMLTextAreaElement).value).toBe('')
   })
 
+  it('visar nyhetens text formaterad som markdown', async () => {
+    backend([news('l1', 'x1', 'Kursstart', '2026-10-01T10:00:00Z', {bodyMd: 'Ligger under **Kurser**'})])
+
+    const {wrapper} = await renderApp('/courses/c1/news')
+
+    expect(wrapper.find('article strong').text()).toBe('Kurser')
+  })
+
   it('ett tomt flöde visar hur man kommer igång', async () => {
     backend([])
 
@@ -260,14 +282,11 @@ describe('CourseNewsView', () => {
     await wrapper.find('[data-test="new-news"]').trigger('click')
     await flushPromises()
     await fill('#news-title', 'Studiebesök på tisdag')
-    await fill('#news-body', 'Vi ses i labbet klockan 10.')
+    await fillBody('#news-body', 'Vi ses i labbet klockan 10.')
     ;(document.querySelector('#news-pinned') as HTMLElement).click()
     await flushPromises()
 
-    const form = document.querySelector('[role="dialog"] form') as HTMLFormElement
-    form.dispatchEvent(new Event('submit'))
-    await flushPromises()
-    await flushPromises()
+    await submitDialogForm()
 
     expect(sent('POST', '/api/content')).toEqual({
       type: 'News',
@@ -277,6 +296,21 @@ describe('CourseNewsView', () => {
     })
     expect(sent('POST', '/api/content/x9/links')).toEqual({courseId: 'c1', isPinned: true})
     expect(document.querySelector('[role="dialog"]')).toBeNull()
+  })
+
+  it('publicerar inte en nyhet utan text', async () => {
+    backend([pinned])
+
+    const {wrapper} = await renderApp('/courses/c1/news')
+
+    await wrapper.find('[data-test="new-news"]').trigger('click')
+    await flushPromises()
+    await fill('#news-title', 'Studiebesök på tisdag')
+    await submitDialogForm()
+
+    expect(document.body.textContent).toContain('Skriv en text.')
+    expect(requests.filter((request) => request.method === 'POST')).toEqual([])
+    expect(document.querySelector('[role="dialog"]')).not.toBeNull()
   })
 
   it('redigerar nyheten och laddar om listan', async () => {
