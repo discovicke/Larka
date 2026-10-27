@@ -21,6 +21,8 @@ describe('router', () => {
     ['/courses/devops/staff', 'course-staff'],
     ['/courses/devops/about', 'course-about'],
     ['/courses/devops/modules/1/new', 'create-content'],
+    ['/courses/devops/assignments/l1', 'assignment-submissions'],
+    ['/courses/devops/assignments/l1/submissions/s1', 'submission-review'],
     ['/dev', 'dev'],
   ])('%s öppnar %s', async (path, routeName) => {
     const route = await open(path)

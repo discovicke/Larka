@@ -214,4 +214,26 @@ describe('CourseContentView', () => {
     expect(edit.tagName).toBe('A')
     expect(edit.getAttribute('href')).toBe('/courses/c1/modules/m1/content/l1/edit')
   })
+
+  it('inlämningar-menyn går till uppgiftens inlämningar', async () => {
+    backend([week('m1', 'Vecka 1', [submission])])
+
+    const {wrapper} = await renderApp('/courses/c1/content')
+    await openPartMenu(wrapper, 'Release-pipeline')
+    const item = partAction('Inlämningar')
+
+    expect(item.tagName).toBe('A')
+    expect(item.getAttribute('href')).toBe('/courses/c1/assignments/l1')
+  })
+
+  it('teoridelar har ingen inlämningsmeny', async () => {
+    backend([week('m1', 'Vecka 1', [draft])])
+
+    const {wrapper} = await renderApp('/courses/c1/content')
+    await openPartMenu(wrapper, 'Changelog')
+    const labels = [...document.querySelectorAll('[role="menuitem"]')]
+      .map((item) => item.textContent?.trim())
+
+    expect(labels).not.toContain('Inlämningar')
+  })
 })

@@ -9,6 +9,7 @@ import {
 
 import {useCourses} from '@/composables/useCourses'
 import AppLayout from '@/layouts/AppLayout.vue'
+import GradingView from '@/views/GradingView.vue'
 import GroupsView from '@/views/GroupsView.vue'
 import InboxView from '@/views/InboxView.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
@@ -16,6 +17,7 @@ import PlaceholderView from '@/views/PlaceholderView.vue'
 import CourseContentView from '@/views/course/CourseContentView.vue'
 import CourseLayout from '@/views/course/CourseLayout.vue'
 import CourseNewsView from '@/views/course/CourseNewsView.vue'
+import SubmissionsView from '@/views/course/SubmissionsView.vue'
 
 export interface Breadcrumb {
   label: string
@@ -60,7 +62,7 @@ export const routes: RouteRecordRaw[] = [
       {path: '', name: 'today', component: PlaceholderView, meta: {title: 'Idag'}},
       {path: 'calendar', name: 'calendar', component: PlaceholderView, meta: {title: 'Kalender'}},
       {path: 'inbox', name: 'inbox', component: InboxView, meta: {title: 'Inkorg', fullBleed: true}},
-      {path: 'grading', name: 'grading', component: PlaceholderView, meta: {title: 'Att bedöma'}},
+      {path: 'grading', name: 'grading', component: GradingView, meta: {title: 'Att bedöma'}},
       {path: 'groups', name: 'groups', component: GroupsView, meta: {title: 'Alla grupper'}},
       {
         path: 'courses/:courseId',
@@ -108,6 +110,41 @@ export const routes: RouteRecordRaw[] = [
             route,
             {label: 'Innehåll', to: {name: 'course-content', params: {courseId: route.params.courseId}}},
             {label: 'Redigera del'},
+          ),
+        },
+      },
+      {
+        path: 'courses/:courseId/assignments/:linkId',
+        name: 'assignment-submissions',
+        component: SubmissionsView,
+        meta: {
+          title: 'Inlämningar',
+          breadcrumbs: (route) => courseBreadcrumbs(
+            route,
+            {label: 'Innehåll', to: {name: 'course-content', params: {courseId: route.params.courseId}}},
+            {label: 'Inlämningar'},
+          ),
+        },
+      },
+      {
+        path: 'courses/:courseId/assignments/:linkId/submissions/:submissionId',
+        name: 'submission-review',
+        // Laddas först när sidan öppnas, som redigeringssidan.
+        component: () => import('@/views/course/ReviewView.vue'),
+        meta: {
+          title: 'Bedöm',
+          fullBleed: true,
+          breadcrumbs: (route) => courseBreadcrumbs(
+            route,
+            {label: 'Innehåll', to: {name: 'course-content', params: {courseId: route.params.courseId}}},
+            {
+              label: 'Inlämningar',
+              to: {
+                name: 'assignment-submissions',
+                params: {courseId: route.params.courseId, linkId: route.params.linkId},
+              },
+            },
+            {label: 'Bedöm'},
           ),
         },
       },

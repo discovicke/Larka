@@ -13,6 +13,7 @@ import {
   PhPlus,
   PhTrash,
   PhTreeStructure,
+  PhUsersThree,
 } from '@phosphor-icons/vue'
 import {ref} from 'vue'
 
@@ -187,6 +188,17 @@ function badgeOf(item: Schema<'ModuleContentItem'>): {label: string, class: stri
                 <RouterLink :to="editRoute(item)">
                   <PhPencilSimple/>
                   Redigera
+                </RouterLink>
+              </DropdownMenuItem>
+              <DropdownMenuItem v-if="item.type === 'Assignment'" as-child>
+                <RouterLink
+                  :to="{
+                    name: 'assignment-submissions',
+                    params: {courseId: module.courseId, linkId: item.linkId},
+                  }"
+                >
+                  <PhUsersThree/>
+                  Inlämningar
                 </RouterLink>
               </DropdownMenuItem>
               <DropdownMenuItem @select="emit('togglePartStatus', item)">
