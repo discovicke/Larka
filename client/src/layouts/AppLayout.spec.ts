@@ -21,6 +21,12 @@ beforeEach(() => {
     if (path === '/api/courses/c1/modules') {
       return {status: 200, body: [{id: 'm1', courseId: 'c1', title: 'Vecka 1', description: '', position: 1, content: []}]}
     }
+    if (path === '/api/courses/c1/content') {
+      return {status: 200, body: []}
+    }
+    if (path === '/api/users') {
+      return {status: 200, body: []}
+    }
     return {status: 404}
   })
 })

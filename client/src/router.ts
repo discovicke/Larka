@@ -13,6 +13,7 @@ import NotFoundView from '@/views/NotFoundView.vue'
 import PlaceholderView from '@/views/PlaceholderView.vue'
 import CourseContentView from '@/views/course/CourseContentView.vue'
 import CourseLayout from '@/views/course/CourseLayout.vue'
+import CourseNewsView from '@/views/course/CourseNewsView.vue'
 
 export interface Breadcrumb {
   label: string
@@ -68,7 +69,12 @@ export const routes: RouteRecordRaw[] = [
             // Innehåll är kursens startsida, så brödsmulan slutar på kursen.
             meta: {title: 'Innehåll', breadcrumbs: (route) => courseBreadcrumbs(route)},
           },
-          courseTab('news', 'course-news', 'Nyheter'),
+          {
+            path: 'news',
+            name: 'course-news',
+            component: CourseNewsView,
+            meta: {title: 'Nyheter', breadcrumbs: (route) => courseBreadcrumbs(route, {label: 'Nyheter'})},
+          },
           courseTab('channels', 'course-channels', 'Kanaler'),
           courseTab('staff', 'course-staff', 'Personal'),
           courseTab('about', 'course-about', 'Om'),
