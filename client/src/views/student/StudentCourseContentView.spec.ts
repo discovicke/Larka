@@ -164,6 +164,7 @@ describe('StudentCourseContentView', () => {
       body: undefined,
     })
     expect(wrapper.text()).toContain('Vecka 1')
+    expect(wrapper.text()).not.toContain('Så funkar låsningar')
     expect(wrapper.find('[data-test="student-section-next"]').text()).toContain('Nästa steg')
     expect(wrapper.find('[data-test="student-section-unlocking"]').text())
       .toContain('Låses upp härnäst')

@@ -36,7 +36,7 @@ describe('AppLayout', () => {
     const page = await render('/')
 
     const sidebar = page.find('[data-slot="sidebar"]').text()
-    for (const label of ['Idag', 'Kalender', 'Inkorg', 'Att bedöma', 'Mina kurser', 'DevOps']) {
+    for (const label of ['Idag', 'Kalender', 'Inkorg', 'Att bedöma', 'Inställningar', 'Mina kurser', 'DevOps']) {
       expect(sidebar).toContain(label)
     }
   })

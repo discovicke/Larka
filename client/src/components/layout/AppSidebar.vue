@@ -4,6 +4,7 @@ import {
   PhCaretUpDown,
   PhCheck,
   PhFolder,
+  PhGearSix,
   PhHouse,
   PhListChecks,
   PhMagnifyingGlass,
@@ -50,6 +51,7 @@ const mainNav: NavItem[] = [
   {label: 'Inkorg', routeName: 'inbox', icon: PhTray, count: exampleCounts.inbox},
   {label: 'Material', routeName: 'material', icon: PhFolder},
   {label: 'Att bedöma', routeName: 'grading', icon: PhListChecks, count: exampleCounts.grading},
+  {label: 'Inställningar', routeName: 'settings', icon: PhGearSix},
 ]
 
 const route = useRoute()

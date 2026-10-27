@@ -69,8 +69,8 @@ describe('checkLabel', () => {
 
 describe('checkClass', () => {
   it('ger färgen för testernas läge', () => {
-    expect(checkClass('Green')).toBe('text-emerald-700')
-    expect(checkClass('Red')).toBe('text-red-700')
+    expect(checkClass('Green')).toBe('text-emerald-700 dark:text-emerald-400')
+    expect(checkClass('Red')).toBe('text-red-700 dark:text-red-400')
     expect(checkClass('Pending')).toBe('text-muted-foreground')
   })
 })

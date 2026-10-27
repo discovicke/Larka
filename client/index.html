@@ -4,7 +4,21 @@
     <meta charset="UTF-8" />
     <link rel="icon" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
     <title>my-vue-app</title>
+    <script>
+      // Sätt rätt tema innan appen och CSS:en laddas, så att mörkt läge inte blinkar vitt.
+      try {
+        const preference = localStorage.getItem('rebornlms-theme')
+        const systemDark = matchMedia('(prefers-color-scheme: dark)').matches
+        document.documentElement.classList.toggle(
+          'dark',
+          preference === 'dark' || (preference !== 'light' && systemDark),
+        )
+      } catch {
+        // Utan localStorage eller matchMedia används appens standardtema.
+      }
+    </script>
   </head>
   <body>
     <div id="app"></div>

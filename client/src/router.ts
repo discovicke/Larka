@@ -15,6 +15,7 @@ import InboxView from '@/views/InboxView.vue'
 import MaterialView from '@/views/MaterialView.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
 import PlaceholderView from '@/views/PlaceholderView.vue'
+import SettingsView from '@/views/SettingsView.vue'
 import CourseContentView from '@/views/course/CourseContentView.vue'
 import CourseLayout from '@/views/course/CourseLayout.vue'
 import CourseNewsView from '@/views/course/CourseNewsView.vue'
@@ -66,6 +67,7 @@ export const routes: RouteRecordRaw[] = [
       {path: 'material', name: 'material', component: MaterialView, meta: {title: 'Material'}},
       {path: 'grading', name: 'grading', component: GradingView, meta: {title: 'Att bedöma'}},
       {path: 'groups', name: 'groups', component: GroupsView, meta: {title: 'Alla grupper'}},
+      {path: 'settings', name: 'settings', component: SettingsView, meta: {title: 'Inställningar'}},
       {
         path: 'courses/:courseId',
         component: CourseLayout,

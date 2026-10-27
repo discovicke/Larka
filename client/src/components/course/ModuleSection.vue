@@ -83,7 +83,10 @@ function badgeOf(item: Schema<'ModuleContentItem'>): {label: string, class: stri
   if (new Date(item.publishAt) > new Date()) {
     return {label: `Publiceras ${formatDate(item.publishAt, true)}`, class: 'bg-muted'}
   }
-  return {label: 'Publicerad', class: 'border-emerald-200 bg-emerald-50 text-emerald-700'}
+  return {
+    label: 'Publicerad',
+    class: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300',
+  }
 }
 </script>
 
@@ -94,7 +97,7 @@ function badgeOf(item: Schema<'ModuleContentItem'>): {label: string, class: stri
     :aria-label="module.title"
     class="overflow-hidden rounded-[11px] border"
   >
-    <div class="flex items-center gap-2.5 bg-stone-50 py-2 pr-3 pl-2" :class="{'border-b': open}">
+    <div class="bg-muted/40 flex items-center gap-2.5 py-2 pr-3 pl-2" :class="{'border-b': open}">
       <CollapsibleTrigger as-child>
         <Button
           variant="ghost"
@@ -250,12 +253,12 @@ function badgeOf(item: Schema<'ModuleContentItem'>): {label: string, class: stri
         </ItemActions>
       </Item>
 
-      <div class="border-t border-t-stone-100 px-3 pt-2 pb-3 pl-10">
+      <div class="border-t px-3 pt-2 pb-3 pl-10">
         <!-- Typen väljs i formuläret. -->
         <Button
           variant="ghost"
           size="sm"
-          class="text-stone-700"
+          class="text-muted-foreground"
           as-child
         >
           <RouterLink

@@ -48,7 +48,7 @@ function showRich() {
 
 <template>
   <div class="focus-within:border-ring overflow-hidden rounded-lg border">
-    <div class="flex items-center gap-0.5 border-b bg-stone-50 p-1">
+    <div class="bg-muted/40 flex items-center gap-0.5 border-b p-1">
       <template v-if="editor && mode === 'rich'">
         <Button
           v-for="tool in tools"

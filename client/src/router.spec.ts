@@ -17,6 +17,7 @@ describe('router', () => {
     ['/material', 'material'],
     ['/grading', 'grading'],
     ['/groups', 'groups'],
+    ['/settings', 'settings'],
     ['/courses/devops/content', 'course-content'],
     ['/courses/devops/news', 'course-news'],
     ['/courses/devops/staff', 'course-staff'],

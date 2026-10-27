@@ -221,7 +221,7 @@ async function save(status: Schema<'ContentStatus'> = 'Published') {
         <FieldLegend>Typ av del</FieldLegend>
         <div
           v-if="isEditing"
-          class="flex items-center gap-3 rounded-[11px] border bg-stone-50 p-3"
+          class="bg-muted/40 flex items-center gap-3 rounded-[11px] border p-3"
           data-test="fixed-part-type"
         >
           <component :is="currentPartType.icon" class="size-5"/>
@@ -349,10 +349,10 @@ async function save(status: Schema<'ContentStatus'> = 'Published') {
       <p v-else class="text-muted-foreground text-[13px]">Spara delen först, sedan kan du bifoga filer.</p>
     </form>
 
-    <aside class="flex min-w-0 flex-[1_1_280px] flex-col gap-3 rounded-[11px] border bg-stone-50 p-4 shadow-xs">
+    <aside class="bg-muted/40 flex min-w-0 flex-[1_1_280px] flex-col gap-3 rounded-[11px] border p-4 shadow-xs">
       <template v-if="isEditing">
         <h2 class="font-sans text-sm tracking-normal">När du sparar</h2>
-        <p class="text-[13px] text-stone-700">
+        <p class="text-muted-foreground text-[13px]">
           Ändringarna syns direkt för eleverna. Delen behåller sin status.
         </p>
         <p class="text-muted-foreground text-xs">
@@ -361,7 +361,7 @@ async function save(status: Schema<'ContentStatus'> = 'Published') {
       </template>
       <template v-else>
         <h2 class="font-sans text-sm tracking-normal">När du publicerar</h2>
-        <ol class="flex flex-col gap-3 text-[13px] text-stone-700" data-test="publish-steps">
+        <ol class="text-muted-foreground flex flex-col gap-3 text-[13px]" data-test="publish-steps">
           <li v-for="(step, index) in publishSteps(form)" :key="step" class="flex gap-2.5">
             <span
               class="bg-primary text-primary-foreground flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold"
