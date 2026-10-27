@@ -10,6 +10,8 @@ public interface IPartCompletionRepository
     Task<List<PartCompletion>> GetForStudentAsync(
         Guid studentId, IReadOnlyCollection<Guid> linkIds, CancellationToken ct);
 
+    Task<bool> AnyForLinkAsync(Guid linkId, CancellationToken ct);
+
     void Add(PartCompletion completion);
     void Remove(PartCompletion completion);
 }

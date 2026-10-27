@@ -38,12 +38,18 @@ public class StudentContentService(
             return ServiceResult<StudentModuleWithContentDto>.NotFound("group or course not found");
         }
 
+        var now = time.GetUtcNow();
         var linked = await contents.GetLinkWithContentAsync(linkId, ct);
+        var module = linked?.Link.ModuleId is null
+            ? null
+            : await modules.GetAsync(linked.Link.ModuleId.Value, ct);
         if (linked is null
             || linked.Link.CourseId != courseId
             || linked.Link.ModuleId is null
+            || module is null
+            || !IsModuleAvailable(module, now)
             || (linked.Link.GroupId is not null && linked.Link.GroupId != groupId)
-            || !IsVisible(linked, time.GetUtcNow()))
+            || !IsVisible(linked, now))
         {
             return ServiceResult<StudentModuleWithContentDto>.NotFound("part not found");
         }
@@ -109,9 +115,13 @@ public class StudentContentService(
         var completionByLinkId = studentCompletions.ToDictionary(completion => completion.ContentLinkId);
         var submissionByLinkId = studentSubmissions.ToDictionary(submission => submission.ContentLinkId);
         var blockersByLinkId = dependencies.ToLookup(dependency => dependency.BlockedLinkId);
+        var availableModuleIds = courseModules
+            .Where(module => IsModuleAvailable(module, now))
+            .Select(module => module.Id)
+            .ToHashSet();
 
         var itemsByModuleId = links
-            .Where(link => IsVisible(link, now))
+            .Where(link => availableModuleIds.Contains(link.Link.ModuleId!.Value) && IsVisible(link, now))
             .GroupBy(link => link.Link.ModuleId!.Value)
             .ToDictionary(
                 group => group.Key,
@@ -127,6 +137,8 @@ public class StudentContentService(
                 module.Title,
                 module.Description,
                 module.Position,
+                module.PublishAt,
+                IsModuleAvailable(module, now),
                 itemsByModuleId.GetValueOrDefault(module.Id) ?? []))
             .ToList();
     }
@@ -231,6 +243,9 @@ public class StudentContentService(
 
     private static bool IsVisible(LinkedContent link, DateTimeOffset now) =>
         link.Content.Status == ContentStatus.Published && link.Link.PublishAt <= now;
+
+    private static bool IsModuleAvailable(Module module, DateTimeOffset now) =>
+        module.PublishAt is null || module.PublishAt <= now;
 
     private async Task<List<string>> MissingBlockersAsync(
         Guid groupId, Guid courseId, Guid moduleId, Guid linkId, CancellationToken ct)

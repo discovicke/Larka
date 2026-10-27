@@ -14,4 +14,5 @@ public interface IModuleRepository
     Task<ILookup<Guid, ModuleContentItem>> GetContentByModuleAsync(Guid courseId, CancellationToken ct);
 
     void Add(Module module);
+    void Remove(Module module);
 }

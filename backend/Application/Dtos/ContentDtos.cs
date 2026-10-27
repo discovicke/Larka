@@ -14,6 +14,9 @@ public record CreateContentDto(
     List<SubmissionMode>? SubmissionModes = null, // ett eller flera sätt att lämna in
     string? TemplateRepo = null); // "org/mall", krävs för Repo och bara där
 
+// Skapar innehållet och länken i samma transaktion, så att ett fel i länken inte lämnar ett orphan.
+public record CreateContentWithLinkDto(CreateContentDto Content, CreateContentLinkDto Link);
+
 // Minst en av GroupId och CourseId. Båda = kursen så som den går för just den gruppen.
 // ModuleId lägger innehållet i en av kursens moduler och kräver CourseId.
 public record CreateContentLinkDto(
@@ -43,7 +46,18 @@ public record UpdateContentLinkDto(
     DateTimeOffset? DueAt = null,
     bool IsPinned = false);
 
+public record MoveContentLinkDto(Guid ModuleId);
+
 // --- responses ---
+
+public record CreatedContentWithLinkDto(ContentDto Content, ContentLinkDto Link);
+
+// AffectedLinkIds är de delar som förlorade ett beroende när delen flyttades.
+public record MoveContentLinkResultDto(
+    Guid LinkId,
+    Guid ModuleId,
+    int Position,
+    List<Guid> AffectedLinkIds);
 
 public record ContentDto(
     Guid Id,

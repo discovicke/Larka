@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/dialog'
 import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
 import {api, errorMessage, type Schema} from '@/lib/api'
-import {formatDate, partOf} from '@/lib/content'
+import {countLabel, formatDate, partOf} from '@/lib/content'
 import {
   cycleLabel,
   findCycle,
@@ -251,9 +251,7 @@ watch(open, (isOpen) => {
               </Badge>
               <span class="text-sm font-medium">{{ stageHint(stageIndex) }}</span>
               <span class="text-muted-foreground ml-auto text-xs">
-                {{ stage.rows.length }} {{ stage.rows.length === 1
-                  ? 'del'
-                  : 'delar' }}
+                {{ countLabel(stage.rows.length, 'del', 'delar') }}
               </span>
             </div>
 
@@ -316,9 +314,7 @@ watch(open, (isOpen) => {
                           <span class="text-muted-foreground flex items-center gap-1">
                             <PhLockOpen class="size-3.5"/>
                             {{ row.unlocks.length > 0
-                              ? `Låser upp ${row.unlocks.length} ${row.unlocks.length === 1
-                                ? 'del'
-                                : 'delar'}`
+                              ? `Låser upp ${countLabel(row.unlocks.length, 'del', 'delar')}`
                               : 'Låser inte upp något' }}
                           </span>
                           <Badge

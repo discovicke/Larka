@@ -644,6 +644,145 @@
         }
       }
     },
+    "/api/courses/{id}/modules/{moduleId}": {
+      "put": {
+        "tags": [
+          "Modules"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "moduleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateModuleDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModuleDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Modules"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "moduleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/courses/{id}/modules/order": {
       "put": {
         "tags": [
@@ -890,6 +1029,45 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ContentDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/content/with-link": {
+      "post": {
+        "tags": [
+          "Content"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateContentWithLinkDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedContentWithLinkDto"
                 }
               }
             }
@@ -1226,6 +1404,85 @@
         "responses": {
           "204": {
             "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/content/{id}/links/{linkId}/module": {
+      "put": {
+        "tags": [
+          "Content"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "linkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveContentLinkDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoveContentLinkResultDto"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request",
@@ -2365,6 +2622,21 @@
           }
         }
       },
+      "CreateContentWithLinkDto": {
+        "required": [
+          "content",
+          "link"
+        ],
+        "type": "object",
+        "properties": {
+          "content": {
+            "$ref": "#/components/schemas/CreateContentDto"
+          },
+          "link": {
+            "$ref": "#/components/schemas/CreateContentLinkDto"
+          }
+        }
+      },
       "CreateCourseDto": {
         "required": [
           "schoolId",
@@ -2382,6 +2654,21 @@
           },
           "code": {
             "type": "string"
+          }
+        }
+      },
+      "CreatedContentWithLinkDto": {
+        "required": [
+          "content",
+          "link"
+        ],
+        "type": "object",
+        "properties": {
+          "content": {
+            "$ref": "#/components/schemas/ContentDto"
+          },
+          "link": {
+            "$ref": "#/components/schemas/ContentLinkDto"
           }
         }
       },
@@ -2425,6 +2712,13 @@
               "null",
               "string"
             ]
+          },
+          "publishAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -2624,7 +2918,8 @@
           "publishAt",
           "dueAt",
           "isPinned",
-          "blockedBy"
+          "blockedBy",
+          "hasStudentActivity"
         ],
         "type": "object",
         "properties": {
@@ -2692,6 +2987,9 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          "hasStudentActivity": {
+            "type": "boolean"
           }
         },
         "description": "En del i en modul. Tar med utkast och det som publiceras senare, så att läraren ser allt (Status, PublishAt).\nBlockedBy är de delar i samma vecka som måste vara klara först."
@@ -2702,7 +3000,8 @@
           "courseId",
           "title",
           "description",
-          "position"
+          "position",
+          "publishAt"
         ],
         "type": "object",
         "properties": {
@@ -2723,6 +3022,13 @@
           "position": {
             "type": "integer",
             "format": "int32"
+          },
+          "publishAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -2733,6 +3039,7 @@
           "title",
           "description",
           "position",
+          "publishAt",
           "content"
         ],
         "type": "object",
@@ -2755,6 +3062,13 @@
             "type": "integer",
             "format": "int32"
           },
+          "publishAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
           "content": {
             "type": "array",
             "items": {
@@ -2763,6 +3077,48 @@
           }
         },
         "description": "En modul med innehållet som ligger i den, i den ordning det publiceras."
+      },
+      "MoveContentLinkDto": {
+        "required": [
+          "moduleId"
+        ],
+        "type": "object",
+        "properties": {
+          "moduleId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "MoveContentLinkResultDto": {
+        "required": [
+          "linkId",
+          "moduleId",
+          "position",
+          "affectedLinkIds"
+        ],
+        "type": "object",
+        "properties": {
+          "linkId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "moduleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "position": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "affectedLinkIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
       },
       "ReorderContentDto": {
         "required": [
@@ -2998,6 +3354,8 @@
           "title",
           "description",
           "position",
+          "publishAt",
+          "isAvailable",
           "content"
         ],
         "type": "object",
@@ -3019,6 +3377,16 @@
           "position": {
             "type": "integer",
             "format": "int32"
+          },
+          "publishAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "isAvailable": {
+            "type": "boolean"
           },
           "content": {
             "type": "array",
@@ -3260,6 +3628,30 @@
         "properties": {
           "status": {
             "$ref": "#/components/schemas/ContentStatus"
+          }
+        }
+      },
+      "UpdateModuleDto": {
+        "required": [
+          "title"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "publishAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },

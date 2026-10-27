@@ -1,6 +1,7 @@
 using Backend.Application.Abstractions;
 using Backend.Application.Dtos;
 using Backend.Domain.Entities;
+using Backend.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace Backend.Infrastructure.Persistence.Repositories;
@@ -34,6 +35,26 @@ public class ModuleRepository(AppDb db) : IModuleRepository
             : await db.ContentLinkDependencies
                 .Where(dependency => linkIds.Contains(dependency.BlockedLinkId))
                 .ToListAsync(ct);
+        var activeSubmissionLinkIds = linkIds.Count == 0
+            ? []
+            : await db.Submissions
+                .Where(submission => linkIds.Contains(submission.ContentLinkId)
+                    && (submission.Status != SubmissionStatus.NotStarted
+                        || submission.SubmittedAt != null
+                        || submission.Files.Any()
+                        || submission.Repo != null
+                        || submission.Grade != null))
+                .Select(submission => submission.ContentLinkId)
+                .Distinct()
+                .ToListAsync(ct);
+        var completedLinkIds = linkIds.Count == 0
+            ? []
+            : await db.PartCompletions
+                .Where(completion => linkIds.Contains(completion.ContentLinkId))
+                .Select(completion => completion.ContentLinkId)
+                .Distinct()
+                .ToListAsync(ct);
+        var hasActivity = activeSubmissionLinkIds.Concat(completedLinkIds).ToHashSet();
         // Veckans ordning, så att "Låst av"-chipsen alltid visas i samma följd som delarna.
         var orderByLinkId = rows
             .Select((row, index) => (LinkId: row.Link.Id, Order: index))
@@ -67,10 +88,13 @@ public class ModuleRepository(AppDb db) : IModuleRepository
                     row.Link.PublishAt,
                     row.Link.DueAt,
                     row.Link.IsPinned,
-                    blockedBy.GetValueOrDefault(row.Link.Id) ?? [])
+                    blockedBy.GetValueOrDefault(row.Link.Id) ?? [],
+                    hasActivity.Contains(row.Link.Id))
             })
             .ToLookup(row => row.ModuleId, row => row.Item);
     }
 
     public void Add(Module module) => db.Modules.Add(module);
+
+    public void Remove(Module module) => db.Modules.Remove(module);
 }

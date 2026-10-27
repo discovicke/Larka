@@ -5,7 +5,15 @@ import {type Handler, mockApi, requests, sent} from '@/test/mockApi'
 import {renderApp} from '@/test/renderApp'
 
 const course = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps'}
-const week = {id: 'm1', courseId: 'c1', title: 'Vecka 2 – E2E', description: '', position: 1, content: []}
+const week = {
+  id: 'm1',
+  courseId: 'c1',
+  title: 'Vecka 2 – E2E',
+  description: '',
+  position: 1,
+  publishAt: null,
+  content: [],
+}
 const part = {
   linkId: 'l1',
   contentId: 'x1',
@@ -17,6 +25,8 @@ const part = {
   publishAt: '2026-10-20T08:00:00Z',
   dueAt: '2026-10-23T21:59:00Z',
   isPinned: true,
+  blockedBy: [],
+  hasStudentActivity: false,
 }
 const content = {
   id: 'x1',
@@ -33,7 +43,7 @@ const content = {
   },
 }
 
-function backend(onPost: Handler = () => ({status: 201, body: {id: 'x1'}})) {
+function backend(onPost: Handler = () => ({status: 201, body: {content, link: {id: 'l1'}}})) {
   mockApi((method, path, body) => {
     if (method !== 'GET') {
       return onPost(method, path, body)
@@ -132,7 +142,7 @@ describe('CreateContentView', () => {
     expect(requests.some((request) => request.method === 'POST')).toBe(false)
   })
 
-  it('publicera skapar innehållet, lägger det i veckan och går tillbaka till kursen', async () => {
+  it('publicera skapar innehållet och länken i samma anrop och går tillbaka till kursen', async () => {
     backend()
     const {wrapper, router} = await renderApp('/courses/c1/modules/m1/new')
 
@@ -141,13 +151,16 @@ describe('CreateContentView', () => {
     button('Publicera').click()
     await flushPromises()
 
-    expect(sent('POST', '/api/content')).toMatchObject({
-      type: 'Assignment',
-      title: 'E2E-tester med Playwright',
-      status: 'Published',
-      gradeScale: null,
+    expect(sent('POST', '/api/content/with-link')).toMatchObject({
+      content: {
+        type: 'Assignment',
+        title: 'E2E-tester med Playwright',
+        status: 'Published',
+        gradeScale: null,
+      },
+      link: {courseId: 'c1', moduleId: 'm1'},
     })
-    expect(sent('POST', '/api/content/x1/links')).toMatchObject({courseId: 'c1', moduleId: 'm1'})
+    expect(requests.filter((request) => request.method === 'POST')).toHaveLength(1)
     expect(router.currentRoute.value.name).toBe('course-content')
   })
 
@@ -159,7 +172,10 @@ describe('CreateContentView', () => {
     button('Spara utkast').click()
     await flushPromises()
 
-    expect(sent('POST', '/api/content')).toMatchObject({type: 'Theory', status: 'Draft'})
+    expect(sent('POST', '/api/content/with-link')).toMatchObject({
+      content: {type: 'Theory', status: 'Draft'},
+      link: {courseId: 'c1', moduleId: 'm1'},
+    })
   })
 
   it('visar felet från servern och stannar på sidan', async () => {

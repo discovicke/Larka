@@ -736,6 +736,122 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/courses/{id}/modules/{moduleId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    moduleId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateModuleDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ModuleDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    moduleId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/courses/{id}/modules/order": {
         parameters: {
             query?: never;
@@ -969,6 +1085,54 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["ContentDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/content/with-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateContentWithLinkDto"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CreatedContentWithLinkDto"];
                     };
                 };
                 /** @description Bad Request */
@@ -1311,6 +1475,75 @@ export interface paths {
                 };
             };
         };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/content/{id}/links/{linkId}/module": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    linkId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["MoveContentLinkDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MoveContentLinkResultDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2086,11 +2319,19 @@ export interface components {
             /** @default false */
             isPinned: boolean;
         };
+        CreateContentWithLinkDto: {
+            content: components["schemas"]["CreateContentDto"];
+            link: components["schemas"]["CreateContentLinkDto"];
+        };
         CreateCourseDto: {
             /** Format: uuid */
             schoolId: string;
             title: string;
             code: string;
+        };
+        CreatedContentWithLinkDto: {
+            content: components["schemas"]["ContentDto"];
+            link: components["schemas"]["ContentLinkDto"];
         };
         CreateGroupDto: {
             /** Format: uuid */
@@ -2102,6 +2343,8 @@ export interface components {
         CreateModuleDto: {
             title: string;
             description?: null | string;
+            /** Format: date-time */
+            publishAt?: null | string;
         };
         CreateSchoolDto: {
             name: string;
@@ -2176,6 +2419,7 @@ export interface components {
             dueAt: null | string;
             isPinned: boolean;
             blockedBy: string[];
+            hasStudentActivity: boolean;
         };
         ModuleDto: {
             /** Format: uuid */
@@ -2186,6 +2430,8 @@ export interface components {
             description: string;
             /** Format: int32 */
             position: number;
+            /** Format: date-time */
+            publishAt: null | string;
         };
         /** @description En modul med innehållet som ligger i den, i den ordning det publiceras. */
         ModuleWithContentDto: {
@@ -2197,7 +2443,22 @@ export interface components {
             description: string;
             /** Format: int32 */
             position: number;
+            /** Format: date-time */
+            publishAt: null | string;
             content: components["schemas"]["ModuleContentItem"][];
+        };
+        MoveContentLinkDto: {
+            /** Format: uuid */
+            moduleId: string;
+        };
+        MoveContentLinkResultDto: {
+            /** Format: uuid */
+            linkId: string;
+            /** Format: uuid */
+            moduleId: string;
+            /** Format: int32 */
+            position: number;
+            affectedLinkIds: string[];
         };
         ReorderContentDto: {
             linkIds: string[];
@@ -2268,6 +2529,9 @@ export interface components {
             description: string;
             /** Format: int32 */
             position: number;
+            /** Format: date-time */
+            publishAt: null | string;
+            isAvailable: boolean;
             content: components["schemas"]["StudentContentItem"][];
         };
         StudentRepoDto: {
@@ -2326,6 +2590,12 @@ export interface components {
         };
         UpdateContentStatusDto: {
             status: components["schemas"]["ContentStatus"];
+        };
+        UpdateModuleDto: {
+            title: string;
+            description?: null | string;
+            /** Format: date-time */
+            publishAt?: null | string;
         };
         UserDto: {
             /** Format: uuid */

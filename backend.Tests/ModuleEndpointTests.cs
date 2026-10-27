@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
+using Backend.Domain.Entities;
 using Backend.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace backend.Tests;
@@ -9,12 +11,20 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
 {
     private readonly HttpClient _client = factory.CreateClient();
 
-    private record ModuleResponse(Guid Id, Guid CourseId, string Title, string Description, int Position);
+    private record ModuleResponse(
+        Guid Id, Guid CourseId, string Title, string Description, int Position, DateTimeOffset? PublishAt);
 
     private record ModuleItem(
-        Guid LinkId, Guid ContentId, string Title, string Status, string? GradeScale, DateTimeOffset PublishAt);
+        Guid LinkId,
+        Guid ContentId,
+        string Title,
+        string Status,
+        string? GradeScale,
+        DateTimeOffset PublishAt,
+        bool HasStudentActivity);
 
-    private record ModuleWithContent(Guid Id, string Title, int Position, List<ModuleItem> Content);
+    private record ModuleWithContent(
+        Guid Id, string Title, int Position, DateTimeOffset? PublishAt, List<ModuleItem> Content);
 
     private record LinkResponse(Guid Id, Guid? CourseId, Guid? ModuleId);
 
@@ -272,6 +282,120 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
         Assert.Contains("module does not exist", await response.Content.ReadAsStringAsync());
     }
 
+    [Fact]
+    public async Task CreateModule_WithPublishAt_IsScheduled()
+    {
+        var courseId = await AddCourseAsync();
+        var publishAt = new DateTimeOffset(2027, 1, 5, 8, 0, 0, TimeSpan.Zero);
+
+        var response = await _client.PostAsJsonAsync(
+            $"/api/courses/{courseId}/modules",
+            new { title = "Vecka 2", publishAt });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var created = await response.Content.ReadFromJsonAsync<ModuleResponse>();
+        Assert.Equal(publishAt, created!.PublishAt);
+        Assert.Equal(publishAt, (await GetModulesAsync(courseId)).Single().PublishAt);
+    }
+
+    [Fact]
+    public async Task UpdateModule_RenamesAndChangesPublishAt()
+    {
+        var courseId = await AddCourseAsync();
+        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var publishAt = new DateTimeOffset(2027, 2, 1, 8, 0, 0, TimeSpan.Zero);
+
+        var response = await _client.PutAsJsonAsync(
+            $"/api/courses/{courseId}/modules/{week.Id}",
+            new { title = " Vecka 1 – Intro ", description = " Ny ", publishAt });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var updated = await response.Content.ReadFromJsonAsync<ModuleResponse>();
+        Assert.Equal(("Vecka 1 – Intro", "Ny", publishAt), (updated!.Title, updated.Description, updated.PublishAt));
+    }
+
+    [Fact]
+    public async Task DeleteModule_RemovesContentOnlyInWeek_AndKeepsSharedContent()
+    {
+        var courseId = await AddCourseAsync();
+        var firstWeek = await CreateModuleAsync(courseId, "Vecka 1");
+        var secondWeek = await CreateModuleAsync(courseId, "Vecka 2");
+        var shared = await CreateContentAsync("Delad", "published");
+        var onlyFirst = await CreateContentAsync("Bara vecka 1", "published");
+        await LinkAsync(shared.Id, new { courseId, moduleId = firstWeek.Id });
+        await LinkAsync(shared.Id, new { courseId, moduleId = secondWeek.Id });
+        await LinkAsync(onlyFirst.Id, new { courseId, moduleId = firstWeek.Id });
+
+        var response = await _client.DeleteAsync($"/api/courses/{courseId}/modules/{firstWeek.Id}");
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        var modules = await GetModulesAsync(courseId);
+        var remaining = Assert.Single(modules);
+        Assert.Equal(("Vecka 2", 1), (remaining.Title, remaining.Position));
+        Assert.Equal(["Delad"], remaining.Content.Select(item => item.Title));
+        Assert.Equal(HttpStatusCode.OK, (await _client.GetAsync($"/api/content/{shared.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await _client.GetAsync($"/api/content/{onlyFirst.Id}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteModule_WithPublishedAssignmentWithoutActivity_IsAllowed()
+    {
+        var courseId = await AddCourseAsync();
+        await AddStudentToCourseAsync(courseId);
+        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var assignment = await _client.PostAsJsonAsync("/api/content", new
+        {
+            type = "assignment",
+            title = "Inlämning",
+            bodyMd = "",
+            status = "published",
+            gradeScale = "passFail",
+            submissionModes = new[] { "text" }
+        });
+        var content = (await assignment.Content.ReadFromJsonAsync<ContentResponse>())!;
+        var link = await LinkAsync(content.Id, new { courseId, moduleId = week.Id });
+        var linkId = (await link.Content.ReadFromJsonAsync<LinkResponse>())!.Id;
+        Assert.Equal(1, await CountSubmissionsAsync(linkId));
+
+        var response = await _client.DeleteAsync($"/api/courses/{courseId}/modules/{week.Id}");
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Empty(await GetModulesAsync(courseId));
+        Assert.Equal(0, await CountSubmissionsAsync(linkId));
+        Assert.Equal(HttpStatusCode.NotFound, (await _client.GetAsync($"/api/content/{content.Id}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteModule_WithStudentActivity_ReturnsConflict()
+    {
+        var courseId = await AddCourseAsync();
+        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var content = await CreateContentAsync("Teori", "published");
+        var link = await LinkAsync(content.Id, new { courseId, moduleId = week.Id });
+        var linkId = (await link.Content.ReadFromJsonAsync<LinkResponse>())!.Id;
+
+        Guid studentId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            studentId = (await TestData.AddUserAsync(db)).Id;
+            db.PartCompletions.Add(new PartCompletion
+            {
+                ContentLinkId = linkId,
+                StudentId = studentId
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var listed = (await GetModulesAsync(courseId)).Single().Content.Single();
+        Assert.True(listed.HasStudentActivity);
+
+        var response = await _client.DeleteAsync($"/api/courses/{courseId}/modules/{week.Id}");
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Single(await GetModulesAsync(courseId));
+    }
+
     private async Task<ModuleResponse> CreateModuleAsync(Guid courseId, string title)
     {
         var response = await _client.PostAsJsonAsync($"/api/courses/{courseId}/modules", new { title });
@@ -306,5 +430,23 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
         return (await TestData.AddGroupAsync(db)).Id;
+    }
+
+    private async Task AddStudentToCourseAsync(Guid courseId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var course = await db.Courses.FindAsync(courseId);
+        var group = await TestData.AddGroupAsync(db, course!.SchoolId);
+        db.GroupCourses.Add(new GroupCourse { GroupId = group.Id, CourseId = courseId });
+        await TestData.AddMemberAsync(db, group);
+        await db.SaveChangesAsync();
+    }
+
+    private async Task<int> CountSubmissionsAsync(Guid linkId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        return await db.Submissions.CountAsync(submission => submission.ContentLinkId == linkId);
     }
 }

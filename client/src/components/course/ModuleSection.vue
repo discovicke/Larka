@@ -2,6 +2,7 @@
 import {
   PhArrowDown,
   PhArrowUp,
+  PhCalendarBlank,
   PhCaretDown,
   PhDotsThree,
   PhEye,
@@ -15,7 +16,7 @@ import {
   PhTreeStructure,
   PhUsersThree,
 } from '@phosphor-icons/vue'
-import {ref} from 'vue'
+import {computed, ref} from 'vue'
 
 import {Badge} from '@/components/ui/badge'
 import {Button} from '@/components/ui/button'
@@ -29,7 +30,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import {Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle} from '@/components/ui/item'
 import type {Schema} from '@/lib/api'
-import {formatDate, partOf} from '@/lib/content'
+import {countLabel, formatDate, partOf, weekPublishState} from '@/lib/content'
 
 const props = defineProps<{
   module: Schema<'ModuleWithContentDto'>
@@ -40,12 +41,16 @@ const props = defineProps<{
 const emit = defineEmits<{
   move: [direction: -1 | 1]
   openRoadmap: []
+  renameModule: []
+  deleteModule: []
   movePart: [item: Schema<'ModuleContentItem'>, direction: -1 | 1]
+  movePartToWeek: [item: Schema<'ModuleContentItem'>]
   togglePartStatus: [item: Schema<'ModuleContentItem'>]
   deletePart: [item: Schema<'ModuleContentItem'>]
 }>()
 
 const open = ref(true)
+const weekState = computed(() => weekPublishState(props.module))
 
 function lockedByCount(item: Schema<'ModuleContentItem'>): number {
   return (item.blockedBy ?? []).length
@@ -102,6 +107,15 @@ function badgeOf(item: Schema<'ModuleContentItem'>): {label: string, class: stri
         </Button>
       </CollapsibleTrigger>
       <h2 class="flex-1 font-sans text-sm font-semibold">{{ module.title }}</h2>
+      <Badge
+        v-if="weekState"
+        variant="outline"
+        class="h-[22px] rounded-[5px]"
+        :class="weekState.class"
+      >
+        <PhCalendarBlank v-if="weekState.kind === 'scheduled'"/>
+        {{ weekState.label }}
+      </Badge>
       <span class="text-muted-foreground text-[13px]">{{ module.content.length }} delar</span>
       <DropdownMenu>
         <DropdownMenuTrigger as-child>
@@ -122,6 +136,14 @@ function badgeOf(item: Schema<'ModuleContentItem'>): {label: string, class: stri
           <DropdownMenuItem @select="emit('openRoadmap')">
             <PhTreeStructure/>
             Roadmap
+          </DropdownMenuItem>
+          <DropdownMenuItem @select="emit('renameModule')">
+            <PhPencilSimple/>
+            Byt namn
+          </DropdownMenuItem>
+          <DropdownMenuItem variant="destructive" @select="emit('deleteModule')">
+            <PhTrash/>
+            Ta bort vecka
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -160,15 +182,11 @@ function badgeOf(item: Schema<'ModuleContentItem'>): {label: string, class: stri
           >
             <span v-if="lockedByCount(item) > 0" class="flex items-center gap-1">
               <PhLock class="size-3"/>
-              Låst av {{ lockedByCount(item) }} {{ lockedByCount(item) === 1
-                ? 'del'
-                : 'delar' }}
+              Låst av {{ countLabel(lockedByCount(item), 'del', 'delar') }}
             </span>
             <span v-if="unlockCountOf(item) > 0" class="flex items-center gap-1">
               <PhLockOpen class="size-3"/>
-              Låser upp {{ unlockCountOf(item) }} {{ unlockCountOf(item) === 1
-                ? 'del'
-                : 'delar' }}
+              Låser upp {{ countLabel(unlockCountOf(item), 'del', 'delar') }}
             </span>
           </div>
         </ItemContent>
@@ -218,6 +236,10 @@ function badgeOf(item: Schema<'ModuleContentItem'>): {label: string, class: stri
               >
                 <PhArrowDown/>
                 Flytta ner
+              </DropdownMenuItem>
+              <DropdownMenuItem @select="emit('movePartToWeek', item)">
+                <PhCalendarBlank/>
+                Flytta till vecka…
               </DropdownMenuItem>
               <DropdownMenuItem variant="destructive" @select="emit('deletePart', item)">
                 <PhTrash/>

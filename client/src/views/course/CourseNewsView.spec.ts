@@ -69,33 +69,30 @@ function backend(posts: unknown[], comments: Record<string, unknown[]> = {}) {
       }
       return {status: 200, body: comments[contentId] ?? []}
     }
-    if (path === '/api/content' && method === 'POST') {
+    if (path === '/api/content/with-link' && method === 'POST') {
       return {
         status: 201,
         body: {
-          id: 'x9',
-          authorId: 'u1',
-          type: 'News',
-          title: 'Nyhet',
-          bodyMd: '',
-          status: 'Published',
-          createdAt: '2026-10-20T10:00:00Z',
-          assignment: null,
-        },
-      }
-    }
-    if (path === '/api/content/x9/links' && method === 'POST') {
-      return {
-        status: 201,
-        body: {
-          id: 'l9',
-          contentId: 'x9',
-          groupId: null,
-          courseId: 'c1',
-          moduleId: null,
-          publishAt: '2026-10-20T10:00:00Z',
-          dueAt: null,
-          isPinned: false,
+          content: {
+            id: 'x9',
+            authorId: 'u1',
+            type: 'News',
+            title: 'Nyhet',
+            bodyMd: '',
+            status: 'Published',
+            createdAt: '2026-10-20T10:00:00Z',
+            assignment: null,
+          },
+          link: {
+            id: 'l9',
+            contentId: 'x9',
+            groupId: null,
+            courseId: 'c1',
+            moduleId: null,
+            publishAt: '2026-10-20T10:00:00Z',
+            dueAt: null,
+            isPinned: false,
+          },
         },
       }
     }
@@ -288,13 +285,16 @@ describe('CourseNewsView', () => {
 
     await submitDialogForm()
 
-    expect(sent('POST', '/api/content')).toEqual({
-      type: 'News',
-      title: 'Studiebesök på tisdag',
-      bodyMd: 'Vi ses i labbet klockan 10.',
-      status: 'Published',
+    expect(sent('POST', '/api/content/with-link')).toEqual({
+      content: {
+        type: 'News',
+        title: 'Studiebesök på tisdag',
+        bodyMd: 'Vi ses i labbet klockan 10.',
+        status: 'Published',
+      },
+      link: {courseId: 'c1', isPinned: true},
     })
-    expect(sent('POST', '/api/content/x9/links')).toEqual({courseId: 'c1', isPinned: true})
+    expect(requests.filter((request) => request.method === 'POST')).toHaveLength(1)
     expect(document.querySelector('[role="dialog"]')).toBeNull()
   })
 

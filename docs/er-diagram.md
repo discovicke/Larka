@@ -73,6 +73,7 @@ erDiagram
         string Title
         string Description
         int Position
+        timestamptz PublishAt "nullable, veckan öppnar"
     }
     GroupCourse {
         uuid GroupId PK, FK
@@ -188,7 +189,7 @@ erDiagram
 
 - **School → User, Group, Course.** Allt hör till en skola. En användare tillhör en skola.
 - **GroupCourse (Group ↔ Course, M:N).** En klass läser flera kurser och en kurs kan läsas av flera klasser. Det här är den enda kopplingen mellan kurs och grupp. Det fanns tidigare även `Course.ProgramGroupId` ("ägande program"), men två kopplingar som kan säga olika saker togs bort till förmån för en. Committee-grupper har inga rader här.
-- **Module (Course → Module, 1:N)** delar in en kurs i delar, oftast veckor ("Vecka 2 – E2E och releasehantering"). `Position` är ordningen i kursen, 1, 2, 3 … utan luckor. Den är inte unik i databasen, eftersom en omsortering uppdaterar raderna en i taget och då skulle krocka med sig själv på vägen.
+- **Module (Course → Module, 1:N)** delar in en kurs i delar, oftast veckor ("Vecka 2 – E2E och releasehantering"). `Position` är ordningen i kursen, 1, 2, 3 … utan luckor. Den är inte unik i databasen, eftersom en omsortering uppdaterar raderna en i taget och då skulle krocka med sig själv på vägen. `PublishAt` är veckans eget publiceringsdatum: tomt betyder öppen direkt, och ett framtida datum låser hela veckan även om delarna skulle ha tidigare datum.
 - **Enrollment (User ↔ Group, M:N) med `Role`.** Rollen gäller _i gruppen_, så en lärare kan vara student i en annan grupp. Den är en enum i stället för fri text, så ett stavfel inte kan göra att en elev försvinner ur sin grupp. `User.Role` är fortfarande användarens roll i systemet (Admin, Teacher, Student).
 
 ### Content
@@ -216,7 +217,9 @@ erDiagram
 - **Veckans ordning följer roadmapen.** När roadmapen sparas sorteras länkarna om så att en del alltid ligger efter sina förutsättningar, oavsett i vilken ordning delarna skapades. Delar utan inbördes beroende behåller sin ordning. Nyheter ligger kvar i veckan men ingår inte i beroendena.
 - **Utkast i veckan publiceras när läraren sparar roadmapen.** Roadmapen omfattar veckans alla delar, och då får inget utkast ligga kvar och göra veckan omöjlig att slutföra. `PublishAt` lämnas orörd, så en schemalagd del publiceras fortfarande vid sitt datum.
 - **PartCompletion** är elevens egen klarmarkering av en teori-del eller en uppgift utan inlämningssätt. En rad per elev och länk (unik). Uppgifter med inlämningssätt blir aldrig klarmarkerade manuellt; de räknas som klara via `Submission` och `AssignmentSpec.CompletionRule`.
-- **En del är tillgänglig** när innehållet är publicerat, `PublishAt` har passerat och alla delar som pekar på den via `BlockedLinkId` är klara. En låst del visas med lås och sina förutsättningar, men `BodyMd` skickas inte till eleven.
+- **En del är tillgänglig** när veckan är öppen, innehållet är publicerat, delens eget `PublishAt` har passerat och alla delar som pekar på den via `BlockedLinkId` är klara. En låst del visas med lås och sina förutsättningar, men `BodyMd` skickas inte till eleven. En framtida vecka skickas som ett tomt skal med titel och öppningsdatum; varken delar, beskrivning eller innehåll läcker ut. Veckans datum gäller även flöden och nyheter.
+- **Flytt av en del** behåller länkens id och deadline, lägger delen sist i målveckan och tar bort beroenden på båda sidor. Källveckan komprimeras. Riktig elevaktivitet (inlämning, betyg eller klarmarkering) blockerar flytten, och svaret räknar upp de länkar vars beroenden påverkades.
+- **Vecka kan byta namn eller raderas.** Radering kräver att klienten bekräftar veckans titel. En publicerad inlämning utan elevaktivitet får raderas tillsammans med veckan; `NotStarted`-inlämningar städas bort. Finns riktig elevaktivitet blockeras raderingen. Delat content raderas inte, och bilagor tas bara bort när contentet självt raderas.
 
 ### Inlämningar
 
@@ -231,19 +234,19 @@ erDiagram
 
 ## Delete-regler
 
-| Relation                                                   | Vid delete av förälder                               |
-| ---------------------------------------------------------- | ---------------------------------------------------- |
-| School → User, Group, Course                               | blockeras (Restrict)                                 |
-| Group, Course → GroupCourse, Enrollment, ContentLink       | blockeras                                            |
-| Course → Module, Module → ContentLink                      | blockeras                                            |
-| User → Content, Comment, Submission, Grade, Enrollment     | blockeras                                            |
-| Content → ContentLink, AssignmentSpec, Attachment, Comment | kaskad                                               |
-| ContentLink → Submission                                   | blockeras (elevarbete ska inte försvinna av misstag) |
-| ContentLink → ContentLinkDependency                        | kaskad                                               |
-| ContentLink → PartCompletion                               | kaskad (en klarmarkering är inte elevarbete)         |
-| Submission → SubmissionFile, StudentRepo, Grade            | kaskad                                               |
-| User → Notification, PushSubscription                      | kaskad                                               |
-| Content, Submission → Notification                         | sätts till null                                      |
+| Relation                                                   | Vid delete av förälder                                       |
+| ---------------------------------------------------------- | ------------------------------------------------------------ |
+| School → User, Group, Course                               | blockeras (Restrict)                                         |
+| Group, Course → GroupCourse, Enrollment, ContentLink       | blockeras                                                    |
+| Course → Module, Module → ContentLink                      | blockeras                                                    |
+| User → Content, Comment, Submission, Grade, Enrollment     | blockeras                                                    |
+| Content → ContentLink, AssignmentSpec, Attachment, Comment | kaskad                                                       |
+| ContentLink → Submission                                   | blockeras (elevarbete ska inte försvinna av misstag)         |
+| ContentLink → ContentLinkDependency                        | kaskad                                                       |
+| ContentLink → PartCompletion                               | kaskad i databasen, men API blockerar om klarmarkering finns |
+| Submission → SubmissionFile, StudentRepo, Grade            | kaskad                                                       |
+| User → Notification, PushSubscription                      | kaskad                                                       |
+| Content, Submission → Notification                         | sätts till null                                              |
 
 Principen: det man äger raderas med en (content med sina bilagor, en inlämning med sina filer). Delade saker (skolor, grupper, kurser, användare) och elevernas arbete går inte att radera så länge något pekar på dem.
 

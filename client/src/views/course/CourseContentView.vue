@@ -4,7 +4,10 @@ import {computed, ref, watch} from 'vue'
 import {useRoute} from 'vue-router'
 
 import AddModuleDialog from '@/components/course/AddModuleDialog.vue'
+import DeleteModuleDialog from '@/components/course/DeleteModuleDialog.vue'
+import EditModuleDialog from '@/components/course/EditModuleDialog.vue'
 import ModuleSection from '@/components/course/ModuleSection.vue'
+import MovePartDialog from '@/components/course/MovePartDialog.vue'
 import RoadmapDialog from '@/components/course/RoadmapDialog.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Button} from '@/components/ui/button'
@@ -32,6 +35,14 @@ const deleting = ref(false)
 const deleteError = ref('')
 const roadmapOpen = ref(false)
 const roadmapModule = ref<Schema<'ModuleWithContentDto'> | null>(null)
+const movePartOpen = ref(false)
+const movePartModule = ref<Schema<'ModuleWithContentDto'> | null>(null)
+const movePartItem = ref<Schema<'ModuleContentItem'> | null>(null)
+const editModuleOpen = ref(false)
+const editModuleTarget = ref<Schema<'ModuleWithContentDto'> | null>(null)
+const deleteModuleOpen = ref(false)
+const deleteModuleTarget = ref<Schema<'ModuleWithContentDto'> | null>(null)
+const notice = ref('')
 
 async function load() {
   error.value = ''
@@ -113,6 +124,39 @@ function applyRoadmap(saved: Schema<'ModuleWithContentDto'>) {
     : module)
 }
 
+function askMovePartToWeek(module: Schema<'ModuleWithContentDto'>, item: Schema<'ModuleContentItem'>) {
+  movePartModule.value = module
+  movePartItem.value = item
+  movePartOpen.value = true
+}
+
+function askRenameModule(module: Schema<'ModuleWithContentDto'>) {
+  editModuleTarget.value = module
+  editModuleOpen.value = true
+}
+
+function askDeleteModule(module: Schema<'ModuleWithContentDto'>) {
+  deleteModuleTarget.value = module
+  deleteModuleOpen.value = true
+}
+
+async function partMoved(result: Schema<'MoveContentLinkResultDto'>) {
+  await load()
+  notice.value = result.affectedLinkIds.length > 0
+    ? `Delen flyttades. ${result.affectedLinkIds.length} beroenden togs bort.`
+    : 'Delen flyttades.'
+}
+
+async function moduleSaved() {
+  await load()
+  notice.value = 'Veckan sparades.'
+}
+
+async function moduleDeleted() {
+  await load()
+  notice.value = 'Veckan togs bort.'
+}
+
 async function deletePart() {
   const part = partToDelete.value
   if (!part) {
@@ -146,6 +190,9 @@ watch(courseId, () => {
     <Alert v-if="error" variant="destructive">
       <AlertDescription>{{ error }}</AlertDescription>
     </Alert>
+    <Alert v-if="notice">
+      <AlertDescription>{{ notice }}</AlertDescription>
+    </Alert>
 
     <template v-if="loading">
       <Skeleton v-for="i in 2" :key="i" class="h-32 w-full rounded-[11px]"/>
@@ -173,9 +220,12 @@ watch(courseId, () => {
         :can-move-down="index < modules.length - 1"
         @move="(direction) => move(index, direction)"
         @move-part="(item, direction) => movePart(module, item, direction)"
+        @move-part-to-week="askMovePartToWeek(module, $event)"
         @toggle-part-status="togglePartStatus"
         @delete-part="askDeletePart"
         @open-roadmap="openRoadmap(module)"
+        @rename-module="askRenameModule(module)"
+        @delete-module="askDeleteModule(module)"
       />
       <RoadmapDialog
         v-if="roadmapModule"
@@ -183,6 +233,29 @@ watch(courseId, () => {
         :module="roadmapModule"
         :course-id="courseId"
         @saved="applyRoadmap"
+      />
+      <MovePartDialog
+        v-if="movePartModule && movePartItem"
+        v-model:open="movePartOpen"
+        :course-id="courseId"
+        :module="movePartModule"
+        :item="movePartItem"
+        :modules="modules"
+        @moved="partMoved"
+      />
+      <EditModuleDialog
+        v-if="editModuleTarget"
+        v-model:open="editModuleOpen"
+        :course-id="courseId"
+        :module="editModuleTarget"
+        @saved="moduleSaved"
+      />
+      <DeleteModuleDialog
+        v-if="deleteModuleTarget"
+        v-model:open="deleteModuleOpen"
+        :course-id="courseId"
+        :module="deleteModuleTarget"
+        @deleted="moduleDeleted"
       />
       <AddModuleDialog :course-id="courseId" @created="load"/>
     </template>

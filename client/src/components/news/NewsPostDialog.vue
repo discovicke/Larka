@@ -38,17 +38,16 @@ async function save() {
   saving.value = true
   failed.value = false
   try {
-    const {data: content} = await api.POST('/api/content', {
-      body: {type: 'News', title: form.title, bodyMd: form.bodyMd, status: 'Published'},
-    })
-    const {data: link} = await api.POST('/api/content/{id}/links', {
-      params: {path: {id: content!.id}},
-      body: {courseId: props.courseId, isPinned: form.isPinned},
+    const {data} = await api.POST('/api/content/with-link', {
+      body: {
+        content: {type: 'News', title: form.title, bodyMd: form.bodyMd, status: 'Published'},
+        link: {courseId: props.courseId, isPinned: form.isPinned},
+      },
     })
     Object.assign(form, {title: '', bodyMd: '', isPinned: false})
     bodyError.value = false
     open.value = false
-    emit('created', link!.id)
+    emit('created', data!.link.id)
   } catch {
     failed.value = true
   } finally {

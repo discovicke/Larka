@@ -19,12 +19,13 @@ import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Badge} from '@/components/ui/badge'
 import {Button} from '@/components/ui/button'
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '@/components/ui/collapsible'
+import {Item, ItemMedia} from '@/components/ui/item'
 import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
 import {Skeleton} from '@/components/ui/skeleton'
 import {useCourses} from '@/composables/useCourses'
 import {useDevOptions} from '@/composables/useDevOptions'
 import {api, errorMessage, type Schema} from '@/lib/api'
-import {formatDate, partOf} from '@/lib/content'
+import {countLabel, formatDate, partOf} from '@/lib/content'
 
 // Elevvyn finns på /dev/student tills inloggning (#80) finns. Grupp och kurs väljs därför här,
 // och alla anrop går mot den valda gruppen så att svaret blir samma som en elev i gruppen får.
@@ -47,7 +48,13 @@ const hasSelection = computed(() => groupId.value !== '' && courseId.value !== '
 const selectedCourse = computed(() => courseDtos.value.find((course) => course.id === courseId.value))
 const selectedGroup = computed(() => groups.value.find((group) => group.value === groupId.value))
 
-const allItems = computed(() => modules.value.flatMap((module) => module.content))
+// Framtida veckor är låsta skal. Deras eventuella innehåll får inte räknas i progress eller
+// dyka upp i detaljvyn, även om API:t skulle skicka med något.
+const availableModules = computed(() => modules.value.filter((module) => module.isAvailable))
+const allItems = computed(() => availableModules.value.flatMap((module) => module.content))
+const visibleModules = computed(() => filter.value === 'all'
+  ? modules.value
+  : availableModules.value)
 const completable = computed(() => allItems.value.filter((item) => item.type !== 'News'))
 const completedCount = computed(() => completable.value.filter((item) => item.isCompleted).length)
 const todoCount = computed(() => completable.value.length - completedCount.value)
@@ -59,7 +66,7 @@ const progressPercent = computed(() => completable.value.length === 0
   ? 0
   : Math.round((completedCount.value / completable.value.length) * 100))
 
-const selectedModule = computed(() => modules.value.find((module) =>
+const selectedModule = computed(() => availableModules.value.find((module) =>
   module.content.some((item) => item.linkId === selectedLinkId.value)))
 const selectedItem = computed(() => selectedModule.value?.content
   .find((item) => item.linkId === selectedLinkId.value) ?? null)
@@ -241,12 +248,6 @@ function moduleProgress(module: Schema<'StudentModuleWithContentDto'>): {done: n
     done: parts.filter((item) => item.isCompleted).length,
     total: parts.length,
   }
-}
-
-function countLabel(count: number): string {
-  return count === 1
-    ? `${count} del`
-    : `${count} delar`
 }
 
 function kindOf(item: Schema<'StudentContentItem'>): string {
@@ -610,13 +611,14 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
 
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div role="tablist" class="bg-muted flex w-fit gap-1 rounded-lg p-1">
-          <button
+          <Button
             v-for="option in filters"
             :key="option.value"
             type="button"
             role="tab"
+            size="sm"
+            variant="ghost"
             :aria-selected="filter === option.value"
-            class="rounded-md px-2.5 py-1 text-[13px]"
             :class="filter === option.value
               ? 'bg-background font-medium shadow-sm'
               : 'text-muted-foreground'"
@@ -624,7 +626,7 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
             @click="filter = option.value"
           >
             {{ filterLabel(option.value) }}
-          </button>
+          </Button>
         </div>
         <div class="text-muted-foreground flex flex-wrap items-center gap-3 text-xs">
           <span class="flex items-center gap-1"><PhEye class="size-3.5"/>Teori</span>
@@ -635,145 +637,170 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
 
       <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div class="flex flex-col gap-4">
-          <Collapsible
-            v-for="module in modules"
-            :key="module.id"
-            :default-open="true"
-            as="section"
-            :aria-label="module.title"
-            class="overflow-hidden rounded-xl border"
-          >
-            <CollapsibleTrigger
-              class="group bg-muted/50 hover:bg-muted/70 flex w-full items-center gap-3 px-4 py-3 text-left transition-colors"
-              data-test="student-module"
+          <template v-for="module in visibleModules" :key="module.id">
+            <Collapsible
+              v-if="module.isAvailable"
+              :default-open="true"
+              as="section"
+              :aria-label="module.title"
+              class="overflow-hidden rounded-xl border"
             >
-              <PhCaretDown
-                class="text-muted-foreground size-4 shrink-0 transition-transform duration-200 group-data-[state=closed]:-rotate-90"
-              />
+              <CollapsibleTrigger
+                class="group bg-muted/50 hover:bg-muted/70 flex w-full items-center gap-3 px-4 py-3 text-left transition-colors"
+                data-test="student-module"
+              >
+                <PhCaretDown
+                  class="text-muted-foreground size-4 shrink-0 transition-transform duration-200 group-data-[state=closed]:-rotate-90"
+                />
+                <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span class="truncate font-sans text-[15px] font-semibold">{{ module.title }}</span>
+                  <span class="text-muted-foreground text-[13px]">
+                    {{ moduleProgress(module).done }} av {{ moduleProgress(module).total }} klara
+                    <template v-if="module.description"> · {{ module.description }}</template>
+                  </span>
+                </span>
+                <Badge
+                  v-if="moduleProgress(module).total > 0
+                    && moduleProgress(module).done === moduleProgress(module).total"
+                  variant="outline"
+                  class="border-emerald-200 bg-emerald-50 text-emerald-700"
+                >
+                  <PhCheckCircle/>
+                  Klar
+                </Badge>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <Collapsible
+                  v-for="section in sectionsFor(module)"
+                  :key="section.key"
+                  :default-open="section.defaultOpen"
+                  as="section"
+                  class="border-t first:border-t-0"
+                  :aria-label="`${section.title} i ${module.title}`"
+                >
+                  <CollapsibleTrigger
+                    class="group hover:bg-muted/30 flex w-full items-center gap-2 py-2 pr-4 pl-9 text-left transition-colors"
+                    :data-test="`student-section-${section.key}`"
+                  >
+                    <PhCaretDown
+                      class="text-muted-foreground size-3.5 shrink-0 transition-transform duration-200 group-data-[state=closed]:-rotate-90"
+                    />
+                    <span class="text-muted-foreground min-w-0 flex-1 truncate text-[11px] font-semibold tracking-[0.08em] uppercase">
+                      {{ section.title }}
+                    </span>
+                    <span class="text-muted-foreground ml-auto text-[11px]">
+                      {{ countLabel(section.items.length, 'del', 'delar') }}
+                    </span>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <p
+                      v-if="section.items.length === 0"
+                      class="text-muted-foreground border-t py-3 pr-4 pl-12 text-sm"
+                    >
+                      {{ section.empty }}
+                    </p>
+
+                    <div
+                      v-for="item in section.items"
+                      :key="item.linkId"
+                      class="hover:bg-muted/30 flex items-center gap-2 border-t py-2.5 pr-4 pl-12"
+                      :data-test="`student-part-${item.linkId}`"
+                    >
+                      <component
+                        :is="rowIcon(item)"
+                        class="size-[18px] shrink-0"
+                        :class="rowIconClass(item)"
+                        :aria-label="statusHeading(item)"
+                        role="img"
+                      />
+                      <button
+                        type="button"
+                        class="flex min-w-0 flex-1 items-center gap-3 text-left"
+                        :data-test="`student-open-${item.linkId}`"
+                        @click="openPart(item)"
+                      >
+                        <component :is="partOf(item).icon" class="text-muted-foreground size-4 shrink-0"/>
+                        <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+                          <span
+                            class="truncate text-sm"
+                            :class="item.isLocked
+                              ? 'text-muted-foreground'
+                              : 'font-medium'"
+                          >
+                            {{ item.title }}
+                          </span>
+                          <span class="text-muted-foreground text-[12px]">{{ detailsOf(item) }}</span>
+                        </span>
+                        <span class="hidden items-center gap-2 sm:flex">
+                          <Badge
+                            v-if="item.type === 'Assignment' && !item.isLocked"
+                            variant="outline"
+                            class="h-[22px] rounded-[5px]"
+                            :class="item.isCompleted
+                              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                              : ''"
+                          >
+                            {{ submissionLabel(item) }}
+                          </Badge>
+                          <span
+                            v-if="item.dueAt && !item.isLocked"
+                            class="text-[12px] whitespace-nowrap"
+                            :class="item.isCompleted
+                              ? 'text-muted-foreground'
+                              : 'font-medium text-rose-600'"
+                          >
+                            {{ dueLabel(item) }}
+                          </span>
+                        </span>
+                        <PhCaretRight class="text-muted-foreground size-4 shrink-0"/>
+                      </button>
+
+                      <Button
+                        v-if="item.canMarkDone && !item.isLocked"
+                        variant="ghost"
+                        size="icon-sm"
+                        :aria-label="item.isCompleted
+                          ? 'Ångra klarmarkering'
+                          : 'Klarmarkera'"
+                        :data-test="`${item.isCompleted
+                          ? 'undo'
+                          : 'complete'}-${item.linkId}`"
+                        :disabled="savingLinkId === item.linkId"
+                        @click.stop="setCompleted(item.linkId, !item.isCompleted)"
+                      >
+                        <PhCheckCircle v-if="item.isCompleted" class="text-emerald-600"/>
+                        <PhCircle v-else/>
+                      </Button>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              </CollapsibleContent>
+            </Collapsible>
+
+            <Item
+              v-else
+              as="section"
+              :aria-label="module.title"
+              variant="outline"
+              size="sm"
+              class="rounded-xl px-4 py-3"
+              data-test="student-module-locked"
+            >
+              <ItemMedia variant="icon" class="text-muted-foreground">
+                <PhLock/>
+              </ItemMedia>
               <span class="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span class="truncate font-sans text-[15px] font-semibold">{{ module.title }}</span>
-                <span class="text-muted-foreground text-[13px]">
-                  {{ moduleProgress(module).done }} av {{ moduleProgress(module).total }} klara
-                  <template v-if="module.description"> · {{ module.description }}</template>
-                </span>
+                <span class="text-muted-foreground text-[13px]">Veckan är låst</span>
               </span>
-              <Badge
-                v-if="moduleProgress(module).total > 0
-                  && moduleProgress(module).done === moduleProgress(module).total"
-                variant="outline"
-                class="border-emerald-200 bg-emerald-50 text-emerald-700"
-              >
-                <PhCheckCircle/>
-                Klar
+              <Badge variant="outline" class="gap-1.5">
+                <PhCalendarBlank/>
+                Öppnar {{ module.publishAt
+                  ? formatDate(module.publishAt, true)
+                  : 'senare' }}
               </Badge>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <Collapsible
-                v-for="section in sectionsFor(module)"
-                :key="section.key"
-                :default-open="section.defaultOpen"
-                as="section"
-                class="border-t first:border-t-0"
-                :aria-label="`${section.title} i ${module.title}`"
-              >
-                <CollapsibleTrigger
-                  class="group hover:bg-muted/30 flex w-full items-center gap-2 py-2 pr-4 pl-9 text-left transition-colors"
-                  :data-test="`student-section-${section.key}`"
-                >
-                  <PhCaretDown
-                    class="text-muted-foreground size-3.5 shrink-0 transition-transform duration-200 group-data-[state=closed]:-rotate-90"
-                  />
-                  <span class="text-muted-foreground min-w-0 flex-1 truncate text-[11px] font-semibold tracking-[0.08em] uppercase">
-                    {{ section.title }}
-                  </span>
-                  <span class="text-muted-foreground ml-auto text-[11px]">
-                    {{ countLabel(section.items.length) }}
-                  </span>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <p
-                    v-if="section.items.length === 0"
-                    class="text-muted-foreground border-t py-3 pr-4 pl-12 text-sm"
-                  >
-                    {{ section.empty }}
-                  </p>
-
-                  <div
-                    v-for="item in section.items"
-                    :key="item.linkId"
-                    class="hover:bg-muted/30 flex items-center gap-2 border-t py-2.5 pr-4 pl-12"
-                    :data-test="`student-part-${item.linkId}`"
-                  >
-                    <component
-                      :is="rowIcon(item)"
-                      class="size-[18px] shrink-0"
-                      :class="rowIconClass(item)"
-                      :aria-label="statusHeading(item)"
-                      role="img"
-                    />
-                    <button
-                      type="button"
-                      class="flex min-w-0 flex-1 items-center gap-3 text-left"
-                      :data-test="`student-open-${item.linkId}`"
-                      @click="openPart(item)"
-                    >
-                      <component :is="partOf(item).icon" class="text-muted-foreground size-4 shrink-0"/>
-                      <span class="flex min-w-0 flex-1 flex-col gap-0.5">
-                        <span
-                          class="truncate text-sm"
-                          :class="item.isLocked
-                            ? 'text-muted-foreground'
-                            : 'font-medium'"
-                        >
-                          {{ item.title }}
-                        </span>
-                        <span class="text-muted-foreground text-[12px]">{{ detailsOf(item) }}</span>
-                      </span>
-                      <span class="hidden items-center gap-2 sm:flex">
-                        <Badge
-                          v-if="item.type === 'Assignment' && !item.isLocked"
-                          variant="outline"
-                          class="h-[22px] rounded-[5px]"
-                          :class="item.isCompleted
-                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                            : ''"
-                        >
-                          {{ submissionLabel(item) }}
-                        </Badge>
-                        <span
-                          v-if="item.dueAt && !item.isLocked"
-                          class="text-[12px] whitespace-nowrap"
-                          :class="item.isCompleted
-                            ? 'text-muted-foreground'
-                            : 'font-medium text-rose-600'"
-                        >
-                          {{ dueLabel(item) }}
-                        </span>
-                      </span>
-                      <PhCaretRight class="text-muted-foreground size-4 shrink-0"/>
-                    </button>
-
-                    <Button
-                      v-if="item.canMarkDone && !item.isLocked"
-                      variant="ghost"
-                      size="icon-sm"
-                      :aria-label="item.isCompleted
-                        ? 'Ångra klarmarkering'
-                        : 'Klarmarkera'"
-                      :data-test="`${item.isCompleted
-                        ? 'undo'
-                        : 'complete'}-${item.linkId}`"
-                      :disabled="savingLinkId === item.linkId"
-                      @click.stop="setCompleted(item.linkId, !item.isCompleted)"
-                    >
-                      <PhCheckCircle v-if="item.isCompleted" class="text-emerald-600"/>
-                      <PhCircle v-else/>
-                    </Button>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            </CollapsibleContent>
-          </Collapsible>
+            </Item>
+          </template>
         </div>
 
         <aside class="flex flex-col gap-4">

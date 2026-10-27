@@ -16,6 +16,9 @@ public class PartCompletionRepository(AppDb db) : IPartCompletionRepository
             .Where(completion => completion.StudentId == studentId && linkIds.Contains(completion.ContentLinkId))
             .ToListAsync(ct);
 
+    public Task<bool> AnyForLinkAsync(Guid linkId, CancellationToken ct) =>
+        db.PartCompletions.AnyAsync(completion => completion.ContentLinkId == linkId, ct);
+
     public void Add(PartCompletion completion) => db.PartCompletions.Add(completion);
 
     public void Remove(PartCompletion completion) => db.PartCompletions.Remove(completion);

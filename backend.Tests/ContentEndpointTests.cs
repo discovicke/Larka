@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Backend.Application.Abstractions;
+using Backend.Domain.Entities;
 using Backend.Domain.Enums;
 using Backend.Infrastructure.Auth;
 using Backend.Infrastructure.Persistence;
@@ -29,6 +30,10 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
 
     private record LinkResponse(Guid Id, Guid ContentId, Guid? CourseId, Guid? ModuleId);
 
+    private record CreatedWithLink(ContentResponse Content, LinkResponse Link);
+
+    private record MoveResult(Guid LinkId, Guid ModuleId, int Position, List<Guid> AffectedLinkIds);
+
     private record ModuleResponse(Guid Id);
 
     private record ModuleWithContent(Guid Id, List<ModuleItem> Content);
@@ -40,7 +45,8 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
         string Status,
         DateTimeOffset PublishAt,
         DateTimeOffset? DueAt,
-        bool IsPinned);
+        bool IsPinned,
+        List<Guid> BlockedBy);
 
     [Fact]
     public async Task CreateContent_ReturnsCreated_WithPlaceholderAuthor()
@@ -60,6 +66,42 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
         var response = await _client.PostAsJsonAsync("/api/content", new { type = "meme", title = "x", bodyMd = "" });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateContentWithLink_CreatesContentAndLinkInOneRequest()
+    {
+        var courseId = await AddCourseAsync();
+        var week = await CreateModuleAsync(courseId, "Vecka 1");
+
+        var response = await _client.PostAsJsonAsync("/api/content/with-link", new
+        {
+            content = new { type = "theory", title = "Ny del", bodyMd = "Text" },
+            link = new { courseId, moduleId = week.Id }
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var created = await response.Content.ReadFromJsonAsync<CreatedWithLink>();
+        Assert.Equal("Ny del", created!.Content.Title);
+        Assert.Equal(week.Id, created.Link.ModuleId);
+        var listed = (await GetModulesAsync(courseId)).Single().Content.Single();
+        Assert.Equal(("Ny del", created.Content.Id, created.Link.Id), (listed.Title, listed.ContentId, listed.LinkId));
+    }
+
+    [Fact]
+    public async Task CreateContentWithLink_WithInvalidLink_DoesNotLeaveOrphanContent()
+    {
+        var courseId = await AddCourseAsync();
+        var before = await CountContentAsync();
+
+        var response = await _client.PostAsJsonAsync("/api/content/with-link", new
+        {
+            content = new { type = "theory", title = "Ska inte sparas", bodyMd = "" },
+            link = new { courseId, moduleId = Guid.NewGuid() }
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(before, await CountContentAsync());
     }
 
     [Fact]
@@ -118,6 +160,29 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
         var feed = await _client.GetFromJsonAsync<List<FeedItem>>($"/api/groups/{groupId}/content");
 
         Assert.DoesNotContain(feed!, item => item.ContentId == draft.Id);
+    }
+
+    [Fact]
+    public async Task FutureWeek_KeepsItsContentOutOfTheFeedUntilItOpens()
+    {
+        var (groupId, courseId) = await AddGroupWithCourseAsync();
+        var publishAt = new DateTimeOffset(2099, 1, 5, 8, 0, 0, TimeSpan.Zero);
+        var weekResponse = await _client.PostAsJsonAsync(
+            $"/api/courses/{courseId}/modules", new { title = "Framtiden", publishAt });
+        var week = (await weekResponse.Content.ReadFromJsonAsync<ModuleResponse>())!;
+        var news = await CreateAsync("news", "Nyhet i framtiden");
+        await _client.PostAsJsonAsync(
+            $"/api/content/{news.Id}/links", new { courseId, moduleId = week.Id });
+
+        var before = await _client.GetFromJsonAsync<List<FeedItem>>($"/api/groups/{groupId}/content");
+        Assert.DoesNotContain(before!, item => item.ContentId == news.Id);
+
+        await _client.PutAsJsonAsync(
+            $"/api/courses/{courseId}/modules/{week.Id}",
+            new { title = "Framtiden", description = "", publishAt = (DateTimeOffset?)null });
+        var after = await _client.GetFromJsonAsync<List<FeedItem>>($"/api/groups/{groupId}/content");
+
+        Assert.Contains(after!, item => item.ContentId == news.Id);
     }
 
     [Fact]
@@ -300,6 +365,95 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
             $"/api/content/{second.Id}/links/{link.Id}", new { publishAt = DateTimeOffset.UtcNow });
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task MoveLink_KeepsLinkAndDeadline_AndRemovesDependencies()
+    {
+        var courseId = await AddCourseAsync();
+        var source = await CreateModuleAsync(courseId, "Vecka 1");
+        var target = await CreateModuleAsync(courseId, "Vecka 2");
+        var first = await CreateTheoryAsync("Första");
+        var moved = await CreateAssignmentAsync("Flyttad", submissionModes: ["text"]);
+        var last = await CreateTheoryAsync("Sista");
+        var targetContent = await CreateTheoryAsync("Befintlig");
+        var firstLink = await LinkToModuleAsync(first.Id, courseId, source.Id);
+        var dueAt = new DateTimeOffset(2027, 3, 1, 17, 0, 0, TimeSpan.Zero);
+        var movedResponse = await _client.PostAsJsonAsync(
+            $"/api/content/{moved.Id}/links", new { courseId, moduleId = source.Id, dueAt });
+        var movedLink = (await movedResponse.Content.ReadFromJsonAsync<LinkResponse>())!;
+        var lastLink = await LinkToModuleAsync(last.Id, courseId, source.Id);
+        await LinkToModuleAsync(targetContent.Id, courseId, target.Id);
+        await SaveRoadmapAsync(courseId, source.Id,
+            (firstLink.Id, []),
+            (movedLink.Id, [firstLink.Id]),
+            (lastLink.Id, [movedLink.Id]));
+
+        var response = await _client.PutAsJsonAsync(
+            $"/api/content/{moved.Id}/links/{movedLink.Id}/module", new { moduleId = target.Id });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var result = (await response.Content.ReadFromJsonAsync<MoveResult>())!;
+        Assert.Equal((movedLink.Id, target.Id), (result.LinkId, result.ModuleId));
+        Assert.Contains(firstLink.Id, result.AffectedLinkIds);
+        Assert.Contains(lastLink.Id, result.AffectedLinkIds);
+
+        var modules = await GetModulesAsync(courseId);
+        var sourceContent = modules.Single(module => module.Id == source.Id).Content;
+        var targetWeek = modules.Single(module => module.Id == target.Id).Content;
+        Assert.Equal(["Första", "Sista"], sourceContent.Select(item => item.Title));
+        Assert.Equal(["Befintlig", "Flyttad"], targetWeek.Select(item => item.Title));
+        var movedItem = targetWeek.Single(item => item.ContentId == moved.Id);
+        Assert.Equal((movedLink.Id, dueAt), (movedItem.LinkId, movedItem.DueAt));
+        Assert.All(sourceContent.Concat(targetWeek), item => Assert.Empty(item.BlockedBy));
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        Assert.Equal(0, await db.ContentLinkDependencies.CountAsync());
+    }
+
+    [Fact]
+    public async Task MoveLink_WithStudentActivity_ReturnsConflict()
+    {
+        var courseId = await AddCourseAsync();
+        var source = await CreateModuleAsync(courseId, "Vecka 1");
+        var target = await CreateModuleAsync(courseId, "Vecka 2");
+        var content = await CreateTheoryAsync("Teori");
+        var link = await LinkToModuleAsync(content.Id, courseId, source.Id);
+        var (_, studentId) = await AddGroupWithStudentAsync();
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            db.PartCompletions.Add(new PartCompletion
+            {
+                ContentLinkId = link.Id,
+                StudentId = studentId
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.PutAsJsonAsync(
+            $"/api/content/{content.Id}/links/{link.Id}/module", new { moduleId = target.Id });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        var modules = await GetModulesAsync(courseId);
+        Assert.Equal(["Teori"], modules.Single(module => module.Id == source.Id).Content.Select(item => item.Title));
+        Assert.Empty(modules.Single(module => module.Id == target.Id).Content);
+    }
+
+    [Fact]
+    public async Task MoveLink_ToModuleOfAnotherCourse_ReturnsBadRequest()
+    {
+        var courseId = await AddCourseAsync();
+        var source = await CreateModuleAsync(courseId, "Vecka 1");
+        var otherWeek = await CreateModuleAsync(await AddCourseAsync(), "Annan kurs");
+        var content = await CreateTheoryAsync("Teori");
+        var link = await LinkToModuleAsync(content.Id, courseId, source.Id);
+
+        var response = await _client.PutAsJsonAsync(
+            $"/api/content/{content.Id}/links/{link.Id}/module", new { moduleId = otherWeek.Id });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]
@@ -530,6 +684,30 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
         return await db.Submissions.CountAsync(submission => submission.ContentLinkId == linkId);
+    }
+
+    private async Task<int> CountContentAsync()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        return await db.Content.CountAsync();
+    }
+
+    private async Task SaveRoadmapAsync(
+        Guid courseId, Guid moduleId, params (Guid LinkId, Guid[] BlockedBy)[] links)
+    {
+        var response = await _client.PutAsJsonAsync(
+            $"/api/courses/{courseId}/modules/{moduleId}/roadmap",
+            new
+            {
+                links = links.Select(link => new
+                {
+                    linkId = link.LinkId,
+                    blockedByLinkIds = link.BlockedBy,
+                    completionRule = (string?)null
+                })
+            });
+        response.EnsureSuccessStatusCode();
     }
 
     private async Task UploadAttachmentAsync(Guid contentId)

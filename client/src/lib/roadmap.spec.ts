@@ -41,6 +41,7 @@ describe('roadmap', () => {
       dueAt: null,
       isPinned: false,
       blockedBy: [],
+      hasStudentActivity: false,
     }
 
     expect(nodeOf(part).blockedBy).toEqual([])

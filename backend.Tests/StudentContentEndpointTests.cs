@@ -37,7 +37,13 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
         string? SubmissionStatus,
         string? GradeLevel);
 
-    private record ModuleWithContent(Guid Id, string Title, int Position, List<ItemResponse> Content);
+    private record ModuleWithContent(
+        Guid Id,
+        string Title,
+        int Position,
+        DateTimeOffset? PublishAt,
+        bool IsAvailable,
+        List<ItemResponse> Content);
 
     [Fact]
     public async Task StudentModules_ShowAvailableAndLockedParts_AndHideUnpublished()
@@ -70,6 +76,24 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
         Assert.False(locked.CanMarkDone);
         var blocker = Assert.Single(locked.BlockedBy);
         Assert.Equal(("Teori A", false), (blocker.Title, blocker.IsSatisfied));
+    }
+
+    [Fact]
+    public async Task FutureWeek_IsAShellWithoutContent_AndCannotBeCompleted()
+    {
+        var setup = await AddCourseWithGroupAsync();
+        var publishAt = "2099-01-05T08:00:00Z";
+        var week = await CreateModuleAsync(setup.CourseId, publishAt);
+        var theory = await LinkTheoryAsync(setup.CourseId, week.Id, "Hemlig teori");
+
+        var module = Assert.Single(await GetStudentModulesAsync(setup, setup.StudentIds[0]));
+        Assert.False(module.IsAvailable);
+        Assert.Equal(DateTimeOffset.Parse(publishAt), module.PublishAt);
+        Assert.Empty(module.Content);
+
+        var response = await SetCompletionAsync(setup, setup.StudentIds[0], theory, true);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Fact]
@@ -289,14 +313,13 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     }
 
     [Fact]
-    public async Task DeletingAPart_RemovesItsDependenciesAndCompletions()
+    public async Task DeletingAPart_RemovesItsDependencies()
     {
         var setup = await AddCourseWithGroupAsync();
         var week = await CreateModuleAsync(setup.CourseId);
         var first = await LinkTheoryAsync(setup.CourseId, week.Id, "Teori A");
         var second = await LinkTheoryAsync(setup.CourseId, week.Id, "Teori B");
         await SaveRoadmapAsync(setup.CourseId, week.Id, (first, []), (second, [first]));
-        await SetCompletionAsync(setup, setup.StudentIds[0], first, true);
 
         Guid contentId;
         using (var scope = factory.Services.CreateScope())
@@ -313,6 +336,27 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
         Assert.Equal(second, remaining.LinkId);
         Assert.False(remaining.IsLocked);
         Assert.Empty(remaining.BlockedBy);
+    }
+
+    [Fact]
+    public async Task DeletingAPart_WithACompletion_ReturnsConflict()
+    {
+        var setup = await AddCourseWithGroupAsync();
+        var week = await CreateModuleAsync(setup.CourseId);
+        var first = await LinkTheoryAsync(setup.CourseId, week.Id, "Teori A");
+        await SetCompletionAsync(setup, setup.StudentIds[0], first, true);
+
+        Guid contentId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            contentId = (await db.ContentLinks.FindAsync(first))!.ContentId;
+        }
+
+        var deleted = await _client.DeleteAsync($"/api/content/{contentId}/links/{first}");
+
+        Assert.Equal(HttpStatusCode.Conflict, deleted.StatusCode);
+        Assert.Single((await GetStudentModulesAsync(setup, setup.StudentIds[0])).Single().Content);
     }
 
     private async Task<List<ModuleWithContent>> GetStudentModulesAsync(Setup setup, Guid studentId)
@@ -388,9 +432,10 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
         return new Setup(course.Id, group.Id, studentIds);
     }
 
-    private async Task<ModuleResponse> CreateModuleAsync(Guid courseId)
+    private async Task<ModuleResponse> CreateModuleAsync(Guid courseId, string? publishAt = null)
     {
-        var response = await _client.PostAsJsonAsync($"/api/courses/{courseId}/modules", new { title = "Vecka 1" });
+        var response = await _client.PostAsJsonAsync(
+            $"/api/courses/{courseId}/modules", new { title = "Vecka 1", publishAt });
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<ModuleResponse>())!;
     }

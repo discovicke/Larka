@@ -98,8 +98,18 @@ const completed: StudentItem = {
   isCompleted: true,
 }
 
-function week(content: StudentItem[]) {
-  return {id: 'm1', courseId: 'c1', title: 'Vecka 1', description: 'Första veckan', position: 1, content}
+function week(content: StudentItem[], overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'm1',
+    courseId: 'c1',
+    title: 'Vecka 1',
+    description: 'Första veckan',
+    position: 1,
+    publishAt: null,
+    isAvailable: true,
+    content,
+    ...overrides,
+  }
 }
 
 function backend(content: StudentItem[]) {
@@ -252,5 +262,69 @@ describe('StudentCourseContentView', () => {
     expect(wrapper.text()).toContain('Godkänd (G)')
     expect(wrapper.find('[data-test="complete-l3"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="complete-l4"]').exists()).toBe(false)
+  })
+
+  it('visar en framtida vecka som ett låst skal utan innehåll', async () => {
+    const future = week([theory], {
+      id: 'm2',
+      title: 'Vecka 2',
+      description: 'Hemlig beskrivning',
+      position: 2,
+      publishAt: '2026-11-03T08:00:00Z',
+      isAvailable: false,
+    })
+    mockApi((_method, path) => {
+      if (path === '/api/groups') {
+        return {status: 200, body: [group]}
+      }
+      if (path === '/api/courses') {
+        return {status: 200, body: [course]}
+      }
+      if (path === '/api/groups/g1/courses/c1/modules') {
+        return {status: 200, body: [week([theory]), future]}
+      }
+      return {status: 200, body: []}
+    })
+
+    const {wrapper} = await renderApp('/dev/student')
+
+    const shell = wrapper.find('[data-test="student-module-locked"]')
+    expect(shell.exists()).toBe(true)
+    expect(shell.text()).toContain('Vecka 2')
+    expect(shell.text()).toContain('Öppnar')
+    expect(shell.text()).not.toContain('Hemlig beskrivning')
+    expect(shell.text()).not.toContain('Läs kapitel 1')
+    expect(wrapper.find('[data-test="student-part-l1"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('1 delar')
+    expect(wrapper.text()).toContain('0 av 1 klara')
+  })
+
+  it('döljer framtida veckor när eleven filtrerar', async () => {
+    const future = week([], {
+      id: 'm2',
+      title: 'Vecka 2',
+      position: 2,
+      publishAt: '2026-11-03T08:00:00Z',
+      isAvailable: false,
+    })
+    mockApi((_method, path) => {
+      if (path === '/api/groups') {
+        return {status: 200, body: [group]}
+      }
+      if (path === '/api/courses') {
+        return {status: 200, body: [course]}
+      }
+      if (path === '/api/groups/g1/courses/c1/modules') {
+        return {status: 200, body: [week([theory]), future]}
+      }
+      return {status: 200, body: []}
+    })
+
+    const {wrapper} = await renderApp('/dev/student')
+    await wrapper.find('[data-test="student-filter-todo"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="student-module-locked"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="student-part-l1"]').exists()).toBe(true)
   })
 })

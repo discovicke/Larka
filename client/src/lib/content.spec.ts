@@ -1,0 +1,65 @@
+import {describe, expect, it} from 'vitest'
+
+import {weekPublishState} from '@/lib/content'
+
+const now = new Date('2026-10-27T12:00:00Z')
+
+function part(status: 'Draft' | 'Published', publishAt: string) {
+  return {status, publishAt}
+}
+
+describe('weekPublishState', () => {
+  it('visar veckans datum före delarnas status', () => {
+    const state = weekPublishState({
+      publishAt: '2026-11-03T08:00:00Z',
+      content: [part('Published', '2026-10-01T08:00:00Z')],
+    }, now)
+
+    expect(state).toMatchObject({kind: 'scheduled'})
+    expect(state?.label).toContain('Publiceras')
+  })
+
+  it('visar publicerad när alla delar är live', () => {
+    expect(weekPublishState({
+      publishAt: null,
+      content: [
+        part('Published', '2026-10-01T08:00:00Z'),
+        part('Published', '2026-10-02T08:00:00Z'),
+      ],
+    }, now)).toMatchObject({label: 'Publicerad'})
+  })
+
+  it('visar delvis publicerad när bara några delar är live', () => {
+    expect(weekPublishState({
+      publishAt: null,
+      content: [
+        part('Published', '2026-10-01T08:00:00Z'),
+        part('Draft', '2026-10-02T08:00:00Z'),
+      ],
+    }, now)).toMatchObject({label: 'Delvis publicerad'})
+  })
+
+  it('visar nästa publiceringsdatum när ingen del är live', () => {
+    const state = weekPublishState({
+      publishAt: null,
+      content: [
+        part('Published', '2026-11-03T08:00:00Z'),
+        part('Published', '2026-11-05T08:00:00Z'),
+      ],
+    }, now)
+
+    expect(state).toMatchObject({kind: 'scheduled'})
+    expect(state?.label).toContain('Publiceras')
+  })
+
+  it('visar utkast när alla delar är utkast', () => {
+    expect(weekPublishState({
+      publishAt: null,
+      content: [part('Draft', '2026-10-01T08:00:00Z')],
+    }, now)).toMatchObject({label: 'Utkast'})
+  })
+
+  it('visar ingen badge för en tom vecka utan datum', () => {
+    expect(weekPublishState({publishAt: null, content: []}, now)).toBeNull()
+  })
+})

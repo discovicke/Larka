@@ -13,10 +13,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import {Field, FieldGroup, FieldLabel} from '@/components/ui/field'
+import {Field, FieldDescription, FieldGroup, FieldLabel} from '@/components/ui/field'
 import {Input} from '@/components/ui/input'
 import {api, errorMessage} from '@/lib/api'
-import {orNull} from '@/lib/form'
+import {isoOrNull, orNull} from '@/lib/form'
 
 const props = defineProps<{courseId: string}>()
 const emit = defineEmits<{created: []}>()
@@ -24,7 +24,7 @@ const emit = defineEmits<{created: []}>()
 const open = ref(false)
 const saving = ref(false)
 const error = ref('')
-const form = reactive({title: '', description: ''})
+const form = reactive({title: '', description: '', publishAt: ''})
 
 async function save() {
   saving.value = true
@@ -32,9 +32,13 @@ async function save() {
   try {
     await api.POST('/api/courses/{id}/modules', {
       params: {path: {id: props.courseId}},
-      body: {title: form.title, description: orNull(form.description)},
+      body: {
+        title: form.title,
+        description: orNull(form.description),
+        publishAt: isoOrNull(form.publishAt),
+      },
     })
-    Object.assign(form, {title: '', description: ''})
+    Object.assign(form, {title: '', description: '', publishAt: ''})
     open.value = false
     emit('created')
   } catch (exception) {
@@ -76,6 +80,19 @@ async function save() {
               v-model="form.description"
               placeholder="Utbildningsdagar: måndag, tisdag."
             />
+          </Field>
+          <Field>
+            <FieldLabel for="module-publish-at">Veckan öppnar</FieldLabel>
+            <Input
+              id="module-publish-at"
+              v-model="form.publishAt"
+              type="datetime-local"
+              data-test="module-publish-at"
+            />
+            <FieldDescription>
+              Tomt = veckan är öppen direkt. Du kan schemalägga veckan redan nu och fylla på
+              delar senare.
+            </FieldDescription>
           </Field>
         </FieldGroup>
         <Alert v-if="error" variant="destructive">

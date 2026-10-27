@@ -179,6 +179,11 @@ public class ContentRepository(AppDb db) : IContentRepository
         var query = from link in links
                     join content in db.Content on link.ContentId equals content.Id
                     where content.Status == ContentStatus.Published && link.PublishAt <= now
+                    // Veckans datum gäller även flödena, så att en nyhet i en framtida vecka inte läcker.
+                    where link.ModuleId == null
+                        || !db.Modules.Any(module => module.Id == link.ModuleId
+                            && module.PublishAt != null
+                            && module.PublishAt > now)
                     select new { Link = link, Content = content };
         if (type is not null)
         {

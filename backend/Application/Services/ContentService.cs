@@ -11,6 +11,7 @@ namespace Backend.Application.Services;
 public class ContentService(
     IContentRepository contents,
     ISubmissionRepository submissionRepository,
+    IPartCompletionRepository completions,
     IGroupRepository groups,
     IModuleRepository modules,
     SubmissionService submissions,
@@ -31,45 +32,46 @@ public class ContentService(
     // Typ, status och läge är enums i DTO:n, så okända värden stoppas redan när JSON läses in (400).
     public async Task<ValidationResult<ContentDto>> CreateAsync(CreateContentDto dto, CancellationToken ct)
     {
-        var type = dto.Type;
-        var status = dto.Status ?? ContentStatus.Published;
-
-        if (string.IsNullOrWhiteSpace(dto.Title))
+        var built = BuildContent(dto);
+        if (built.Error is not null)
         {
-            return ValidationResult<ContentDto>.Invalid("title is required");
+            return ValidationResult<ContentDto>.Invalid(built.Error);
         }
 
-        var fieldError = CheckAssignmentFields(type, dto.GradeScale, dto.SubmissionModes, dto.TemplateRepo);
-        if (fieldError is not null)
-        {
-            return ValidationResult<ContentDto>.Invalid(fieldError);
-        }
-
-        var modes = (dto.SubmissionModes ?? []).Distinct().ToList();
-        var scale = dto.GradeScale ?? GradeScale.None;
-
-        var content = new Content
-        {
-            AuthorId = currentUser.UserId,
-            Type = type,
-            Title = dto.Title.Trim(),
-            BodyMd = dto.BodyMd,
-            Status = status
-        };
-        if (type == ContentType.Assignment)
-        {
-            content.Assignment = new AssignmentSpec
-            {
-                ContentId = content.Id,
-                GradeScale = scale,
-                SubmissionModes = modes,
-                TemplateRepo = dto.TemplateRepo
-            };
-        }
-
+        var content = built.Value!;
         contents.Add(content);
         await unitOfWork.SaveChangesAsync(ct);
         return ValidationResult<ContentDto>.Ok(ContentDto.From(content));
+    }
+
+    // Innehåll och länk skapas tillsammans. Ett enda SaveChanges gör att ett fel i länken inte lämnar
+    // ett content utan länk, och att utdelningen av uppgifter hamnar i samma transaktion.
+    public async Task<ValidationResult<CreatedContentWithLinkDto>> CreateWithLinkAsync(
+        CreateContentWithLinkDto dto, CancellationToken ct)
+    {
+        if (dto.Content is null || dto.Link is null)
+        {
+            return ValidationResult<CreatedContentWithLinkDto>.Invalid("content and link are required");
+        }
+
+        var built = BuildContent(dto.Content);
+        if (built.Error is not null)
+        {
+            return ValidationResult<CreatedContentWithLinkDto>.Invalid(built.Error);
+        }
+
+        var content = built.Value!;
+        var linkError = await CheckLinkAsync(content, dto.Link, ct);
+        if (linkError is not null)
+        {
+            return ValidationResult<CreatedContentWithLinkDto>.Invalid(linkError);
+        }
+
+        contents.Add(content);
+        var link = await AddLinkCoreAsync(content, dto.Link, ct);
+        await unitOfWork.SaveChangesAsync(ct);
+        return ValidationResult<CreatedContentWithLinkDto>.Ok(
+            new CreatedContentWithLinkDto(ContentDto.From(content), ContentLinkDto.From(link)));
     }
 
     public async Task<ServiceResult<ContentLinkDto>> AddLinkAsync(
@@ -81,57 +83,88 @@ public class ContentService(
             return ServiceResult<ContentLinkDto>.NotFound("content not found");
         }
 
-        if (dto.GroupId is null && dto.CourseId is null)
+        var linkError = await CheckLinkAsync(content, dto, ct);
+        if (linkError is not null)
         {
-            return ServiceResult<ContentLinkDto>.Invalid("groupId or courseId is required");
+            return ServiceResult<ContentLinkDto>.Invalid(linkError);
         }
 
-        if (dto.GroupId is not null && !await groups.ExistsAsync(dto.GroupId.Value, ct))
-        {
-            return ServiceResult<ContentLinkDto>.Invalid("group does not exist");
-        }
-
-        if (dto.CourseId is not null && !await groups.CourseExistsAsync(dto.CourseId.Value, ct))
-        {
-            return ServiceResult<ContentLinkDto>.Invalid("course does not exist");
-        }
-
-        var linksGroupAndCourse = dto.GroupId is not null && dto.CourseId is not null;
-        if (linksGroupAndCourse && !await groups.ReadsCourseAsync(dto.GroupId!.Value, dto.CourseId!.Value, ct))
-        {
-            return ServiceResult<ContentLinkDto>.Invalid("group does not read this course");
-        }
-
-        var moduleError = await CheckModuleAsync(dto.ModuleId, dto.CourseId, ct);
-        if (moduleError is not null)
-        {
-            return ServiceResult<ContentLinkDto>.Invalid(moduleError);
-        }
-
-        if (dto.DueAt is not null && content.Type != ContentType.Assignment)
-        {
-            return ServiceResult<ContentLinkDto>.Invalid("dueAt is only allowed on assignments");
-        }
-
-        var position = dto.ModuleId is null
-            ? 0
-            : await contents.GetNextLinkPositionAsync(dto.ModuleId.Value, ct);
-
-        var link = new ContentLink
-        {
-            ContentId = contentId,
-            GroupId = dto.GroupId,
-            CourseId = dto.CourseId,
-            ModuleId = dto.ModuleId,
-            Position = position,
-            PublishAt = dto.PublishAt ?? time.GetUtcNow(),
-            DueAt = dto.DueAt,
-            IsPinned = dto.IsPinned
-        };
-        contents.AddLink(link);
-        await submissions.HandOutAsync(link, content, ct);
+        var link = await AddLinkCoreAsync(content, dto, ct);
         await unitOfWork.SaveChangesAsync(ct);
         return ServiceResult<ContentLinkDto>.Ok(ContentLinkDto.From(link));
+    }
+
+    /// <summary>
+    /// Flyttar en del till en annan vecka i samma kurs. Länken behåller id och deadline.
+    /// Beroenden tas bort eftersom de bara gäller inom en vecka.
+    /// </summary>
+    public async Task<ServiceResult<MoveContentLinkResultDto>> MoveLinkAsync(
+        Guid contentId, Guid linkId, MoveContentLinkDto dto, CancellationToken ct)
+    {
+        var linked = await contents.GetLinkWithContentAsync(contentId, linkId, ct);
+        if (linked is null)
+        {
+            return ServiceResult<MoveContentLinkResultDto>.NotFound("link not found");
+        }
+
+        var link = linked.Link;
+        if (link.ModuleId is null || link.CourseId is null)
+        {
+            return ServiceResult<MoveContentLinkResultDto>.Invalid("link is not in a week");
+        }
+
+        var sourceModule = await modules.GetAsync(link.ModuleId.Value, ct);
+        var targetModule = await modules.GetAsync(dto.ModuleId, ct);
+        if (sourceModule is null || targetModule is null)
+        {
+            return ServiceResult<MoveContentLinkResultDto>.Invalid("module not found");
+        }
+
+        if (targetModule.CourseId != link.CourseId)
+        {
+            return ServiceResult<MoveContentLinkResultDto>.Invalid("module does not belong to the course");
+        }
+
+        if (targetModule.Id == sourceModule.Id)
+        {
+            return ServiceResult<MoveContentLinkResultDto>.Invalid("link is already in that module");
+        }
+
+        var linkSubmissions = await submissionRepository.GetByLinkAsync(link.Id, ct);
+        if (linkSubmissions.Any(StudentWorkPolicy.HasStudentActivity)
+            || await completions.AnyForLinkAsync(link.Id, ct))
+        {
+            return ServiceResult<MoveContentLinkResultDto>.Conflict(
+                "the part has student activity and cannot be moved");
+        }
+
+        var dependencies = await contents.GetDependenciesForCourseAsync(link.CourseId.Value, ct);
+        var affected = dependencies
+            .Where(dependency => dependency.BlockedLinkId == link.Id || dependency.BlockingLinkId == link.Id)
+            .ToList();
+        var affectedLinkIds = affected
+            .SelectMany(dependency => new[] { dependency.BlockedLinkId, dependency.BlockingLinkId })
+            .Where(affectedId => affectedId != link.Id)
+            .Distinct()
+            .ToList();
+        contents.RemoveDependencies(affected);
+
+        var sourceLinks = await contents.GetLinksForModuleAsync(sourceModule.Id, ct);
+        var remaining = sourceLinks
+            .Where(sourceLink => sourceLink.Id != link.Id)
+            .OrderBy(sourceLink => sourceLink.Position)
+            .ToList();
+        for (var i = 0; i < remaining.Count; i++)
+        {
+            remaining[i].Position = i + 1;
+        }
+
+        link.ModuleId = targetModule.Id;
+        link.Position = await contents.GetNextLinkPositionAsync(targetModule.Id, ct);
+        await unitOfWork.SaveChangesAsync(ct);
+
+        return ServiceResult<MoveContentLinkResultDto>.Ok(
+            new MoveContentLinkResultDto(link.Id, targetModule.Id, link.Position, affectedLinkIds));
     }
 
     /// <summary>Returnerar null om innehållet inte finns.</summary>
@@ -266,13 +299,14 @@ public class ContentService(
             return ServiceResult<bool>.NotFound("link not found");
         }
 
-        if (IsPublishedGradedAssignment(linked.Content))
+        if (StudentWorkPolicy.IsPublishedGradedAssignment(linked.Content))
         {
             return ServiceResult<bool>.Conflict("unpublish the assignment before deleting it");
         }
 
         var linkSubmissions = await submissionRepository.GetByLinkAsync(linkId, ct);
-        if (linkSubmissions.Any(HasStudentActivity))
+        if (linkSubmissions.Any(StudentWorkPolicy.HasStudentActivity)
+            || await completions.AnyForLinkAsync(linkId, ct))
         {
             return ServiceResult<bool>.Conflict(
                 "the part has student activity, files or a repository and cannot be deleted");
@@ -414,6 +448,105 @@ public class ContentService(
         return true;
     }
 
+    private ValidationResult<Content> BuildContent(CreateContentDto dto)
+    {
+        var type = dto.Type;
+        var status = dto.Status ?? ContentStatus.Published;
+
+        if (string.IsNullOrWhiteSpace(dto.Title))
+        {
+            return ValidationResult<Content>.Invalid("title is required");
+        }
+
+        var fieldError = CheckAssignmentFields(type, dto.GradeScale, dto.SubmissionModes, dto.TemplateRepo);
+        if (fieldError is not null)
+        {
+            return ValidationResult<Content>.Invalid(fieldError);
+        }
+
+        var modes = (dto.SubmissionModes ?? []).Distinct().ToList();
+        var scale = dto.GradeScale ?? GradeScale.None;
+
+        var content = new Content
+        {
+            AuthorId = currentUser.UserId,
+            Type = type,
+            Title = dto.Title.Trim(),
+            BodyMd = dto.BodyMd,
+            Status = status
+        };
+        if (type == ContentType.Assignment)
+        {
+            content.Assignment = new AssignmentSpec
+            {
+                ContentId = content.Id,
+                GradeScale = scale,
+                SubmissionModes = modes,
+                TemplateRepo = dto.TemplateRepo
+            };
+        }
+
+        return ValidationResult<Content>.Ok(content);
+    }
+
+    private async Task<string?> CheckLinkAsync(
+        Content content, CreateContentLinkDto dto, CancellationToken ct)
+    {
+        if (dto.GroupId is null && dto.CourseId is null)
+        {
+            return "groupId or courseId is required";
+        }
+
+        if (dto.GroupId is not null && !await groups.ExistsAsync(dto.GroupId.Value, ct))
+        {
+            return "group does not exist";
+        }
+
+        if (dto.CourseId is not null && !await groups.CourseExistsAsync(dto.CourseId.Value, ct))
+        {
+            return "course does not exist";
+        }
+
+        var linksGroupAndCourse = dto.GroupId is not null && dto.CourseId is not null;
+        if (linksGroupAndCourse && !await groups.ReadsCourseAsync(dto.GroupId!.Value, dto.CourseId!.Value, ct))
+        {
+            return "group does not read this course";
+        }
+
+        var moduleError = await CheckModuleAsync(dto.ModuleId, dto.CourseId, ct);
+        if (moduleError is not null)
+        {
+            return moduleError;
+        }
+
+        return dto.DueAt is not null && content.Type != ContentType.Assignment
+            ? "dueAt is only allowed on assignments"
+            : null;
+    }
+
+    private async Task<ContentLink> AddLinkCoreAsync(
+        Content content, CreateContentLinkDto dto, CancellationToken ct)
+    {
+        var position = dto.ModuleId is null
+            ? 0
+            : await contents.GetNextLinkPositionAsync(dto.ModuleId.Value, ct);
+
+        var link = new ContentLink
+        {
+            ContentId = content.Id,
+            GroupId = dto.GroupId,
+            CourseId = dto.CourseId,
+            ModuleId = dto.ModuleId,
+            Position = position,
+            PublishAt = dto.PublishAt ?? time.GetUtcNow(),
+            DueAt = dto.DueAt,
+            IsPinned = dto.IsPinned
+        };
+        contents.AddLink(link);
+        await submissions.HandOutAsync(link, content, ct);
+        return link;
+    }
+
     private static string? CheckAssignmentFields(
         ContentType type, GradeScale? gradeScale, List<SubmissionMode>? modes, string? templateRepo)
     {
@@ -433,25 +566,6 @@ public class ContentService(
             ? "templateRepo must look like org/name"
             : null;
     }
-
-    // En publicerad inlämning (uppgift med betygsskala) får inte raderas innan den avpublicerats.
-    private static bool IsPublishedGradedAssignment(Content content)
-    {
-        if (content.Type != ContentType.Assignment || content.Status != ContentStatus.Published)
-        {
-            return false;
-        }
-
-        return content.Assignment is not null && content.Assignment.GradeScale != GradeScale.None;
-    }
-
-    // NotStarted-rader skapas när uppgiften delas ut och är inget elevarbete. Repo, filer och betyg är det.
-    private static bool HasStudentActivity(Submission submission) =>
-        submission.Status != SubmissionStatus.NotStarted
-        || submission.SubmittedAt is not null
-        || submission.Files.Count > 0
-        || submission.Repo is not null
-        || submission.Grade is not null;
 
     private async Task DeleteStorageFileQuietlyAsync(string key)
     {

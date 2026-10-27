@@ -17,6 +17,11 @@ public static class ContentEndpoints
             (await service.CreateAsync(contentDto, ct)).ToHttp(content =>
                 TypedResults.Created($"/api/content/{content.Id}", content)));
 
+        contentGroup.MapPost("/with-link", async (
+            CreateContentWithLinkDto dto, ContentService service, CancellationToken ct) =>
+            (await service.CreateWithLinkAsync(dto, ct)).ToHttp(created =>
+                TypedResults.Created($"/api/content/{created.Content.Id}", created)));
+
         contentGroup.MapGet("/{id:guid}", async Task<Results<Ok<ContentDto>, NotFound>> (
             Guid id, ContentService service, CancellationToken ct) =>
         {
@@ -47,6 +52,10 @@ public static class ContentEndpoints
         contentGroup.MapPut("/{id:guid}/links/{linkId:guid}", async (
             Guid id, Guid linkId, UpdateContentLinkDto linkDto, ContentService service, CancellationToken ct) =>
             (await service.UpdateLinkAsync(id, linkId, linkDto, ct)).ToHttp(TypedResults.Ok));
+
+        contentGroup.MapPut("/{id:guid}/links/{linkId:guid}/module", async (
+            Guid id, Guid linkId, MoveContentLinkDto moveDto, ContentService service, CancellationToken ct) =>
+            (await service.MoveLinkAsync(id, linkId, moveDto, ct)).ToHttp(TypedResults.Ok));
 
         contentGroup.MapDelete("/{id:guid}/links/{linkId:guid}", async (
             Guid id, Guid linkId, ContentService service, CancellationToken ct) =>

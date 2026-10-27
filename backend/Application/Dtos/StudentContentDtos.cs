@@ -15,6 +15,8 @@ public record StudentModuleWithContentDto(
     string Title,
     string Description,
     int Position,
+    DateTimeOffset? PublishAt,
+    bool IsAvailable,
     List<StudentContentItem> Content);
 
 /// <summary>

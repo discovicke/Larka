@@ -168,8 +168,7 @@ async function save(status: Schema<'ContentStatus'> = 'Published') {
       })
     } else {
       const {content, link} = toRequests(form, status, {courseId, moduleId})
-      const {data: created} = await api.POST('/api/content', {body: content})
-      await api.POST('/api/content/{id}/links', {params: {path: {id: created!.id}}, body: link})
+      await api.POST('/api/content/with-link', {body: {content, link}})
     }
 
     await router.push(backToCourse)

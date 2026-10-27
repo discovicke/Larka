@@ -5,7 +5,9 @@ namespace Backend.Application.Dtos;
 
 // --- requests ---
 
-public record CreateModuleDto(string Title, string? Description = null);
+public record CreateModuleDto(string Title, string? Description = null, DateTimeOffset? PublishAt = null);
+
+public record UpdateModuleDto(string Title, string? Description = null, DateTimeOffset? PublishAt = null);
 
 // Alla kursens moduler i den nya ordningen, var och en exakt en gång.
 public record ReorderModulesDto(List<Guid> ModuleIds);
@@ -24,10 +26,16 @@ public record RoadmapLinkDto(
 
 // --- responses ---
 
-public record ModuleDto(Guid Id, Guid CourseId, string Title, string Description, int Position)
+public record ModuleDto(
+    Guid Id,
+    Guid CourseId,
+    string Title,
+    string Description,
+    int Position,
+    DateTimeOffset? PublishAt)
 {
     public static ModuleDto From(Module module) =>
-        new(module.Id, module.CourseId, module.Title, module.Description, module.Position);
+        new(module.Id, module.CourseId, module.Title, module.Description, module.Position, module.PublishAt);
 }
 
 /// <summary>En modul med innehållet som ligger i den, i den ordning det publiceras.</summary>
@@ -37,10 +45,11 @@ public record ModuleWithContentDto(
     string Title,
     string Description,
     int Position,
+    DateTimeOffset? PublishAt,
     List<ModuleContentItem> Content)
 {
     public static ModuleWithContentDto From(Module module, List<ModuleContentItem> content) =>
-        new(module.Id, module.CourseId, module.Title, module.Description, module.Position, content);
+        new(module.Id, module.CourseId, module.Title, module.Description, module.Position, module.PublishAt, content);
 }
 
 /// <summary>
@@ -59,4 +68,5 @@ public record ModuleContentItem(
     DateTimeOffset PublishAt,
     DateTimeOffset? DueAt,
     bool IsPinned,
-    List<Guid> BlockedBy);
+    List<Guid> BlockedBy,
+    bool HasStudentActivity);

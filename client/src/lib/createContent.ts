@@ -55,7 +55,7 @@ export function validate(form: ContentForm): FormErrors {
   return errors
 }
 
-/** Det som skickas: först innehållet (POST /api/content), sedan var det publiceras (POST /api/content/{id}/links). */
+/** Innehållet och länken skickas tillsammans till POST /api/content/with-link. */
 export function toRequests(
   form: ContentForm,
   status: Schema<'ContentStatus'>,
