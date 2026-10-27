@@ -2,6 +2,7 @@ import {flushPromises} from '@vue/test-utils'
 import {describe, expect, it} from 'vitest'
 
 import {mockApi} from '@/test/mockApi'
+import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
 const school = {id: 's1', name: 'Nacka gymnasium'}
@@ -14,6 +15,9 @@ const java = {id: 'c2', schoolId: 's1', code: 'JAVA', title: 'Java'}
 
 function backend(groups = [classGroup, committee]) {
   mockApi((_method, path) => {
+    if (path === '/api/me') {
+      return {status: 200, body: meAs('Teacher', ['c1', 'c2'])}
+    }
     if (path === '/api/courses') {
       return {status: 200, body: [devops, java]}
     }

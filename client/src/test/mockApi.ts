@@ -8,9 +8,17 @@ export type Handler = (method: string, path: string, body: unknown) => {status: 
 /** Det som skickats, som metod, sökväg och body. */
 export const requests: {method: string, path: string, body: unknown}[] = []
 
+// Headrarna sparas vid sidan av requests, så att äldre kontroller av requests är oförändrade.
+const sentHeaderList: Headers[] = []
+
 export function mockApi(handler: Handler) {
   requests.length = 0
-  vi.stubGlobal('fetch', async (request: Request) => {
+  sentHeaderList.length = 0
+  // api-klienten skickar en Request, medan /api/me anropas med en sökväg och headers.
+  vi.stubGlobal('fetch', async (input: Request | string, init?: RequestInit) => {
+    const request = input instanceof Request
+      ? input
+      : new Request(new URL(input, window.location.origin), init)
     const path = new URL(request.url).pathname
     const text = await request.text()
     // Filer skickas som multipart, och då sparas texten som den är så att testet kan leta efter fälten i den.
@@ -19,6 +27,7 @@ export function mockApi(handler: Handler) {
       ? JSON.parse(text)
       : text || undefined
     requests.push({method: request.method, path, body})
+    sentHeaderList.push(new Headers(request.headers))
     const response = handler(request.method, path, body)
     return new Response(response.body === undefined
       ? null
@@ -33,4 +42,17 @@ export function mockApi(handler: Handler) {
 export function sent(method: string, path: string): unknown {
   const matching = requests.filter((request) => request.method === method && request.path === path)
   return matching[matching.length - 1]?.body
+}
+
+/** Headrarna i det senaste anropet med metoden och sökvägen. */
+export function sentHeaders(method: string, path: string): Headers | undefined {
+  const indices = requests
+    .map((request, index) => (request.method === method && request.path === path
+      ? index
+      : -1))
+    .filter((index) => index >= 0)
+  const last = indices[indices.length - 1]
+  return last === undefined
+    ? undefined
+    : sentHeaderList[last]
 }

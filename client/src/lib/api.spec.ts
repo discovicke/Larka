@@ -1,6 +1,6 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
-import {api, ApiError} from './api'
+import {api, ApiError, errorMessage} from './api'
 
 const fetchMock = vi.fn<(request: Request) => Promise<Response>>()
 
@@ -80,5 +80,23 @@ describe('api', () => {
     respond(500, JSON.stringify({title: 'Something broke'}), 'application/problem+json')
 
     await expect(api.GET('/api/schools')).rejects.toThrow('Something broke')
+  })
+
+  it('säger att användaren inte har behörighet vid 403', async () => {
+    respond(403, '')
+
+    const error = await api.GET('/api/schools')
+      .catch((thrown: unknown) => thrown)
+
+    expect(errorMessage(error)).toBe('Du har inte behörighet.')
+  })
+
+  it('visar det vanliga felet för andra statuskoder', async () => {
+    respond(400, '"title is required"')
+
+    const error = await api.POST('/api/content', {body: {type: 'News', title: '', bodyMd: ''}})
+      .catch((thrown: unknown) => thrown)
+
+    expect(errorMessage(error)).toBe('title is required')
   })
 })

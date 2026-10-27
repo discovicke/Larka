@@ -36,6 +36,8 @@ const props = defineProps<{
   module: Schema<'ModuleWithContentDto'>
   canMoveUp: boolean
   canMoveDown: boolean
+  // Eleven ser delarna men inga kontroller som ändrar dem.
+  canEdit: boolean
 }>()
 
 const emit = defineEmits<{
@@ -120,7 +122,7 @@ function badgeOf(item: Schema<'ModuleContentItem'>): {label: string, class: stri
         {{ weekState.label }}
       </Badge>
       <span class="text-muted-foreground text-[13px]">{{ module.content.length }} delar</span>
-      <DropdownMenu>
+      <DropdownMenu v-if="canEdit">
         <DropdownMenuTrigger as-child>
           <Button variant="ghost" size="icon" aria-label="Fler val för veckan">
             <PhDotsThree/>
@@ -171,7 +173,7 @@ function badgeOf(item: Schema<'ModuleContentItem'>): {label: string, class: stri
         <ItemContent class="min-w-60">
           <ItemTitle class="font-normal">
             <RouterLink
-              v-if="item.type !== 'News'"
+              v-if="canEdit && item.type !== 'News'"
               :to="editRoute(item)"
               class="hover:underline"
             >
@@ -198,7 +200,7 @@ function badgeOf(item: Schema<'ModuleContentItem'>): {label: string, class: stri
           <Badge variant="outline" class="h-[22px] rounded-[5px]" :class="badgeOf(item).class">
             {{ badgeOf(item).label }}
           </Badge>
-          <DropdownMenu>
+          <DropdownMenu v-if="canEdit">
             <DropdownMenuTrigger as-child>
               <Button variant="ghost" size="icon-sm" :aria-label="`Fler val för ${item.title}`">
                 <PhDotsThree/>
@@ -253,7 +255,7 @@ function badgeOf(item: Schema<'ModuleContentItem'>): {label: string, class: stri
         </ItemActions>
       </Item>
 
-      <div class="border-t px-3 pt-2 pb-3 pl-10">
+      <div v-if="canEdit" class="border-t px-3 pt-2 pb-3 pl-10">
         <!-- Typen väljs i formuläret. -->
         <Button
           variant="ghost"

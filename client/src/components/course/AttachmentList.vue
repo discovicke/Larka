@@ -15,7 +15,11 @@ import {
 import {api, type Schema} from '@/lib/api'
 import {fileIcon, formatSize} from '@/lib/material'
 
-const props = defineProps<{contentId: string}>()
+const props = defineProps<{
+  contentId: string
+  // Eleven får se filerna men inte ladda upp eller ta bort dem.
+  canManage: boolean
+}>()
 
 const attachments = ref<Schema<'AttachmentDto'>[]>([])
 const loading = ref(true)
@@ -127,6 +131,7 @@ watch(() => props.contentId, load, {immediate: true})
         </a>
         <span class="text-muted-foreground text-xs">{{ formatSize(attachment.sizeBytes) }}</span>
         <Button
+          v-if="canManage"
           type="button"
           variant="ghost"
           size="icon-sm"
@@ -141,7 +146,7 @@ watch(() => props.contentId, load, {immediate: true})
 
     <p v-else-if="!loading" class="text-muted-foreground text-[13px]">Inga filer bifogade än.</p>
 
-    <div>
+    <div v-if="canManage">
       <Button
         type="button"
         variant="outline"

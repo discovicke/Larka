@@ -2,6 +2,7 @@ import {flushPromises} from '@vue/test-utils'
 import {describe, expect, it} from 'vitest'
 
 import {mockApi, requests} from '@/test/mockApi'
+import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
 const devops = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps'}
@@ -67,6 +68,9 @@ const dockerSubmissions = [
 
 function backend(options: {release?: unknown[], docker?: unknown[]} = {}) {
   mockApi((_method, path) => {
+    if (path === '/api/me') {
+      return {status: 200, body: meAs('Teacher', ['c1', 'c2'])}
+    }
     if (path === '/api/courses') {
       return {status: 200, body: [devops, databases]}
     }
@@ -139,5 +143,23 @@ describe('GradingView', () => {
 
     expect(wrapper.text()).toContain('Inget att bedöma')
     expect(wrapper.findAll('[data-test="grading-row"]')).toHaveLength(0)
+  })
+
+  it('en elev som öppnar Att bedöma hamnar på Idag', async () => {
+    mockApi((_method, path) => {
+      if (path === '/api/me') {
+        return {status: 200, body: meAs('Student', ['c1', 'c2'], 'Bo Elev')}
+      }
+      if (path === '/api/courses') {
+        return {status: 200, body: [devops, databases]}
+      }
+      return {status: 200, body: []}
+    })
+
+    const {router, wrapper} = await renderApp('/grading')
+
+    expect(router.currentRoute.value.name).toBe('today')
+    expect(router.currentRoute.value.path).toBe('/')
+    expect(wrapper.text()).toContain('Idag')
   })
 })

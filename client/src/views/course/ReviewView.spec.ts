@@ -2,6 +2,7 @@ import {flushPromises} from '@vue/test-utils'
 import {describe, expect, it} from 'vitest'
 
 import {mockApi, requests, sent} from '@/test/mockApi'
+import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
 const course = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps'}
@@ -76,6 +77,9 @@ const content = {
 
 function backend(options: {scale?: string, submission?: unknown} = {}) {
   mockApi((method, path) => {
+    if (path === '/api/me') {
+      return {status: 200, body: meAs('Teacher', ['c1'])}
+    }
     if (path === '/api/courses') {
       return {status: 200, body: [course]}
     }

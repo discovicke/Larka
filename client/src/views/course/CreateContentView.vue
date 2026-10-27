@@ -23,6 +23,7 @@ import {Input} from '@/components/ui/input'
 import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
 import {RadioGroup, RadioGroupItem} from '@/components/ui/radio-group'
 import {Skeleton} from '@/components/ui/skeleton'
+import {useCurrentUser} from '@/composables/useCurrentUser'
 import {ApiError, api, errorMessage, type Schema} from '@/lib/api'
 import {partTypeOf, partTypes} from '@/lib/content'
 import {
@@ -57,6 +58,8 @@ const route = useRoute()
 const router = useRouter()
 const courseId = String(route.params.courseId)
 const moduleId = String(route.params.moduleId)
+const {can} = useCurrentUser()
+const canManageAttachments = computed(() => can('manageAttachments', courseId))
 const linkId = computed(() => route.params.linkId
   ? String(route.params.linkId)
   : null)
@@ -345,7 +348,7 @@ async function save(status: Schema<'ContentStatus'> = 'Published') {
         </Field>
       </section>
 
-      <AttachmentList v-if="part" :content-id="part.contentId"/>
+      <AttachmentList v-if="part" :content-id="part.contentId" :can-manage="canManageAttachments"/>
       <p v-else class="text-muted-foreground text-[13px]">Spara delen först, sedan kan du bifoga filer.</p>
     </form>
 

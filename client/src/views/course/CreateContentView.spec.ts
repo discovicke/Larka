@@ -2,6 +2,7 @@ import {flushPromises} from '@vue/test-utils'
 import {describe, expect, it, vi} from 'vitest'
 
 import {type Handler, mockApi, requests, sent} from '@/test/mockApi'
+import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
 const course = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps'}
@@ -48,6 +49,9 @@ function backend(onPost: Handler = () => ({status: 201, body: {content, link: {i
     if (method !== 'GET') {
       return onPost(method, path, body)
     }
+    if (path === '/api/me') {
+      return {status: 200, body: meAs('Teacher', ['c1'])}
+    }
     if (path === '/api/courses') {
       return {status: 200, body: [course]}
     }
@@ -65,6 +69,9 @@ function editBackend(
   mockApi((method, path, body) => {
     if (method !== 'GET') {
       return onWrite(method, path, body)
+    }
+    if (path === '/api/me') {
+      return {status: 200, body: meAs('Teacher', ['c1'])}
     }
     if (path === '/api/courses') {
       return {status: 200, body: [course]}

@@ -1,6 +1,7 @@
 import createClient, {type Middleware} from 'openapi-fetch'
 
 import type {components, paths} from './api-types'
+import {devUserId} from './devUser'
 
 // Klienten och API:et har samma origin (Vite-proxy lokalt, backend serverar klienten i prod),
 // så alla anrop går till samma origin som sidan. Ingen CORS behövs.
@@ -23,12 +24,16 @@ export class ApiError extends Error {
 
 /** Felmeddelandet att visa för användaren, t.ex. "title is required" från backend. */
 export function errorMessage(exception: unknown): string {
+  // 403 betyder att API:et nekat åtgärden, oavsett vad svaret heter i övrigt.
+  if (exception instanceof ApiError && exception.status === 403) {
+    return 'Du har inte behörighet.'
+  }
   return exception instanceof Error
     ? exception.message
     : 'Något gick fel. Försök igen.'
 }
 
-function parseBody(text: string, contentType: string | null): unknown {
+export function parseBody(text: string, contentType: string | null): unknown {
   if (!text) {
     return undefined
   }
@@ -38,7 +43,7 @@ function parseBody(text: string, contentType: string | null): unknown {
 }
 
 // Backend skickar fel som en JSON-sträng ("title is required") eller som ProblemDetails.
-function messageFromBody(body: unknown, fallback: string): string {
+export function messageFromBody(body: unknown, fallback: string): string {
   if (typeof body === 'string' && body) {
     return body
   }
@@ -61,6 +66,19 @@ const throwOnError: Middleware = {
   },
 }
 
+// Utvecklingsläget kan svara som en annan användare än den inloggade (#140).
+// Headern läggs bara på i dev-bygget; tas bort när inloggning (#141) finns.
+const withDevUser: Middleware = {
+  onRequest({request}) {
+    const userId = import.meta.env.DEV
+      ? devUserId()
+      : null
+    if (userId) {
+      request.headers.set('X-Dev-User', userId)
+    }
+  },
+}
+
 export const api = createClient<paths>({
   baseUrl: typeof window === 'undefined'
     ? ''
@@ -71,3 +89,4 @@ export const api = createClient<paths>({
 })
 
 api.use(throwOnError)
+api.use(withDevUser)

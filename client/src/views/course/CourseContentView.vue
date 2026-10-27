@@ -21,10 +21,14 @@ import {
 } from '@/components/ui/dialog'
 import {Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty'
 import {Skeleton} from '@/components/ui/skeleton'
+import {useCurrentUser} from '@/composables/useCurrentUser'
 import {api, errorMessage, type Schema} from '@/lib/api'
 
 const route = useRoute()
 const courseId = computed(() => String(route.params.courseId))
+const {can} = useCurrentUser()
+// Eleven ser delarna men inga redigeringskontroller.
+const canEdit = computed(() => can('editContent', courseId.value))
 
 const modules = ref<Schema<'ModuleWithContentDto'>[]>([])
 const loading = ref(true)
@@ -206,7 +210,7 @@ watch(courseId, () => {
         <EmptyTitle>Inga veckor än</EmptyTitle>
         <EmptyDescription>Dela in kursen i veckor eller avsnitt och lägg till delar i dem.</EmptyDescription>
       </EmptyHeader>
-      <EmptyContent>
+      <EmptyContent v-if="canEdit">
         <AddModuleDialog :course-id="courseId" @created="load"/>
       </EmptyContent>
     </Empty>
@@ -218,6 +222,7 @@ watch(courseId, () => {
         :module="module"
         :can-move-up="index > 0"
         :can-move-down="index < modules.length - 1"
+        :can-edit="canEdit"
         @move="(direction) => move(index, direction)"
         @move-part="(item, direction) => movePart(module, item, direction)"
         @move-part-to-week="askMovePartToWeek(module, $event)"
@@ -257,7 +262,7 @@ watch(courseId, () => {
         :module="deleteModuleTarget"
         @deleted="moduleDeleted"
       />
-      <AddModuleDialog :course-id="courseId" @created="load"/>
+      <AddModuleDialog v-if="canEdit" :course-id="courseId" @created="load"/>
     </template>
 
     <Dialog v-model:open="deleteOpen">

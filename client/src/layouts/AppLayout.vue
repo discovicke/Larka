@@ -5,11 +5,14 @@ import AppHeader from '@/components/layout/AppHeader.vue'
 import AppSidebar from '@/components/layout/AppSidebar.vue'
 import {SidebarInset, SidebarProvider} from '@/components/ui/sidebar'
 import {useCourses} from '@/composables/useCourses'
+import {useCurrentUser} from '@/composables/useCurrentUser'
 
 const route = useRoute()
 
 const {loadCourses} = useCourses()
+const {loadMe} = useCurrentUser()
 loadCourses()
+loadMe()
 </script>
 
 <template>

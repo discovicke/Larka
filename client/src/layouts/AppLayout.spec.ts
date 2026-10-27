@@ -1,10 +1,14 @@
-import {beforeEach, describe, expect, it} from 'vitest'
+import {flushPromises} from '@vue/test-utils'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {defineComponent, h} from 'vue'
 import {createMemoryHistory, type Router} from 'vue-router'
 
 import PageActions from '@/components/layout/PageActions.vue'
+import {api} from '@/lib/api'
+import {devUserId, setDevUser} from '@/lib/devUser'
 import {createAppRouter} from '@/router'
-import {mockApi} from '@/test/mockApi'
+import {mockApi, requests, sentHeaders} from '@/test/mockApi'
+import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
 async function render(path: string, router?: Router) {
@@ -12,9 +16,14 @@ async function render(path: string, router?: Router) {
 }
 
 const devOps = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps'}
+const teacher = {id: 'u1', schoolId: 's1', name: 'Anna Lärare', email: 'anna@example.com', role: 'Teacher'}
+const student = {id: 'u2', schoolId: 's1', name: 'Bo Elev', email: 'bo@example.com', role: 'Student'}
 
-beforeEach(() => {
+function meBackend(me = meAs('Teacher', ['c1']), users: unknown[] = [teacher, student]) {
   mockApi((_method, path) => {
+    if (path === '/api/me') {
+      return {status: 200, body: me}
+    }
     if (path === '/api/courses') {
       return {status: 200, body: [devOps]}
     }
@@ -25,10 +34,19 @@ beforeEach(() => {
       return {status: 200, body: []}
     }
     if (path === '/api/users') {
-      return {status: 200, body: []}
+      return {status: 200, body: users}
     }
     return {status: 404}
   })
+}
+
+beforeEach(() => {
+  meBackend()
+})
+
+afterEach(() => {
+  setDevUser(null)
+  vi.unstubAllEnvs()
 })
 
 describe('AppLayout', () => {
@@ -105,5 +123,51 @@ describe('AppLayout', () => {
     const page = await render('/page-with-actions', router)
 
     expect(page.find('header #page-actions [data-test="publish"]').exists()).toBe(true)
+  })
+
+  it('hämtar /api/me och visar namn och svensk roll i sidomenyn', async () => {
+    const page = await render('/')
+
+    expect(requests.map((request) => request.path)).toContain('/api/me')
+    const footer = page.find('[data-test="user-menu"]')
+    expect(footer.text()).toContain('Anna Lärare')
+    expect(footer.text()).toContain('Lärare · Edugrade')
+  })
+
+  it('visar Admin för en administratör', async () => {
+    meBackend(meAs('Admin', ['c1'], 'Ada Admin'))
+
+    const page = await render('/')
+
+    expect(page.find('[data-test="user-menu"]').text()).toContain('Admin · Edugrade')
+  })
+
+  it('visar inte Att bedöma för en elev', async () => {
+    meBackend(meAs('Student', ['c1'], 'Bo Elev'))
+
+    const page = await render('/')
+
+    expect(page.find('[data-test="user-menu"]').text()).toContain('Bo Elev')
+    expect(page.find('[data-slot="sidebar"]').text()).toContain('Inkorg')
+    expect(page.find('[data-slot="sidebar"]').text()).not.toContain('Att bedöma')
+  })
+
+  it('byter användare i utvecklingsläget och skickar X-Dev-User med nästa anrop', async () => {
+    vi.stubEnv('DEV', true)
+
+    const page = await render('/')
+
+    await page.find('[data-test="user-menu"]').trigger('click')
+    await flushPromises()
+    expect(document.body.textContent).toContain('Visa som')
+    expect(document.body.textContent).toContain('Elev')
+
+    ;(document.querySelector('[data-test="dev-user-u2"]') as HTMLElement).click()
+    await flushPromises()
+
+    expect(devUserId()).toBe('u2')
+
+    await api.GET('/api/users')
+    expect(sentHeaders('GET', '/api/users')?.get('X-Dev-User')).toBe('u2')
   })
 })

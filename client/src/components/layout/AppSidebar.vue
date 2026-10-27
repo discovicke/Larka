@@ -11,7 +11,7 @@ import {
   PhTray,
   PhUsersThree,
 } from '@phosphor-icons/vue'
-import type {Component} from 'vue'
+import {type Component, computed, onMounted, ref} from 'vue'
 import {useRoute} from 'vue-router'
 
 import {Avatar, AvatarFallback} from '@/components/ui/avatar'
@@ -20,6 +20,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
@@ -36,13 +37,20 @@ import {
   SidebarRail,
 } from '@/components/ui/sidebar'
 import {useCourses} from '@/composables/useCourses'
+import {useCurrentUser} from '@/composables/useCurrentUser'
 import {exampleCounts, exampleSchool, exampleUser} from '@/data/exampleData'
+import {api, type Schema} from '@/lib/api'
+import {devUserId, setDevUser} from '@/lib/devUser'
+import {initials} from '@/lib/news'
+import type {Action} from '@/lib/permissions'
 
 interface NavItem {
   label: string
   routeName: string
   icon: Component
   count?: number
+  // Åtgärden som krävs för att länken ska visas.
+  requires?: Action
 }
 
 const mainNav: NavItem[] = [
@@ -50,16 +58,64 @@ const mainNav: NavItem[] = [
   {label: 'Kalender', routeName: 'calendar', icon: PhCalendarBlank},
   {label: 'Inkorg', routeName: 'inbox', icon: PhTray, count: exampleCounts.inbox},
   {label: 'Material', routeName: 'material', icon: PhFolder},
-  {label: 'Att bedöma', routeName: 'grading', icon: PhListChecks, count: exampleCounts.grading},
+  {label: 'Att bedöma', routeName: 'grading', icon: PhListChecks, count: exampleCounts.grading, requires: 'grade'},
   {label: 'Inställningar', routeName: 'settings', icon: PhGearSix},
 ]
 
+const roleLabels: Record<string, string> = {Admin: 'Admin', Teacher: 'Lärare', Student: 'Elev'}
+
 const route = useRoute()
 const {courses} = useCourses()
+const {me, can} = useCurrentUser()
+
+const navItems = computed(() => mainNav.filter((item) => !item.requires || can(item.requires)))
+
+const userName = computed(() => me.value?.name ?? exampleUser.name)
+const userRole = computed(() => me.value
+  ? roleLabels[me.value.role] ?? me.value.role
+  : exampleUser.role)
+const userInitials = computed(() => me.value
+  ? initials(me.value.name)
+  : exampleUser.initials)
+const schoolName = computed(() => me.value?.school.name ?? exampleSchool.name)
+
+// "Visa som" finns bara i utvecklingsläget och tas bort när inloggning (#141) finns.
+const showDevSwitch = import.meta.env.DEV
+const devUsers = ref<Schema<'UserDto'>[]>([])
+const currentUserId = computed(() => devUserId() ?? me.value?.id ?? '')
+const hasDevUser = computed(() => devUserId() !== null)
+
+function roleLabel(role: string): string {
+  return roleLabels[role] ?? role
+}
+
+async function loadDevUsers() {
+  if (!showDevSwitch) {
+    return
+  }
+  try {
+    const {data} = await api.GET('/api/users')
+    devUsers.value = data ?? []
+  } catch {
+    // Listan behövs bara för att byta användare i utvecklingsläget.
+  }
+}
+
+function actAs(id: string) {
+  setDevUser(id)
+  window.location.reload()
+}
+
+function clearDevUser() {
+  setDevUser(null)
+  window.location.reload()
+}
 
 function isCourseActive(courseId: string) {
   return route.params.courseId === courseId
 }
+
+onMounted(loadDevUsers)
 </script>
 
 <template>
@@ -104,7 +160,7 @@ function isCourseActive(courseId: string) {
     <SidebarContent>
       <SidebarGroup>
         <SidebarMenu>
-          <SidebarMenuItem v-for="item in mainNav" :key="item.routeName">
+          <SidebarMenuItem v-for="item in navItems" :key="item.routeName">
             <SidebarMenuButton
               as-child
               :tooltip="item.label"
@@ -165,15 +221,41 @@ function isCourseActive(courseId: string) {
     <SidebarFooter>
       <SidebarMenu>
         <SidebarMenuItem>
-          <SidebarMenuButton size="lg" :tooltip="exampleUser.name">
-            <Avatar class="size-8">
-              <AvatarFallback class="text-xs font-semibold">{{ exampleUser.initials }}</AvatarFallback>
-            </Avatar>
-            <span class="flex min-w-0 flex-col leading-tight">
-              <span class="truncate font-medium">{{ exampleUser.name }}</span>
-              <span class="text-muted-foreground truncate text-xs">{{ exampleUser.role }} · {{ exampleSchool.name }}</span>
-            </span>
-          </SidebarMenuButton>
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <SidebarMenuButton size="lg" data-test="user-menu">
+                <Avatar class="size-8">
+                  <AvatarFallback class="text-xs font-semibold">{{ userInitials }}</AvatarFallback>
+                </Avatar>
+                <span class="flex min-w-0 flex-col leading-tight">
+                  <span class="truncate font-medium">{{ userName }}</span>
+                  <span class="text-muted-foreground truncate text-xs">{{ userRole }} · {{ schoolName }}</span>
+                </span>
+                <PhCaretUpDown class="text-muted-foreground"/>
+              </SidebarMenuButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              v-if="showDevSwitch"
+              align="start"
+              class="w-(--reka-dropdown-menu-trigger-width) min-w-56"
+            >
+              <DropdownMenuLabel class="text-muted-foreground text-xs">Visa som</DropdownMenuLabel>
+              <DropdownMenuItem
+                v-for="user in devUsers"
+                :key="user.id"
+                :data-test="`dev-user-${user.id}`"
+                @select="actAs(user.id)"
+              >
+                <span class="truncate">{{ user.name }}</span>
+                <span class="text-muted-foreground ml-auto text-xs">{{ roleLabel(user.role) }}</span>
+                <PhCheck v-if="user.id === currentUserId" class="ml-2"/>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator v-if="hasDevUser"/>
+              <DropdownMenuItem v-if="hasDevUser" data-test="reset-dev-user" @select="clearDevUser">
+                Återställ
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </SidebarMenuItem>
       </SidebarMenu>
     </SidebarFooter>

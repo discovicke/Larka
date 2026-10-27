@@ -8,7 +8,9 @@ import {
 } from 'vue-router'
 
 import {useCourses} from '@/composables/useCourses'
+import {useCurrentUser} from '@/composables/useCurrentUser'
 import AppLayout from '@/layouts/AppLayout.vue'
+import type {Action} from '@/lib/permissions'
 import GradingView from '@/views/GradingView.vue'
 import GroupsView from '@/views/GroupsView.vue'
 import InboxView from '@/views/InboxView.vue'
@@ -33,6 +35,8 @@ declare module 'vue-router' {
     breadcrumbs?: (route: RouteLocationNormalizedLoaded) => Breadcrumb[]
     // Sidan fyller ytan under headern, utan padding och maxbredd.
     fullBleed?: boolean
+    // Behörigheten som krävs för sidan, t.ex. 'grade'. Kontrolleras i beforeEach med can().
+    requires?: Action
   }
 }
 
@@ -65,7 +69,7 @@ export const routes: RouteRecordRaw[] = [
       {path: 'calendar', name: 'calendar', component: PlaceholderView, meta: {title: 'Kalender'}},
       {path: 'inbox', name: 'inbox', component: InboxView, meta: {title: 'Inkorg', fullBleed: true}},
       {path: 'material', name: 'material', component: MaterialView, meta: {title: 'Material'}},
-      {path: 'grading', name: 'grading', component: GradingView, meta: {title: 'Att bedöma'}},
+      {path: 'grading', name: 'grading', component: GradingView, meta: {title: 'Att bedöma', requires: 'grade'}},
       {path: 'groups', name: 'groups', component: GroupsView, meta: {title: 'Alla grupper'}},
       {path: 'settings', name: 'settings', component: SettingsView, meta: {title: 'Inställningar'}},
       {
@@ -97,6 +101,7 @@ export const routes: RouteRecordRaw[] = [
         component: () => import('@/views/course/CreateContentView.vue'),
         meta: {
           title: 'Ny del',
+          requires: 'editContent',
           breadcrumbs: (route) => courseBreadcrumbs(
             route,
             {label: 'Innehåll', to: {name: 'course-content', params: {courseId: route.params.courseId}}},
@@ -110,6 +115,7 @@ export const routes: RouteRecordRaw[] = [
         component: () => import('@/views/course/CreateContentView.vue'),
         meta: {
           title: 'Redigera del',
+          requires: 'editContent',
           breadcrumbs: (route) => courseBreadcrumbs(
             route,
             {label: 'Innehåll', to: {name: 'course-content', params: {courseId: route.params.courseId}}},
@@ -123,6 +129,7 @@ export const routes: RouteRecordRaw[] = [
         component: SubmissionsView,
         meta: {
           title: 'Inlämningar',
+          requires: 'grade',
           breadcrumbs: (route) => courseBreadcrumbs(
             route,
             {label: 'Innehåll', to: {name: 'course-content', params: {courseId: route.params.courseId}}},
@@ -138,6 +145,7 @@ export const routes: RouteRecordRaw[] = [
         meta: {
           title: 'Bedöm',
           fullBleed: true,
+          requires: 'grade',
           breadcrumbs: (route) => courseBreadcrumbs(
             route,
             {label: 'Innehåll', to: {name: 'course-content', params: {courseId: route.params.courseId}}},
@@ -167,6 +175,30 @@ export const routes: RouteRecordRaw[] = [
 
 export function createAppRouter(history: RouterHistory = createWebHistory()) {
   const router = createRouter({history, routes})
+  // Sidor som kräver en behörighet kontrolleras först när användaren är hämtad.
+  // Svarar /api/me inte släpps sidan igenom: API:et svarar ändå 403 för den som inte får, och
+  // ett tillfälligt fel ska inte låsa ute alla.
+  router.beforeEach(async (to) => {
+    const {requires} = to.meta
+    if (!requires) {
+      return true
+    }
+
+    const {status, loadMe, can} = useCurrentUser()
+    if (status.value !== 'loaded') {
+      await loadMe()
+    }
+    if (status.value === 'failed') {
+      return true
+    }
+
+    const courseId = typeof to.params.courseId === 'string'
+      ? to.params.courseId
+      : undefined
+    return can(requires, courseId)
+      ? true
+      : {name: 'today'}
+  })
   router.afterEach((to) => {
     document.title = to.meta.title
       ? `${to.meta.title} · RebornLMS`

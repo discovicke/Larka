@@ -2,6 +2,7 @@ import {flushPromises} from '@vue/test-utils'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 
 import {mockApi, requests} from '@/test/mockApi'
+import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
 afterEach(() => {
@@ -46,6 +47,9 @@ interface Feeds {
 
 function backend(feeds: Feeds = {}) {
   mockApi((method, path) => {
+    if (path === '/api/me') {
+      return {status: 200, body: meAs('Teacher', ['c1', 'c2'])}
+    }
     if (path === '/api/courses') {
       return {status: 200, body: [devops, databases]}
     }

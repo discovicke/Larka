@@ -2,6 +2,7 @@ import {flushPromises} from '@vue/test-utils'
 import {describe, expect, it} from 'vitest'
 
 import {mockApi, requests, sent} from '@/test/mockApi'
+import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
 const course = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps'}
@@ -42,6 +43,9 @@ function comment(id: string, contentId: string, authorId: string, bodyMd: string
 
 function backend(posts: unknown[], comments: Record<string, unknown[]> = {}) {
   mockApi((method, path, body) => {
+    if (path === '/api/me') {
+      return {status: 200, body: meAs('Teacher', ['c1'])}
+    }
     if (path === '/api/courses') {
       return {status: 200, body: [course]}
     }
@@ -254,8 +258,55 @@ describe('CourseNewsView', () => {
     expect(wrapper.find('[data-test="new-news"]').exists()).toBe(true)
   })
 
+  it('en elev får inte publicera nyheter eller ändra dem', async () => {
+    mockApi((_method, path) => {
+      if (path === '/api/me') {
+        return {status: 200, body: meAs('Student', ['c1'], 'Bo Elev')}
+      }
+      if (path === '/api/courses') {
+        return {status: 200, body: [course]}
+      }
+      if (path === '/api/users') {
+        return {status: 200, body: [teacher, student]}
+      }
+      if (path === '/api/courses/c1/content') {
+        return {status: 200, body: [pinned]}
+      }
+      return {status: 200, body: []}
+    })
+
+    const {wrapper} = await renderApp('/courses/c1/news')
+
+    expect(wrapper.findAll('[data-test="news-item"]')).toHaveLength(1)
+    expect(wrapper.find('[data-test="new-news"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="news-menu"]').exists()).toBe(false)
+  })
+
+  it('en elev ser ingen Ny nyhet i ett tomt flöde', async () => {
+    mockApi((_method, path) => {
+      if (path === '/api/me') {
+        return {status: 200, body: meAs('Student', ['c1'], 'Bo Elev')}
+      }
+      if (path === '/api/courses') {
+        return {status: 200, body: [course]}
+      }
+      if (path === '/api/users') {
+        return {status: 200, body: [teacher, student]}
+      }
+      return {status: 200, body: []}
+    })
+
+    const {wrapper} = await renderApp('/courses/c1/news')
+
+    expect(wrapper.text()).toContain('Inga nyheter än')
+    expect(wrapper.find('[data-test="new-news"]').exists()).toBe(false)
+  })
+
   it('visar ett fel när nyheterna inte kan hämtas', async () => {
     mockApi((_method, path) => {
+      if (path === '/api/me') {
+        return {status: 200, body: meAs('Teacher', ['c1'])}
+      }
       if (path === '/api/courses') {
         return {status: 200, body: [course]}
       }
@@ -356,6 +407,9 @@ describe('CourseNewsView', () => {
   it('raderar nyheten från kursen efter bekräftelse', async () => {
     let current = [oldest, newest, pinned]
     mockApi((method, path) => {
+      if (path === '/api/me') {
+        return {status: 200, body: meAs('Teacher', ['c1'])}
+      }
       if (path === '/api/courses') {
         return {status: 200, body: [course]}
       }
@@ -394,6 +448,9 @@ describe('CourseNewsView', () => {
 
   it('visar ett fel när nyheten inte kan tas bort', async () => {
     mockApi((method, path) => {
+      if (path === '/api/me') {
+        return {status: 200, body: meAs('Teacher', ['c1'])}
+      }
       if (path === '/api/courses') {
         return {status: 200, body: [course]}
       }

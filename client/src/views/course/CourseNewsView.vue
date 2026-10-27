@@ -8,6 +8,7 @@ import NewsPostDialog from '@/components/news/NewsPostDialog.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty'
 import {Skeleton} from '@/components/ui/skeleton'
+import {useCurrentUser} from '@/composables/useCurrentUser'
 import {api, type Schema} from '@/lib/api'
 import {formatDate} from '@/lib/content'
 import {sortNews} from '@/lib/news'
@@ -15,6 +16,8 @@ import {sortNews} from '@/lib/news'
 const route = useRoute()
 const router = useRouter()
 const courseId = computed(() => String(route.params.courseId))
+const {can} = useCurrentUser()
+const canPublish = computed(() => can('publishNews', courseId.value))
 
 const users = ref<Schema<'UserDto'>[]>([])
 const posts = ref<Schema<'ContentFeedItem'>[]>([])
@@ -95,13 +98,13 @@ watch(courseId, () => {
         <EmptyTitle>Inga nyheter än</EmptyTitle>
         <EmptyDescription>Nyheter som läraren publicerar i kursen visas här.</EmptyDescription>
       </EmptyHeader>
-      <EmptyContent>
+      <EmptyContent v-if="canPublish">
         <NewsPostDialog :course-id="courseId" @created="created"/>
       </EmptyContent>
     </Empty>
 
     <template v-else-if="!loadFailed && posts.length > 0">
-      <div class="flex justify-end">
+      <div v-if="canPublish" class="flex justify-end">
         <NewsPostDialog :course-id="courseId" @created="created"/>
       </div>
 
@@ -139,6 +142,7 @@ watch(courseId, () => {
             v-if="selected"
             :post="selected"
             :users="users"
+            :course-id="courseId"
             @changed="loadPosts"
             @deleted="afterDelete"
           />

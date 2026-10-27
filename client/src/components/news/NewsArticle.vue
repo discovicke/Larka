@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import {Skeleton} from '@/components/ui/skeleton'
 import {Textarea} from '@/components/ui/textarea'
+import {useCurrentUser} from '@/composables/useCurrentUser'
 import {api, type Schema} from '@/lib/api'
 import {formatDate} from '@/lib/content'
 import {initials} from '@/lib/news'
@@ -39,12 +40,19 @@ const props = defineProps<{
   users: Schema<'UserDto'>[]
   links?: Schema<'ContentFeedItem'>[]
   targets?: string[]
+  // Kursen nyheten visas i. Gruppnyheter i inkorgen har ingen kurs, och då krävs admin.
+  courseId?: string
 }>()
 
 const emit = defineEmits<{
   changed: []
   deleted: []
 }>()
+
+const {can} = useCurrentUser()
+const canPublish = computed(() => props.courseId
+  ? can('publishNews', props.courseId)
+  : can('admin'))
 
 // Nyheten kan vara publicerad i flera kurser och grupper; då ändras alla länkar samtidigt.
 const links = computed(() => props.links?.length
@@ -180,7 +188,7 @@ watch(() => props.post.linkId, () => {
           <span class="font-medium">{{ nameOf(post.authorId) }}</span>
           <span class="text-muted-foreground text-xs">{{ formatDate(post.publishAt, true) }}</span>
         </div>
-        <DropdownMenu>
+        <DropdownMenu v-if="canPublish">
           <DropdownMenuTrigger as-child>
             <Button
               variant="ghost"

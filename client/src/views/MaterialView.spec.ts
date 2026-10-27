@@ -3,6 +3,7 @@ import {afterEach, describe, expect, it, vi} from 'vitest'
 
 import {formatDate} from '@/lib/content'
 import {mockApi} from '@/test/mockApi'
+import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
 afterEach(() => {
@@ -51,6 +52,9 @@ interface Feeds {
 
 function backend(feeds: Feeds = {}) {
   mockApi((method, path) => {
+    if (path === '/api/me') {
+      return {status: 200, body: meAs('Teacher', ['c1', 'c2'])}
+    }
     if (path === '/api/courses') {
       return {status: 200, body: [devops, databases]}
     }

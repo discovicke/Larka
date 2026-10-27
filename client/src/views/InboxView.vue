@@ -215,6 +215,7 @@ watch(status, (value) => {
             :links="selected.links"
             :targets="selected.targets"
             :users="users"
+            :course-id="selected.post.courseId ?? undefined"
             @changed="load(false)"
             @deleted="afterDelete"
           />
