@@ -10,6 +10,7 @@ import {
 import {useCourses} from '@/composables/useCourses'
 import AppLayout from '@/layouts/AppLayout.vue'
 import GroupsView from '@/views/GroupsView.vue'
+import InboxView from '@/views/InboxView.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
 import PlaceholderView from '@/views/PlaceholderView.vue'
 import CourseContentView from '@/views/course/CourseContentView.vue'
@@ -26,6 +27,8 @@ declare module 'vue-router' {
     // Sidans namn, används i fliken i webbläsaren och som brödsmula om breadcrumbs saknas.
     title?: string
     breadcrumbs?: (route: RouteLocationNormalizedLoaded) => Breadcrumb[]
+    // Sidan fyller ytan under headern, utan padding och maxbredd.
+    fullBleed?: boolean
   }
 }
 
@@ -56,7 +59,7 @@ export const routes: RouteRecordRaw[] = [
     children: [
       {path: '', name: 'today', component: PlaceholderView, meta: {title: 'Idag'}},
       {path: 'calendar', name: 'calendar', component: PlaceholderView, meta: {title: 'Kalender'}},
-      {path: 'inbox', name: 'inbox', component: PlaceholderView, meta: {title: 'Inkorg'}},
+      {path: 'inbox', name: 'inbox', component: InboxView, meta: {title: 'Inkorg', fullBleed: true}},
       {path: 'grading', name: 'grading', component: PlaceholderView, meta: {title: 'Att bedöma'}},
       {path: 'groups', name: 'groups', component: GroupsView, meta: {title: 'Alla grupper'}},
       {

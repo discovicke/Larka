@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   PhDotsThree,
+  PhNewspaper,
   PhPencilSimple,
   PhPushPin,
   PhPushPinSlash,
@@ -35,12 +36,20 @@ import {initials, paragraphs} from '@/lib/news'
 const props = defineProps<{
   post: Schema<'ContentFeedItem'>
   users: Schema<'UserDto'>[]
+  links?: Schema<'ContentFeedItem'>[]
+  targets?: string[]
 }>()
 
 const emit = defineEmits<{
   changed: []
   deleted: []
 }>()
+
+// Nyheten kan vara publicerad i flera kurser och grupper; då ändras alla länkar samtidigt.
+const links = computed(() => props.links?.length
+  ? props.links
+  : [props.post])
+const isPinned = computed(() => links.value.some((link) => link.isPinned))
 
 const comments = ref<Schema<'CommentDto'>[]>([])
 const commentsLoading = ref(false)
@@ -101,11 +110,14 @@ async function submitComment() {
 
 async function togglePin() {
   actionError.value = ''
+  const pinned = !isPinned.value
   try {
-    await api.PUT('/api/content/{id}/links/{linkId}', {
-      params: {path: {id: props.post.contentId, linkId: props.post.linkId}},
-      body: {publishAt: props.post.publishAt, dueAt: null, isPinned: !props.post.isPinned},
-    })
+    for (const link of links.value) {
+      await api.PUT('/api/content/{id}/links/{linkId}', {
+        params: {path: {id: link.contentId, linkId: link.linkId}},
+        body: {publishAt: link.publishAt, dueAt: null, isPinned: pinned},
+      })
+    }
     emit('changed')
   } catch {
     actionError.value = 'Kunde inte ändra nyheten.'
@@ -116,9 +128,11 @@ async function remove() {
   deleting.value = true
   actionError.value = ''
   try {
-    await api.DELETE('/api/content/{id}/links/{linkId}', {
-      params: {path: {id: props.post.contentId, linkId: props.post.linkId}},
-    })
+    for (const link of links.value) {
+      await api.DELETE('/api/content/{id}/links/{linkId}', {
+        params: {path: {id: link.contentId, linkId: link.linkId}},
+      })
+    }
     deleteOpen.value = false
     emit('deleted')
   } catch {
@@ -147,7 +161,16 @@ watch(() => props.post.linkId, () => {
     </Alert>
 
     <div class="flex flex-col gap-3">
-      <h2 class="font-heading text-[28px] leading-tight font-semibold">{{ post.title }}</h2>
+      <div v-if="targets?.length" class="flex items-center gap-3.5">
+        <span class="bg-muted flex size-14 shrink-0 items-center justify-center rounded-[11px] border">
+          <PhNewspaper class="size-6"/>
+        </span>
+        <div class="flex flex-col gap-0.5">
+          <span class="text-muted-foreground text-[13px]">{{ targets.join(' · ') }} · Nyhet</span>
+          <h1 class="font-heading text-2xl leading-tight font-semibold">{{ post.title }}</h1>
+        </div>
+      </div>
+      <h2 v-else class="font-heading text-[28px] leading-tight font-semibold">{{ post.title }}</h2>
       <div class="flex items-center gap-3">
         <Avatar class="size-8">
           <AvatarFallback class="text-xs font-semibold">{{ initials(nameOf(post.authorId)) }}</AvatarFallback>
@@ -174,9 +197,9 @@ watch(() => props.post.linkId, () => {
               Redigera
             </DropdownMenuItem>
             <DropdownMenuItem @select="togglePin">
-              <PhPushPin v-if="!post.isPinned"/>
+              <PhPushPin v-if="!isPinned"/>
               <PhPushPinSlash v-else/>
-              {{ post.isPinned
+              {{ isPinned
                 ? 'Lossa'
                 : 'Fäst överst' }}
             </DropdownMenuItem>
@@ -248,7 +271,10 @@ watch(() => props.post.linkId, () => {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Ta bort nyheten?</DialogTitle>
-          <DialogDescription>
+          <DialogDescription v-if="links.length > 1">
+            Nyheten tas bort från alla kurser och grupper den är publicerad i.
+          </DialogDescription>
+          <DialogDescription v-else>
             Nyheten tas bort från kursen. Kommentarerna försvinner om den inte finns kvar någon annanstans.
           </DialogDescription>
         </DialogHeader>

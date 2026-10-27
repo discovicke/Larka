@@ -81,6 +81,20 @@ describe('AppLayout', () => {
     expect(page.find('[data-test="not-found"]').exists()).toBe(true)
   })
 
+  it('inkorgen fyller ytan under headern utan sidopadding', async () => {
+    const page = await render('/inbox')
+
+    expect(page.find('[data-test="main-full-bleed"]').exists()).toBe(true)
+    expect(page.find('[data-test="main-padded"]').exists()).toBe(false)
+  })
+
+  it('andra sidor har kvar den centrerade innehållsytan', async () => {
+    const page = await render('/calendar')
+
+    expect(page.find('[data-test="main-full-bleed"]').exists()).toBe(false)
+    expect(page.find('[data-test="main-padded"]').exists()).toBe(true)
+  })
+
   it('sidans knappar hamnar i headern', async () => {
     const PageWithActions = defineComponent({
       render: () => h(PageActions, () => h('button', {'data-test': 'publish'}, 'Publicera')),

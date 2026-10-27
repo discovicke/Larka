@@ -113,7 +113,7 @@ function isCourseActive(courseId: string) {
             </SidebarMenuButton>
             <SidebarMenuBadge
               v-if="item.count"
-              class="bg-primary text-primary-foreground rounded-full"
+              class="bg-primary text-primary-foreground peer-hover/menu-button:text-primary-foreground peer-data-active/menu-button:text-primary-foreground rounded-full"
             >
               {{ item.count }}
             </SidebarMenuBadge>

@@ -1,8 +1,12 @@
 <script setup lang="ts">
+import {useRoute} from 'vue-router'
+
 import AppHeader from '@/components/layout/AppHeader.vue'
 import AppSidebar from '@/components/layout/AppSidebar.vue'
 import {SidebarInset, SidebarProvider} from '@/components/ui/sidebar'
 import {useCourses} from '@/composables/useCourses'
+
+const route = useRoute()
 
 const {loadCourses} = useCourses()
 loadCourses()
@@ -13,7 +17,14 @@ loadCourses()
     <AppSidebar/>
     <SidebarInset class="min-w-0">
       <AppHeader/>
-      <main class="px-[clamp(16px,3vw,40px)] pt-8 pb-16">
+      <main
+        v-if="route.meta.fullBleed"
+        data-test="main-full-bleed"
+        class="flex min-h-[calc(100svh-56px)] min-w-0"
+      >
+        <RouterView/>
+      </main>
+      <main v-else data-test="main-padded" class="px-[clamp(16px,3vw,40px)] pt-8 pb-16">
         <div class="mx-auto flex max-w-[1120px] flex-col gap-6">
           <RouterView/>
         </div>
