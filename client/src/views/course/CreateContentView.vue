@@ -3,6 +3,7 @@ import {PhChalkboardTeacher, PhFiles, PhGithubLogo, PhTextAa} from '@phosphor-ic
 import {type Component, computed, onMounted, reactive, ref} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 
+import AttachmentList from '@/components/course/AttachmentList.vue'
 import MarkdownEditor from '@/components/editor/MarkdownEditor.vue'
 import PageActions from '@/components/layout/PageActions.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
@@ -344,6 +345,9 @@ async function save(status: Schema<'ContentStatus'> = 'Published') {
           <FieldError v-if="errors.templateRepo">{{ errors.templateRepo }}</FieldError>
         </Field>
       </section>
+
+      <AttachmentList v-if="part" :content-id="part.contentId"/>
+      <p v-else class="text-muted-foreground text-[13px]">Spara delen först, sedan kan du bifoga filer.</p>
     </form>
 
     <aside class="flex min-w-0 flex-[1_1_280px] flex-col gap-3 rounded-[11px] border bg-stone-50 p-4 shadow-xs">

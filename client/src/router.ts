@@ -12,6 +12,7 @@ import AppLayout from '@/layouts/AppLayout.vue'
 import GradingView from '@/views/GradingView.vue'
 import GroupsView from '@/views/GroupsView.vue'
 import InboxView from '@/views/InboxView.vue'
+import MaterialView from '@/views/MaterialView.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
 import PlaceholderView from '@/views/PlaceholderView.vue'
 import CourseContentView from '@/views/course/CourseContentView.vue'
@@ -62,6 +63,7 @@ export const routes: RouteRecordRaw[] = [
       {path: '', name: 'today', component: PlaceholderView, meta: {title: 'Idag'}},
       {path: 'calendar', name: 'calendar', component: PlaceholderView, meta: {title: 'Kalender'}},
       {path: 'inbox', name: 'inbox', component: InboxView, meta: {title: 'Inkorg', fullBleed: true}},
+      {path: 'material', name: 'material', component: MaterialView, meta: {title: 'Material'}},
       {path: 'grading', name: 'grading', component: GradingView, meta: {title: 'Att bedöma'}},
       {path: 'groups', name: 'groups', component: GroupsView, meta: {title: 'Alla grupper'}},
       {

@@ -1,5 +1,5 @@
 import {flushPromises} from '@vue/test-utils'
-import {describe, expect, it} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 
 import {type Handler, mockApi, requests, sent} from '@/test/mockApi'
 import {renderApp} from '@/test/renderApp'
@@ -48,10 +48,13 @@ function backend(onPost: Handler = () => ({status: 201, body: {id: 'x1'}})) {
   })
 }
 
-function editBackend(onPut: Handler = () => ({status: 200, body: content})) {
+function editBackend(
+  onWrite: Handler = () => ({status: 200, body: content}),
+  attachments: unknown[] = [],
+) {
   mockApi((method, path, body) => {
     if (method !== 'GET') {
-      return onPut(method, path, body)
+      return onWrite(method, path, body)
     }
     if (path === '/api/courses') {
       return {status: 200, body: [course]}
@@ -62,8 +65,28 @@ function editBackend(onPut: Handler = () => ({status: 200, body: content})) {
     if (path === '/api/content/x1') {
       return {status: 200, body: content}
     }
+    if (path === '/api/content/x1/attachments') {
+      return {status: 200, body: attachments}
+    }
     return {status: 200, body: []}
   })
+}
+
+const attachment = {
+  id: 'a1',
+  contentId: 'x1',
+  fileName: 'rapport.pdf',
+  url: 'https://files.example/a1',
+  sizeBytes: 2048,
+}
+
+function dialogButton(label: string): HTMLElement {
+  const found = [...document.querySelectorAll('[role="dialog"] button')]
+    .find((candidate) => candidate.textContent?.trim() === label)
+  if (!found) {
+    throw new Error(`Hittar ingen knapp "${label}" i dialogen`)
+  }
+  return found as HTMLElement
 }
 
 function button(label: string): HTMLButtonElement {
@@ -175,6 +198,76 @@ describe('CreateContentView', () => {
       dueAt: expect.any(String),
     })
     expect(router.currentRoute.value.name).toBe('course-content')
+  })
+
+  it('redigeringsläget listar bilagorna', async () => {
+    editBackend(undefined, [attachment])
+    const {wrapper} = await renderApp('/courses/c1/modules/m1/content/l1/edit')
+
+    expect(wrapper.find('[data-test="attachments"]').text()).toContain('Bifogade filer')
+    expect(wrapper.find('[data-test="attachment-row"]').text()).toContain('rapport.pdf')
+    expect(wrapper.find('[data-test="attachment-row"]').text()).toContain('2,0 kB')
+    expect(wrapper.find('[data-test="attachment-row"] a').attributes('href')).toBe('https://files.example/a1')
+  })
+
+  it('laddar upp en fil som multipart och lägger den sist i listan', async () => {
+    const uploaded = {
+      id: 'a2',
+      contentId: 'x1',
+      fileName: 'slides.pdf',
+      url: 'https://files.example/a2',
+      sizeBytes: 1024,
+    }
+    editBackend((method, path) => method === 'POST' && path === '/api/content/x1/attachments'
+      ? {status: 201, body: uploaded}
+      : {status: 404}, [attachment])
+    const {wrapper} = await renderApp('/courses/c1/modules/m1/content/l1/edit')
+
+    const append = vi.spyOn(FormData.prototype, 'append')
+    const input = wrapper.find('[data-test="attachment-file"]').element as HTMLInputElement
+    Object.defineProperty(input, 'files', {
+      value: [new File(['pdf'], 'slides.pdf', {type: 'application/pdf'})],
+    })
+    await wrapper.find('[data-test="attachment-file"]').trigger('change')
+    await flushPromises()
+
+    const upload = sent('POST', '/api/content/x1/attachments') as string
+    expect(upload).toContain('name="file"')
+    expect(upload).toContain('Content-Type: application/pdf')
+    // jsdom tappar filnamnet när multipart skickas vidare till fetch, så namnet kontrolleras på anropet.
+    expect(append).toHaveBeenCalledWith('file', expect.any(File), 'slides.pdf')
+    expect(wrapper.find('[data-test="attachments"]').text()).toContain('slides.pdf')
+
+    append.mockRestore()
+  })
+
+  it('frågar först och tar sedan bort filen', async () => {
+    editBackend((method) => method === 'DELETE'
+      ? {status: 204}
+      : {status: 404}, [attachment])
+    const {wrapper} = await renderApp('/courses/c1/modules/m1/content/l1/edit')
+
+    await wrapper.find('[aria-label="Ta bort rapport.pdf"]').trigger('click')
+    await flushPromises()
+    expect(document.body.textContent).toContain('Ta bort filen?')
+
+    dialogButton('Ta bort').click()
+    await flushPromises()
+    await flushPromises()
+
+    expect(requests
+      .filter((request) => request.method === 'DELETE')
+      .map((request) => request.path)).toEqual(['/api/content/x1/attachments/a1'])
+    expect(wrapper.find('[data-test="attachment-row"]').exists()).toBe(false)
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+  })
+
+  it('i skaparläget visas en påminnelse om att spara delen först', async () => {
+    backend()
+    const {wrapper} = await renderApp('/courses/c1/modules/m1/new')
+
+    expect(wrapper.find('[data-test="attachments"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Spara delen först, sedan kan du bifoga filer.')
   })
 
   it('en vecka som inte finns visar sidan som inte finns', async () => {

@@ -14,6 +14,7 @@ describe('router', () => {
     ['/', 'today'],
     ['/calendar', 'calendar'],
     ['/inbox', 'inbox'],
+    ['/material', 'material'],
     ['/grading', 'grading'],
     ['/groups', 'groups'],
     ['/courses/devops/content', 'course-content'],

@@ -3,6 +3,7 @@ import {
   PhCalendarBlank,
   PhCaretUpDown,
   PhCheck,
+  PhFolder,
   PhHouse,
   PhListChecks,
   PhMagnifyingGlass,
@@ -47,6 +48,7 @@ const mainNav: NavItem[] = [
   {label: 'Idag', routeName: 'today', icon: PhHouse},
   {label: 'Kalender', routeName: 'calendar', icon: PhCalendarBlank},
   {label: 'Inkorg', routeName: 'inbox', icon: PhTray, count: exampleCounts.inbox},
+  {label: 'Material', routeName: 'material', icon: PhFolder},
   {label: 'Att bedöma', routeName: 'grading', icon: PhListChecks, count: exampleCounts.grading},
 ]
 
