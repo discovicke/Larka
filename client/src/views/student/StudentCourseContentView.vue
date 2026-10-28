@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import {
-  PhArrowClockwise,
   PhArrowLeft,
   PhCalendarBlank,
   PhCaretDown,
@@ -13,40 +12,29 @@ import {
   PhPaperPlaneTilt,
 } from '@phosphor-icons/vue'
 import type {Component} from 'vue'
-import {computed, onMounted, ref, watch} from 'vue'
+import {computed, ref, watch} from 'vue'
 
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Badge} from '@/components/ui/badge'
 import {Button} from '@/components/ui/button'
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '@/components/ui/collapsible'
 import {Item, ItemMedia} from '@/components/ui/item'
-import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
 import {Skeleton} from '@/components/ui/skeleton'
-import {useCourses} from '@/composables/useCourses'
-import {useDevOptions} from '@/composables/useDevOptions'
 import {api, errorMessage, type Schema} from '@/lib/api'
 import {countLabel, formatDate, partOf} from '@/lib/content'
 
-// Elevvyn finns på /dev/student tills inloggning (#80) finns. Grupp och kurs väljs därför här,
-// och alla anrop går mot den valda gruppen så att svaret blir samma som en elev i gruppen får.
+// Elevens vy av en kurs: veckor, låsta delar och klarmarkering. Den visas i stället för redigeraren
+// på kursens innehållssida för den som inte kan redigera. Servern vet vilka grupper eleven går i,
+// så klienten skickar bara kursen.
 
-const {options, loading: loadingOptions, refresh} = useDevOptions()
-const {courses: courseDtos, loadCourses} = useCourses()
+const props = defineProps<{courseId: string}>()
 
-const groupId = ref('')
-const courseId = ref('')
 const modules = ref<Schema<'StudentModuleWithContentDto'>[]>([])
-const loading = ref(false)
+const loading = ref(true)
 const error = ref('')
 const savingLinkId = ref('')
 const selectedLinkId = ref('')
 const filter = ref<'all' | 'todo' | 'submissions'>('all')
-
-const groups = computed(() => options.groups)
-const courses = computed(() => options.courses)
-const hasSelection = computed(() => groupId.value !== '' && courseId.value !== '')
-const selectedCourse = computed(() => courseDtos.value.find((course) => course.id === courseId.value))
-const selectedGroup = computed(() => groups.value.find((group) => group.value === groupId.value))
 
 // Framtida veckor är låsta skal. Deras eventuella innehåll får inte räknas i progress eller
 // dyka upp i detaljvyn, även om API:t skulle skicka med något.
@@ -81,27 +69,17 @@ const filters: {value: 'all' | 'todo' | 'submissions', label: string}[] = [
   {value: 'submissions', label: 'Inlämningar'},
 ]
 
-onMounted(async () => {
-  await Promise.all([refresh('groups'), refresh('courses'), loadCourses()])
-  groupId.value ||= groups.value[0]?.value ?? ''
-  courseId.value ||= courses.value[0]?.value ?? ''
-})
-
-watch([groupId, courseId], async () => {
+watch(() => props.courseId, async () => {
   selectedLinkId.value = ''
-  if (!hasSelection.value) {
-    modules.value = []
-    return
-  }
   await load()
-})
+}, {immediate: true})
 
 async function load() {
   loading.value = true
   error.value = ''
   try {
-    const {data} = await api.GET('/api/groups/{groupId}/courses/{courseId}/modules', {
-      params: {path: {groupId: groupId.value, courseId: courseId.value}},
+    const {data} = await api.GET('/api/courses/{courseId}/student-modules', {
+      params: {path: {courseId: props.courseId}},
     })
     modules.value = data ?? []
     if (selectedLinkId.value && !allItems.value.some((item) => item.linkId === selectedLinkId.value)) {
@@ -120,8 +98,8 @@ async function setCompleted(linkId: string, completed: boolean) {
   savingLinkId.value = linkId
   error.value = ''
   try {
-    const {data} = await api.PUT('/api/groups/{groupId}/courses/{courseId}/links/{linkId}/completion', {
-      params: {path: {groupId: groupId.value, courseId: courseId.value, linkId}},
+    const {data} = await api.PUT('/api/courses/{courseId}/links/{linkId}/completion', {
+      params: {path: {courseId: props.courseId, linkId}},
       body: {completed},
     })
     if (data) {
@@ -351,49 +329,7 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
 </script>
 
 <template>
-  <main class="mx-auto flex max-w-[1120px] flex-col gap-6 p-6">
-    <header class="bg-muted/30 flex flex-col gap-3 rounded-xl border border-dashed p-4">
-      <div class="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <p class="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">Testläge</p>
-          <p class="text-muted-foreground text-sm">
-            Elevvyn är tillfällig tills inloggning finns (#80). Välj grupp och kurs för att se
-            veckorna som en elev i gruppen ser dem.
-          </p>
-        </div>
-        <RouterLink to="/dev" class="text-sm underline">Till testdata</RouterLink>
-      </div>
-      <div class="flex flex-wrap items-end gap-2">
-        <label class="flex flex-col gap-1 text-sm">
-          Grupp
-          <NativeSelect v-model="groupId" data-test="student-group" :disabled="loadingOptions.groups">
-            <NativeSelectOption value="">Välj grupp</NativeSelectOption>
-            <NativeSelectOption v-for="group in groups" :key="group.value" :value="group.value">
-              {{ group.label }}
-            </NativeSelectOption>
-          </NativeSelect>
-        </label>
-        <label class="flex flex-col gap-1 text-sm">
-          Kurs
-          <NativeSelect v-model="courseId" data-test="student-course" :disabled="loadingOptions.courses">
-            <NativeSelectOption value="">Välj kurs</NativeSelectOption>
-            <NativeSelectOption v-for="course in courses" :key="course.value" :value="course.value">
-              {{ course.label }}
-            </NativeSelectOption>
-          </NativeSelect>
-        </label>
-        <Button
-          type="button"
-          variant="outline"
-          :disabled="!hasSelection || loading"
-          @click="load"
-        >
-          <PhArrowClockwise/>
-          Uppdatera
-        </Button>
-      </div>
-    </header>
-
+  <div class="flex flex-col gap-6" data-test="student-view">
     <Alert v-if="error" variant="destructive">
       <AlertDescription>{{ error }}</AlertDescription>
     </Alert>
@@ -401,10 +337,6 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
     <template v-if="loading">
       <Skeleton v-for="index in 2" :key="index" class="h-32 w-full rounded-xl"/>
     </template>
-
-    <p v-else-if="!hasSelection" class="text-muted-foreground text-sm">
-      Välj en grupp och en kurs för att se innehållet.
-    </p>
 
     <p v-else-if="modules.length === 0 && !error" class="text-muted-foreground text-sm">
       Kursen har inga veckor än.
@@ -422,10 +354,6 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
             <PhArrowLeft/>
             Tillbaka
           </Button>
-          <span>/</span>
-          <span>{{ selectedCourse?.title ?? 'Kurs' }}</span>
-          <span>/</span>
-          <span>{{ selectedModule.title }}</span>
         </div>
 
         <header class="flex flex-col gap-3 border-b pb-4">
@@ -454,7 +382,7 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
               Klar
             </Badge>
           </div>
-          <h1 class="text-3xl leading-tight font-semibold">{{ selectedItem.title }}</h1>
+          <h2 class="text-3xl leading-tight font-semibold">{{ selectedItem.title }}</h2>
           <p class="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
             <span>{{ selectedModule.title }}</span>
             <template v-if="selectedItem.dueAt">
@@ -590,27 +518,8 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
     </template>
 
     <template v-else>
-      <header class="flex flex-wrap items-start justify-between gap-4 border-b pb-4">
-        <div class="flex flex-col gap-1">
-          <span class="text-muted-foreground font-mono text-xs">KURS · {{ selectedCourse?.code }}</span>
-          <h1 class="text-3xl leading-tight font-semibold">{{ selectedCourse?.title }}</h1>
-          <p class="text-muted-foreground text-sm">
-            {{ selectedGroup?.label }} · {{ countLabel(completable.length, 'del', 'delar') }}
-          </p>
-        </div>
-        <div class="flex items-center gap-3">
-          <div class="flex flex-col items-end text-sm">
-            <span class="text-muted-foreground text-xs">Din progress</span>
-            <span class="font-medium">{{ completedCount }} av {{ completable.length }} klara</span>
-          </div>
-          <div class="grid size-12 place-items-center rounded-full border-2 border-dashed text-sm font-semibold">
-            {{ progressPercent }}%
-          </div>
-        </div>
-      </header>
-
       <div class="flex flex-wrap items-center justify-between gap-3">
-        <div role="tablist" class="bg-muted flex w-fit gap-1 rounded-lg p-1">
+        <div role="tablist" class="bg-muted flex w-fit rounded-[7px] p-[3px]">
           <Button
             v-for="option in filters"
             :key="option.value"
@@ -620,33 +529,33 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
             variant="ghost"
             :aria-selected="filter === option.value"
             :class="filter === option.value
-              ? 'bg-background font-medium shadow-sm'
-              : 'text-muted-foreground'"
+              ? 'bg-background h-auto rounded-[5px] px-2.5 py-1 text-[13px] font-medium shadow-sm'
+              : 'text-muted-foreground h-auto rounded-[5px] px-2.5 py-1 text-[13px]'"
             :data-test="`student-filter-${option.value}`"
             @click="filter = option.value"
           >
             {{ filterLabel(option.value) }}
           </Button>
         </div>
-        <div class="text-muted-foreground flex flex-wrap items-center gap-3 text-xs">
+        <div class="text-muted-foreground flex flex-wrap items-center gap-3 text-[13px]">
           <span class="flex items-center gap-1"><PhEye class="size-3.5"/>Teori</span>
           <span class="flex items-center gap-1"><PhPaperPlaneTilt class="size-3.5"/>Inlämning</span>
           <span class="flex items-center gap-1"><PhLock class="size-3.5"/>Låst</span>
         </div>
       </div>
 
-      <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
-        <div class="flex flex-col gap-4">
+      <div class="flex flex-wrap items-start gap-6">
+        <div class="flex min-w-0 flex-[999_1_560px] flex-col gap-4">
           <template v-for="module in visibleModules" :key="module.id">
             <Collapsible
               v-if="module.isAvailable"
               :default-open="true"
               as="section"
               :aria-label="module.title"
-              class="bg-card text-card-foreground overflow-hidden rounded-xl border"
+              class="bg-card text-card-foreground overflow-hidden rounded-[11px] border"
             >
               <CollapsibleTrigger
-                class="group bg-muted/50 hover:bg-muted/70 flex w-full items-center gap-3 px-4 py-3 text-left transition-colors"
+                class="group bg-muted/50 hover:bg-muted/70 flex w-full items-center gap-3 px-4 py-[14px] text-left transition-colors"
                 data-test="student-module"
               >
                 <PhCaretDown
@@ -706,7 +615,25 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
                       class="hover:bg-muted/30 flex items-center gap-2 border-t py-2.5 pr-4 pl-12"
                       :data-test="`student-part-${item.linkId}`"
                     >
+                      <Button
+                        v-if="item.canMarkDone && !item.isLocked"
+                        variant="ghost"
+                        size="icon-sm"
+                        class="-ml-1.5 shrink-0"
+                        :aria-label="item.isCompleted
+                          ? 'Ångra klarmarkering'
+                          : 'Klarmarkera'"
+                        :data-test="`${item.isCompleted
+                          ? 'undo'
+                          : 'complete'}-${item.linkId}`"
+                        :disabled="savingLinkId === item.linkId"
+                        @click.stop="setCompleted(item.linkId, !item.isCompleted)"
+                      >
+                        <PhCheckCircle v-if="item.isCompleted" class="size-[18px] text-emerald-600 dark:text-emerald-400"/>
+                        <PhCircle v-else class="size-[18px]"/>
+                      </Button>
                       <component
+                        v-else
                         :is="rowIcon(item)"
                         class="size-[18px] shrink-0"
                         :class="rowIconClass(item)"
@@ -722,7 +649,7 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
                         <component :is="partOf(item).icon" class="text-muted-foreground size-4 shrink-0"/>
                         <span class="flex min-w-0 flex-1 flex-col gap-0.5">
                           <span
-                            class="truncate text-sm"
+                            class="text-sm break-words"
                             :class="item.isLocked
                               ? 'text-muted-foreground'
                               : 'font-medium'"
@@ -754,23 +681,6 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
                         </span>
                         <PhCaretRight class="text-muted-foreground size-4 shrink-0"/>
                       </button>
-
-                      <Button
-                        v-if="item.canMarkDone && !item.isLocked"
-                        variant="ghost"
-                        size="icon-sm"
-                        :aria-label="item.isCompleted
-                          ? 'Ångra klarmarkering'
-                          : 'Klarmarkera'"
-                        :data-test="`${item.isCompleted
-                          ? 'undo'
-                          : 'complete'}-${item.linkId}`"
-                        :disabled="savingLinkId === item.linkId"
-                        @click.stop="setCompleted(item.linkId, !item.isCompleted)"
-                      >
-                        <PhCheckCircle v-if="item.isCompleted" class="text-emerald-600 dark:text-emerald-400"/>
-                        <PhCircle v-else/>
-                      </Button>
                     </div>
                   </CollapsibleContent>
                 </Collapsible>
@@ -783,7 +693,7 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
               :aria-label="module.title"
               variant="outline"
               size="sm"
-              class="bg-card rounded-xl px-4 py-3"
+              class="bg-card rounded-[11px] px-4 py-[14px]"
               data-test="student-module-locked"
             >
               <ItemMedia variant="icon" class="text-muted-foreground">
@@ -803,11 +713,11 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
           </template>
         </div>
 
-        <aside class="flex flex-col gap-4">
-          <section class="bg-card flex flex-col gap-3 rounded-xl border p-4">
+        <aside class="flex min-w-0 flex-[1_1_280px] flex-col gap-4">
+          <section class="bg-card flex flex-col gap-2.5 rounded-[11px] border p-4">
             <h2 class="text-sm font-semibold">Din progress</h2>
             <div class="flex items-baseline gap-1.5">
-              <span class="text-2xl font-semibold">{{ completedCount }}</span>
+              <span class="text-[28px] font-semibold tracking-tight">{{ completedCount }}</span>
               <span class="text-muted-foreground text-sm">av {{ completable.length }} delar klara</span>
             </div>
             <div class="bg-muted h-1.5 overflow-hidden rounded-full">
@@ -838,5 +748,5 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
         </aside>
       </div>
     </template>
-  </main>
+  </div>
 </template>

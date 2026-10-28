@@ -37,6 +37,35 @@ async function pickFirstDay(page: Page, trigger: Locator, which: 'first' | 'last
   await expect(page.locator('[data-slot="popover-content"]')).toHaveCount(0)
 }
 
+// Eleven får elevvyn på samma sida som lärarens redigerare.
+for (const [label, viewport] of [['390 px', phone], ['1440 px', desktop]] as const) {
+  test.describe(`elevens kursinnehåll utan horisontell scroll vid ${label}`, () => {
+    test.use({viewport})
+
+    test('veckor, låsta delar och klarmarkering ryms', async ({page}) => {
+      await page.unrouteAll()
+      await signInAndMockApi(page, 'Student')
+      await open(page, routes.courseContent, 'Övning: bygg en pipeline')
+
+      await expect(page.locator('[data-test="student-view"]')).toBeVisible()
+      await expect(page.locator('[data-test="complete-l2"]')).toBeVisible()
+      await expect(page.locator('[data-test="student-module-locked"]')).toBeVisible()
+      await expect(page.locator('[data-test="add-module"]')).toHaveCount(0)
+      await expectNoHorizontalScroll(page)
+    })
+
+    test('detaljvyn av en låst del ryms', async ({page}) => {
+      await page.unrouteAll()
+      await signInAndMockApi(page, 'Student')
+      await open(page, routes.courseContent, 'Övning: bygg en pipeline')
+      await page.locator('[data-test="student-section-later"], [data-test="student-section-unlocking"]').first().waitFor()
+      await page.locator('[data-test="student-open-l3"]').click()
+      await expect(page.locator('[data-test="student-detail"]')).toContainText('Den här delen är låst')
+      await expectNoHorizontalScroll(page)
+    })
+  })
+}
+
 const pages = [
   {name: 'Idag', path: routes.today, ready: 'Idag'},
   {name: 'kursens innehåll', path: routes.courseContent, ready: 'Introduktion till continuous delivery'},

@@ -5,6 +5,12 @@ import {mockApi, requests, sent} from '@/test/mockApi'
 import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
+// Eleverna får elevvyn på samma sida. Den skrivskyddade listan visas för mentorer, som kan läsa kursen men inte ändra den.
+function mentorOf(courseId: string) {
+  const me = meAs('Student', [courseId])
+  return {...me, courses: me.courses.map((course) => ({...course, role: 'Mentor'}))}
+}
+
 const course = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps'}
 
 function week(id: string, title: string, content: unknown[] = [], publishAt: string | null = null) {
@@ -270,10 +276,10 @@ describe('CourseContentView', () => {
     expect(items[1]!.text()).not.toContain('inlämnade')
   })
 
-  it('en elev ser inga antal inlämnade', async () => {
+  it('en mentor ser inga antal inlämnade', async () => {
     mockApi((_method, path) => {
       if (path === '/api/me') {
-        return {status: 200, body: meAs('Student', ['c1'])}
+        return {status: 200, body: mentorOf('c1')}
       }
       if (path === '/api/courses') {
         return {status: 200, body: [course]}
@@ -300,10 +306,10 @@ describe('CourseContentView', () => {
     expect(wrapper.find('[aria-label="Fler val för Release-pipeline"]').exists()).toBe(true)
   })
 
-  it('en elev ser delarna utan redigeringskontroller', async () => {
+  it('en mentor ser delarna utan redigeringskontroller', async () => {
     mockApi((_method, path) => {
       if (path === '/api/me') {
-        return {status: 200, body: meAs('Student', ['c1'])}
+        return {status: 200, body: mentorOf('c1')}
       }
       if (path === '/api/courses') {
         return {status: 200, body: [course]}
@@ -325,10 +331,10 @@ describe('CourseContentView', () => {
     expect(wrapper.find('a[href="/courses/c1/modules/m1/content/l1/edit"]').exists()).toBe(false)
   })
 
-  it('en elev ser varken Flytta till vecka eller veckomenyns namn och radering', async () => {
+  it('en mentor ser varken Flytta till vecka eller veckomenyns namn och radering', async () => {
     mockApi((_method, path) => {
       if (path === '/api/me') {
-        return {status: 200, body: meAs('Student', ['c1'])}
+        return {status: 200, body: mentorOf('c1')}
       }
       if (path === '/api/courses') {
         return {status: 200, body: [course]}

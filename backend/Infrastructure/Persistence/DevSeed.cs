@@ -255,6 +255,48 @@ public static class DevSeed
             },
             assignmentLink);
 
+        // Elevvyn: den första teorin är klarmarkerad, och i vecka 2 ligger en teori som kan göras nu
+        // och en som är låst tills den är klar. Då syns "Klart", "Nästa steg" och "Låses upp härnäst".
+        var theoryLink = db.ContentLinks.Local.Single(link => link.ContentId == theory.Id);
+        var versioning = new Content
+        {
+            AuthorId = teacherId,
+            Type = ContentType.Theory,
+            Title = "Semantisk versionering och releaser",
+            BodyMd = "MAJOR.MINOR.PATCH: när ska vilket tal höjas?"
+        };
+        var changelog = new Content
+        {
+            AuthorId = teacherId,
+            Type = ContentType.Theory,
+            Title = "Release notes och changelog",
+            BodyMd = "Så skriver du en changelog som andra faktiskt läser."
+        };
+        var versioningLink = new ContentLink
+        {
+            ContentId = versioning.Id,
+            CourseId = devOps.Id,
+            ModuleId = secondWeek.Id,
+            Position = 2
+        };
+        var changelogLink = new ContentLink
+        {
+            ContentId = changelog.Id,
+            CourseId = devOps.Id,
+            ModuleId = secondWeek.Id,
+            Position = 3
+        };
+        db.Content.AddRange(versioning, changelog);
+        db.ContentLinks.AddRange(versioningLink, changelogLink);
+        db.ContentLinkDependencies.Add(
+            new ContentLinkDependency { BlockedLinkId = changelogLink.Id, BlockingLinkId = versioningLink.Id });
+        db.PartCompletions.Add(new PartCompletion
+        {
+            ContentLinkId = theoryLink.Id,
+            StudentId = student.Id,
+            CompletedAt = DateTimeOffset.UtcNow.AddDays(-1)
+        });
+
         // Ena eleven har lämnat in, så att veckolistan visar 1/2 inlämnade.
         db.Submissions.AddRange(
             new Submission

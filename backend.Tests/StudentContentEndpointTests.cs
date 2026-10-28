@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Backend.Domain.Entities;
+using Backend.Domain.Enums;
 using Backend.Infrastructure.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -236,20 +237,90 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     }
 
     [Fact]
-    public async Task StudentModules_ForGroupThatDoesNotReadTheCourse_ReturnNotFound()
+    public async Task StudentModules_ForAStudentInAnotherGroup_ReturnForbidden()
     {
         var setup = await AddCourseWithGroupAsync();
+        Guid outsider;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            var otherGroup = await TestData.AddGroupAsync(db);
+            outsider = (await TestData.AddMemberAsync(db, otherGroup)).Id;
+        }
+
+        using var student = StudentClient(outsider);
+        var view = await student.GetAsync($"/api/courses/{setup.CourseId}/student-modules");
+        var completion = await student.PutAsJsonAsync(
+            $"/api/courses/{setup.CourseId}/links/{Guid.NewGuid()}/completion", new { completed = true });
+
+        Assert.Equal(HttpStatusCode.Forbidden, view.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, completion.StatusCode);
+    }
+
+    [Fact]
+    public async Task StudentModules_ForATeacher_ReturnForbidden()
+    {
+        var setup = await AddCourseWithGroupAsync();
+        Guid teacherId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            var group = await db.Groups.FindAsync(setup.GroupId);
+            teacherId = (await TestData.AddMemberAsync(db, group!, GroupRole.Teacher, UserRole.Teacher)).Id;
+        }
+
+        using var teacher = StudentClient(teacherId);
+        var response = await teacher.GetAsync($"/api/courses/{setup.CourseId}/student-modules");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task StudentModules_ForAnUnknownCourse_ReturnNotFound()
+    {
+        var setup = await AddCourseWithGroupAsync();
+
+        using var student = StudentClient(setup.StudentIds[0]);
+        var response = await student.GetAsync($"/api/courses/{Guid.NewGuid()}/student-modules");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task StudentModules_InTwoGroups_ShowTheUnionOfTheGroupsParts()
+    {
+        var setup = await AddCourseWithGroupAsync();
+        Guid studentId;
         Guid otherGroup;
         using (var scope = factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDb>();
-            otherGroup = (await TestData.AddGroupAsync(db)).Id;
+            var schoolId = (await db.Courses.FindAsync(setup.CourseId))!.SchoolId;
+            var group = await TestData.AddGroupAsync(db, schoolId);
+            otherGroup = group.Id;
+            db.GroupCourses.Add(new GroupCourse { GroupId = otherGroup, CourseId = setup.CourseId });
+            studentId = (await TestData.AddMemberAsync(db, group)).Id;
+            db.Enrollments.Add(new Enrollment
+            {
+                UserId = studentId,
+                GroupId = setup.GroupId,
+                Role = GroupRole.Student
+            });
+            await db.SaveChangesAsync();
         }
 
-        var response = await _client.GetAsync(
-            $"/api/groups/{otherGroup}/courses/{setup.CourseId}/modules");
+        var week = await CreateModuleAsync(setup.CourseId);
+        await LinkTheoryAsync(setup.CourseId, week.Id, "Gemensam");
+        var content = await CreateContentAsync(new { type = "theory", title = "Bara andra gruppen", bodyMd = "" });
+        var link = await _client.PostAsJsonAsync($"/api/content/{content.Id}/links",
+            new { groupId = otherGroup, courseId = setup.CourseId, moduleId = week.Id });
+        link.EnsureSuccessStatusCode();
 
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        var modules = await GetStudentModulesAsync(setup, studentId);
+
+        Assert.Equal(
+            ["Bara andra gruppen", "Gemensam"],
+            modules.Single().Content.Select(item => item.Title).Order());
     }
 
     [Fact]
@@ -363,7 +434,7 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     {
         using var student = StudentClient(studentId);
         return (await student.GetFromJsonAsync<List<ModuleWithContent>>(
-            $"/api/groups/{setup.GroupId}/courses/{setup.CourseId}/modules"))!;
+            $"/api/courses/{setup.CourseId}/student-modules"))!;
     }
 
     private async Task<HttpResponseMessage> SetCompletionAsync(
@@ -371,7 +442,7 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     {
         using var student = StudentClient(studentId);
         return await student.PutAsJsonAsync(
-            $"/api/groups/{setup.GroupId}/courses/{setup.CourseId}/links/{linkId}/completion",
+            $"/api/courses/{setup.CourseId}/links/{linkId}/completion",
             new { completed });
     }
 

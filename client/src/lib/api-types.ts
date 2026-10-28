@@ -2711,7 +2711,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/groups/{groupId}/courses/{courseId}/modules": {
+    "/api/courses/{courseId}/student-modules": {
         parameters: {
             query?: never;
             header?: never;
@@ -2723,7 +2723,6 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    groupId: string;
                     courseId: string;
                 };
                 cookie?: never;
@@ -2739,8 +2738,26 @@ export interface paths {
                         "application/json": components["schemas"]["StudentModuleWithContentDto"][];
                     };
                 };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
                 /** @description Not Found */
                 404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -2758,7 +2775,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/groups/{groupId}/courses/{courseId}/links/{linkId}/completion": {
+    "/api/courses/{courseId}/links/{linkId}/completion": {
         parameters: {
             query?: never;
             header?: never;
@@ -2771,7 +2788,6 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    groupId: string;
                     courseId: string;
                     linkId: string;
                 };

@@ -2642,21 +2642,12 @@
         }
       }
     },
-    "/api/groups/{groupId}/courses/{courseId}/modules": {
+    "/api/courses/{courseId}/student-modules": {
       "get": {
         "tags": [
           "Student content"
         ],
         "parameters": [
-          {
-            "name": "groupId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
           {
             "name": "courseId",
             "in": "path",
@@ -2681,8 +2672,28 @@
               }
             }
           },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/json": {
                 "schema": {
@@ -2694,21 +2705,12 @@
         }
       }
     },
-    "/api/groups/{groupId}/courses/{courseId}/links/{linkId}/completion": {
+    "/api/courses/{courseId}/links/{linkId}/completion": {
       "put": {
         "tags": [
           "Student content"
         ],
         "parameters": [
-          {
-            "name": "groupId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
           {
             "name": "courseId",
             "in": "path",

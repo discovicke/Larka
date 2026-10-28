@@ -23,7 +23,7 @@ import NotFoundView from '@/views/NotFoundView.vue'
 import SettingsView from '@/views/SettingsView.vue'
 import TodayView from '@/views/TodayView.vue'
 import CourseAboutView from '@/views/course/CourseAboutView.vue'
-import CourseContentView from '@/views/course/CourseContentView.vue'
+import CourseContentPage from '@/views/course/CourseContentPage.vue'
 import CourseLayout from '@/views/course/CourseLayout.vue'
 import CourseNewsView from '@/views/course/CourseNewsView.vue'
 import SubmissionsView from '@/views/course/SubmissionsView.vue'
@@ -78,7 +78,7 @@ export const routes: RouteRecordRaw[] = [
           {
             path: 'content',
             name: 'course-content',
-            component: CourseContentView,
+            component: CourseContentPage,
             // Innehåll är kursens startsida, så brödsmulan slutar på kursen.
             meta: {title: 'Innehåll', breadcrumbs: (route) => courseBreadcrumbs(route)},
           },
@@ -175,12 +175,6 @@ export const routes: RouteRecordRaw[] = [
   {path: '/login', name: 'login', component: LoginView, meta: {title: 'Logga in', public: true}},
   // Verktyg för att skapa testdata. Länkas inte i navigationen och ligger utanför layouten.
   {path: '/dev', name: 'dev', component: () => import('@/views/DevView.vue'), meta: {title: 'Testdata'}},
-  {
-    path: '/dev/student',
-    name: 'dev-student',
-    component: () => import('@/views/student/StudentCourseContentView.vue'),
-    meta: {title: 'Elevvy'},
-  },
 ]
 
 // Bara inloggade får se sidorna. Den som inte är inloggad skickas till inloggningen, med sidan i redirect.

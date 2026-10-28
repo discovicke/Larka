@@ -69,6 +69,63 @@ const groups: Schema<'GroupDto'>[] = [
   {id: 'g2', schoolId: 's1', type: 'Class', name: 'NET26 med ett långt klassnamn som får plats', term: 'HT26'},
 ]
 
+function studentPart(linkId: string, title: string, overrides: Record<string, unknown> = {}) {
+  return {
+    linkId,
+    contentId: `x-${linkId}`,
+    type: 'Theory',
+    gradeScale: null,
+    title,
+    bodyMd: 'Läs igenom kapitlet.',
+    publishAt: '2026-10-20T08:00:00Z',
+    dueAt: null,
+    isPinned: false,
+    isLocked: false,
+    isCompleted: false,
+    canMarkDone: true,
+    blockedBy: [],
+    submissionStatus: null,
+    gradeLevel: null,
+    ...overrides,
+  }
+}
+
+// Elevens vy av kursen: en klar del, en som kan göras nu och en som är låst, plus en framtida vecka.
+const studentModules = [
+  {
+    id: 'm1',
+    courseId: 'c1',
+    title: 'Vecka 2 – Release-pipelines och en ganska lång rubrik som får plats på en telefon',
+    description: 'Vi går igenom hur man bygger, testar och släpper en tjänst.',
+    position: 1,
+    publishAt: null,
+    isAvailable: true,
+    content: [
+      studentPart('l1', 'Introduktion till continuous delivery', {isCompleted: true}),
+      studentPart('l2', 'Övning: bygg en pipeline med ett långt namn som ska brytas'),
+      studentPart('l3', 'Inlämning: release-pipeline', {
+        type: 'Assignment',
+        gradeScale: 'PassFailDistinction',
+        dueAt: '2026-10-23T21:59:00Z',
+        canMarkDone: false,
+        isLocked: true,
+        bodyMd: null,
+        blockedBy: [{linkId: 'l2', title: 'Övning: bygg en pipeline', isSatisfied: false}],
+      }),
+    ],
+  },
+  {
+    id: 'm2',
+    courseId: 'c1',
+    title: 'Vecka 3 – Övervakning',
+    description: '',
+    position: 2,
+    publishAt: '2026-11-03T08:00:00Z',
+    isAvailable: false,
+    content: [],
+  },
+]
+
 /** Sidor i appen. Alla finns bakom inloggning och hämtar sina data från mockarna nedan. */
 export const routes = {
   today: '/',
@@ -78,10 +135,10 @@ export const routes = {
 } as const
 
 /**
- * Loggar in en låtsasanvändare (lärare i kursen c1) och svarar på /api/** med fasta data, så att
+ * Loggar in en låtsasanvändare (lärare eller elev i kursen c1) och svarar på /api/** med fasta data, så att
  * sidorna renderas som i verkligheten utan backend. Okända anrop får en tom lista.
  */
-export async function signInAndMockApi(page: Page): Promise<void> {
+export async function signInAndMockApi(page: Page, role: 'Teacher' | 'Student' = 'Teacher'): Promise<void> {
   await page.addInitScript(
     ([tokenKey, expiryKey, expiry]) => {
       sessionStorage.setItem(tokenKey, 'test-token')
@@ -98,13 +155,15 @@ export async function signInAndMockApi(page: Page): Promise<void> {
     }
     switch (pathname) {
       case '/api/me':
-        return json(meAs('Teacher', ['c1', 'c2']))
+        return json(meAs(role, ['c1', 'c2']))
       case '/api/courses':
         return json([course, previousCourse])
       case '/api/groups':
         return json(groups)
       case '/api/courses/c1/modules':
         return json(modules)
+      case '/api/courses/c1/student-modules':
+        return json(studentModules)
       case '/api/courses/c2/modules':
         return json(previousModules)
       default:

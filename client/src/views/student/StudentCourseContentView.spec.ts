@@ -2,10 +2,10 @@ import {flushPromises} from '@vue/test-utils'
 import {describe, expect, it} from 'vitest'
 
 import {mockApi, requests, sent} from '@/test/mockApi'
+import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
 const course = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps'}
-const group = {id: 'g1', schoolId: 's1', name: 'Klass 1', term: 'HT26'}
 
 interface Blocker {
   linkId: string
@@ -114,16 +114,16 @@ function week(content: StudentItem[], overrides: Record<string, unknown> = {}) {
 
 function backend(content: StudentItem[]) {
   mockApi((method, path) => {
-    if (path === '/api/groups') {
-      return {status: 200, body: [group]}
+    if (path === '/api/me') {
+      return {status: 200, body: meAs('Student', ['c1'])}
     }
     if (path === '/api/courses') {
       return {status: 200, body: [course]}
     }
-    if (path === '/api/groups/g1/courses/c1/modules') {
+    if (path === '/api/courses/c1/student-modules') {
       return {status: 200, body: [week(content)]}
     }
-    if (method === 'PUT' && path === '/api/groups/g1/courses/c1/links/l1/completion') {
+    if (method === 'PUT' && path === '/api/courses/c1/links/l1/completion') {
       return {
         status: 200,
         body: week(content.map((item) => item.linkId === 'l1'
@@ -131,7 +131,7 @@ function backend(content: StudentItem[]) {
           : item)),
       }
     }
-    if (method === 'PUT' && path === '/api/groups/g1/courses/c1/links/l6/completion') {
+    if (method === 'PUT' && path === '/api/courses/c1/links/l6/completion') {
       return {
         status: 200,
         body: week(content.map((item) => item.linkId === 'l6'
@@ -154,13 +154,53 @@ async function openSection(
 }
 
 describe('StudentCourseContentView', () => {
+  it('visar kursens header en gång och ingen val av grupp eller kurs', async () => {
+    backend([theory])
+    const {wrapper} = await renderApp('/courses/c1/content')
+
+    expect(wrapper.findAll('h1')).toHaveLength(1)
+    expect(wrapper.find('[data-test="student-group"]').exists()).toBe(false)
+  })
+
+  it('har en enda klarmarkering per rad och ingen kurssökväg i detaljvyn', async () => {
+    backend([theory, locked])
+    const {wrapper} = await renderApp('/courses/c1/content')
+
+    expect(wrapper.find('[data-test="student-part-l1"]').findAll('[data-test="complete-l1"]')).toHaveLength(1)
+
+    await wrapper.find('[data-test="student-open-l1"]').trigger('click')
+    await flushPromises()
+
+    const detail = wrapper.find('[data-test="student-detail"]')
+    expect(detail.find('[data-test="student-back"]').exists()).toBe(true)
+    expect(detail.text()).not.toContain('/')
+  })
+
+  it('visar redigeraren för en lärare och inte elevvyn', async () => {
+    mockApi((_method, path) => {
+      if (path === '/api/me') {
+        return {status: 200, body: meAs('Teacher', ['c1'])}
+      }
+      if (path === '/api/courses') {
+        return {status: 200, body: [course]}
+      }
+      return {status: 200, body: []}
+    })
+    const {wrapper} = await renderApp('/courses/c1/content')
+
+    expect(wrapper.find('[data-test="student-view"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="add-module"]').exists()).toBe(true)
+    expect(requests.some((request) => request.path === '/api/courses/c1/modules')).toBe(true)
+    expect(requests.some((request) => request.path === '/api/courses/c1/student-modules')).toBe(false)
+  })
+
   it('visar nästa steg och låsta delar utan blockerartexter', async () => {
     backend([theory, locked])
-    const {wrapper} = await renderApp('/dev/student')
+    const {wrapper} = await renderApp('/courses/c1/content')
 
     expect(requests).toContainEqual({
       method: 'GET',
-      path: '/api/groups/g1/courses/c1/modules',
+      path: '/api/courses/c1/student-modules',
       body: undefined,
     })
     expect(wrapper.text()).toContain('Vecka 1')
@@ -191,7 +231,7 @@ describe('StudentCourseContentView', () => {
 
   it('visar innehållet och vad en del låser upp i detaljvyn', async () => {
     backend([theory, locked])
-    const {wrapper} = await renderApp('/dev/student')
+    const {wrapper} = await renderApp('/courses/c1/content')
 
     await wrapper.find('[data-test="student-open-l1"]').trigger('click')
     await flushPromises()
@@ -204,7 +244,7 @@ describe('StudentCourseContentView', () => {
 
   it('visar bara ett lager av låsta delar som nästa upplåsning', async () => {
     backend([theory, locked, hiddenBlocker])
-    const {wrapper} = await renderApp('/dev/student')
+    const {wrapper} = await renderApp('/courses/c1/content')
 
     expect(wrapper.find('[data-test="student-part-l2"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="student-part-l5"]').exists()).toBe(false)
@@ -219,7 +259,7 @@ describe('StudentCourseContentView', () => {
 
   it('filtrerar fram bara det som kan göras nu', async () => {
     backend([theory, locked])
-    const {wrapper} = await renderApp('/dev/student')
+    const {wrapper} = await renderApp('/courses/c1/content')
 
     await wrapper.find('[data-test="student-filter-todo"]').trigger('click')
     await flushPromises()
@@ -231,31 +271,31 @@ describe('StudentCourseContentView', () => {
 
   it('klarmarkerar en teori och uppdaterar veckan', async () => {
     backend([theory, locked])
-    const {wrapper} = await renderApp('/dev/student')
+    const {wrapper} = await renderApp('/courses/c1/content')
 
     await wrapper.find('[data-test="complete-l1"]').trigger('click')
     await flushPromises()
 
-    expect(sent('PUT', '/api/groups/g1/courses/c1/links/l1/completion')).toEqual({completed: true})
+    expect(sent('PUT', '/api/courses/c1/links/l1/completion')).toEqual({completed: true})
     await openSection(wrapper, 'completed')
     expect(wrapper.find('[data-test="undo-l1"]').exists()).toBe(true)
   })
 
   it('ångrar en klarmarkering', async () => {
     backend([completed])
-    const {wrapper} = await renderApp('/dev/student')
+    const {wrapper} = await renderApp('/courses/c1/content')
 
     await openSection(wrapper, 'completed')
     await wrapper.find('[data-test="undo-l6"]').trigger('click')
     await flushPromises()
 
-    expect(sent('PUT', '/api/groups/g1/courses/c1/links/l6/completion')).toEqual({completed: false})
+    expect(sent('PUT', '/api/courses/c1/links/l6/completion')).toEqual({completed: false})
     expect(wrapper.find('[data-test="complete-l6"]').exists()).toBe(true)
   })
 
   it('visar inlämningens status och betyg', async () => {
     backend([submitted, graded])
-    const {wrapper} = await renderApp('/dev/student')
+    const {wrapper} = await renderApp('/courses/c1/content')
 
     await openSection(wrapper, 'completed')
 
@@ -275,19 +315,19 @@ describe('StudentCourseContentView', () => {
       isAvailable: false,
     })
     mockApi((_method, path) => {
-      if (path === '/api/groups') {
-        return {status: 200, body: [group]}
+      if (path === '/api/me') {
+        return {status: 200, body: meAs('Student', ['c1'])}
       }
       if (path === '/api/courses') {
         return {status: 200, body: [course]}
       }
-      if (path === '/api/groups/g1/courses/c1/modules') {
+      if (path === '/api/courses/c1/student-modules') {
         return {status: 200, body: [week([theory]), future]}
       }
       return {status: 200, body: []}
     })
 
-    const {wrapper} = await renderApp('/dev/student')
+    const {wrapper} = await renderApp('/courses/c1/content')
 
     const shell = wrapper.find('[data-test="student-module-locked"]')
     expect(shell.exists()).toBe(true)
@@ -309,19 +349,19 @@ describe('StudentCourseContentView', () => {
       isAvailable: false,
     })
     mockApi((_method, path) => {
-      if (path === '/api/groups') {
-        return {status: 200, body: [group]}
+      if (path === '/api/me') {
+        return {status: 200, body: meAs('Student', ['c1'])}
       }
       if (path === '/api/courses') {
         return {status: 200, body: [course]}
       }
-      if (path === '/api/groups/g1/courses/c1/modules') {
+      if (path === '/api/courses/c1/student-modules') {
         return {status: 200, body: [week([theory]), future]}
       }
       return {status: 200, body: []}
     })
 
-    const {wrapper} = await renderApp('/dev/student')
+    const {wrapper} = await renderApp('/courses/c1/content')
     await wrapper.find('[data-test="student-filter-todo"]').trigger('click')
     await flushPromises()
 

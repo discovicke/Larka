@@ -18,24 +18,35 @@ public class StudentContentService(
     ICurrentUser currentUser,
     TimeProvider time)
 {
-    public async Task<ServiceResult<List<StudentModuleWithContentDto>>> GetForGroupCourseAsync(
-        Guid groupId, Guid courseId, CancellationToken ct)
+    // Den inloggade användarens vy av kursen. Grupperna slås upp här, aldrig av klienten: eleven ser
+    // sina egna gruppers länkar och kursens gemensamma. Läser eleven kursen i flera grupper får hen
+    // unionen av grupperna. Den som inte är elev i någon grupp som läser kursen får 403.
+    public async Task<ServiceResult<List<StudentModuleWithContentDto>>> GetForCurrentUserAsync(
+        Guid courseId, CancellationToken ct)
     {
-        if (!await ReadsCourseAsync(groupId, courseId, ct))
+        if (!await groups.CourseExistsAsync(courseId, ct))
         {
-            return ServiceResult<List<StudentModuleWithContentDto>>.NotFound("group or course not found");
+            return ServiceResult<List<StudentModuleWithContentDto>>.NotFound("course not found");
         }
 
-        return ServiceResult<List<StudentModuleWithContentDto>>.Ok(
-            await BuildAsync(groupId, courseId, ct));
+        var groupIds = await StudentGroupsReadingCourseAsync(courseId, ct);
+        return groupIds.Count == 0
+            ? ServiceResult<List<StudentModuleWithContentDto>>.Forbidden()
+            : ServiceResult<List<StudentModuleWithContentDto>>.Ok(await BuildAsync(groupIds, courseId, ct));
     }
 
     public async Task<ServiceResult<StudentModuleWithContentDto>> SetCompletionAsync(
-        Guid groupId, Guid courseId, Guid linkId, SetCompletionDto dto, CancellationToken ct)
+        Guid courseId, Guid linkId, SetCompletionDto dto, CancellationToken ct)
     {
-        if (!await ReadsCourseAsync(groupId, courseId, ct))
+        if (!await groups.CourseExistsAsync(courseId, ct))
         {
-            return ServiceResult<StudentModuleWithContentDto>.NotFound("group or course not found");
+            return ServiceResult<StudentModuleWithContentDto>.NotFound("course not found");
+        }
+
+        var groupIds = await StudentGroupsReadingCourseAsync(courseId, ct);
+        if (groupIds.Count == 0)
+        {
+            return ServiceResult<StudentModuleWithContentDto>.Forbidden();
         }
 
         var now = time.GetUtcNow();
@@ -48,7 +59,7 @@ public class StudentContentService(
             || linked.Link.ModuleId is null
             || module is null
             || !IsModuleAvailable(module, now)
-            || (linked.Link.GroupId is not null && linked.Link.GroupId != groupId)
+            || (linked.Link.GroupId is not null && !groupIds.Contains(linked.Link.GroupId.Value))
             || !IsVisible(linked, now))
         {
             return ServiceResult<StudentModuleWithContentDto>.NotFound("part not found");
@@ -69,7 +80,7 @@ public class StudentContentService(
         if (dto.Completed && existing is null)
         {
             var missing = await MissingBlockersAsync(
-                groupId, courseId, linked.Link.ModuleId.Value, linkId, ct);
+                groupIds, courseId, linked.Link.ModuleId.Value, linkId, ct);
             if (missing.Count > 0)
             {
                 return ServiceResult<StudentModuleWithContentDto>.Conflict(
@@ -90,21 +101,39 @@ public class StudentContentService(
             await unitOfWork.SaveChangesAsync(ct);
         }
 
-        var courseModules = await BuildAsync(groupId, courseId, ct);
+        var courseModules = await BuildAsync(groupIds, courseId, ct);
         return ServiceResult<StudentModuleWithContentDto>.Ok(
             courseModules.Single(module => module.Id == linked.Link.ModuleId.Value));
     }
 
-    private async Task<bool> ReadsCourseAsync(Guid groupId, Guid courseId, CancellationToken ct) =>
-        await groups.ExistsAsync(groupId, ct)
-        && await groups.CourseExistsAsync(courseId, ct)
-        && await groups.ReadsCourseAsync(groupId, courseId, ct);
+    private async Task<List<Guid>> StudentGroupsReadingCourseAsync(Guid courseId, CancellationToken ct)
+    {
+        var mine = await groups.GetStudentGroupIdsAsync(currentUser.UserId, ct);
+        var reading = await groups.GetGroupIdsReadingCourseAsync(courseId, ct);
+        return mine.Intersect(reading).Order().ToList();
+    }
+
+    // Kursens gemensamma länkar kommer med i varje grupp, så unionen tas distinkt på länken.
+    private async Task<List<LinkedContent>> LinksForGroupsAsync(
+        IReadOnlyList<Guid> groupIds, Guid courseId, CancellationToken ct)
+    {
+        var all = new Dictionary<Guid, LinkedContent>();
+        foreach (var groupId in groupIds)
+        {
+            foreach (var link in await contents.GetLinksWithContentForGroupCourseAsync(groupId, courseId, ct))
+            {
+                all.TryAdd(link.Link.Id, link);
+            }
+        }
+
+        return all.Values.ToList();
+    }
 
     private async Task<List<StudentModuleWithContentDto>> BuildAsync(
-        Guid groupId, Guid courseId, CancellationToken ct)
+        IReadOnlyList<Guid> groupIds, Guid courseId, CancellationToken ct)
     {
         var now = time.GetUtcNow();
-        var links = await contents.GetLinksWithContentForGroupCourseAsync(groupId, courseId, ct);
+        var links = await LinksForGroupsAsync(groupIds, courseId, ct);
         var courseModules = await modules.GetForCourseAsync(courseId, ct);
         var dependencies = await contents.GetDependenciesForCourseAsync(courseId, ct);
         var linkIds = links.Select(link => link.Link.Id).ToList();
@@ -220,7 +249,7 @@ public class StudentContentService(
         ContentVisibility.IsModuleAvailable(module.PublishAt, now);
 
     private async Task<List<string>> MissingBlockersAsync(
-        Guid groupId, Guid courseId, Guid moduleId, Guid linkId, CancellationToken ct)
+        IReadOnlyList<Guid> groupIds, Guid courseId, Guid moduleId, Guid linkId, CancellationToken ct)
     {
         var dependencies = (await contents.GetDependenciesForModuleAsync(moduleId, ct))
             .Where(dependency => dependency.BlockedLinkId == linkId)
@@ -231,7 +260,7 @@ public class StudentContentService(
         }
 
         var now = time.GetUtcNow();
-        var links = await contents.GetLinksWithContentForGroupCourseAsync(groupId, courseId, ct);
+        var links = await LinksForGroupsAsync(groupIds, courseId, ct);
         var byLinkId = links.ToDictionary(link => link.Link.Id);
         var linkIds = links.Select(link => link.Link.Id).ToList();
         var studentCompletions = await completions.GetForStudentAsync(currentUser.UserId, linkIds, ct);
