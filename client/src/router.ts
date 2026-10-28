@@ -20,6 +20,7 @@ import MaterialView from '@/views/MaterialView.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
 import PlaceholderView from '@/views/PlaceholderView.vue'
 import SettingsView from '@/views/SettingsView.vue'
+import CourseAboutView from '@/views/course/CourseAboutView.vue'
 import CourseContentView from '@/views/course/CourseContentView.vue'
 import CourseLayout from '@/views/course/CourseLayout.vue'
 import CourseNewsView from '@/views/course/CourseNewsView.vue'
@@ -53,16 +54,6 @@ function courseBreadcrumbs(route: RouteLocationNormalizedLoaded, ...rest: Breadc
   return [{label: 'Kurser'}, course, ...rest]
 }
 
-function courseTab(path: string, name: string, title: string): RouteRecordRaw {
-  return {
-    path,
-    name,
-    component: PlaceholderView,
-    props: {nested: true},
-    meta: {title, breadcrumbs: (route) => courseBreadcrumbs(route, {label: title})},
-  }
-}
-
 export const routes: RouteRecordRaw[] = [
   {
     path: '/',
@@ -94,8 +85,18 @@ export const routes: RouteRecordRaw[] = [
             component: CourseNewsView,
             meta: {title: 'Nyheter', breadcrumbs: (route) => courseBreadcrumbs(route, {label: 'Nyheter'})},
           },
-          courseTab('staff', 'course-staff', 'Personal'),
-          courseTab('about', 'course-about', 'Om'),
+          {
+            path: 'staff',
+            name: 'course-staff',
+            component: CourseAboutView,
+            meta: {title: 'Personal', breadcrumbs: (route) => courseBreadcrumbs(route, {label: 'Personal'})},
+          },
+          {
+            path: 'about',
+            name: 'course-about',
+            component: CourseAboutView,
+            meta: {title: 'Om', breadcrumbs: (route) => courseBreadcrumbs(route, {label: 'Om'})},
+          },
         ],
       },
       {

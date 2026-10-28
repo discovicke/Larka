@@ -10,6 +10,7 @@ namespace Backend.Application.Services;
 public class CourseService(
     ICourseRepository courses,
     ISchoolRepository schools,
+    IGroupRepository groups,
     IPermissions permissions,
     IUnitOfWork unitOfWork)
 {
@@ -59,5 +60,69 @@ public class CourseService(
         courses.Add(course);
         await unitOfWork.SaveChangesAsync(ct);
         return ServiceResult<CourseDto>.Ok(CourseDto.From(course));
+    }
+
+    /// <summary>Ändrar kursens uppgifter. Koden är låst, eftersom den är unik per skola.</summary>
+    public async Task<ServiceResult<CourseDto>> UpdateAsync(Guid id, UpdateCourseDto dto, CancellationToken ct)
+    {
+        var course = await courses.GetAsync(id, ct);
+        if (course is null)
+        {
+            return ServiceResult<CourseDto>.NotFound("course not found");
+        }
+
+        if (!await permissions.CanTeachCourseAsync(id, ct))
+        {
+            return ServiceResult<CourseDto>.Forbidden();
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.Title))
+        {
+            return ServiceResult<CourseDto>.Invalid("title is required");
+        }
+
+        if (dto.Description is null || dto.Description.Length > 20000)
+        {
+            return ServiceResult<CourseDto>.Invalid("description can be at most 20000 characters");
+        }
+
+        if (dto.Points is not null && (dto.Points < 1 || dto.Points > 400))
+        {
+            return ServiceResult<CourseDto>.Invalid("points must be between 1 and 400");
+        }
+
+        if (dto.StartsOn is not null && dto.EndsOn is not null && dto.EndsOn.Value < dto.StartsOn.Value)
+        {
+            return ServiceResult<CourseDto>.Invalid("endsOn must be on or after startsOn");
+        }
+
+        course.Title = dto.Title.Trim();
+        course.Description = dto.Description;
+        course.Points = dto.Points;
+        course.StartsOn = dto.StartsOn;
+        course.EndsOn = dto.EndsOn;
+        await unitOfWork.SaveChangesAsync(ct);
+        return ServiceResult<CourseDto>.Ok(CourseDto.From(course));
+    }
+
+    /// <summary>Lärarna i grupperna som läser kursen. Null om kursen inte finns.</summary>
+    public async Task<List<CourseStaffDto>?> GetStaffAsync(Guid id, CancellationToken ct)
+    {
+        if (!await groups.CourseExistsAsync(id, ct))
+        {
+            return null;
+        }
+
+        var groupIds = await groups.GetGroupIdsReadingCourseAsync(id, ct);
+        var teachers = await groups.GetTeachersAsync(groupIds, ct);
+        return teachers
+            .GroupBy(teacher => new { teacher.UserId, teacher.Name, teacher.Email })
+            .Select(group => new CourseStaffDto(
+                group.Key.UserId,
+                group.Key.Name,
+                group.Key.Email,
+                group.Select(teacher => teacher.GroupName).OrderBy(name => name).ToList()))
+            .OrderBy(member => member.Name)
+            .ToList();
     }
 }

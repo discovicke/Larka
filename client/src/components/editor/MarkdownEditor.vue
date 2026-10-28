@@ -23,7 +23,7 @@ const editor = useEditor({
   editorProps: {
     attributes: {
       'aria-label': props.label,
-      'class': 'min-h-28 px-3 py-2 outline-none [&_p+*]:mt-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal '
+      'class': 'min-h-28 px-3 py-2 outline-none [&>*+*]:mt-2 [&>*+h1]:mt-4 [&>*+h2]:mt-4 [&>*+h3]:mt-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal '
         + '[&_ol]:pl-5 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:font-mono',
     },
   },

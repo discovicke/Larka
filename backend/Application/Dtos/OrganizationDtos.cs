@@ -27,4 +27,12 @@ public record CreateGroupDto(Guid SchoolId, GroupType Type, string Name, string?
 
 public record CreateCourseDto(Guid SchoolId, string Title, string Code);
 
+/// <summary>Ändrar kursens uppgifter. Koden är låst, eftersom den är unik per skola.</summary>
+public record UpdateCourseDto(
+    string Title,
+    string Description,
+    int? Points,
+    DateOnly? StartsOn,
+    DateOnly? EndsOn);
+
 public record AddMemberDto(Guid UserId, GroupRole Role = GroupRole.Student);

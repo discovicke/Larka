@@ -61,6 +61,21 @@ public class GroupRepository(AppDb db) : IGroupRepository
             groupCourse => groupCourse.CourseId == courseId && teacherGroupIds.Contains(groupCourse.GroupId), ct);
     }
 
+    public Task<List<GroupTeacher>> GetTeachersAsync(IReadOnlyCollection<Guid> groupIds, CancellationToken ct) =>
+        db.Enrollments
+            .Where(enrollment => groupIds.Contains(enrollment.GroupId) && enrollment.Role == GroupRole.Teacher)
+            .Join(
+                db.Users,
+                enrollment => enrollment.UserId,
+                user => user.Id,
+                (enrollment, user) => new { enrollment.GroupId, UserId = user.Id, user.Name, user.Email })
+            .Join(
+                db.Groups,
+                row => row.GroupId,
+                group => group.Id,
+                (row, group) => new GroupTeacher(row.UserId, row.Name, row.Email, group.Name))
+            .ToListAsync(ct);
+
     public async Task<List<CourseRole>> GetCourseRolesAsync(Guid userId, CancellationToken ct)
     {
         var rows = await db.Enrollments

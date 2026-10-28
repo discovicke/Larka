@@ -863,6 +863,102 @@ export interface paths {
                 };
             };
         };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateCourseDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CourseDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/courses/{id}/staff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CourseStaffDto"][];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         put?: never;
         post?: never;
         delete?: never;
@@ -2521,12 +2617,27 @@ export interface components {
             schoolId: string;
             title: string;
             code: string;
+            description: string;
+            /** Format: int32 */
+            points: null | number;
+            /** Format: date */
+            startsOn: null | string;
+            /** Format: date */
+            endsOn: null | string;
         };
         /** @description Användarens starkaste roll i kursen: Teacher, Mentor eller Student. */
         CourseRoleDto: {
             /** Format: uuid */
             courseId: string;
             role: components["schemas"]["GroupRole"];
+        };
+        /** @description En lärare i kursen, med namnen på grupperna som läser den där hen är lärare. */
+        CourseStaffDto: {
+            /** Format: uuid */
+            userId: string;
+            name: string;
+            email: string;
+            groups: string[];
         };
         CreateCommentDto: {
             bodyMd: string;
@@ -2850,6 +2961,17 @@ export interface components {
         };
         UpdateContentStatusDto: {
             status: components["schemas"]["ContentStatus"];
+        };
+        /** @description Ändrar kursens uppgifter. Koden är låst, eftersom den är unik per skola. */
+        UpdateCourseDto: {
+            title: string;
+            description: string;
+            /** Format: int32 */
+            points: null | number;
+            /** Format: date */
+            startsOn: null | string;
+            /** Format: date */
+            endsOn: null | string;
         };
         UpdateModuleDto: {
             title: string;

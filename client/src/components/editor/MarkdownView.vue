@@ -15,10 +15,13 @@ const editor = useEditor({
   editable: false,
   editorProps: {
     attributes: {
-      class: 'outline-none leading-relaxed [&_p+*]:mt-3 [&_*+p]:mt-3 [&_ul]:list-disc [&_ul]:pl-5 '
+      // Avstånd mellan alla block (stycken, listor, rubriker), lite mer före en rubrik.
+      class: 'outline-none leading-relaxed [&>*+*]:mt-3 [&>*+h1]:mt-6 [&>*+h2]:mt-5 [&>*+h3]:mt-4 '
+        + '[&_li>p+p]:mt-2 [&_ul]:list-disc [&_ul]:pl-5 '
         + '[&_ol]:list-decimal [&_ol]:pl-5 [&_li+li]:mt-1 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 '
         + '[&_code]:font-mono [&_a]:underline [&_a]:underline-offset-3 [&_strong]:font-semibold [&_h1]:text-xl '
-        + '[&_h2]:text-lg [&_h3]:font-semibold [&_blockquote]:border-l-2 [&_blockquote]:pl-3 '
+        + '[&_h1]:font-semibold [&_h2]:text-lg [&_h2]:font-semibold [&_h3]:font-semibold '
+        + '[&_blockquote]:border-l-2 [&_blockquote]:pl-3 '
         + '[&_blockquote]:text-muted-foreground',
     },
   },

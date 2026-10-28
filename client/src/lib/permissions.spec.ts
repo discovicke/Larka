@@ -3,7 +3,7 @@ import {describe, expect, it} from 'vitest'
 import type {Me} from './me'
 import {canDo, isStudentEverywhere, type Action} from './permissions'
 
-const allActions: Action[] = ['editContent', 'grade', 'publishNews', 'manageAttachments', 'admin']
+const allActions: Action[] = ['editContent', 'editCourse', 'grade', 'publishNews', 'manageAttachments', 'admin']
 
 function user(role: Me['role'], courses: Me['courses']): Me {
   return {

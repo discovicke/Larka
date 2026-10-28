@@ -52,8 +52,25 @@ public static class DevSeed
         var teacherId = PlaceholderIds.UserId;
 
         var group = new Group { SchoolId = schoolId, Name = "NET25", Term = "HT25" };
-        var devOps = new Course { SchoolId = schoolId, Title = "DevOps", Code = "DEVOPS" };
-        var webApps = new Course { SchoolId = schoolId, Title = "Webbapplikationer i C#", Code = "WEBB" };
+        var devOps = new Course
+        {
+            SchoolId = schoolId,
+            Title = "DevOps",
+            Code = "DEVOPS",
+            Description = "Versionshantering, automatiserade tester, CI/CD och driftsättning i molnet.",
+            Points = 25,
+            StartsOn = new DateOnly(2026, 10, 12),
+            EndsOn = new DateOnly(2026, 11, 13),
+        };
+        var webApps = new Course
+        {
+            SchoolId = schoolId,
+            Title = "Webbapplikationer i C#",
+            Code = "WEBB",
+            Points = 40,
+            StartsOn = new DateOnly(2026, 3, 2),
+            EndsOn = new DateOnly(2026, 4, 24),
+        };
         var teacher = new User
         {
             Id = TeacherUserId,

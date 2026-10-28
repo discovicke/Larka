@@ -6,6 +6,9 @@ namespace Backend.Application.Abstractions;
 /// <summary>Användarens starkaste roll i en kurs, via grupperna som läser den.</summary>
 public record CourseRole(Guid CourseId, GroupRole Role);
 
+/// <summary>En lärare i en grupp: en rad per användare och grupp.</summary>
+public record GroupTeacher(Guid UserId, string Name, string Email, string GroupName);
+
 public interface IGroupRepository
 {
     Task<List<Group>> GetAllAsync(CancellationToken ct);
@@ -23,6 +26,9 @@ public interface IGroupRepository
 
     /// <summary>Användaren är lärare i en grupp som läser kursen.</summary>
     Task<bool> IsTeacherOfCourseAsync(Guid courseId, Guid userId, CancellationToken ct);
+
+    /// <summary>Lärarna i grupperna, en rad per lärare och grupp.</summary>
+    Task<List<GroupTeacher>> GetTeachersAsync(IReadOnlyCollection<Guid> groupIds, CancellationToken ct);
 
     /// <summary>Användarens starkaste roll per kurs, Teacher före Mentor före Student.</summary>
     Task<List<CourseRole>> GetCourseRolesAsync(Guid userId, CancellationToken ct);

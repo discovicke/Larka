@@ -1,7 +1,7 @@
 import type {Me} from './me'
 
 /** Det användaren kan göra i appen. */
-export type Action = 'editContent' | 'grade' | 'publishNews' | 'manageAttachments' | 'admin'
+export type Action = 'editContent' | 'editCourse' | 'grade' | 'publishNews' | 'manageAttachments' | 'admin'
 
 /**
  * Reglerna bakom can() i useCurrentUser.

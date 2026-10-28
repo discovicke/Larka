@@ -22,9 +22,22 @@ public static class CourseEndpoints
                 : TypedResults.Ok(course);
         });
 
+        courses.MapGet("/{id:guid}/staff", async Task<Results<Ok<List<CourseStaffDto>>, NotFound>> (
+            Guid id, CourseService service, CancellationToken ct) =>
+        {
+            var staff = await service.GetStaffAsync(id, ct);
+            return staff is null
+                ? TypedResults.NotFound()
+                : TypedResults.Ok(staff);
+        });
+
         courses.MapPost("", async (CreateCourseDto courseDto, CourseService service, CancellationToken ct) =>
             (await service.CreateAsync(courseDto, ct)).ToHttp(course =>
                 TypedResults.Created($"/api/courses/{course.Id}", course)));
+
+        courses.MapPut("/{id:guid}", async (
+            Guid id, UpdateCourseDto courseDto, CourseService service, CancellationToken ct) =>
+            (await service.UpdateAsync(id, courseDto, ct)).ToHttp(TypedResults.Ok));
 
         return app;
     }

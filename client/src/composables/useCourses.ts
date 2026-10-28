@@ -23,6 +23,14 @@ function findCourse(id: string): Course | undefined {
   return courses.value.find((course) => course.id === id)
 }
 
+/** Ersätter en kurs i listan, t.ex. efter att läraren sparat ändringar på fliken Om. */
+function updateCourse(updated: Course) {
+  const index = courses.value.findIndex((course) => course.id === updated.id)
+  if (index >= 0) {
+    courses.value[index] = updated
+  }
+}
+
 export function useCourses() {
-  return {courses, status, loadCourses, findCourse}
+  return {courses, status, loadCourses, findCourse, updateCourse}
 }
