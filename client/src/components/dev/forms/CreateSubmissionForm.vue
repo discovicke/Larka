@@ -5,7 +5,7 @@ import {Input} from '@/components/ui/input'
 import {Textarea} from '@/components/ui/textarea'
 import {useDevOptions} from '@/composables/useDevOptions'
 import {useDevSubmit} from '@/composables/useDevSubmit'
-import {api, type Schema} from '@/lib/api'
+import {api, multipart, type Schema} from '@/lib/api'
 
 import DevField from '../DevField.vue'
 import DevFormCard from '../DevFormCard.vue'
@@ -37,7 +37,7 @@ async function submit() {
   // Formuläret skickas som multipart. OpenAPI-typen beskriver en fil som en sträng, så FormData läggs in här.
   const submission = await run(() => api.POST('/api/links/{id}/submissions', {
     params: {path: {id: form.contentLinkId}},
-    body: body as unknown as Schema<'SubmitForm'>,
+    body: multipart<Schema<'SubmitForm'>>(body),
   }))
   if (submission) {
     const link = labelOf('contentLinks', form.contentLinkId) ?? 'Submission'

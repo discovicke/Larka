@@ -1,9 +1,26 @@
 import {vi} from 'vitest'
 
+import type {paths} from '@/lib/api-types'
+
 // Låtsas vara backend i testerna: byter ut fetch och sparar det som skickats.
 // vitest.config.ts återställer fetch efter varje test (unstubGlobals).
 
 export type Handler = (method: string, path: string, body: unknown) => {status: number, body?: unknown}
+
+/** JSON-svaret (200) för en sökväg och metod i OpenAPI-dokumentet. */
+export type ResponseBody<P extends keyof paths, M extends keyof paths[P]>
+  = paths[P][M] extends {responses: {200: {content: {'application/json': infer Body}}}}
+    ? Body
+    : never
+
+/**
+ * Ett 200-svar vars body typkontrolleras mot schemat för sökvägen och metoden, så att en fixtur
+ * som glidit ifrån backend inte kompilerar: `respond<'/api/courses', 'get'>([devops])`.
+ * Handlern tar fortfarande emot lösa svar, så äldre tester fungerar som förut.
+ */
+export function respond<P extends keyof paths, M extends keyof paths[P]>(body: ResponseBody<P, M>) {
+  return {status: 200, body}
+}
 
 /** Det som skickats, som metod, sökväg och body. */
 export const requests: {method: string, path: string, body: unknown}[] = []

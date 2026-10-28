@@ -3,7 +3,7 @@ import {reactive, ref} from 'vue'
 
 import {Input} from '@/components/ui/input'
 import {useDevSubmit} from '@/composables/useDevSubmit'
-import {api, type Schema} from '@/lib/api'
+import {api, multipart, type Schema} from '@/lib/api'
 
 import DevField from '../DevField.vue'
 import DevFormCard from '../DevFormCard.vue'
@@ -33,7 +33,7 @@ async function submit() {
   // Formuläret skickas som multipart. OpenAPI-typen beskriver filen som en sträng, så FormData läggs in här.
   await run(() => api.POST('/api/content/{id}/attachments', {
     params: {path: {id: form.contentId}},
-    body: body as unknown as {file: Schema<'IFormFile'>},
+    body: multipart<{file: Schema<'IFormFile'>}>(body),
   }))
 }
 </script>

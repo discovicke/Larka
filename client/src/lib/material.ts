@@ -27,15 +27,7 @@ export function fileIcon(fileName: string): Component {
 }
 
 /** Det som behövs från ett flödesobjekt för att gruppera materialet. */
-export interface MaterialLink {
-  linkId: string
-  contentId: string
-  title: string
-  authorId: string
-  courseId: string | null
-  groupId: string | null
-  publishAt: string
-}
+export type MaterialLink = Pick<Schema<'ContentFeedItem'>, 'linkId' | 'contentId' | 'title' | 'authorId' | 'courseId' | 'groupId' | 'publishAt'>
 
 export interface MaterialRow {
   attachment: Schema<'AttachmentDto'>

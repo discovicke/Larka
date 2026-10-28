@@ -1,4 +1,4 @@
-import {api, type Schema} from './api'
+import {api, type Schema, unwrap} from './api'
 
 /** Svaret från GET /api/me: den inloggade användaren och rollerna i kurserna. */
 export type Me = Schema<'MeDto'>
@@ -7,6 +7,5 @@ export type CourseRole = Schema<'GroupRole'>
 
 /** Hämtar den inloggade användaren. Fel kastas som ApiError, som för alla anrop. */
 export async function fetchMe(): Promise<Me> {
-  const {data} = await api.GET('/api/me')
-  return data!
+  return unwrap(await api.GET('/api/me'))
 }

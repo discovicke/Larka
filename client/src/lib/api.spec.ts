@@ -1,6 +1,6 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
-import {api, ApiError, errorMessage} from './api'
+import {api, ApiError, errorMessage, unwrap} from './api'
 import {auth} from './auth'
 import {redirectToLogin} from './auth/redirect'
 import {signInForTests, signOutForTests} from '@/test/auth'
@@ -156,5 +156,33 @@ describe('api med inloggning', () => {
       .catch(() => undefined)
 
     expect(redirectToLogin).not.toHaveBeenCalled()
+  })
+})
+
+describe('unwrap', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', fetchMock)
+  })
+
+  afterEach(() => {
+    fetchMock.mockReset()
+    vi.unstubAllGlobals()
+  })
+
+  it('returnerar data', async () => {
+    respond(200, JSON.stringify({version: '1.0.0', commit: 'abc'}))
+
+    const result = await api.GET('/version')
+
+    expect(unwrap(result)).toEqual({version: '1.0.0', commit: 'abc'})
+  })
+
+  it('kastar ApiError när svaret saknar innehåll', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(null, {status: 204}))
+
+    const result = await api.GET('/version')
+
+    expect(() => unwrap(result)).toThrow(ApiError)
+    expect(() => unwrap(result)).toThrow('Svaret saknar innehåll.')
   })
 })

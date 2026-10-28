@@ -1,12 +1,13 @@
 import {flushPromises} from '@vue/test-utils'
 import {describe, expect, it} from 'vitest'
 
+import type {Schema} from '@/lib/api'
 import type {StudyPlan, StudyPlanAssignment, StudyPlanCourse} from '@/lib/studyPlan'
-import {mockApi} from '@/test/mockApi'
+import {mockApi, respond} from '@/test/mockApi'
 import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
-const devops = {
+const devops: Schema<'CourseDto'> = {
   id: 'c1',
   schoolId: 's1',
   code: 'DEVOPS',
@@ -61,15 +62,15 @@ interface BackendOptions {
 function backend(options: BackendOptions = {}) {
   mockApi((_method, path) => {
     if (path === '/api/me') {
-      return {status: 200, body: options.me ?? meAs('Student', ['c1'])}
+      return respond<'/api/me', 'get'>(options.me ?? meAs('Student', ['c1']))
     }
     if (path === '/api/courses') {
-      return {status: 200, body: [devops]}
+      return respond<'/api/courses', 'get'>([devops])
     }
     if (path === '/api/me/study-plan') {
       return options.fail
         ? {status: 500, body: 'Server error'}
-        : {status: 200, body: options.plan ?? planOf([])}
+        : respond<'/api/me/study-plan', 'get'>(options.plan ?? planOf([]))
     }
     return {status: 404}
   })

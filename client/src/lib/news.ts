@@ -1,3 +1,5 @@
+import type {Schema} from '@/lib/api'
+
 /** Fästa nyheter först, sedan nyast publicerad först. Returnerar en ny lista. */
 export function sortNews<T extends {isPinned: boolean, publishAt: string}>(posts: T[]): T[] {
   return [...posts].sort((left, right) => {
@@ -21,14 +23,7 @@ export function initials(name: string): string {
 }
 
 /** Det som behövs från ett flödesobjekt för att slå ihop nyheter. */
-export interface NewsLink {
-  linkId: string
-  contentId: string
-  courseId: string | null
-  groupId: string | null
-  publishAt: string
-  isPinned: boolean
-}
+export type NewsLink = Pick<Schema<'ContentFeedItem'>, 'linkId' | 'contentId' | 'courseId' | 'groupId' | 'publishAt' | 'isPinned'>
 
 export interface NewsEntry<T extends NewsLink> {
   post: T

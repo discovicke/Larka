@@ -14,6 +14,7 @@ Vi testar det som är kärnan i produkten, inte varje rad kod. 100 % täckning �
 ## Frontend
 
 - Använd `renderApp` och `mockApi` för att testa användarens flöde genom vyerna.
+- Svara med `respond<'/api/courses', 'get'>(body)` i `mockApi` så att fixturen typkontrolleras mot OpenAPI-schemat (se `CalendarView.spec.ts`).
 - Asserta på synlig text, roller, `data-test` och skickade API-anrop.
 - Undvik att asserta på CSS-klasser, intern komponentstruktur eller exakta implementationdetaljer.
 - Dev-verktygen under `components/dev` är inte kärna och testas inte.

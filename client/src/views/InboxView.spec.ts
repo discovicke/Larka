@@ -1,7 +1,8 @@
 import {flushPromises} from '@vue/test-utils'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 
-import {mockApi, requests} from '@/test/mockApi'
+import type {Schema} from '@/lib/api'
+import {mockApi, requests, respond} from '@/test/mockApi'
 import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
@@ -9,19 +10,19 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-const devops = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps'}
-const databases = {id: 'c2', schoolId: 's1', code: 'DB', title: 'Databaser'}
-const group1 = {id: 'g1', schoolId: 's1', type: 'Class', name: 'Lag 1', term: 'HT26'}
-const group2 = {id: 'g2', schoolId: 's1', type: 'Committee', name: 'Lag 2', term: 'HT26'}
-const teacher = {id: 'u1', schoolId: 's1', name: 'Anna Lärare', email: 'anna@example.com', role: 'Teacher'}
+const devops: Schema<'CourseDto'> = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps', description: '', points: null, startsOn: null, endsOn: null}
+const databases: Schema<'CourseDto'> = {id: 'c2', schoolId: 's1', code: 'DB', title: 'Databaser', description: '', points: null, startsOn: null, endsOn: null}
+const group1: Schema<'GroupDto'> = {id: 'g1', schoolId: 's1', type: 'Class', name: 'Lag 1', term: 'HT26'}
+const group2: Schema<'GroupDto'> = {id: 'g2', schoolId: 's1', type: 'Committee', name: 'Lag 2', term: 'HT26'}
+const teacher: Schema<'UserDto'> = {id: 'u1', schoolId: 's1', name: 'Anna Lärare', email: 'anna@example.com', role: 'Teacher'}
 
 function news(
   linkId: string,
   contentId: string,
   title: string,
   publishAt: string,
-  extra: Record<string, unknown> = {},
-) {
+  extra: Partial<Schema<'ContentFeedItem'>> = {},
+): Schema<'ContentFeedItem'> {
   return {
     linkId,
     contentId,
@@ -40,38 +41,38 @@ function news(
 }
 
 interface Feeds {
-  courses?: Record<string, unknown[]>
-  groups?: Record<string, unknown[]>
+  courses?: Record<string, Schema<'ContentFeedItem'>[]>
+  groups?: Record<string, Schema<'ContentFeedItem'>[]>
   fail?: string
 }
 
 function backend(feeds: Feeds = {}) {
   mockApi((method, path) => {
     if (path === '/api/me') {
-      return {status: 200, body: meAs('Teacher', ['c1', 'c2'])}
+      return respond<'/api/me', 'get'>(meAs('Teacher', ['c1', 'c2']))
     }
     if (path === '/api/courses') {
-      return {status: 200, body: [devops, databases]}
+      return respond<'/api/courses', 'get'>([devops, databases])
     }
     if (path === '/api/groups') {
-      return {status: 200, body: [group1, group2]}
+      return respond<'/api/groups', 'get'>([group1, group2])
     }
     if (path === '/api/users') {
-      return {status: 200, body: [teacher]}
+      return respond<'/api/users', 'get'>([teacher])
     }
     const courseFeed = path.match(/^\/api\/courses\/([^/]+)\/content$/)
     if (courseFeed) {
       if (feeds.fail === courseFeed[1]) {
         return {status: 500, body: 'Server error'}
       }
-      return {status: 200, body: feeds.courses?.[courseFeed[1]] ?? []}
+      return respond<'/api/courses/{id}/content', 'get'>(feeds.courses?.[courseFeed[1]] ?? [])
     }
     const groupFeed = path.match(/^\/api\/groups\/([^/]+)\/content$/)
     if (groupFeed) {
       if (feeds.fail === groupFeed[1]) {
         return {status: 500, body: 'Server error'}
       }
-      return {status: 200, body: feeds.groups?.[groupFeed[1]] ?? []}
+      return respond<'/api/groups/{id}/content', 'get'>(feeds.groups?.[groupFeed[1]] ?? [])
     }
     if (method === 'DELETE') {
       return {status: 204}

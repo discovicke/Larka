@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/dialog'
 import {Field, FieldGroup, FieldLabel} from '@/components/ui/field'
 import {Input} from '@/components/ui/input'
-import {api} from '@/lib/api'
+import {api, unwrap} from '@/lib/api'
 
 const props = defineProps<{courseId: string}>()
 const emit = defineEmits<{created: [linkId: string]}>()
@@ -38,16 +38,16 @@ async function save() {
   saving.value = true
   failed.value = false
   try {
-    const {data} = await api.POST('/api/content/with-link', {
+    const created = unwrap(await api.POST('/api/content/with-link', {
       body: {
         content: {type: 'News', title: form.title, bodyMd: form.bodyMd, status: 'Published'},
         link: {courseId: props.courseId, isPinned: form.isPinned},
       },
-    })
+    }))
     Object.assign(form, {title: '', bodyMd: '', isPinned: false})
     bodyError.value = false
     open.value = false
-    emit('created', data!.link.id)
+    emit('created', created.link.id)
   } catch {
     failed.value = true
   } finally {

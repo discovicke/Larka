@@ -3,7 +3,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {AuthError} from './types'
 import {AUTH_EXPIRY_KEY, AUTH_TOKEN_KEY, localAuth} from './localAuth'
 
-const fetchMock = vi.fn<(input: string, init?: RequestInit) => Promise<Response>>()
+const fetchMock = vi.fn<(request: Request) => Promise<Response>>()
 
 function respond(status: number, body: string): void {
   fetchMock.mockResolvedValueOnce(new Response(body || null, {
@@ -39,10 +39,10 @@ describe('localAuth', () => {
     expect(sessionStorage.getItem(AUTH_TOKEN_KEY)).toBe('abc')
     expect(sessionStorage.getItem(AUTH_EXPIRY_KEY)).toBe(String(Date.parse(expiresAt)))
 
-    const [url, init] = fetchMock.mock.calls[0]!
-    expect(new URL(url, 'http://localhost').pathname).toBe('/api/auth/login')
-    expect(init?.method).toBe('POST')
-    expect(JSON.parse(String(init?.body))).toEqual({
+    const request = fetchMock.mock.calls[0]![0]
+    expect(new URL(request.url).pathname).toBe('/api/auth/login')
+    expect(request.method).toBe('POST')
+    expect(await request.json()).toEqual({
       username: 'larare',
       password: 'larare',
     })

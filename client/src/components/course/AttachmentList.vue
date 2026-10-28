@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {api, type Schema} from '@/lib/api'
+import {api, multipart, type Schema} from '@/lib/api'
 import {fileIcon, formatSize} from '@/lib/material'
 
 const props = defineProps<{
@@ -61,7 +61,7 @@ async function onFileChanged(event: Event) {
     // Formuläret skickas som multipart. OpenAPI-typen beskriver filen som en sträng, så FormData läggs in här.
     const {data} = await api.POST('/api/content/{id}/attachments', {
       params: {path: {id: props.contentId}},
-      body: body as unknown as {file: Schema<'IFormFile'>},
+      body: multipart<{file: Schema<'IFormFile'>}>(body),
     })
     if (data) {
       attachments.value = [...attachments.value, data]

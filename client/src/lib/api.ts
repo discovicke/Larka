@@ -1,7 +1,7 @@
 import createClient, {type Middleware} from 'openapi-fetch'
 
 import type {components, paths} from './api-types'
-import {auth} from './auth'
+import {clearSession, currentToken} from './auth/session'
 import {redirectToLogin} from './auth/redirect'
 
 // Klienten och API:et har samma origin (Vite-proxy lokalt, backend serverar klienten i prod),
@@ -21,6 +21,26 @@ export class ApiError extends Error {
     this.name = 'ApiError'
     this.status = status
   }
+}
+
+/**
+ * Returnerar data från ett api-anrop. Svaren som inte är 2xx kastas redan som ApiError av
+ * middleware, så data saknas bara om svaret var tomt (t.ex. 204). Det kastas också som ApiError.
+ */
+export function unwrap<T>(result: {data?: T, response: Response}): T {
+  if (result.data === undefined) {
+    throw new ApiError(result.response.status, 'Svaret saknar innehåll.')
+  }
+  return result.data
+}
+
+/**
+ * Gör en FormData till bodyn för ett multipart-anrop. OpenAPI-typerna beskriver filer som strängar
+ * (IFormFile), så openapi-fetch kan inte typa FormData. Casten är oundviklig och ligger bara här.
+ * Anropen skickar bodyn som den är, så att webbläsaren sätter Content-Type med boundary.
+ */
+export function multipart<T>(form: FormData): T {
+  return form as unknown as T
 }
 
 /** Felmeddelandet att visa för användaren, t.ex. "title is required" från backend. */
@@ -58,7 +78,7 @@ export function messageFromBody(body: unknown, fallback: string): string {
 // Tokenet skickas med på alla anrop, när man är inloggad.
 const addBearer: Middleware = {
   onRequest({request}) {
-    const token = auth.accessToken()
+    const token = currentToken()
     if (token) {
       request.headers.set('Authorization', `Bearer ${token}`)
     }
@@ -72,7 +92,7 @@ const addBearer: Middleware = {
 const throwOnError: Middleware = {
   async onResponse({request, response}) {
     if (response.status === 401 && new URL(request.url).pathname !== '/api/auth/login') {
-      await auth.signOut()
+      clearSession()
       redirectToLogin(window.location.pathname + window.location.search)
     }
 

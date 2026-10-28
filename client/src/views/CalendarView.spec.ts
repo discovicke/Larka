@@ -1,19 +1,20 @@
 import {flushPromises} from '@vue/test-utils'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
-import {mockApi} from '@/test/mockApi'
+import type {Schema} from '@/lib/api'
+import {mockApi, respond} from '@/test/mockApi'
 import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
-const devops = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps'}
-const databases = {id: 'c2', schoolId: 's1', code: 'DB', title: 'Databaser'}
+const devops: Schema<'CourseDto'> = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps', description: '', points: null, startsOn: null, endsOn: null}
+const databases: Schema<'CourseDto'> = {id: 'c2', schoolId: 's1', code: 'DB', title: 'Databaser', description: '', points: null, startsOn: null, endsOn: null}
 
 // Lokala tider, så att testet inte beror på tidszonen.
 function local(month: number, day: number, hour = 23, minute = 59) {
   return new Date(2026, month - 1, day, hour, minute).toISOString()
 }
 
-function item(linkId: string, title: string, at: string, extra: Record<string, unknown> = {}) {
+function item(linkId: string, title: string, at: string, extra: Partial<Schema<'CalendarItemDto'>> = {}): Schema<'CalendarItemDto'> {
   return {
     linkId,
     contentId: `x-${linkId}`,
@@ -36,18 +37,18 @@ const thisWeek = [
 
 let calendarUrls: URL[] = []
 
-function backend(options: {calendar?: unknown[], fail?: boolean, role?: 'Student' | 'Teacher'} = {}) {
+function backend(options: {calendar?: Schema<'CalendarItemDto'>[], fail?: boolean, role?: 'Student' | 'Teacher'} = {}) {
   mockApi((_method, path) => {
     if (path === '/api/me') {
-      return {status: 200, body: meAs(options.role ?? 'Student', ['c1', 'c2'])}
+      return respond<'/api/me', 'get'>(meAs(options.role ?? 'Student', ['c1', 'c2']))
     }
     if (path === '/api/courses') {
-      return {status: 200, body: [devops, databases]}
+      return respond<'/api/courses', 'get'>([devops, databases])
     }
     if (path === '/api/calendar') {
       return options.fail
         ? {status: 500, body: 'Server error'}
-        : {status: 200, body: options.calendar ?? []}
+        : respond<'/api/calendar', 'get'>(options.calendar ?? [])
     }
     return {status: 404}
   })
