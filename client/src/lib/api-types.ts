@@ -413,6 +413,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/calendar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query: {
+                    from: string;
+                    to: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CalendarItemDto"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/groups/{id}/content": {
         parameters: {
             query?: never;
@@ -2573,6 +2620,25 @@ export interface components {
             /** Format: int64 */
             sizeBytes: number;
         };
+        /** @description En rad i kalendern: en deadline eller en publiceringstid för en del. */
+        CalendarItemDto: {
+            /** Format: uuid */
+            linkId: string;
+            /** Format: uuid */
+            contentId: string;
+            title: string;
+            contentType: components["schemas"]["ContentType"];
+            /** Format: uuid */
+            courseId: null | string;
+            courseTitle: null | string;
+            /** Format: uuid */
+            groupId: null | string;
+            kind: components["schemas"]["CalendarItemKind"];
+            /** Format: date-time */
+            at: string;
+        };
+        /** @enum {unknown} */
+        CalendarItemKind: "Deadline" | "Publish";
         /** @enum {unknown} */
         CheckStatus: "Pending" | "Green" | "Red";
         CommentDto: {
@@ -3090,6 +3156,7 @@ type ReadonlyArray<T> = [
 ] extends [
     unknown[]
 ] ? Readonly<Exclude<T, undefined>> : Readonly<Exclude<T, undefined>[]>;
+export const calendarItemKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CalendarItemKind"]> = ["Deadline", "Publish"];
 export const checkStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CheckStatus"]> = ["Pending", "Green", "Red"];
 export const completionRuleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CompletionRule"]> = ["Submitted", "Approved"];
 export const contentStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["ContentStatus"]> = ["Draft", "Published"];

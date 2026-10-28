@@ -124,6 +124,47 @@ public class ContentRepository(AppDb db) : IContentRepository
                 link.Id == dependency.BlockedLinkId && link.CourseId == courseId))
             .ToListAsync(ct);
 
+    public Task<List<CalendarLink>> GetCalendarLinksAsync(
+        Guid userId, DateTimeOffset from, DateTimeOffset to, CancellationToken ct)
+    {
+        var groupIds = db.Enrollments
+            .Where(enrollment => enrollment.UserId == userId)
+            .Select(enrollment => enrollment.GroupId);
+        var courseIds = db.GroupCourses
+            .Where(groupCourse => groupIds.Contains(groupCourse.GroupId))
+            .Select(groupCourse => groupCourse.CourseId);
+
+        return db.ContentLinks
+            .Where(link =>
+                (link.GroupId != null && groupIds.Contains(link.GroupId.Value))
+                || (link.GroupId == null && link.CourseId != null && courseIds.Contains(link.CourseId.Value)))
+            .Where(link => link.ModuleId != null || link.DueAt != null)
+            .Where(link =>
+                (link.DueAt != null && link.DueAt >= from && link.DueAt < to)
+                || (link.PublishAt >= from && link.PublishAt < to))
+            .Join(
+                db.Content,
+                link => link.ContentId,
+                content => content.Id,
+                (link, content) => new { Link = link, Content = content })
+            .Select(row => new CalendarLink(
+                row.Link,
+                row.Content,
+                row.Link.CourseId == null
+                    ? null
+                    : db.Courses
+                        .Where(course => course.Id == row.Link.CourseId.Value)
+                        .Select(course => course.Title)
+                        .FirstOrDefault(),
+                row.Link.ModuleId == null
+                    ? null
+                    : db.Modules
+                        .Where(module => module.Id == row.Link.ModuleId.Value)
+                        .Select(module => (DateTimeOffset?)module.PublishAt)
+                        .FirstOrDefault()))
+            .ToListAsync(ct);
+    }
+
     public void AddDependency(ContentLinkDependency dependency) => db.ContentLinkDependencies.Add(dependency);
 
     public void RemoveDependencies(IEnumerable<ContentLinkDependency> dependencies) =>

@@ -242,10 +242,10 @@ public class StudentContentService(
             && (content.Assignment is null || content.Assignment.SubmissionModes.Count == 0));
 
     private static bool IsVisible(LinkedContent link, DateTimeOffset now) =>
-        link.Content.Status == ContentStatus.Published && link.Link.PublishAt <= now;
+        ContentVisibility.IsVisible(link.Content, link.Link, now);
 
     private static bool IsModuleAvailable(Module module, DateTimeOffset now) =>
-        module.PublishAt is null || module.PublishAt <= now;
+        ContentVisibility.IsModuleAvailable(module.PublishAt, now);
 
     private async Task<List<string>> MissingBlockersAsync(
         Guid groupId, Guid courseId, Guid moduleId, Guid linkId, CancellationToken ct)

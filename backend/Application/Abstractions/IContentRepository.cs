@@ -7,6 +7,10 @@ namespace Backend.Application.Abstractions;
 /// <summary>En utdelning och innehållet den delar ut (med AssignmentSpec om det är en uppgift).</summary>
 public record LinkedContent(ContentLink Link, Content Content);
 
+/// <summary>En länk i kalendern med innehållet, kursens titel och veckans publiceringsdatum.</summary>
+public record CalendarLink(
+    ContentLink Link, Content Content, string? CourseTitle, DateTimeOffset? ModulePublishAt);
+
 public interface IContentRepository
 {
     Task<Content?> GetAsync(Guid id, CancellationToken ct);
@@ -40,6 +44,14 @@ public interface IContentRepository
 
     /// <summary>Alla beroenden mellan delar i kursens moduler.</summary>
     Task<List<ContentLinkDependency>> GetDependenciesForCourseAsync(Guid courseId, CancellationToken ct);
+
+    /// <summary>
+    /// Användarens länkar med deadline eller publicering i intervallet [from, to): gruppens egna länkar och
+    /// kursens gemensamma. Bara delar och uppgifter (ModuleId eller DueAt), med kursens titel och veckans
+    /// publiceringsdatum.
+    /// </summary>
+    Task<List<CalendarLink>> GetCalendarLinksAsync(
+        Guid userId, DateTimeOffset from, DateTimeOffset to, CancellationToken ct);
 
     void AddDependency(ContentLinkDependency dependency);
     void RemoveDependencies(IEnumerable<ContentLinkDependency> dependencies);

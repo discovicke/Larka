@@ -12,6 +12,7 @@ import {useCurrentUser} from '@/composables/useCurrentUser'
 import AppLayout from '@/layouts/AppLayout.vue'
 import {auth} from '@/lib/auth'
 import type {Action} from '@/lib/permissions'
+import CalendarView from '@/views/CalendarView.vue'
 import GradesView from '@/views/GradesView.vue'
 import GradingView from '@/views/GradingView.vue'
 import GroupsView from '@/views/GroupsView.vue'
@@ -62,7 +63,7 @@ export const routes: RouteRecordRaw[] = [
     component: AppLayout,
     children: [
       {path: '', name: 'today', component: PlaceholderView, meta: {title: 'Idag'}},
-      {path: 'calendar', name: 'calendar', component: PlaceholderView, meta: {title: 'Kalender'}},
+      {path: 'calendar', name: 'calendar', component: CalendarView, meta: {title: 'Kalender'}},
       {path: 'inbox', name: 'inbox', component: InboxView, meta: {title: 'Inkorg', fullBleed: true}},
       {path: 'material', name: 'material', component: MaterialView, meta: {title: 'Material'}},
       {path: 'grades', name: 'grades', component: GradesView, meta: {title: 'Studieplan och betyg'}},

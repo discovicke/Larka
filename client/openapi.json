@@ -318,6 +318,58 @@
         }
       }
     },
+    "/api/calendar": {
+      "get": {
+        "tags": [
+          "Calendar"
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CalendarItemDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/groups/{id}/content": {
       "get": {
         "tags": [
@@ -2596,6 +2648,70 @@
         },
         "description": "Url är en tidsbegränsad länk som skapas när bilagan läses, inte något som sparas."
       },
+      "CalendarItemDto": {
+        "required": [
+          "linkId",
+          "contentId",
+          "title",
+          "contentType",
+          "courseId",
+          "courseTitle",
+          "groupId",
+          "kind",
+          "at"
+        ],
+        "type": "object",
+        "properties": {
+          "linkId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "contentType": {
+            "$ref": "#/components/schemas/ContentType"
+          },
+          "courseId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "courseTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CalendarItemKind"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "description": "En rad i kalendern: en deadline eller en publiceringstid för en del."
+      },
+      "CalendarItemKind": {
+        "enum": [
+          "Deadline",
+          "Publish"
+        ]
+      },
       "CheckStatus": {
         "enum": [
           "Pending",
@@ -4450,6 +4566,9 @@
     },
     {
       "name": "Me"
+    },
+    {
+      "name": "Calendar"
     },
     {
       "name": "Content"
