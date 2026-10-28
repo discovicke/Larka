@@ -4,6 +4,7 @@ import {createMemoryHistory, type Router} from 'vue-router'
 
 import App from '@/App.vue'
 import {useCurrentUser} from '@/composables/useCurrentUser'
+import {useNotifications} from '@/composables/useNotifications'
 import {createAppRouter} from '@/router'
 import {signInForTests} from '@/test/auth'
 
@@ -13,6 +14,7 @@ enableAutoUnmount(afterEach)
 export async function renderApp(path: string, router: Router = createAppRouter(createMemoryHistory())) {
   // Användaren ligger i en delad modul; varje test ska hämta den från sin egen mock.
   useCurrentUser().resetCurrentUser()
+  useNotifications().resetNotifications()
   // Appen går bara att öppna när man är inloggad, så testen loggar in en låtsasanvändare först.
   signInForTests()
   await router.push(path)

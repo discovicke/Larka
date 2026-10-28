@@ -1,36 +1,68 @@
 <script setup lang="ts">
-import {PhNewspaper, PhPushPin, PhTray} from '@phosphor-icons/vue'
-import {computed, ref, watch} from 'vue'
-import {useRoute, useRouter} from 'vue-router'
+import {
+  PhArrowCounterClockwise,
+  PhCheckCircle,
+  PhChecks,
+  PhClock,
+  PhExam,
+  PhNewspaper,
+  PhTray,
+} from '@phosphor-icons/vue'
+import {computed, type Component, ref, watch} from 'vue'
+import {type RouteLocationRaw, useRoute, useRouter} from 'vue-router'
 
+import InboxRowContent from '@/components/inbox/InboxRowContent.vue'
+import PageActions from '@/components/layout/PageActions.vue'
 import NewsArticle from '@/components/news/NewsArticle.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
+import {Button} from '@/components/ui/button'
 import {Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty'
 import {Skeleton} from '@/components/ui/skeleton'
 import {useCourses} from '@/composables/useCourses'
+import {useNotifications} from '@/composables/useNotifications'
 import {api, type Schema} from '@/lib/api'
 import {formatDate} from '@/lib/content'
+import {
+  type InboxFilter,
+  type InboxKind,
+  type InboxRow,
+  inboxKindOf,
+  kindLabels,
+  matchesFilter,
+  notificationRow,
+  sortRows,
+} from '@/lib/inbox'
 import {dayGroup, mergeNews} from '@/lib/news'
-
-type InboxTab = 'all' | 'news'
-
-// Betyg, svar och enkäter kommer med #113/#46. Tills dess visar båda flikarna samma nyhetslista.
-const tabs: {value: InboxTab, label: string}[] = [
-  {value: 'all', label: 'Alla'},
-  {value: 'news', label: 'Nyheter'},
-]
 
 const route = useRoute()
 const router = useRouter()
 const {courses, status} = useCourses()
+const {notifications, unreadCount, loadNotifications, markRead, markAllRead} = useNotifications()
 
 const groups = ref<Schema<'GroupDto'>[]>([])
 const users = ref<Schema<'UserDto'>[]>([])
 const posts = ref<Schema<'ContentFeedItem'>[]>([])
 const loading = ref(true)
 const loadFailed = ref(false)
-const activeTab = ref<InboxTab>('all')
+const activeTab = ref<InboxFilter>('all')
 const now = new Date()
+
+const kindIcons: Record<InboxKind, Component> = {
+  news: PhNewspaper,
+  grade: PhCheckCircle,
+  needsWork: PhArrowCounterClockwise,
+  deadline: PhClock,
+  assignment: PhExam,
+}
+
+// Betyg är grönt som i mockupen, komplettering gult. Resten är dämpat.
+const kindIconClasses: Record<InboxKind, string> = {
+  news: 'bg-muted',
+  grade: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
+  needsWork: 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
+  deadline: 'bg-muted',
+  assignment: 'bg-muted',
+}
 
 const dayHeadings = ['Idag', 'Igår', 'Tidigare'] as const
 
@@ -50,24 +82,79 @@ const names = computed(() => {
 const entries = computed(() => [...mergeNews(posts.value, names.value)]
   .sort((left, right) => Date.parse(right.post.publishAt) - Date.parse(left.post.publishAt)))
 
+// Nyheter som har en oläst notis är olästa. Äldre nyheter, från före notiserna, räknas som lästa.
+const unreadNewsIds = computed(() => new Set(notifications.value
+  .filter((notification) => notification.kind === 'NewsPublished' && notification.readAt === null)
+  .map((notification) => notification.contentId)))
+
+const rows = computed(() => sortRows([
+  ...entries.value.map((entry): InboxRow => ({
+    key: `news-${entry.post.contentId}`,
+    kind: 'news',
+    at: entry.post.publishAt,
+    unread: unreadNewsIds.value.has(entry.post.contentId),
+    title: entry.post.title,
+    where: entry.targets.join(' · '),
+    pinned: entry.post.isPinned,
+    contentId: entry.post.contentId,
+  })),
+  ...notifications.value.flatMap((notification) => {
+    const kind = inboxKindOf(notification)
+    return kind
+      ? [notificationRow(notification, kind)]
+      : []
+  }),
+]))
+
+const visibleRows = computed(() => rows.value.filter((row) => matchesFilter(row, activeTab.value)))
+const unreadRows = computed(() => rows.value.filter((row) => row.unread).length)
+
+const tabs = computed<{value: InboxFilter, label: string}[]>(() => [
+  {value: 'all', label: 'Alla'},
+  {
+    value: 'unread',
+    label: unreadRows.value > 0
+      ? `Olästa ${unreadRows.value}`
+      : 'Olästa',
+  },
+  {value: 'grades', label: 'Betyg'},
+  {value: 'news', label: 'Nyheter'},
+])
+
+const emptyTexts: Record<InboxFilter, string> = {
+  all: 'Inget här än.',
+  unread: 'Du har läst allt.',
+  grades: 'Inga betyg än.',
+  news: 'Inga nyheter.',
+}
+
 const sections = computed(() => dayHeadings
   .map((heading) => ({
     heading,
-    entries: entries.value.filter((entry) => dayGroup(entry.post.publishAt, now) === heading),
+    rows: visibleRows.value.filter((row) => dayGroup(row.at, now) === heading),
   }))
-  .filter((section) => section.entries.length > 0))
+  .filter((section) => section.rows.length > 0))
 
 const selectedId = computed(() => typeof route.query.post === 'string'
   ? route.query.post
   : '')
+const visibleNews = computed(() => entries.value.filter((entry) =>
+  visibleRows.value.some((row) => row.contentId === entry.post.contentId)))
 const selected = computed(() =>
-  entries.value.find((entry) => entry.post.contentId === selectedId.value) ?? entries.value[0])
-const isEmpty = computed(() => !loading.value && !loadFailed.value && entries.value.length === 0)
+  visibleNews.value.find((entry) => entry.post.contentId === selectedId.value) ?? visibleNews.value[0])
+const isEmpty = computed(() => !loading.value && !loadFailed.value && rows.value.length === 0)
 
-function tabClass(value: InboxTab) {
+function tabClass(value: InboxFilter) {
   return activeTab.value === value
     ? 'bg-background font-medium shadow-sm'
     : 'text-muted-foreground'
+}
+
+// "DevOps · Betyg · 11:20". Fäst först för nyheter.
+function metaOf(row: InboxRow): string {
+  return [row.where, kindLabels[row.kind], timeLabel(row.at)]
+    .filter((part) => part !== '')
+    .join(' · ')
 }
 
 function timeLabel(publishAt: string): string {
@@ -100,6 +187,7 @@ async function load(showSkeleton = true) {
     ])
     posts.value = [...courseResults, ...groupResults]
       .flatMap((result) => result.data ?? [])
+    await loadNotifications()
   } catch {
     loadFailed.value = true
     posts.value = []
@@ -112,10 +200,40 @@ function select(contentId: string) {
   router.replace({query: {post: contentId}})
 }
 
+// Grader och komplettering leder till studieplanen, uppgifter och deadlines till kursen.
+function notificationLink(row: InboxRow): RouteLocationRaw {
+  if (row.kind === 'grade' || row.kind === 'needsWork') {
+    return {name: 'grades'}
+  }
+  const courseId = row.notification?.courseId
+  return courseId
+    ? {name: 'course-content', params: {courseId}}
+    : {name: 'today'}
+}
+
+function markRowRead(row: InboxRow) {
+  if (row.notification) {
+    markRead([row.notification.id])
+  }
+}
+
+// Nyheten är läst när den öppnats i detaljen, oavsett om den valdes här eller via en länk (?post=).
+function markNewsRead(contentId: string) {
+  markRead(notifications.value
+    .filter((notification) => notification.kind === 'NewsPublished' && notification.contentId === contentId)
+    .map((notification) => notification.id))
+}
+
 async function afterDelete() {
   await load(false)
   await router.replace({query: {}})
 }
+
+watch([selectedId, loading], ([contentId, isLoading]) => {
+  if (contentId && !isLoading) {
+    markNewsRead(contentId)
+  }
+})
 
 // Kurserna hämtas av AppLayout. Flödena kan hämtas först när listan finns.
 watch(status, (value) => {
@@ -126,6 +244,19 @@ watch(status, (value) => {
 </script>
 
 <template>
+  <PageActions>
+    <Button
+      variant="outline"
+      class="h-8"
+      :disabled="unreadCount === 0"
+      data-test="mark-all-read"
+      @click="markAllRead"
+    >
+      <PhChecks/>
+      Markera alla som lästa
+    </Button>
+  </PageActions>
+
   <div class="flex min-w-0 flex-1 flex-wrap items-stretch">
     <template v-if="isEmpty">
       <Empty class="m-auto border border-dashed">
@@ -134,7 +265,7 @@ watch(status, (value) => {
             <PhTray/>
           </EmptyMedia>
           <EmptyTitle>Inkorgen är tom</EmptyTitle>
-          <EmptyDescription>Nyheter från dina kurser och grupper visas här.</EmptyDescription>
+          <EmptyDescription>Nyheter, betyg och påminnelser från dina kurser och grupper visas här.</EmptyDescription>
         </EmptyHeader>
       </Empty>
     </template>
@@ -167,6 +298,14 @@ watch(status, (value) => {
         </div>
 
         <template v-else-if="!loadFailed">
+          <p
+            v-if="visibleRows.length === 0"
+            class="text-muted-foreground px-4 py-6 text-center text-[13px]"
+            data-test="tab-empty"
+          >
+            {{ emptyTexts[activeTab] }}
+          </p>
+
           <template v-for="section in sections" :key="section.heading">
             <div
               class="text-muted-foreground px-4 pt-2.5 pb-1 text-xs font-medium"
@@ -174,33 +313,42 @@ watch(status, (value) => {
             >
               {{ section.heading }}
             </div>
-            <button
-              v-for="entry in section.entries"
-              :key="entry.post.contentId"
-              type="button"
-              class="flex w-full gap-3 px-4 py-3 text-left hover:bg-muted/40"
-              :class="selected?.post.contentId === entry.post.contentId
-                ? 'bg-muted shadow-[inset_2px_0_0_var(--color-primary)]'
-                : ''"
-              :aria-current="selected?.post.contentId === entry.post.contentId
-                ? 'true'
-                : undefined"
-              data-test="news-item"
-              @click="select(entry.post.contentId)"
-            >
-              <span class="bg-muted flex size-8 shrink-0 items-center justify-center rounded-[7px]">
-                <PhNewspaper class="size-4"/>
-              </span>
-              <span class="flex min-w-0 flex-1 flex-col">
-                <span class="font-medium">{{ entry.post.title }}</span>
-                <span class="text-muted-foreground text-[13px]">
-                  <template v-if="entry.post.isPinned">
-                    <PhPushPin class="mr-1 inline size-3"/>Fäst ·
-                  </template>
-                  {{ entry.targets.join(' · ') }} · Nyhet · {{ timeLabel(entry.post.publishAt) }}
-                </span>
-              </span>
-            </button>
+            <template v-for="row in section.rows" :key="row.key">
+              <button
+                v-if="row.kind === 'news' && row.contentId"
+                type="button"
+                class="flex w-full gap-3 px-4 py-3 text-left hover:bg-muted/40"
+                :class="selected?.post.contentId === row.contentId
+                  ? 'bg-muted shadow-[inset_2px_0_0_var(--color-primary)]'
+                  : ''"
+                :aria-current="selected?.post.contentId === row.contentId
+                  ? 'true'
+                  : undefined"
+                data-test="news-item"
+                @click="select(row.contentId)"
+              >
+                <InboxRowContent
+                  :icon="kindIcons[row.kind]"
+                  :icon-class="kindIconClasses[row.kind]"
+                  :row="row"
+                  :meta="metaOf(row)"
+                />
+              </button>
+              <RouterLink
+                v-else
+                :to="notificationLink(row)"
+                class="flex w-full gap-3 px-4 py-3 text-left hover:bg-muted/40"
+                data-test="notification-item"
+                @click="markRowRead(row)"
+              >
+                <InboxRowContent
+                  :icon="kindIcons[row.kind]"
+                  :icon-class="kindIconClasses[row.kind]"
+                  :row="row"
+                  :meta="metaOf(row)"
+                />
+              </RouterLink>
+            </template>
           </template>
         </template>
       </div>

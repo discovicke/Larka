@@ -263,5 +263,49 @@ public static class DevSeed
                 SubmittedAt = DateTimeOffset.UtcNow.AddHours(-3)
             },
             new Submission { ContentLinkId = assignmentLink.Id, StudentId = secondStudent.Id });
+
+        // Notiser till Elev Elevsson: en oläst nyhet, ett oläst betyg och tre lästa. Nyheterna och uppgifterna
+        // har en notis redan här, så att notisjobbet inte skapar nya för dem när servern startar.
+        var now = DateTimeOffset.UtcNow;
+        db.Notifications.AddRange(
+            new Notification
+            {
+                UserId = student.Id,
+                Kind = NotificationKind.NewsPublished,
+                ContentId = news.Id,
+                CreatedAt = now.AddHours(-2)
+            },
+            new Notification
+            {
+                UserId = student.Id,
+                Kind = NotificationKind.SubmissionGraded,
+                ContentId = testPlan.Id,
+                SubmissionId = gradedSubmission.Id,
+                CreatedAt = now.AddDays(-1)
+            },
+            new Notification
+            {
+                UserId = student.Id,
+                Kind = NotificationKind.NewsPublished,
+                ContentId = secondNews.Id,
+                CreatedAt = now.AddDays(-1).AddHours(-3),
+                ReadAt = now.AddDays(-1)
+            },
+            new Notification
+            {
+                UserId = student.Id,
+                Kind = NotificationKind.AssignmentPublished,
+                ContentId = assignment.Id,
+                CreatedAt = now.AddDays(-2),
+                ReadAt = now.AddDays(-2).AddHours(1)
+            },
+            new Notification
+            {
+                UserId = student.Id,
+                Kind = NotificationKind.AssignmentPublished,
+                ContentId = tests.Id,
+                CreatedAt = now.AddDays(-2).AddHours(-1),
+                ReadAt = now.AddDays(-2).AddHours(1)
+            });
     }
 }

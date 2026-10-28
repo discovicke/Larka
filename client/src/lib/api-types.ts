@@ -2692,6 +2692,173 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["NotificationListDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/unread-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["UnreadCountDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3046,6 +3213,39 @@ export interface components {
             position: number;
             affectedLinkIds: string[];
         };
+        /**
+         * @description En notis i inkorgen. Title är innehållets titel (null om innehållet är borttaget). CourseTitle eller
+         *     GroupName säger var det hände. Level finns på betygsnotiser.
+         */
+        NotificationDto: {
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["NotificationKind"];
+            /** Format: uuid */
+            contentId: null | string;
+            /** Format: uuid */
+            submissionId: null | string;
+            /** Format: uuid */
+            linkId: null | string;
+            title: null | string;
+            /** Format: uuid */
+            courseId: null | string;
+            courseTitle: null | string;
+            groupName: null | string;
+            level: null | components["schemas"]["GradeLevel"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            readAt: null | string;
+        };
+        /** @enum {unknown} */
+        NotificationKind: "NewsPublished" | "AssignmentPublished" | "DeadlineSoon" | "SubmissionNeedsWork" | "SubmissionGraded";
+        /** @description De senaste notiserna, och antalet olästa i alla (inte bara de som skickas med). */
+        NotificationListDto: {
+            items: components["schemas"]["NotificationDto"][];
+            /** Format: int32 */
+            unreadCount: number;
+        };
         ReorderContentDto: {
             linkIds: string[];
         };
@@ -3279,6 +3479,10 @@ export interface components {
             dueAt: string;
             status: components["schemas"]["SubmissionStatus"];
         };
+        UnreadCountDto: {
+            /** Format: int32 */
+            count: number;
+        };
         UpdateContentDto: {
             title: string;
             bodyMd: string;
@@ -3354,6 +3558,7 @@ export const gradeLevelValues: ReadonlyArray<FlattenedDeepRequired<components>["
 export const gradeScaleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GradeScale"]> = ["None", "PassFail", "PassFailDistinction"];
 export const groupRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GroupRole"]> = ["Student", "Teacher", "Mentor"];
 export const groupTypeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GroupType"]> = ["Class", "Committee", "Other"];
+export const notificationKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationKind"]> = ["NewsPublished", "AssignmentPublished", "DeadlineSoon", "SubmissionNeedsWork", "SubmissionGraded"];
 export const studyPlanCourseStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["StudyPlanCourseStatus"]> = ["Upcoming", "Ongoing", "Completed"];
 export const submissionModeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["SubmissionMode"]> = ["Text", "File", "Repo", "OnSite"];
 export const submissionStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["SubmissionStatus"]> = ["NotStarted", "Submitted", "NeedsWork", "Graded"];

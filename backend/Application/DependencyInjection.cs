@@ -24,6 +24,7 @@ public static class DependencyInjection
         services.AddScoped<IPermissions, PermissionService>();
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<SubmissionService>();
+        services.AddScoped<NotificationService>();
         return services;
     }
 }

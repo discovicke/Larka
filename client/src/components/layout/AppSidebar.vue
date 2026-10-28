@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/sidebar'
 import {useCourses} from '@/composables/useCourses'
 import {useCurrentUser} from '@/composables/useCurrentUser'
+import {useNotifications} from '@/composables/useNotifications'
 import {exampleCounts, exampleSchool, exampleUser} from '@/data/exampleData'
 import {auth} from '@/lib/auth'
 import {initials} from '@/lib/news'
@@ -49,6 +50,8 @@ interface NavItem {
   routeName: string
   icon: Component
   count?: number
+  // Märket följer antalet olästa notiser i stället för exempelsiffran.
+  unread?: boolean
   // Åtgärden som krävs för att länken ska visas.
   requires?: Action
   // Bara elever i någon kurs ser länken.
@@ -58,7 +61,7 @@ interface NavItem {
 const mainNav: NavItem[] = [
   {label: 'Idag', routeName: 'today', icon: PhHouse},
   {label: 'Kalender', routeName: 'calendar', icon: PhCalendarBlank},
-  {label: 'Inkorg', routeName: 'inbox', icon: PhTray, count: exampleCounts.inbox},
+  {label: 'Inkorg', routeName: 'inbox', icon: PhTray, unread: true},
   {label: 'Material', routeName: 'material', icon: PhFolder},
   {label: 'Studieplan', routeName: 'grades', icon: PhGraduationCap, studentOnly: true},
   {label: 'Att bedöma', routeName: 'grading', icon: PhListChecks, count: exampleCounts.grading, requires: 'grade'},
@@ -71,11 +74,19 @@ const route = useRoute()
 const router = useRouter()
 const {courses} = useCourses()
 const {me, can, resetCurrentUser} = useCurrentUser()
+const {unreadCount} = useNotifications()
 
 const isStudent = computed(() => (me.value?.courses ?? []).some((course) => course.role === 'Student'))
-const navItems = computed(() => mainNav.filter((item) =>
-  (!item.requires || can(item.requires))
-  && (!item.studentOnly || isStudent.value)))
+const navItems = computed(() => mainNav
+  .filter((item) =>
+    (!item.requires || can(item.requires))
+    && (!item.studentOnly || isStudent.value))
+  .map((item) => ({
+    ...item,
+    count: item.unread
+      ? unreadCount.value
+      : item.count,
+  })))
 
 const userName = computed(() => me.value?.name ?? exampleUser.name)
 const userRole = computed(() => me.value

@@ -23,6 +23,7 @@ public static class EndpointExtensions
         api.MapContentEndpoints();
         api.MapSubmissionEndpoints();
         api.MapStudentContentEndpoints();
+        api.MapNotificationEndpoints();
 
         // Okända /api-anrop ska ge 404, inte klientens index.html.
         api.MapFallback(() => Results.NotFound());

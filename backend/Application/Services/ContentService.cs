@@ -15,6 +15,7 @@ public class ContentService(
     IGroupRepository groups,
     IModuleRepository modules,
     SubmissionService submissions,
+    NotificationService notifications,
     IPermissions permissions,
     IFileStorage storage,
     IUnitOfWork unitOfWork,
@@ -209,7 +210,13 @@ public class ContentService(
             return ServiceResult<ContentDto>.Forbidden();
         }
 
+        var wasPublished = content.Status == ContentStatus.Published;
         content.Status = dto.Status;
+        if (content.Status == ContentStatus.Published && !wasPublished)
+        {
+            await notifications.NotifyContentPublishedAsync(content, ct);
+        }
+
         await unitOfWork.SaveChangesAsync(ct);
         return ServiceResult<ContentDto>.Ok(ContentDto.From(content));
     }
@@ -283,9 +290,17 @@ public class ContentService(
             return ServiceResult<ContentLinkDto>.Invalid("dueAt is only allowed on assignments");
         }
 
+        var previousPublishAt = linked.Link.PublishAt;
         linked.Link.PublishAt = dto.PublishAt ?? time.GetUtcNow();
         linked.Link.DueAt = dto.DueAt;
         linked.Link.IsPinned = dto.IsPinned;
+
+        // Bara en ändrad publiceringstid ger notiser. Annars skulle en nål på en gammal nyhet notifiera alla.
+        if (linked.Link.PublishAt != previousPublishAt)
+        {
+            await notifications.NotifyLinkPublishedAsync(linked.Content, linked.Link, ct);
+        }
+
         await unitOfWork.SaveChangesAsync(ct);
         return ServiceResult<ContentLinkDto>.Ok(ContentLinkDto.From(linked.Link));
     }
@@ -615,6 +630,7 @@ public class ContentService(
         };
         contents.AddLink(link);
         await submissions.HandOutAsync(link, content, ct);
+        await notifications.NotifyLinkPublishedAsync(content, link, ct);
         return link;
     }
 

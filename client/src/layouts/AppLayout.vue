@@ -6,13 +6,16 @@ import AppSidebar from '@/components/layout/AppSidebar.vue'
 import {SidebarInset, SidebarProvider} from '@/components/ui/sidebar'
 import {useCourses} from '@/composables/useCourses'
 import {useCurrentUser} from '@/composables/useCurrentUser'
+import {useNotifications} from '@/composables/useNotifications'
 
 const route = useRoute()
 
 const {loadCourses} = useCourses()
 const {loadMe} = useCurrentUser()
+const {loadUnreadCount} = useNotifications()
 loadCourses()
 loadMe()
+loadUnreadCount()
 </script>
 
 <template>

@@ -34,6 +34,9 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
         builder.UseEnvironment("Development");
         builder.UseSetting("ConnectionStrings:Default", _connectionString.Value);
         builder.UseSetting("Database:SeedDevData", "false");
+
+        // Jobbet körs inte av sig självt i testerna. De anropar NotificationService.CreateScheduledAsync direkt.
+        builder.UseSetting("Notifications:Job:Enabled", "false");
         builder.UseSetting("Auth:Jwt:Key", "test-only-key-0123456789abcdef0123456789");
         // User-secrets kan peka på sandbox-org:en. Testerna ska vara oberoende av lokal GitHub-konfiguration.
         builder.UseSetting("GitHub:Org", "skol-org");

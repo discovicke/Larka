@@ -4,6 +4,7 @@ using Backend.Domain.Entities;
 using Backend.Infrastructure.Auth;
 using Backend.Infrastructure.GitHub;
 using Backend.Infrastructure.Labs;
+using Backend.Infrastructure.Notifications;
 using Backend.Infrastructure.Persistence;
 using Backend.Infrastructure.Persistence.Repositories;
 using Backend.Infrastructure.Storage;
@@ -24,6 +25,9 @@ public static class DependencyInjection
 
         services.AddGitHub(config);
         services.AddFileStorage(config);
+
+        services.AddOptions<NotificationJobOptions>().Bind(config.GetSection(NotificationJobOptions.SectionName));
+        services.AddHostedService<NotificationJob>();
 
         services.AddHealthChecks().AddDbContextCheck<AppDb>();
 
@@ -182,5 +186,6 @@ public static class DependencyInjection
         services.AddScoped<IContentRepository, ContentRepository>();
         services.AddScoped<IPartCompletionRepository, PartCompletionRepository>();
         services.AddScoped<ISubmissionRepository, SubmissionRepository>();
+        services.AddScoped<INotificationRepository, NotificationRepository>();
     }
 }

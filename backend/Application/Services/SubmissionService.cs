@@ -17,6 +17,7 @@ public class SubmissionService(
     IPermissions permissions,
     ILabProvisioner provisioner,
     IFileStorage storage,
+    NotificationService notifications,
     IUnitOfWork unitOfWork,
     ICurrentUser currentUser,
     TimeProvider time,
@@ -270,6 +271,12 @@ public class SubmissionService(
             ? SubmissionStatus.NeedsWork
             : SubmissionStatus.Graded;
 
+        notifications.NotifySubmission(
+            submission,
+            linked.Content.Id,
+            dto.NeedsWork
+                ? NotificationKind.SubmissionNeedsWork
+                : NotificationKind.SubmissionGraded);
         await unitOfWork.SaveChangesAsync(ct);
         return ServiceResult<SubmissionDto>.Ok(await ToDtoAsync(submission, ct));
     }

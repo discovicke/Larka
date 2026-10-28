@@ -4,4 +4,4 @@ export const exampleSchool = {name: 'Edugrade'}
 
 export const exampleUser = {name: 'Placeholder', initials: 'PH', role: 'Lärare'}
 
-export const exampleCounts = {inbox: 3, grading: 5}
+export const exampleCounts = {grading: 5}
