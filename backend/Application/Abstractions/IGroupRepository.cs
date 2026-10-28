@@ -9,6 +9,9 @@ public record CourseRole(Guid CourseId, GroupRole Role);
 /// <summary>En lärare i en grupp: en rad per användare och grupp.</summary>
 public record GroupTeacher(Guid UserId, string Name, string Email, string GroupName);
 
+/// <summary>En kurs användaren läser som elev, och grupperna hen läser den i.</summary>
+public record StudentCourse(Course Course, List<Guid> GroupIds);
+
 public interface IGroupRepository
 {
     Task<List<Group>> GetAllAsync(CancellationToken ct);
@@ -32,6 +35,9 @@ public interface IGroupRepository
 
     /// <summary>Användarens starkaste roll per kurs, Teacher före Mentor före Student.</summary>
     Task<List<CourseRole>> GetCourseRolesAsync(Guid userId, CancellationToken ct);
+
+    /// <summary>Kurserna användaren läser som elev i någon grupp, med grupperna per kurs.</summary>
+    Task<List<StudentCourse>> GetStudentCoursesAsync(Guid userId, CancellationToken ct);
     void Add(Group group);
     void AddCourse(GroupCourse groupCourse);
     void AddMember(Enrollment enrollment);

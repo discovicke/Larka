@@ -19,6 +19,11 @@ public static class MeEndpoints
                 : TypedResults.Ok(me);
         }).WithTags("Me");
 
+        // Elevens studieplan: kurserna hen läser som elev, med poäng, status och betyg.
+        // Den som inte är elev i någon grupp får en tom plan.
+        app.MapGet("/me/study-plan", async (StudyPlanService service, CancellationToken ct) =>
+            TypedResults.Ok(await service.GetAsync(ct))).WithTags("Me");
+
         return app;
     }
 }

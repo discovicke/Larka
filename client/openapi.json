@@ -299,6 +299,25 @@
         }
       }
     },
+    "/api/me/study-plan": {
+      "get": {
+        "tags": [
+          "Me"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudyPlanDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/groups/{id}/content": {
       "get": {
         "tags": [
@@ -3909,6 +3928,175 @@
             "format": "date-time"
           }
         }
+      },
+      "StudyPlanAssignmentDto": {
+        "required": [
+          "linkId",
+          "title",
+          "dueAt",
+          "status",
+          "grade",
+          "feedback",
+          "gradedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "linkId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "dueAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SubmissionStatus"
+          },
+          "grade": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/GradeLevel"
+              }
+            ]
+          },
+          "feedback": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "gradedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        },
+        "description": "En uppgift eleven kan lämna in i kursen, med elevens egen inlämning och betyg."
+      },
+      "StudyPlanCourseDto": {
+        "required": [
+          "courseId",
+          "title",
+          "code",
+          "points",
+          "startsOn",
+          "endsOn",
+          "status",
+          "grade",
+          "assignmentCount",
+          "submittedCount",
+          "gradedCount",
+          "assignments"
+        ],
+        "type": "object",
+        "properties": {
+          "courseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "points": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "startsOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "endsOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StudyPlanCourseStatus"
+          },
+          "grade": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/GradeLevel"
+              }
+            ]
+          },
+          "assignmentCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "submittedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "gradedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "assignments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StudyPlanAssignmentDto"
+            }
+          }
+        },
+        "description": "En kurs i studieplanen. Grade är alltid null än, eftersom modellen inte har något slutbetyg på kursen."
+      },
+      "StudyPlanCourseStatus": {
+        "enum": [
+          "Upcoming",
+          "Ongoing",
+          "Completed"
+        ]
+      },
+      "StudyPlanDto": {
+        "required": [
+          "completedPoints",
+          "totalPoints",
+          "courses"
+        ],
+        "type": "object",
+        "properties": {
+          "completedPoints": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPoints": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "courses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StudyPlanCourseDto"
+            }
+          }
+        },
+        "description": "Elevens studieplan: poängen hen klarat av och kurserna hen läser."
       },
       "SubmissionDto": {
         "required": [

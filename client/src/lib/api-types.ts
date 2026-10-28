@@ -378,6 +378,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/study-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StudyPlanDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/groups/{id}/content": {
         parameters: {
             query?: never;
@@ -2912,6 +2947,51 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         };
+        /** @description En uppgift eleven kan lämna in i kursen, med elevens egen inlämning och betyg. */
+        StudyPlanAssignmentDto: {
+            /** Format: uuid */
+            linkId: string;
+            title: string;
+            /** Format: date-time */
+            dueAt: null | string;
+            status: components["schemas"]["SubmissionStatus"];
+            grade: null | components["schemas"]["GradeLevel"];
+            feedback: null | string;
+            /** Format: date-time */
+            gradedAt: null | string;
+        };
+        /** @description En kurs i studieplanen. Grade är alltid null än, eftersom modellen inte har något slutbetyg på kursen. */
+        StudyPlanCourseDto: {
+            /** Format: uuid */
+            courseId: string;
+            title: string;
+            code: string;
+            /** Format: int32 */
+            points: null | number;
+            /** Format: date */
+            startsOn: null | string;
+            /** Format: date */
+            endsOn: null | string;
+            status: components["schemas"]["StudyPlanCourseStatus"];
+            grade: null | components["schemas"]["GradeLevel"];
+            /** Format: int32 */
+            assignmentCount: number;
+            /** Format: int32 */
+            submittedCount: number;
+            /** Format: int32 */
+            gradedCount: number;
+            assignments: components["schemas"]["StudyPlanAssignmentDto"][];
+        };
+        /** @enum {unknown} */
+        StudyPlanCourseStatus: "Upcoming" | "Ongoing" | "Completed";
+        /** @description Elevens studieplan: poängen hen klarat av och kurserna hen läser. */
+        StudyPlanDto: {
+            /** Format: int32 */
+            completedPoints: number;
+            /** Format: int32 */
+            totalPoints: number;
+            courses: components["schemas"]["StudyPlanCourseDto"][];
+        };
         SubmissionDto: {
             /** Format: uuid */
             id: string;
@@ -3018,6 +3098,7 @@ export const gradeLevelValues: ReadonlyArray<FlattenedDeepRequired<components>["
 export const gradeScaleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GradeScale"]> = ["None", "PassFail", "PassFailDistinction"];
 export const groupRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GroupRole"]> = ["Student", "Teacher", "Mentor"];
 export const groupTypeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GroupType"]> = ["Class", "Committee", "Other"];
+export const studyPlanCourseStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["StudyPlanCourseStatus"]> = ["Upcoming", "Ongoing", "Completed"];
 export const submissionModeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["SubmissionMode"]> = ["Text", "File", "Repo", "OnSite"];
 export const submissionStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["SubmissionStatus"]> = ["NotStarted", "Submitted", "NeedsWork", "Graded"];
 export const userRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["UserRole"]> = ["Admin", "Teacher", "Student"];

@@ -93,6 +93,29 @@ public class GroupRepository(AppDb db) : IGroupRepository
             .ToList();
     }
 
+    public async Task<List<StudentCourse>> GetStudentCoursesAsync(Guid userId, CancellationToken ct)
+    {
+        var studentGroupIds = db.Enrollments
+            .Where(enrollment => enrollment.UserId == userId && enrollment.Role == GroupRole.Student)
+            .Select(enrollment => enrollment.GroupId);
+
+        var rows = await db.GroupCourses
+            .Where(groupCourse => studentGroupIds.Contains(groupCourse.GroupId))
+            .Join(
+                db.Courses,
+                groupCourse => groupCourse.CourseId,
+                course => course.Id,
+                (groupCourse, course) => new { Course = course, groupCourse.GroupId })
+            .ToListAsync(ct);
+
+        return rows
+            .GroupBy(row => row.Course.Id)
+            .Select(group => new StudentCourse(
+                group.First().Course,
+                group.Select(row => row.GroupId).Distinct().ToList()))
+            .ToList();
+    }
+
     // Lärare går före mentor, som går före elev.
     private static GroupRole Strongest(IEnumerable<GroupRole> roles) =>
         roles.OrderByDescending(Rank).First();

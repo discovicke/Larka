@@ -5,6 +5,7 @@ import {
   PhCheck,
   PhFolder,
   PhGearSix,
+  PhGraduationCap,
   PhHouse,
   PhListChecks,
   PhMagnifyingGlass,
@@ -50,6 +51,8 @@ interface NavItem {
   count?: number
   // Åtgärden som krävs för att länken ska visas.
   requires?: Action
+  // Bara elever i någon kurs ser länken.
+  studentOnly?: boolean
 }
 
 const mainNav: NavItem[] = [
@@ -57,6 +60,7 @@ const mainNav: NavItem[] = [
   {label: 'Kalender', routeName: 'calendar', icon: PhCalendarBlank},
   {label: 'Inkorg', routeName: 'inbox', icon: PhTray, count: exampleCounts.inbox},
   {label: 'Material', routeName: 'material', icon: PhFolder},
+  {label: 'Studieplan', routeName: 'grades', icon: PhGraduationCap, studentOnly: true},
   {label: 'Att bedöma', routeName: 'grading', icon: PhListChecks, count: exampleCounts.grading, requires: 'grade'},
   {label: 'Inställningar', routeName: 'settings', icon: PhGearSix},
 ]
@@ -68,7 +72,10 @@ const router = useRouter()
 const {courses} = useCourses()
 const {me, can, resetCurrentUser} = useCurrentUser()
 
-const navItems = computed(() => mainNav.filter((item) => !item.requires || can(item.requires)))
+const isStudent = computed(() => (me.value?.courses ?? []).some((course) => course.role === 'Student'))
+const navItems = computed(() => mainNav.filter((item) =>
+  (!item.requires || can(item.requires))
+  && (!item.studentOnly || isStudent.value)))
 
 const userName = computed(() => me.value?.name ?? exampleUser.name)
 const userRole = computed(() => me.value
