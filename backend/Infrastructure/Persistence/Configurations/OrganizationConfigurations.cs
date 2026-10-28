@@ -70,3 +70,13 @@ public class EnrollmentConfiguration : IEntityTypeConfiguration<Enrollment>
             .HasForeignKey(enrollment => enrollment.GroupId).OnDelete(DeleteBehavior.Restrict);
     }
 }
+
+public class SchoolGitHubInstallationConfiguration : IEntityTypeConfiguration<SchoolGitHubInstallation>
+{
+    public void Configure(EntityTypeBuilder<SchoolGitHubInstallation> builder)
+    {
+        builder.HasOne<School>().WithMany()
+            .HasForeignKey(installation => installation.SchoolId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(installation => installation.SchoolId).IsUnique();
+    }
+}

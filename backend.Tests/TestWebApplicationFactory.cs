@@ -51,6 +51,8 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
             services.AddSingleton<ILabProvisioner, FakeLabProvisioner>();
             services.RemoveAll<IGitHubConnectionStatusProvider>();
             services.AddSingleton<IGitHubConnectionStatusProvider, TestGitHubConnectionStatusProvider>();
+            services.RemoveAll<IGitHubOAuthService>();
+            services.AddSingleton<IGitHubOAuthService, TestGitHubOAuthService>();
 
             if (!UseTestAuthentication)
             {

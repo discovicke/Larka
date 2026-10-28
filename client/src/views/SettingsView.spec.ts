@@ -22,13 +22,29 @@ const connectedGitHub: GitHubConnection = {
   missingSettings: [],
 }
 
-function settingsBackend(role: 'Admin' | 'Student', github = connectedGitHub) {
-  mockApi((_method, path) => {
+function settingsBackend(
+  role: 'Admin' | 'Student',
+  github: GitHubConnection = connectedGitHub,
+  gitHubLogin: string | null = null,
+) {
+  mockApi((method, path) => {
     if (path === '/api/me') {
-      return {status: 200, body: meAs(role)}
+      return {status: 200, body: meAs(role, [], 'Anna', gitHubLogin)}
     }
     if (path === '/api/integrations/github') {
       return {status: 200, body: github}
+    }
+    if (method === 'POST' && path === '/api/integrations/github/connect') {
+      return {status: 200, body: {...github, connected: true}}
+    }
+    if (method === 'DELETE' && path === '/api/integrations/github') {
+      return {status: 204}
+    }
+    if (method === 'DELETE' && path === '/api/github/link') {
+      return {status: 204}
+    }
+    if (path.startsWith('/api/github/authorize')) {
+      return {status: 200, body: {url: 'https://github.com/login/oauth/authorize?test=1'}}
     }
     return {status: 404}
   })
@@ -78,6 +94,41 @@ describe('SettingsView', () => {
     expect(wrapper.find('[data-test="github-installation-id"]').text()).toBe('176124626')
     expect(wrapper.find('[data-test="github-verified"]').text()).toContain('28 okt')
     expect(wrapper.find('[data-test="github-error"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="github-disconnect"]').exists()).toBe(true)
+  })
+
+  it('ansluter GitHub för admin när den är konfigurerad men inte ansluten', async () => {
+    settingsBackend('Admin', {
+      ...connectedGitHub,
+      connected: false,
+    })
+
+    const wrapper = mount(SettingsView)
+    await flushPromises()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="github-status"]').text()).toBe('Inte ansluten')
+    const connectButton = wrapper.find('[data-test="github-connect"]')
+    expect(connectButton.exists()).toBe(true)
+
+    await connectButton.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="github-status"]').text()).toBe('Ansluten')
+  })
+
+  it('kopplar från GitHub för admin', async () => {
+    settingsBackend('Admin')
+
+    const wrapper = mount(SettingsView)
+    await flushPromises()
+    await flushPromises()
+
+    const disconnectButton = wrapper.find('[data-test="github-disconnect"]')
+    expect(disconnectButton.exists()).toBe(true)
+
+    await disconnectButton.trigger('click')
+    await flushPromises()
   })
 
   it('visar saknad konfiguration för admin', async () => {
@@ -102,10 +153,28 @@ describe('SettingsView', () => {
     expect(wrapper.find('[data-test="github-missing"]').text()).toContain('Privat nyckel')
   })
 
-  it('visar inte GitHub-anslutningen för elev', async () => {
+  it('visar användarens GitHub-konto som inte kopplad för elev', async () => {
     const wrapper = mount(SettingsView)
     await flushPromises()
 
     expect(wrapper.find('[data-test="integrations"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="user-github"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="user-github-status"]').text()).toBe('Inte kopplad')
+    expect(wrapper.find('[data-test="user-github-connect"]').exists()).toBe(true)
+  })
+
+  it('visar användarens GitHub-konto som kopplad med frånkopplingsknapp', async () => {
+    settingsBackend('Student', connectedGitHub, 'elev-kalle')
+
+    const wrapper = mount(SettingsView)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="user-github-status"]').text()).toBe('Kopplad')
+    expect(wrapper.find('[data-test="user-github-login"]').text()).toBe('@elev-kalle')
+    const unlinkButton = wrapper.find('[data-test="user-github-disconnect"]')
+    expect(unlinkButton.exists()).toBe(true)
+
+    await unlinkButton.trigger('click')
+    await flushPromises()
   })
 })

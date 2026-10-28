@@ -16,6 +16,7 @@ public static class EndpointExtensions
         api.MapUserEndpoints();
         api.MapMeEndpoints();
         api.MapIntegrationEndpoints();
+        api.MapGitHubEndpoints();
         api.MapCalendarEndpoints();
         api.MapGroupEndpoints();
         api.MapCourseEndpoints();

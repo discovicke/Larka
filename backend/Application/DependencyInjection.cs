@@ -20,6 +20,7 @@ public static class DependencyInjection
         services.AddScoped<ContentService>();
         services.AddScoped<MeService>();
         services.AddScoped<IntegrationService>();
+        services.AddScoped<GitHubLinkingService>();
         services.AddScoped<CalendarService>();
         services.AddScoped<StudyPlanService>();
         services.AddScoped<TodayService>();

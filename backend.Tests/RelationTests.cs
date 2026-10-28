@@ -22,6 +22,7 @@ public class RelationTests(TestWebApplicationFactory factory) : IClassFixture<Te
             .SelectMany(entity => entity.GetProperties().Select(property => (Entity: entity, Property: property)))
             .Where(column =>
                 column.Property.Name != "Id"
+                && column.Property.Name != "InstallationId"
                 && column.Property.Name.EndsWith("Id")
                 && !column.Property.IsForeignKey())
             .Select(column => $"{column.Entity.ClrType.Name}.{column.Property.Name}")

@@ -53,6 +53,12 @@ function isStudentEverywhere(): boolean {
   return isStudentEverywhereRule(me.value)
 }
 
+async function reloadMe(): Promise<void> {
+  status.value = 'loading'
+  pending = null
+  return loadMe()
+}
+
 /** Testerna byter användare mellan fallen, så det delade tillståndet måste börja om. */
 function resetCurrentUser(): void {
   me.value = null
@@ -61,5 +67,5 @@ function resetCurrentUser(): void {
 }
 
 export function useCurrentUser() {
-  return {me, status, loadMe, refreshMe, can, isStudentEverywhere, resetCurrentUser}
+  return {me, status, loadMe, refreshMe, reloadMe, can, isStudentEverywhere, resetCurrentUser}
 }

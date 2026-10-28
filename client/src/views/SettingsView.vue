@@ -18,16 +18,25 @@ import {useCurrentUser} from '@/composables/useCurrentUser'
 import {useTheme} from '@/composables/useTheme'
 import {errorMessage} from '@/lib/api'
 import {formatDate} from '@/lib/content'
-import {fetchGitHubConnection, type GitHubConnection} from '@/lib/integrations'
+import {
+  connectGitHub,
+  disconnectGitHub,
+  fetchGitHubAuthorizeUrl,
+  fetchGitHubConnection,
+  unlinkGitHub,
+  type GitHubConnection,
+} from '@/lib/integrations'
 import type {ThemePreference} from '@/lib/theme'
 
 const {preference, resolvedTheme} = useTheme()
-const {loadMe, can} = useCurrentUser()
+const {me, loadMe, reloadMe, can} = useCurrentUser()
 
 const isAdmin = computed(() => can('admin'))
 const github = ref<GitHubConnection | null>(null)
 const githubLoading = ref(false)
 const githubError = ref('')
+const userGitHubLoading = ref(false)
+const userGitHubError = ref('')
 
 const githubBadge = computed<{
   label: string
@@ -73,6 +82,57 @@ async function loadGitHubStatus() {
     githubError.value = errorMessage(exception)
   } finally {
     githubLoading.value = false
+  }
+}
+
+async function handleConnectGitHub() {
+  githubLoading.value = true
+  githubError.value = ''
+  try {
+    github.value = await connectGitHub()
+  } catch (exception) {
+    githubError.value = errorMessage(exception)
+  } finally {
+    githubLoading.value = false
+  }
+}
+
+async function handleDisconnectGitHub() {
+  githubLoading.value = true
+  githubError.value = ''
+  try {
+    await disconnectGitHub()
+    await loadGitHubStatus()
+  } catch (exception) {
+    githubError.value = errorMessage(exception)
+  } finally {
+    githubLoading.value = false
+  }
+}
+
+async function handleConnectUserGitHub() {
+  userGitHubLoading.value = true
+  userGitHubError.value = ''
+  try {
+    const url = await fetchGitHubAuthorizeUrl('/settings')
+    window.location.href = url
+  } catch (exception) {
+    userGitHubError.value = errorMessage(exception)
+  } finally {
+    userGitHubLoading.value = false
+  }
+}
+
+async function handleUnlinkUserGitHub() {
+  userGitHubLoading.value = true
+  userGitHubError.value = ''
+  try {
+    await unlinkGitHub()
+    await reloadMe()
+  } catch (exception) {
+    userGitHubError.value = errorMessage(exception)
+  } finally {
+    userGitHubLoading.value = false
   }
 }
 
@@ -159,6 +219,65 @@ const options: {
       </p>
     </section>
 
+    <!-- Elevens/användarens eget GitHub-konto -->
+    <section class="rounded-xl border p-5" data-test="user-github">
+      <header class="flex flex-wrap items-start justify-between gap-3">
+        <div class="flex items-center gap-2.5">
+          <PhGithubLogo class="size-5 shrink-0"/>
+          <div class="flex flex-col gap-0.5">
+            <h2 class="text-base font-semibold">Ditt GitHub-konto</h2>
+            <p class="text-muted-foreground text-sm">
+              Koppla ditt konto för att få tillgång till personliga uppgiftsrepon.
+            </p>
+          </div>
+        </div>
+        <Badge
+          :variant="me?.gitHubLogin
+            ? 'default'
+            : 'outline'"
+          data-test="user-github-status"
+        >
+          {{ me?.gitHubLogin
+            ? 'Kopplad'
+            : 'Inte kopplad' }}
+        </Badge>
+      </header>
+
+      <div class="mt-4 flex flex-wrap items-center gap-3">
+        <template v-if="me?.gitHubLogin">
+          <span class="text-sm">
+            Kopplad som <strong class="font-mono" data-test="user-github-login">@{{ me.gitHubLogin }}</strong>
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            :disabled="userGitHubLoading"
+            data-test="user-github-disconnect"
+            @click="handleUnlinkUserGitHub"
+          >
+            Koppla från
+          </Button>
+        </template>
+        <template v-else>
+          <Button
+            size="sm"
+            type="button"
+            :disabled="userGitHubLoading"
+            data-test="user-github-connect"
+            @click="handleConnectUserGitHub"
+          >
+            <PhGithubLogo class="size-4"/>
+            {{ userGitHubLoading
+              ? 'Laddar…'
+              : 'Koppla GitHub' }}
+          </Button>
+        </template>
+      </div>
+      <p v-if="userGitHubError" class="text-destructive mt-2 text-sm" data-test="user-github-error">
+        {{ userGitHubError }}
+      </p>
+    </section>
+
     <section v-if="isAdmin" class="flex flex-col gap-3" data-test="integrations">
       <header class="flex flex-col gap-1">
         <h2 class="font-heading text-xl font-semibold">Integrationer</h2>
@@ -225,6 +344,25 @@ const options: {
           </p>
 
           <div class="mt-4 flex flex-wrap items-center gap-3">
+            <Button
+              v-if="github.configured && !github.connected"
+              size="sm"
+              :disabled="githubLoading"
+              data-test="github-connect"
+              @click="handleConnectGitHub"
+            >
+              Anslut
+            </Button>
+            <Button
+              v-if="github.connected"
+              variant="destructive"
+              size="sm"
+              :disabled="githubLoading"
+              data-test="github-disconnect"
+              @click="handleDisconnectGitHub"
+            >
+              Koppla från
+            </Button>
             <Button
               variant="outline"
               size="sm"

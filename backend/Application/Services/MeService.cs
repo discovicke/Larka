@@ -41,6 +41,7 @@ public class MeService(
             user.Email,
             user.Role,
             new SchoolRefDto(school.Id, school.Name),
-            courseRoles);
+            courseRoles,
+            user.GitHubLogin);
     }
 }

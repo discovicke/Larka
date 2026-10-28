@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using Backend.Application.Abstractions;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace backend.Tests;
 
@@ -57,5 +59,59 @@ public class IntegrationEndpointTests(TestWebApplicationFactory factory)
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Contains("Du har inte behörighet", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Connect_WhenNotConfigured_ReturnsBadRequest()
+    {
+        var provider = (TestGitHubConnectionStatusProvider)factory.Services
+            .GetRequiredService<IGitHubConnectionStatusProvider>();
+        provider.Status = new GitHubConnectionStatus(
+            Configured: false,
+            AppId: 0,
+            InstallationId: 0,
+            Org: "skol-org",
+            ApiBaseUrl: "https://api.github.com/",
+            Connected: false,
+            AccountLogin: null,
+            LastVerifiedAt: null,
+            Error: null,
+            MissingSettings: ["AppId", "InstallationId", "PrivateKey"]);
+
+        var response = await _client.PostAsync("/api/integrations/github/connect", null);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("inte konfigurerad", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task ConnectAndDisconnect_AsAdmin_UpdatesConnectionState()
+    {
+        var provider = (TestGitHubConnectionStatusProvider)factory.Services
+            .GetRequiredService<IGitHubConnectionStatusProvider>();
+        provider.Status = new Backend.Application.Abstractions.GitHubConnectionStatus(
+            Configured: true,
+            AppId: 1234,
+            InstallationId: 5678,
+            Org: "skol-org",
+            ApiBaseUrl: "https://api.github.com/",
+            Connected: true,
+            AccountLogin: "skol-org",
+            LastVerifiedAt: DateTimeOffset.UtcNow,
+            Error: null,
+            MissingSettings: []);
+
+        var connectResponse = await _client.PostAsync("/api/integrations/github/connect", null);
+        Assert.Equal(HttpStatusCode.OK, connectResponse.StatusCode);
+        var connectedStatus = await connectResponse.Content.ReadFromJsonAsync<GitHubStatusResponse>();
+        Assert.NotNull(connectedStatus);
+        Assert.True(connectedStatus.Connected);
+
+        var disconnectResponse = await _client.DeleteAsync("/api/integrations/github");
+        Assert.Equal(HttpStatusCode.NoContent, disconnectResponse.StatusCode);
+
+        var statusAfterDisconnect = await _client.GetFromJsonAsync<GitHubStatusResponse>("/api/integrations/github");
+        Assert.NotNull(statusAfterDisconnect);
+        Assert.False(statusAfterDisconnect.Connected);
     }
 }

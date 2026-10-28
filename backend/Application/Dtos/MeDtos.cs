@@ -9,7 +9,8 @@ public record MeDto(
     string Email,
     UserRole Role,
     SchoolRefDto School,
-    List<CourseRoleDto> Courses);
+    List<CourseRoleDto> Courses,
+    string? GitHubLogin = null);
 
 public record SchoolRefDto(Guid Id, string Name);
 

@@ -93,6 +93,19 @@ public static class DependencyInjection
                     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Key)),
                     ClockSkew = TimeSpan.FromMinutes(1)
                 };
+                bearer.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        var accessToken = context.Request.Query["access_token"];
+                        if (!string.IsNullOrEmpty(accessToken))
+                        {
+                            context.Token = accessToken;
+                        }
+
+                        return Task.CompletedTask;
+                    }
+                };
             });
     }
 
@@ -113,6 +126,7 @@ public static class DependencyInjection
         });
         services.AddSingleton<IGitHubAppService, GitHubAppService>();
         services.AddSingleton<IGitHubConnectionStatusProvider, GitHubConnectionStatusProvider>();
+        services.AddScoped<IGitHubOAuthService, GitHubOAuthService>();
 
         // Utan app-credentials ska lokal utveckling och tester fortsätta med fake-repon.
         var githubOptions = config.GetSection(GitHubOptions.SectionName).Get<GitHubOptions>();
@@ -186,6 +200,8 @@ public static class DependencyInjection
         services.AddScoped<IContentRepository, ContentRepository>();
         services.AddScoped<IPartCompletionRepository, PartCompletionRepository>();
         services.AddScoped<ISubmissionRepository, SubmissionRepository>();
+        services.AddScoped<ISubmissionRepository, SubmissionRepository>();
         services.AddScoped<INotificationRepository, NotificationRepository>();
+        services.AddScoped<ISchoolGitHubInstallationRepository, SchoolGitHubInstallationRepository>();
     }
 }

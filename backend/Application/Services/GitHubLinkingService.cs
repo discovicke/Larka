@@ -1,0 +1,72 @@
+using Backend.Application.Abstractions;
+using Backend.Application.Results;
+
+namespace Backend.Application.Services;
+
+public class GitHubLinkingService(
+    IGitHubOAuthService oauth,
+    IUserRepository users,
+    ICurrentUser currentUser,
+    IUnitOfWork unitOfWork)
+{
+    public bool IsOAuthConfigured => oauth.IsConfigured;
+
+    public string BuildAuthorizeUrl(string state, string? redirectUri = null) =>
+        oauth.BuildAuthorizeUrl(state, redirectUri);
+
+    public async Task<string?> GetLinkStatusAsync(CancellationToken ct)
+    {
+        var user = await users.GetAsync(currentUser.UserId, ct);
+        return user?.GitHubLogin;
+    }
+
+    public Task<ServiceResult<string>> LinkAsync(string code, CancellationToken ct) =>
+        LinkForUserAsync(currentUser.UserId, code, ct);
+
+    public async Task<ServiceResult<string>> LinkForUserAsync(Guid userId, string code, CancellationToken ct)
+    {
+        var user = await users.GetAsync(userId, ct);
+        if (user is null)
+        {
+            return ServiceResult<string>.NotFound("user not found");
+        }
+
+        string login;
+        try
+        {
+            login = await oauth.ExchangeCodeForLoginAsync(code, ct);
+        }
+        catch (GitHubApiException exception)
+        {
+            return ServiceResult<string>.Invalid(exception.Message);
+        }
+
+        var allUsers = await users.GetAllAsync(ct);
+        var existingUser = allUsers.FirstOrDefault(existing =>
+            string.Equals(existing.GitHubLogin, login, StringComparison.OrdinalIgnoreCase) && existing.Id != user.Id);
+        if (existingUser is not null)
+        {
+            return ServiceResult<string>.Conflict("Detta GitHub-konto är redan kopplat till en annan användare.");
+        }
+
+        user.GitHubLogin = login;
+        await unitOfWork.SaveChangesAsync(ct);
+        return ServiceResult<string>.Ok(login);
+    }
+
+    public Task<ServiceResult<bool>> UnlinkAsync(CancellationToken ct) =>
+        UnlinkForUserAsync(currentUser.UserId, ct);
+
+    public async Task<ServiceResult<bool>> UnlinkForUserAsync(Guid userId, CancellationToken ct)
+    {
+        var user = await users.GetAsync(userId, ct);
+        if (user is null)
+        {
+            return ServiceResult<bool>.NotFound("user not found");
+        }
+
+        user.GitHubLogin = null;
+        await unitOfWork.SaveChangesAsync(ct);
+        return ServiceResult<bool>.Ok(true);
+    }
+}
