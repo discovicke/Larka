@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Backend.Infrastructure.Persistence;
 
 /// <summary>
-/// Exempeldata för lokal utveckling: en klass med två kurser, två veckor i DevOps, en lärare, två elever
+/// Exempeldata för lokal utveckling: en klass med två kurser (och NET26 att skapa en kursomgång för), två veckor i DevOps, en lärare, två elever
 /// och lite innehåll. Körs av EF Core efter Migrate när Database:SeedDevData är true, och bara om det inte
 /// finns några grupper än. Placeholder-skolan och placeholder-användaren finns redan via migrationen.
 /// Användar-id:na är fasta så att de går att känna igen i dev-databasen och i testerna.
@@ -52,6 +52,9 @@ public static class DevSeed
         var teacherId = PlaceholderIds.UserId;
 
         var group = new Group { SchoolId = schoolId, Name = "NET25", Term = "HT25" };
+
+        // Klassen som en ny kursomgång kan skapas för (Ny kursomgång). Den läser inga kurser än.
+        var nextGroup = new Group { SchoolId = schoolId, Name = "NET26", Term = "HT26" };
         var devOps = new Course
         {
             SchoolId = schoolId,
@@ -108,7 +111,7 @@ public static class DevSeed
             admin.PasswordHash = _passwordHasher.HashPassword(admin, DevPassword);
         }
 
-        db.Groups.Add(group);
+        db.Groups.AddRange(group, nextGroup);
         db.Courses.AddRange(devOps, webApps);
         db.Users.AddRange(teacher, student, secondStudent);
 

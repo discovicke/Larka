@@ -25,6 +25,18 @@ public class InMemoryFileStorage : IFileStorage
             ? Task.FromResult($"https://storage.local/{key}?expires={(int)expiresIn.TotalSeconds}")
             : throw new FileNotFoundException("No such file in storage.", key);
 
+    public Task<string> CopyAsync(string sourceKey, string folder, CancellationToken ct)
+    {
+        if (!_files.TryGetValue(sourceKey, out var bytes))
+        {
+            throw new FileNotFoundException("No such file in storage.", sourceKey);
+        }
+
+        var key = $"{folder}/{Guid.NewGuid()}";
+        _files[key] = bytes.ToArray();
+        return Task.FromResult(key);
+    }
+
     public Task DeleteAsync(string key, CancellationToken ct)
     {
         _files.TryRemove(key, out _);

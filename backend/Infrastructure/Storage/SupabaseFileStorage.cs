@@ -12,6 +12,8 @@ public class SupabaseFileStorage(HttpClient http, IOptions<SupabaseStorageOption
 
     private record SignRequest(int ExpiresIn);
 
+    private record CopyRequest(string BucketId, string SourceKey, string DestinationKey);
+
     private record SignResponse(string SignedUrl);
 
     public async Task<string> UploadAsync(string folder, Stream content, string contentType, CancellationToken ct)
@@ -34,6 +36,15 @@ public class SupabaseFileStorage(HttpClient http, IOptions<SupabaseStorageOption
         var signed = await response.Content.ReadFromJsonAsync<SignResponse>(ct)
             ?? throw new InvalidOperationException("Supabase returned no signed URL.");
         return new Uri(http.BaseAddress!, signed.SignedUrl.TrimStart('/')).ToString();
+    }
+
+    public async Task<string> CopyAsync(string sourceKey, string folder, CancellationToken ct)
+    {
+        var key = $"{folder}/{Guid.NewGuid()}";
+        using var response = await http.PostAsJsonAsync(
+            "object/copy", new CopyRequest(_options.Bucket, sourceKey, key), ct);
+        response.EnsureSuccessStatusCode();
+        return key;
     }
 
     public async Task DeleteAsync(string key, CancellationToken ct)

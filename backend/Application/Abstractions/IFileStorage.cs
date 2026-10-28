@@ -13,5 +13,8 @@ public interface IFileStorage
     /// <summary>En länk som går att läsa filen från tills den löper ut. Skapas först när filen läses.</summary>
     Task<string> GetSignedUrlAsync(string key, TimeSpan expiresIn, CancellationToken ct);
 
+    /// <summary>Kopierar filen till en ny nyckel under folder, så att kopian lever kvar när originalet tas bort.</summary>
+    Task<string> CopyAsync(string sourceKey, string folder, CancellationToken ct);
+
     Task DeleteAsync(string key, CancellationToken ct);
 }

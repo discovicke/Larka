@@ -994,6 +994,76 @@
         }
       }
     },
+    "/api/courses/{id}/runs": {
+      "post": {
+        "tags": [
+          "Courses"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCourseRunDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseRunResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/courses/{id}/modules": {
       "get": {
         "tags": [
@@ -1061,6 +1131,76 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ModuleDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/courses/{id}/modules/copy": {
+      "post": {
+        "tags": [
+          "Modules"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopyWeeksDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CopyWeeksResultDto"
                 }
               }
             }
@@ -3133,6 +3273,46 @@
           "Assignment"
         ]
       },
+      "CopyWeeksDto": {
+        "required": [
+          "sourceCourseId",
+          "moduleIds"
+        ],
+        "type": "object",
+        "properties": {
+          "sourceCourseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "moduleIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "CopyWeeksResultDto": {
+        "required": [
+          "modules",
+          "partCount"
+        ],
+        "type": "object",
+        "properties": {
+          "modules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ModuleDto"
+            }
+          },
+          "partCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "description": "Veckorna som skapades i målkursen, i ordning, och hur många delar de innehåller."
+      },
       "CourseDto": {
         "required": [
           "id",
@@ -3202,6 +3382,39 @@
           }
         },
         "description": "Användarens starkaste roll i kursen: Teacher, Mentor eller Student."
+      },
+      "CourseRunResultDto": {
+        "required": [
+          "courseId",
+          "groupId",
+          "moduleCount",
+          "partCount",
+          "staffCount"
+        ],
+        "type": "object",
+        "properties": {
+          "courseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "groupId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "moduleCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "partCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "staffCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "description": "Den nya kursomgången: kursens id, klassen och hur många veckor, delar och lärare som följde med."
       },
       "CourseStaffDto": {
         "required": [
@@ -3372,6 +3585,45 @@
           },
           "code": {
             "type": "string"
+          }
+        }
+      },
+      "CreateCourseRunDto": {
+        "required": [
+          "code",
+          "groupId",
+          "startsOn",
+          "endsOn",
+          "copyContent"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "startsOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "endsOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "copyContent": {
+            "type": "boolean"
           }
         }
       },

@@ -35,6 +35,16 @@ async function loadMe(): Promise<void> {
   return pending
 }
 
+/** Hämtar användaren på nytt, t.ex. när hen fått roll i en ny kurs. Behåller den gamla vid fel. */
+async function refreshMe(): Promise<void> {
+  try {
+    me.value = await fetchMe()
+    status.value = 'loaded'
+  } catch {
+    // Den gamla användaren gäller tills vidare.
+  }
+}
+
 function can(action: Action, courseId?: string): boolean {
   return canDo(me.value, action, courseId)
 }
@@ -51,5 +61,5 @@ function resetCurrentUser(): void {
 }
 
 export function useCurrentUser() {
-  return {me, status, loadMe, can, isStudentEverywhere, resetCurrentUser}
+  return {me, status, loadMe, refreshMe, can, isStudentEverywhere, resetCurrentUser}
 }

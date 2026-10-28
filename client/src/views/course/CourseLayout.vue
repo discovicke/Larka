@@ -1,10 +1,15 @@
 <script setup lang="ts">
-import {computed} from 'vue'
+import {PhDotsThree, PhPlus} from '@phosphor-icons/vue'
+import {computed, ref, watch} from 'vue'
 import {useRoute} from 'vue-router'
 
 import {Alert, AlertDescription} from '@/components/ui/alert'
+import NewCourseRunDialog from '@/components/course/NewCourseRunDialog.vue'
+import {Button} from '@/components/ui/button'
+import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from '@/components/ui/dropdown-menu'
 import {Skeleton} from '@/components/ui/skeleton'
 import {useCourses} from '@/composables/useCourses'
+import {useCurrentUser} from '@/composables/useCurrentUser'
 import NotFoundView from '@/views/NotFoundView.vue'
 
 const tabs = [
@@ -17,6 +22,14 @@ const tabs = [
 const route = useRoute()
 const {status, findCourse} = useCourses()
 const course = computed(() => findCourse(String(route.params.courseId)))
+const {can} = useCurrentUser()
+// Admin och lärarna i kursen får skapa en ny omgång av den.
+const canCreateRun = computed(() => course.value !== undefined && can('editContent', course.value.id))
+const runOpen = ref(false)
+// Layouten återanvänds när man byter kurs, så dialogen får inte följa med.
+watch(() => route.params.courseId, () => {
+  runOpen.value = false
+})
 
 const monthNames = ['jan', 'feb', 'mar', 'apr', 'maj', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec']
 
@@ -66,10 +79,31 @@ const subtitle = computed(() => {
   <NotFoundView v-else-if="!course"/>
   <template v-else>
     <div class="flex flex-col gap-4 border-b">
-      <div class="flex flex-col gap-1">
-        <span class="text-muted-foreground font-mono text-xs">KURS · {{ course.code }}</span>
-        <h1 class="text-3xl leading-tight">{{ course.title }}</h1>
-        <p v-if="subtitle" class="text-muted-foreground">{{ subtitle }}</p>
+      <div class="flex items-start justify-between gap-3">
+        <div class="flex min-w-0 flex-col gap-1">
+          <span class="text-muted-foreground font-mono text-xs">KURS · {{ course.code }}</span>
+          <h1 class="text-3xl leading-tight break-words">{{ course.title }}</h1>
+          <p v-if="subtitle" class="text-muted-foreground">{{ subtitle }}</p>
+        </div>
+        <DropdownMenu v-if="canCreateRun">
+          <DropdownMenuTrigger as-child>
+            <Button
+              variant="outline"
+              size="icon"
+              class="shrink-0"
+              aria-label="Kursens åtgärder"
+              data-test="course-menu"
+            >
+              <PhDotsThree weight="bold"/>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" class="min-w-52">
+            <DropdownMenuItem class="min-h-10" data-test="new-run" @select="runOpen = true">
+              <PhPlus/>
+              Ny kursomgång…
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <nav aria-label="Kursens sidor" class="flex flex-wrap gap-5">
@@ -92,5 +126,7 @@ const subtitle = computed(() => {
     </div>
 
     <RouterView/>
+
+    <NewCourseRunDialog v-if="canCreateRun" v-model:open="runOpen" :course="course"/>
   </template>
 </template>

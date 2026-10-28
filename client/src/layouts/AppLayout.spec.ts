@@ -49,6 +49,26 @@ afterEach(() => {
 })
 
 describe('AppLayout', () => {
+  it('sidomenyn visar kurskoden när två kurser har samma titel', async () => {
+    mockApi((_method, path) => {
+      if (path === '/api/me') {
+        return {status: 200, body: meAs('Teacher', ['c1', 'c9'])}
+      }
+      if (path === '/api/courses') {
+        return {status: 200, body: [devOps, {...devOps, id: 'c9', code: 'NET26-DEVOPS'}, {...devOps, id: 'c5', code: 'JAVA', title: 'Java'}]}
+      }
+      return {status: 404}
+    })
+
+    const page = await render('/')
+
+    const sidebar = page.find('[data-slot="sidebar"]').text()
+    expect(sidebar).toContain('DevOps · DEVOPS')
+    expect(sidebar).toContain('DevOps · NET26-DEVOPS')
+    expect(sidebar).toContain('Java')
+    expect(sidebar).not.toContain('Java ·')
+  })
+
   it('sidomenyn visar huvudmenyn och kurserna', async () => {
     const page = await render('/')
 

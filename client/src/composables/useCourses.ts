@@ -31,6 +31,23 @@ function updateCourse(updated: Course) {
   }
 }
 
+// Texten som den nya kursens innehållssida visar när man kommer dit från Ny kursomgång.
+const pendingNotice = ref<{courseId: string, text: string} | null>(null)
+
+function setPendingNotice(courseId: string, text: string) {
+  pendingNotice.value = {courseId, text}
+}
+
+/** Hämtar och glömmer meddelandet för kursen, så att det bara visas en gång. */
+function takePendingNotice(courseId: string): string {
+  const pending = pendingNotice.value
+  if (pending?.courseId !== courseId) {
+    return ''
+  }
+  pendingNotice.value = null
+  return pending.text
+}
+
 export function useCourses() {
-  return {courses, status, loadCourses, findCourse, updateCourse}
+  return {courses, status, loadCourses, findCourse, updateCourse, setPendingNotice, takePendingNotice}
 }

@@ -209,6 +209,12 @@ public class ContentRepository(AppDb db) : IContentRepository
             .OrderBy(attachment => attachment.FileName)
             .ToListAsync(ct);
 
+    public Task<List<Attachment>> GetAttachmentsAsync(IReadOnlyCollection<Guid> contentIds, CancellationToken ct) =>
+        db.Attachments
+            .Where(attachment => contentIds.Contains(attachment.ContentId))
+            .OrderBy(attachment => attachment.FileName)
+            .ToListAsync(ct);
+
     public Task<Attachment?> GetAttachmentAsync(Guid contentId, Guid attachmentId, CancellationToken ct) =>
         db.Attachments.FirstOrDefaultAsync(
             attachment => attachment.ContentId == contentId && attachment.Id == attachmentId, ct);

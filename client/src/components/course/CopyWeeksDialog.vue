@@ -1,0 +1,192 @@
+<script setup lang="ts">
+import {PhCalendarBlank} from '@phosphor-icons/vue'
+import {computed, ref, watch} from 'vue'
+
+import {Alert, AlertDescription} from '@/components/ui/alert'
+import {Button} from '@/components/ui/button'
+import {Checkbox} from '@/components/ui/checkbox'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {FieldLabel} from '@/components/ui/field'
+import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
+import {useCourses} from '@/composables/useCourses'
+import {useCurrentUser} from '@/composables/useCurrentUser'
+import {api, errorMessage, type Schema} from '@/lib/api'
+import {countLabel} from '@/lib/content'
+
+const props = defineProps<{courseId: string}>()
+
+const open = defineModel<boolean>('open', {required: true})
+const emit = defineEmits<{copied: [result: Schema<'CopyWeeksResultDto'>]}>()
+
+const {courses} = useCourses()
+const {can} = useCurrentUser()
+
+const sourceId = ref('')
+const weeks = ref<Schema<'ModuleWithContentDto'>[]>([])
+const selected = ref<string[]>([])
+const loadingWeeks = ref(false)
+const saving = ref(false)
+const error = ref('')
+
+// Kurser läraren kan undervisa i, förutom den som veckorna ska in i.
+const sources = computed(() => courses.value
+  .filter((course) => course.id !== props.courseId && can('editContent', course.id)))
+const chosenWeeks = computed(() => weeks.value.filter((week) => selected.value.includes(week.id)))
+const partTotal = computed(() => chosenWeeks.value.reduce((sum, week) => sum + week.content.length, 0))
+const preview = computed(() => `${countLabel(chosenWeeks.value.length, 'vecka', 'veckor')}, ${
+  countLabel(partTotal.value, 'del', 'delar')} kopieras`)
+
+watch(open, (isOpen) => {
+  if (isOpen) {
+    sourceId.value = ''
+    weeks.value = []
+    selected.value = []
+    error.value = ''
+  }
+})
+
+watch(sourceId, async (id) => {
+  weeks.value = []
+  selected.value = []
+  if (!id) {
+    return
+  }
+
+  loadingWeeks.value = true
+  error.value = ''
+  try {
+    const {data} = await api.GET('/api/courses/{id}/modules', {params: {path: {id}}})
+    // Hann läraren byta kurs under tiden är svaret inaktuellt.
+    if (sourceId.value === id) {
+      weeks.value = data ?? []
+    }
+  } catch (exception) {
+    error.value = errorMessage(exception)
+  } finally {
+    loadingWeeks.value = false
+  }
+})
+
+function toggle(weekId: string, checked: boolean) {
+  selected.value = checked
+    ? [...selected.value, weekId]
+    : selected.value.filter((id) => id !== weekId)
+}
+
+async function copy() {
+  if (!sourceId.value || selected.value.length === 0) {
+    return
+  }
+
+  saving.value = true
+  error.value = ''
+  try {
+    const {data} = await api.POST('/api/courses/{id}/modules/copy', {
+      params: {path: {id: props.courseId}},
+      body: {sourceCourseId: sourceId.value, moduleIds: selected.value},
+    })
+    open.value = false
+    if (data) {
+      emit('copied', data)
+    }
+  } catch (exception) {
+    error.value = errorMessage(exception)
+  } finally {
+    saving.value = false
+  }
+}
+</script>
+
+<template>
+  <Dialog v-model:open="open">
+    <DialogContent class="grid-cols-[minmax(0,1fr)]">
+      <form class="flex min-w-0 flex-col gap-4" @submit.prevent="copy">
+        <DialogHeader class="min-w-0">
+          <DialogTitle>Kopiera från annan kurs</DialogTitle>
+          <DialogDescription>
+            Veckorna hamnar sist i kursen som utkast, med egna kopior av delarna, bilagorna och
+            beroendena. Datumen flyttas lika mycket som kursernas startdatum skiljer sig åt.
+            Inlämningar, betyg och elevernas framsteg följer inte med.
+          </DialogDescription>
+        </DialogHeader>
+
+        <NativeSelect
+          v-model="sourceId"
+          class="w-full"
+          aria-label="Välj kurs"
+          data-test="copy-source"
+        >
+          <NativeSelectOption value="">Välj kurs…</NativeSelectOption>
+          <NativeSelectOption v-for="course in sources" :key="course.id" :value="course.id">
+            {{ course.title }}
+          </NativeSelectOption>
+        </NativeSelect>
+        <p v-if="sources.length === 0" class="text-muted-foreground text-sm">
+          Du undervisar inte i någon annan kurs att kopiera från.
+        </p>
+
+        <Alert v-if="error" variant="destructive">
+          <AlertDescription>{{ error }}</AlertDescription>
+        </Alert>
+
+        <div
+          v-if="sourceId"
+          class="flex flex-col gap-2"
+          role="group"
+          aria-label="Välj veckor"
+        >
+          <p v-if="!loadingWeeks && weeks.length === 0" class="text-muted-foreground text-sm">
+            Kursen har inga veckor att kopiera.
+          </p>
+          <FieldLabel
+            v-for="week in weeks"
+            :key="week.id"
+            class="has-data-checked:border-primary/60 hover:bg-muted/50 w-full min-w-0 cursor-pointer items-center gap-3 rounded-lg border p-3 font-normal transition-colors"
+          >
+            <Checkbox
+              :model-value="selected.includes(week.id)"
+              :data-test="`copy-week-${week.id}`"
+              @update:model-value="(checked) => toggle(week.id, checked === true)"
+            />
+            <PhCalendarBlank class="text-muted-foreground size-4 shrink-0"/>
+            <span class="min-w-0 flex-1">
+              <span class="block text-sm font-medium break-words">{{ week.title }}</span>
+              <span class="text-muted-foreground text-xs">
+                {{ countLabel(week.content.length, 'del', 'delar') }}
+              </span>
+            </span>
+          </FieldLabel>
+        </div>
+
+        <p
+          v-if="selected.length > 0"
+          class="text-muted-foreground text-sm"
+          data-test="copy-preview"
+        >
+          {{ preview }}
+        </p>
+
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            :disabled="saving"
+            @click="open = false"
+          >
+            Avbryt
+          </Button>
+          <Button type="submit" :disabled="saving || selected.length === 0" data-test="confirm-copy">
+            Kopiera
+          </Button>
+        </DialogFooter>
+      </form>
+    </DialogContent>
+  </Dialog>
+</template>

@@ -39,6 +39,12 @@ public static class CourseEndpoints
             Guid id, UpdateCourseDto courseDto, CourseService service, CancellationToken ct) =>
             (await service.UpdateAsync(id, courseDto, ct)).ToHttp(TypedResults.Ok));
 
+        // En ny omgång av kursen för en annan klass. Svarar med den nya kursens id och vad som följde med.
+        courses.MapPost("/{id:guid}/runs", async (
+            Guid id, CreateCourseRunDto runDto, CourseRunService service, CancellationToken ct) =>
+            (await service.CreateAsync(id, runDto, ct)).ToHttp(run =>
+                TypedResults.Created($"/api/courses/{run.CourseId}", run)));
+
         return app;
     }
 }

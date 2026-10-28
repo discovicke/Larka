@@ -124,8 +124,11 @@ describe('CourseContentView', () => {
     backend([week('m1', 'Vecka 1')])
 
     const {wrapper} = await renderApp('/courses/c1/content')
+    await wrapper.find('[data-test="add-part-menu"]').trigger('keydown', {key: 'Enter'})
+    await flushPromises()
 
-    expect(wrapper.find('[data-test="add-part"]').attributes('href')).toBe('/courses/c1/modules/m1/new')
+    expect(document.querySelector('[data-test="add-part"]')?.getAttribute('href'))
+      .toBe('/courses/c1/modules/m1/new')
   })
 
   it('publicerar och avpublicerar från raden', async () => {
@@ -316,7 +319,7 @@ describe('CourseContentView', () => {
     expect(wrapper.findAll('[data-test="module-item"]')).toHaveLength(1)
     expect(wrapper.text()).toContain('Release-pipeline')
     expect(wrapper.find('[data-test="add-module"]').exists()).toBe(false)
-    expect(wrapper.find('[data-test="add-part"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="add-part-menu"]').exists()).toBe(false)
     expect(wrapper.find('[aria-label="Fler val för veckan"]').exists()).toBe(false)
     expect(wrapper.find('[aria-label="Fler val för Release-pipeline"]').exists()).toBe(false)
     expect(wrapper.find('a[href="/courses/c1/modules/m1/content/l1/edit"]').exists()).toBe(false)

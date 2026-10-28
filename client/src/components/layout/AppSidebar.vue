@@ -106,6 +106,13 @@ async function signOut() {
 function isCourseActive(courseId: string) {
   return route.params.courseId === courseId
 }
+
+// Två kurser med samma titel (omgångar för olika klasser) skiljs åt med kurskoden.
+function courseLabel(course: {title: string, code: string}): string {
+  return courses.value.filter((other) => other.title === course.title).length > 1
+    ? `${course.title} · ${course.code}`
+    : course.title
+}
 </script>
 
 <template>
@@ -177,12 +184,12 @@ function isCourseActive(courseId: string) {
           <SidebarMenuItem v-for="course in courses" :key="course.id">
             <SidebarMenuButton
               as-child
-              :tooltip="course.title"
+              :tooltip="courseLabel(course)"
               :is-active="isCourseActive(course.id)"
             >
               <RouterLink :to="{name: 'course-content', params: {courseId: course.id}}">
                 <span class="bg-primary size-2 shrink-0 rounded-[2px]"/>
-                <span>{{ course.title }}</span>
+                <span class="min-w-0 truncate">{{ courseLabel(course) }}</span>
               </RouterLink>
             </SidebarMenuButton>
           </SidebarMenuItem>

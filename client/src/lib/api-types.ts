@@ -1146,6 +1146,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/courses/{id}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateCourseRunDto"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CourseRunResultDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/courses/{id}/modules": {
         parameters: {
             query?: never;
@@ -1205,6 +1273,74 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["ModuleDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/courses/{id}/modules/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CopyWeeksDto"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CopyWeeksResultDto"];
                     };
                 };
                 /** @description Bad Request */
@@ -2975,6 +3111,17 @@ export interface components {
         ContentStatus: "Draft" | "Published";
         /** @enum {unknown} */
         ContentType: "News" | "Theory" | "Assignment";
+        CopyWeeksDto: {
+            /** Format: uuid */
+            sourceCourseId: string;
+            moduleIds: string[];
+        };
+        /** @description Veckorna som skapades i målkursen, i ordning, och hur många delar de innehåller. */
+        CopyWeeksResultDto: {
+            modules: components["schemas"]["ModuleDto"][];
+            /** Format: int32 */
+            partCount: number;
+        };
         CourseDto: {
             /** Format: uuid */
             id: string;
@@ -2995,6 +3142,19 @@ export interface components {
             /** Format: uuid */
             courseId: string;
             role: components["schemas"]["GroupRole"];
+        };
+        /** @description Den nya kursomgången: kursens id, klassen och hur många veckor, delar och lärare som följde med. */
+        CourseRunResultDto: {
+            /** Format: uuid */
+            courseId: string;
+            /** Format: uuid */
+            groupId: string;
+            /** Format: int32 */
+            moduleCount: number;
+            /** Format: int32 */
+            partCount: number;
+            /** Format: int32 */
+            staffCount: number;
         };
         /** @description En lärare i kursen, med namnen på grupperna som läser den där hen är lärare. */
         CourseStaffDto: {
@@ -3039,6 +3199,16 @@ export interface components {
             schoolId: string;
             title: string;
             code: string;
+        };
+        CreateCourseRunDto: {
+            code: null | string;
+            /** Format: uuid */
+            groupId: string;
+            /** Format: date */
+            startsOn: null | string;
+            /** Format: date */
+            endsOn: null | string;
+            copyContent: boolean;
         };
         CreatedContentWithLinkDto: {
             content: components["schemas"]["ContentDto"];

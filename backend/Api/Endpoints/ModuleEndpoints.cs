@@ -23,6 +23,11 @@ public static class ModuleEndpoints
             (await service.CreateAsync(id, moduleDto, ct)).ToHttp(module =>
                 TypedResults.Created($"/api/courses/{id}/modules", module)));
 
+        modules.MapPost("/copy", async (
+            Guid id, CopyWeeksDto copyDto, CourseCopyService service, CancellationToken ct) =>
+            (await service.CopyWeeksAsync(id, copyDto, ct)).ToHttp(result =>
+                TypedResults.Created($"/api/courses/{id}/modules", result)));
+
         modules.MapPut("/{moduleId:guid}", async (
             Guid id, Guid moduleId, UpdateModuleDto moduleDto, ModuleService service, CancellationToken ct) =>
             (await service.UpdateAsync(id, moduleId, moduleDto, ct)).ToHttp(TypedResults.Ok));

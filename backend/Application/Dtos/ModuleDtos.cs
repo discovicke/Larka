@@ -24,7 +24,14 @@ public record RoadmapLinkDto(
     List<Guid> BlockedByLinkIds,
     CompletionRule? CompletionRule = null);
 
+// Veckorna i källkursen som kopieras till slutet av målkursen, i källkursens ordning.
+public record CopyWeeksDto(Guid SourceCourseId, List<Guid> ModuleIds);
+
 // --- responses ---
+
+/// <summary>Veckorna som skapades i målkursen, i ordning, och hur många delar de innehåller.</summary>
+public record CopyWeeksResultDto(List<ModuleDto> Modules, int PartCount);
+
 
 public record ModuleDto(
     Guid Id,

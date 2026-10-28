@@ -45,6 +45,53 @@ for (const [label, viewport] of [['390 px', phone], ['1440 px', desktop]] as con
       })
     }
 
+    test('kopiera veckor-dialogen ryms i fönstret', async ({page}) => {
+      await open(page, routes.courseContent, 'Introduktion till continuous delivery')
+      await page.locator('[data-test="add-part-menu"]').first().click()
+      await page.locator('[data-test="copy-weeks"]').click()
+      const dialog = page.getByRole('dialog')
+      await dialog.locator('select').selectOption({index: 1})
+      await dialog.locator('[data-test^="copy-week-"]').first().click()
+      await expect(dialog.locator('[data-test="copy-preview"]')).toBeVisible()
+      await page.waitForTimeout(300)
+
+      const overflow = await dialog.evaluate((element) => {
+        const box = element.getBoundingClientRect()
+        const outside = Array.from(element.querySelectorAll('*'))
+          .filter((child) => child.getBoundingClientRect().right > box.right + 0.5)
+          .map((child) => `${child.tagName}${child.getAttribute('data-test') ?? ''} ${Math.round(child.getBoundingClientRect().right)}/${Math.round(box.right)}`)
+        return {scroll: element.scrollWidth - element.clientWidth, outside}
+      })
+      expect(overflow.outside).toEqual([])
+      expect(overflow.scroll).toBeLessThanOrEqual(0)
+      await expectNoHorizontalScroll(page)
+    })
+
+    test('ny kursomgång-dialogen ryms i fönstret', async ({page}) => {
+      await open(page, routes.courseContent, 'Introduktion till continuous delivery')
+      await page.locator('[data-test="course-menu"]').click()
+      await page.locator('[data-test="new-run"]').click()
+      const dialog = page.getByRole('dialog')
+      await dialog.locator('[data-test="run-code"]').fill('NET26-DEVOPS-MED-LÅNG-KOD')
+      await dialog.locator('select').selectOption({index: 2})
+      await dialog.locator('[data-test="run-starts"]').fill('2026-10-12')
+      await dialog.locator('[data-test="run-ends"]').fill('2026-11-13')
+      await expect(dialog.locator('[data-test="run-copy-label"]')).toContainText('2 veckor, 3 delar')
+      await page.waitForTimeout(300)
+
+      const overflow = await dialog.evaluate((element) => {
+        const box = element.getBoundingClientRect()
+        const outside = Array.from(element.querySelectorAll('*'))
+          .filter((child) => child.getBoundingClientRect().right > box.right + 0.5)
+          .map((child) => `${child.tagName}${child.getAttribute('data-test') ?? ''} ${Math.round(child.getBoundingClientRect().right)}/${Math.round(box.right)}`)
+        return {scroll: element.scrollWidth - element.clientWidth, outside, bottom: box.bottom}
+      })
+      expect(overflow.outside).toEqual([])
+      expect(overflow.scroll).toBeLessThanOrEqual(0)
+      await expectNoHorizontalScroll(page)
+      await expect(dialog.getByRole('button', {name: 'Skapa kursomgång'})).toBeEnabled()
+    })
+
     test('skapa innehåll med varje typ av del', async ({page}) => {
       await open(page, routes.createContent, 'Typ av del')
       for (const partType of ['Theory', 'Exercise', 'Submission']) {

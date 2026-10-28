@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import {PhCalendarBlank} from '@phosphor-icons/vue'
+import {PhCalendarBlank, PhCopy} from '@phosphor-icons/vue'
 import {computed, ref, watch} from 'vue'
 import {useRoute} from 'vue-router'
 
 import AddModuleDialog from '@/components/course/AddModuleDialog.vue'
+import CopyWeeksDialog from '@/components/course/CopyWeeksDialog.vue'
 import DeleteModuleDialog from '@/components/course/DeleteModuleDialog.vue'
 import EditModuleDialog from '@/components/course/EditModuleDialog.vue'
 import ModuleSection from '@/components/course/ModuleSection.vue'
@@ -21,12 +22,15 @@ import {
 } from '@/components/ui/dialog'
 import {Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty'
 import {Skeleton} from '@/components/ui/skeleton'
+import {useCourses} from '@/composables/useCourses'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {api, errorMessage, type Schema} from '@/lib/api'
+import {countLabel} from '@/lib/content'
 
 const route = useRoute()
 const courseId = computed(() => String(route.params.courseId))
 const {can} = useCurrentUser()
+const {takePendingNotice} = useCourses()
 // Eleven ser delarna men inga redigeringskontroller.
 const canEdit = computed(() => can('editContent', courseId.value))
 
@@ -46,6 +50,7 @@ const editModuleOpen = ref(false)
 const editModuleTarget = ref<Schema<'ModuleWithContentDto'> | null>(null)
 const deleteModuleOpen = ref(false)
 const deleteModuleTarget = ref<Schema<'ModuleWithContentDto'> | null>(null)
+const copyOpen = ref(false)
 const notice = ref('')
 
 async function load() {
@@ -156,6 +161,12 @@ async function moduleSaved() {
   notice.value = 'Veckan sparades.'
 }
 
+async function weeksCopied(result: Schema<'CopyWeeksResultDto'>) {
+  await load()
+  notice.value = `${countLabel(result.modules.length, 'vecka', 'veckor')} och ${
+    countLabel(result.partCount, 'del', 'delar')} kopierades som utkast.`
+}
+
 async function moduleDeleted() {
   await load()
   notice.value = 'Veckan togs bort.'
@@ -183,9 +194,11 @@ async function deletePart() {
   }
 }
 
-watch(courseId, () => {
+watch(courseId, async () => {
   loading.value = true
-  load()
+  await load()
+  // Kommer man från Ny kursomgång väntar ett meddelande om vad som skapades.
+  notice.value = takePendingNotice(courseId.value)
 }, {immediate: true})
 </script>
 
@@ -210,8 +223,12 @@ watch(courseId, () => {
         <EmptyTitle>Inga veckor än</EmptyTitle>
         <EmptyDescription>Dela in kursen i veckor eller avsnitt och lägg till delar i dem.</EmptyDescription>
       </EmptyHeader>
-      <EmptyContent v-if="canEdit">
+      <EmptyContent v-if="canEdit" class="flex-row flex-wrap justify-center gap-2">
         <AddModuleDialog :course-id="courseId" @created="load"/>
+        <Button variant="outline" data-test="copy-weeks-empty" @click="copyOpen = true">
+          <PhCopy/>
+          Kopiera från annan kurs
+        </Button>
       </EmptyContent>
     </Empty>
 
@@ -231,7 +248,9 @@ watch(courseId, () => {
         @open-roadmap="openRoadmap(module)"
         @rename-module="askRenameModule(module)"
         @delete-module="askDeleteModule(module)"
+        @copy-weeks="copyOpen = true"
       />
+
       <RoadmapDialog
         v-if="roadmapModule"
         v-model:open="roadmapOpen"
@@ -264,6 +283,13 @@ watch(courseId, () => {
       />
       <AddModuleDialog v-if="canEdit" :course-id="courseId" @created="load"/>
     </template>
+
+    <CopyWeeksDialog
+      v-if="canEdit"
+      v-model:open="copyOpen"
+      :course-id="courseId"
+      @copied="weeksCopied"
+    />
 
     <Dialog v-model:open="deleteOpen">
       <DialogContent>

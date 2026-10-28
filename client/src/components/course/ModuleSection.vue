@@ -4,6 +4,7 @@ import {
   PhArrowUp,
   PhCalendarBlank,
   PhCaretDown,
+  PhCopy,
   PhDotsThree,
   PhEye,
   PhEyeSlash,
@@ -49,6 +50,7 @@ const emit = defineEmits<{
   movePartToWeek: [item: Schema<'ModuleContentItem'>]
   togglePartStatus: [item: Schema<'ModuleContentItem'>]
   deletePart: [item: Schema<'ModuleContentItem'>]
+  copyWeeks: []
 }>()
 
 const open = ref(true)
@@ -126,7 +128,7 @@ function badgeOf(item: Schema<'ModuleContentItem'>): {label: string, class: stri
         <PhCalendarBlank v-if="weekState.kind === 'scheduled'"/>
         {{ weekState.label }}
       </Badge>
-      <span class="text-muted-foreground text-[13px]">{{ module.content.length }} delar</span>
+      <span class="text-muted-foreground text-[13px]">{{ countLabel(module.content.length, 'del', 'delar') }}</span>
       <DropdownMenu v-if="canEdit">
         <DropdownMenuTrigger as-child>
           <Button variant="ghost" size="icon" aria-label="Fler val för veckan">
@@ -271,21 +273,36 @@ function badgeOf(item: Schema<'ModuleContentItem'>): {label: string, class: stri
       </Item>
 
       <div v-if="canEdit" class="border-t px-3 pt-2 pb-3 pl-10">
-        <!-- Typen väljs i formuläret. -->
-        <Button
-          variant="ghost"
-          size="sm"
-          class="text-muted-foreground"
-          as-child
-        >
-          <RouterLink
-            :to="{name: 'create-content', params: {courseId: module.courseId, moduleId: module.id}}"
-            data-test="add-part"
-          >
-            <PhPlus/>
-            Lägg till del
-          </RouterLink>
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger as-child>
+            <Button
+              variant="ghost"
+              size="sm"
+              class="text-muted-foreground"
+              data-test="add-part-menu"
+            >
+              <PhPlus/>
+              Lägg till del
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" class="min-w-60">
+            <!-- Typen väljs i formuläret. -->
+            <DropdownMenuItem as-child class="min-h-10">
+              <RouterLink
+                :to="{name: 'create-content', params: {courseId: module.courseId, moduleId: module.id}}"
+                data-test="add-part"
+              >
+                <PhPlus/>
+                Ny del
+              </RouterLink>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator/>
+            <DropdownMenuItem class="min-h-10" data-test="copy-weeks" @select="emit('copyWeeks')">
+              <PhCopy/>
+              Kopiera från annan kurs
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </CollapsibleContent>
   </Collapsible>

@@ -595,7 +595,7 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
           <span class="text-muted-foreground font-mono text-xs">KURS · {{ selectedCourse?.code }}</span>
           <h1 class="text-3xl leading-tight font-semibold">{{ selectedCourse?.title }}</h1>
           <p class="text-muted-foreground text-sm">
-            {{ selectedGroup?.label }} · {{ completable.length }} delar
+            {{ selectedGroup?.label }} · {{ countLabel(completable.length, 'del', 'delar') }}
           </p>
         </div>
         <div class="flex items-center gap-3">

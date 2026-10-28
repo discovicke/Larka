@@ -54,6 +54,21 @@ const modules = [
   {id: 'm2', courseId: 'c1', title: 'Vecka 3 – Övervakning', description: '', position: 2, publishAt: null, content: []},
 ]
 
+// Förra omgångens kurs, som veckor kopieras från.
+const previousCourse: Schema<'CourseDto'> = {...course, id: 'c2', code: 'DEVOPS25', title: 'DevOps HT25 med ett långt namn'}
+const previousModules = modules.map((module) => ({
+  ...module,
+  id: `${module.id}-old`,
+  courseId: 'c2',
+  title: `${module.title} (förra omgången)`,
+}))
+
+// Klasser i skolan som en ny kursomgång kan skapas för.
+const groups: Schema<'GroupDto'>[] = [
+  {id: 'g1', schoolId: 's1', type: 'Class', name: 'NET25', term: 'HT25'},
+  {id: 'g2', schoolId: 's1', type: 'Class', name: 'NET26 med ett långt klassnamn som får plats', term: 'HT26'},
+]
+
 /** Sidor i appen. Alla finns bakom inloggning och hämtar sina data från mockarna nedan. */
 export const routes = {
   today: '/',
@@ -83,11 +98,15 @@ export async function signInAndMockApi(page: Page): Promise<void> {
     }
     switch (pathname) {
       case '/api/me':
-        return json(meAs('Teacher', ['c1']))
+        return json(meAs('Teacher', ['c1', 'c2']))
       case '/api/courses':
-        return json([course])
+        return json([course, previousCourse])
+      case '/api/groups':
+        return json(groups)
       case '/api/courses/c1/modules':
         return json(modules)
+      case '/api/courses/c2/modules':
+        return json(previousModules)
       default:
         return json([])
     }
