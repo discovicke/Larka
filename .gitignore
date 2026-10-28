@@ -40,3 +40,8 @@ e2e/test-results/
 e2e/playwright-report/
 # Inloggningens token, som global-setup skriver för testerna
 e2e/.auth/
+
+# Layoutkontroller (client/layout)
+client/layout/test-results/
+client/layout/playwright-report/
+client/layout/screenshots/

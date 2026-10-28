@@ -235,6 +235,18 @@ npm run test
 
 `npm run format` i repots rot fixar formateringen i hela repot (Prettier, ESLint och `dotnet format`), och `npm run format:check` kontrollerar den.
 
+### Layoutkontroller i webbläsaren
+
+Vitest kör i jsdom, som saknar layout, så sidornas mått prövas i en riktig Chromium med Playwright (`client/layout/`). Testerna startar `vite preview` av det byggda paketet och mockar `/api/**` (`layout/mocks.ts`), så varken backend eller databas behövs. De kontrollerar att Idag, kursens innehåll, skapa innehåll (alla typer av del) och 404 inte scrollar i sidled vid 390 och 1440 px, att headern är minst 56 px, sidomenyn 256 px och innehållet högst 1120 px, och att sidomenyn är en drawer under 768 px. Körs i jobbet `frontend` i CI, med rapporten som artefakt om något faller.
+
+```bash
+cd client
+npx playwright install chromium   # en gång
+npm run test:layout               # bygger och kör testerna
+```
+
+Helsidesbilder vid 390 och 1440 px, t.ex. till en PR: `SCREENSHOTS=1 npx playwright test screenshots`. Bilderna hamnar i `client/layout/screenshots/` (byt med `SCREENSHOT_DIR`, och sidorna med `SCREENSHOT_ROUTES=/,/courses/c1/content`).
+
 ### E2E mot den deployade appen
 
 [`e2e/`](e2e) innehåller Playwright-tester som kör mot den deployade appen: att `/health` och `/version` svarar, att startsidan och sidomenyn laddar, att en kurs går att öppna med nyhetsfliken, att `Alla grupper` visar tabellen utan sidledes scroll och att en okänd sökväg visar 404. Varje test körs både som desktop och som mobil.

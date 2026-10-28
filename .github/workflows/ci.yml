@@ -95,3 +95,21 @@ jobs:
 
       - name: Test
         run: npm run test
+
+      # Layoutkontroller i en riktig webbläsare mot det byggda paketet, med API:et mockat. Hör till jobbet
+      # `frontend` (ett nytt jobbnamn vore inte ett obligatoriskt statuskrav).
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Layout tests (Playwright)
+        run: npx playwright test
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: layout-report
+          path: |
+            client/layout/playwright-report
+            client/layout/test-results
+          retention-days: 7
