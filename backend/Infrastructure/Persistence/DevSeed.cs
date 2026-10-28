@@ -163,6 +163,15 @@ public static class DevSeed
         };
 
         db.Content.AddRange(news, theory, assignment);
+        var assignmentLink = new ContentLink
+        {
+            ContentId = assignment.Id,
+            GroupId = group.Id,
+            CourseId = devOps.Id,
+            ModuleId = firstWeek.Id,
+            Position = 2,
+            DueAt = DateTimeOffset.UtcNow.AddDays(14)
+        };
         db.ContentLinks.AddRange(
             new ContentLink { ContentId = news.Id, GroupId = group.Id, IsPinned = true },
             new ContentLink
@@ -172,14 +181,18 @@ public static class DevSeed
                 ModuleId = firstWeek.Id,
                 Position = 1
             },
-            new ContentLink
+            assignmentLink);
+
+        // Ena eleven har lämnat in, så att veckolistan visar 1/2 inlämnade.
+        db.Submissions.AddRange(
+            new Submission
             {
-                ContentId = assignment.Id,
-                GroupId = group.Id,
-                CourseId = devOps.Id,
-                ModuleId = firstWeek.Id,
-                Position = 2,
-                DueAt = DateTimeOffset.UtcNow.AddDays(14)
-            });
+                ContentLinkId = assignmentLink.Id,
+                StudentId = student.Id,
+                Status = SubmissionStatus.Submitted,
+                BodyMd = "Workflowet ligger i .github/workflows/ci.yml.",
+                SubmittedAt = DateTimeOffset.UtcNow.AddHours(-3)
+            },
+            new Submission { ContentLinkId = assignmentLink.Id, StudentId = secondStudent.Id });
     }
 }

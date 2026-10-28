@@ -55,6 +55,8 @@ public record ModuleWithContentDto(
 /// <summary>
 /// En del i en modul. Tar med utkast och det som publiceras senare, så att läraren ser allt (Status, PublishAt).
 /// BlockedBy är de delar i samma vecka som måste vara klara först.
+/// SubmittedCount/StudentCount räknar unika elever: den som lämnat in flera gånger räknas en gång, och nämnaren
+/// är eleverna i länkens grupp, eller i alla grupper som läser kursen när länken gäller hela kursen.
 /// </summary>
 public record ModuleContentItem(
     Guid LinkId,
@@ -69,4 +71,6 @@ public record ModuleContentItem(
     DateTimeOffset? DueAt,
     bool IsPinned,
     List<Guid> BlockedBy,
-    bool HasStudentActivity);
+    bool HasStudentActivity,
+    int? SubmittedCount = null, // elever som har lämnat in, bara för läraren och bara för delar med inlämningssätt
+    int? StudentCount = null); // elever i de grupper som delen delas ut till

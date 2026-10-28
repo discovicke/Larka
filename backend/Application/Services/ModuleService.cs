@@ -26,7 +26,8 @@ public class ModuleService(
         }
 
         var courseModules = await modules.GetForCourseAsync(courseId, ct);
-        var content = await modules.GetContentByModuleAsync(courseId, ct);
+        var content = await modules.GetContentByModuleAsync(
+            courseId, await permissions.CanTeachCourseAsync(courseId, ct), ct);
         return courseModules
             .Select(module => ModuleWithContentDto.From(module, content[module.Id].ToList()))
             .ToList();

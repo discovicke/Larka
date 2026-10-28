@@ -3595,9 +3595,23 @@
           },
           "hasStudentActivity": {
             "type": "boolean"
+          },
+          "submittedCount": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "studentCount": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
           }
         },
-        "description": "En del i en modul. Tar med utkast och det som publiceras senare, så att läraren ser allt (Status, PublishAt).\nBlockedBy är de delar i samma vecka som måste vara klara först."
+        "description": "En del i en modul. Tar med utkast och det som publiceras senare, så att läraren ser allt (Status, PublishAt).\nBlockedBy är de delar i samma vecka som måste vara klara först.\nSubmittedCount/StudentCount räknar unika elever: den som lämnat in flera gånger räknas en gång, och nämnaren\när eleverna i länkens grupp, eller i alla grupper som läser kursen när länken gäller hela kursen."
       },
       "ModuleDto": {
         "required": [

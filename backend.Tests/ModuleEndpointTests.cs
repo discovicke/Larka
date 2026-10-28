@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Backend.Domain.Entities;
+using Backend.Domain.Enums;
 using Backend.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,7 +22,9 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
         string Status,
         string? GradeScale,
         DateTimeOffset PublishAt,
-        bool HasStudentActivity);
+        bool HasStudentActivity,
+        int? SubmittedCount = null,
+        int? StudentCount = null);
 
     private record ModuleWithContent(
         Guid Id, string Title, int Position, DateTimeOffset? PublishAt, List<ModuleItem> Content);
@@ -394,6 +397,140 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         Assert.Single(await GetModulesAsync(courseId));
+    }
+
+    [Fact]
+    public async Task Modules_CountDistinctSubmittersOverStudentsInAllCourseGroups()
+    {
+        var setup = await AddCourseWithTwoGroupsAsync();
+        var week = await CreateModuleAsync(setup.CourseId, "Vecka 1");
+        var assignment = await LinkAssignmentAsync(setup.CourseId, week.Id, new { });
+        await AddSubmissionsAsync(
+            assignment,
+            (setup.FirstStudents[0], SubmissionStatus.Graded), // lämnat in, rättad och sedan inlämnad igen
+            (setup.SecondStudents[0], SubmissionStatus.NeedsWork),
+            (setup.SecondStudents[1], SubmissionStatus.NotStarted)); // utdelad men inte inlämnad
+
+        var item = (await GetModulesAsync(setup.CourseId)).Single().Content.Single();
+
+        Assert.Equal((2, 5), (item.SubmittedCount, item.StudentCount));
+    }
+
+    [Fact]
+    public async Task Modules_CountOnlyStudentsInTheGroupTheLinkIsFor()
+    {
+        var setup = await AddCourseWithTwoGroupsAsync();
+        var week = await CreateModuleAsync(setup.CourseId, "Vecka 1");
+        var assignment = await LinkAssignmentAsync(setup.CourseId, week.Id, new { groupId = setup.SecondGroupId });
+        await AddSubmissionsAsync(assignment, (setup.SecondStudents[0], SubmissionStatus.Submitted));
+
+        var item = (await GetModulesAsync(setup.CourseId)).Single().Content.Single();
+
+        Assert.Equal((1, 3), (item.SubmittedCount, item.StudentCount));
+    }
+
+    [Fact]
+    public async Task Modules_HaveNoCountsForTheoryOrExercisesWithoutSubmissionModes()
+    {
+        var setup = await AddCourseWithTwoGroupsAsync();
+        var week = await CreateModuleAsync(setup.CourseId, "Vecka 1");
+        var theory = await CreateContentAsync("Teori", "published");
+        await LinkAsync(theory.Id, new { courseId = setup.CourseId, moduleId = week.Id });
+        await LinkAssignmentAsync(setup.CourseId, week.Id, new { }, submissionModes: []);
+
+        var content = (await GetModulesAsync(setup.CourseId)).Single().Content;
+
+        Assert.Equal(2, content.Count);
+        Assert.All(content, item => Assert.Equal((null, null), (item.SubmittedCount, item.StudentCount)));
+    }
+
+    [Fact]
+    public async Task Modules_HideCountsFromStudents()
+    {
+        var setup = await AddCourseWithTwoGroupsAsync();
+        var week = await CreateModuleAsync(setup.CourseId, "Vecka 1");
+        var assignment = await LinkAssignmentAsync(setup.CourseId, week.Id, new { });
+        await AddSubmissionsAsync(assignment, (setup.FirstStudents[0], SubmissionStatus.Submitted));
+        using var student = factory.CreateClient();
+        student.DefaultRequestHeaders.Add(TestAuthHandler.Header, setup.FirstStudents[0].ToString());
+
+        var modules = await student.GetFromJsonAsync<List<ModuleWithContent>>(
+            $"/api/courses/{setup.CourseId}/modules");
+
+        var item = modules!.Single().Content.Single();
+        Assert.Equal((null, null), (item.SubmittedCount, item.StudentCount));
+    }
+
+    private record TwoGroups(
+        Guid CourseId, Guid SecondGroupId, List<Guid> FirstStudents, List<Guid> SecondStudents);
+
+    private async Task<TwoGroups> AddCourseWithTwoGroupsAsync()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var first = await TestData.AddGroupAsync(db);
+        var second = await TestData.AddGroupAsync(db, first.SchoolId);
+        var course = await TestData.AddCourseAsync(db, first.SchoolId, first.Id);
+        db.GroupCourses.Add(new GroupCourse { GroupId = second.Id, CourseId = course.Id });
+        await db.SaveChangesAsync();
+        var firstStudents = new List<Guid>();
+        var secondStudents = new List<Guid>();
+        for (var i = 0; i < 2; i++)
+        {
+            firstStudents.Add((await TestData.AddMemberAsync(db, first)).Id);
+        }
+
+        for (var i = 0; i < 3; i++)
+        {
+            secondStudents.Add((await TestData.AddMemberAsync(db, second)).Id);
+        }
+
+        // Läraren i första gruppen ska inte räknas som elev.
+        await TestData.AddMemberAsync(db, first, GroupRole.Teacher, UserRole.Teacher);
+        return new TwoGroups(course.Id, second.Id, firstStudents, secondStudents);
+    }
+
+    private async Task<Guid> LinkAssignmentAsync(
+        Guid courseId, Guid moduleId, object extra, string[]? submissionModes = null)
+    {
+        var response = await _client.PostAsJsonAsync("/api/content", new
+        {
+            type = "assignment",
+            title = "Uppgift",
+            bodyMd = "",
+            status = "published",
+            gradeScale = "passFail",
+            submissionModes = submissionModes ?? ["file"]
+        });
+        response.EnsureSuccessStatusCode();
+        var content = (await response.Content.ReadFromJsonAsync<ContentResponse>())!;
+        var body = System.Text.Json.JsonSerializer.SerializeToNode(new { courseId, moduleId })!.AsObject();
+        foreach (var property in System.Text.Json.JsonSerializer.SerializeToNode(extra)!.AsObject())
+        {
+            body[property.Key] = property.Value?.DeepClone();
+        }
+
+        var link = await LinkAsync(content.Id, body);
+        link.EnsureSuccessStatusCode();
+        return (await link.Content.ReadFromJsonAsync<LinkResponse>())!.Id;
+    }
+
+    private async Task AddSubmissionsAsync(Guid linkId, params (Guid StudentId, SubmissionStatus Status)[] rows)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        // Utdelningen skapar redan en rad per elev (NotStarted), och det finns bara en rad per elev och länk.
+        var existing = await db.Submissions.Where(submission => submission.ContentLinkId == linkId).ToListAsync();
+        foreach (var (studentId, status) in rows)
+        {
+            var submission = existing.Single(row => row.StudentId == studentId);
+            submission.Status = status;
+            submission.SubmittedAt = status == SubmissionStatus.NotStarted
+                ? null
+                : DateTimeOffset.UtcNow;
+        }
+
+        await db.SaveChangesAsync();
     }
 
     private async Task<ModuleResponse> CreateModuleAsync(Guid courseId, string title)

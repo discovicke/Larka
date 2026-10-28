@@ -78,6 +78,11 @@ function detailsOf(item: Schema<'ModuleContentItem'>): string {
     : label
 }
 
+// Antalen skickas bara till läraren, och bara för delar med inlämningssätt.
+function hasCounts(item: Schema<'ModuleContentItem'>): boolean {
+  return item.submittedCount != null && item.studentCount != null
+}
+
 function badgeOf(item: Schema<'ModuleContentItem'>): {label: string, class: string} {
   if (item.status === 'Draft') {
     return {label: 'Utkast', class: ''}
@@ -195,7 +200,17 @@ function badgeOf(item: Schema<'ModuleContentItem'>): {label: string, class: stri
             </span>
           </div>
         </ItemContent>
-        <ItemDescription class="text-[13px]">{{ detailsOf(item) }}</ItemDescription>
+        <ItemDescription class="text-[13px]">
+          {{ detailsOf(item) }}<template v-if="canEdit && hasCounts(item)">
+            {{ ' · ' }}<RouterLink
+              :to="{name: 'assignment-submissions', params: {courseId: module.courseId, linkId: item.linkId}}"
+              class="no-underline! hover:underline!"
+              data-test="submission-count"
+            >
+              {{ item.submittedCount }}/{{ item.studentCount }} inlämnade
+            </RouterLink>
+          </template>
+        </ItemDescription>
         <ItemActions>
           <Badge variant="outline" class="h-[22px] rounded-[5px]" :class="badgeOf(item).class">
             {{ badgeOf(item).label }}

@@ -254,6 +254,39 @@ describe('CourseContentView', () => {
     expect(labels).not.toContain('Inlämningar')
   })
 
+  it('visar antal inlämnade på en inlämning, men inte på teori', async () => {
+    backend([week('m1', 'Vecka 1', [{...submission, submittedCount: 6, studentCount: 28}, draft])])
+
+    const {wrapper} = await renderApp('/courses/c1/content')
+
+    const items = wrapper.findAll('[data-test="module-item"]')
+    expect(items[0]!.text()).toContain('Inlämning · fre 23 okt · 6/28 inlämnade')
+    const count = items[0]!.find('[data-test="submission-count"]')
+    expect(count.attributes('href')).toBe('/courses/c1/assignments/l1')
+    expect(items[1]!.find('[data-test="submission-count"]').exists()).toBe(false)
+    expect(items[1]!.text()).not.toContain('inlämnade')
+  })
+
+  it('en elev ser inga antal inlämnade', async () => {
+    mockApi((_method, path) => {
+      if (path === '/api/me') {
+        return {status: 200, body: meAs('Student', ['c1'])}
+      }
+      if (path === '/api/courses') {
+        return {status: 200, body: [course]}
+      }
+      if (path === '/api/courses/c1/modules') {
+        return {status: 200, body: [week('m1', 'Vecka 1', [{...submission, submittedCount: null, studentCount: null}])]}
+      }
+      return {status: 200, body: []}
+    })
+
+    const {wrapper} = await renderApp('/courses/c1/content')
+
+    expect(wrapper.text()).toContain('Release-pipeline')
+    expect(wrapper.text()).not.toContain('inlämnade')
+  })
+
   it('en lärare ser knapparna som skapar veckor och delar', async () => {
     backend([week('m1', 'Vecka 1', [submission])])
 

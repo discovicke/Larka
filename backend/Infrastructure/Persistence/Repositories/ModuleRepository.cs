@@ -18,7 +18,7 @@ public class ModuleRepository(AppDb db) : IModuleRepository
             .ToListAsync(ct);
 
     public async Task<ILookup<Guid, ModuleContentItem>> GetContentByModuleAsync(
-        Guid courseId, CancellationToken ct)
+        Guid courseId, bool includeSubmissionCounts, CancellationToken ct)
     {
         var rows = await (from link in db.ContentLinks
                           join content in db.Content on link.ContentId equals content.Id
@@ -54,6 +54,14 @@ public class ModuleRepository(AppDb db) : IModuleRepository
                 .Select(completion => completion.ContentLinkId)
                 .Distinct()
                 .ToListAsync(ct);
+        var counts = includeSubmissionCounts
+            ? await GetSubmissionCountsAsync(
+                courseId,
+                rows.Where(row => row.Spec is not null && row.Spec.SubmissionModes.Count > 0)
+                    .Select(row => row.Link)
+                    .ToList(),
+                ct)
+            : [];
         var hasActivity = activeSubmissionLinkIds.Concat(completedLinkIds).ToHashSet();
         // Veckans ordning, så att "Låst av"-chipsen alltid visas i samma följd som delarna.
         var orderByLinkId = rows
@@ -89,9 +97,61 @@ public class ModuleRepository(AppDb db) : IModuleRepository
                     row.Link.DueAt,
                     row.Link.IsPinned,
                     blockedBy.GetValueOrDefault(row.Link.Id) ?? [],
-                    hasActivity.Contains(row.Link.Id))
+                    hasActivity.Contains(row.Link.Id),
+                    counts.TryGetValue(row.Link.Id, out var count)
+                        ? count.Submitted
+                        : null,
+                    counts.TryGetValue(row.Link.Id, out count)
+                        ? count.Students
+                        : null)
             })
             .ToLookup(row => row.ModuleId, row => row.Item);
+    }
+
+    // Unika elever per utdelning. Nämnaren är eleverna i länkens grupp, eller i alla kursens grupper när länken
+    // gäller hela kursen. Räknas bara om eleven fortfarande går i en av de grupperna.
+    private async Task<Dictionary<Guid, (int Submitted, int Students)>> GetSubmissionCountsAsync(
+        Guid courseId, List<ContentLink> links, CancellationToken ct)
+    {
+        if (links.Count == 0)
+        {
+            return [];
+        }
+
+        var courseGroupIds = await db.GroupCourses
+            .Where(groupCourse => groupCourse.CourseId == courseId)
+            .Select(groupCourse => groupCourse.GroupId)
+            .ToListAsync(ct);
+        var students = await db.Enrollments
+            .Where(enrollment => enrollment.Role == GroupRole.Student
+                && (courseGroupIds.Contains(enrollment.GroupId)
+                    || links.Select(link => link.GroupId).Contains(enrollment.GroupId)))
+            .Select(enrollment => new { enrollment.GroupId, enrollment.UserId })
+            .ToListAsync(ct);
+        var studentsByGroup = students
+            .GroupBy(student => student.GroupId)
+            .ToDictionary(group => group.Key, group => group.Select(student => student.UserId).ToHashSet());
+        var linkIds = links.Select(link => link.Id).ToList();
+        var submitted = (await db.Submissions
+                .Where(submission => linkIds.Contains(submission.ContentLinkId)
+                    && submission.Status != SubmissionStatus.NotStarted)
+                .Select(submission => new { submission.ContentLinkId, submission.StudentId })
+                .Distinct()
+                .ToListAsync(ct))
+            .ToLookup(submission => submission.ContentLinkId, submission => submission.StudentId);
+
+        return links.ToDictionary(
+            link => link.Id,
+            link =>
+            {
+                var groupIds = link.GroupId is null
+                    ? courseGroupIds
+                    : [link.GroupId.Value];
+                var linkStudents = groupIds
+                    .SelectMany(id => studentsByGroup.GetValueOrDefault(id) ?? [])
+                    .ToHashSet();
+                return (submitted[link.Id].Count(linkStudents.Contains), linkStudents.Count);
+            });
     }
 
     public void Add(Module module) => db.Modules.Add(module);

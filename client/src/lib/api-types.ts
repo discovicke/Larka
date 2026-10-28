@@ -2867,6 +2867,8 @@ export interface components {
         /**
          * @description En del i en modul. Tar med utkast och det som publiceras senare, så att läraren ser allt (Status, PublishAt).
          *     BlockedBy är de delar i samma vecka som måste vara klara först.
+         *     SubmittedCount/StudentCount räknar unika elever: den som lämnat in flera gånger räknas en gång, och nämnaren
+         *     är eleverna i länkens grupp, eller i alla grupper som läser kursen när länken gäller hela kursen.
          */
         ModuleContentItem: {
             /** Format: uuid */
@@ -2887,6 +2889,10 @@ export interface components {
             isPinned: boolean;
             blockedBy: string[];
             hasStudentActivity: boolean;
+            /** Format: int32 */
+            submittedCount?: null | number;
+            /** Format: int32 */
+            studentCount?: null | number;
         };
         ModuleDto: {
             /** Format: uuid */
