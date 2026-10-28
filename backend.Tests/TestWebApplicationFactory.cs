@@ -1,4 +1,5 @@
 using Backend.Application.Abstractions;
+using Backend.Infrastructure.Labs;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -34,8 +35,20 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
         builder.UseSetting("ConnectionStrings:Default", _connectionString.Value);
         builder.UseSetting("Database:SeedDevData", "false");
         builder.UseSetting("Auth:Jwt:Key", "test-only-key-0123456789abcdef0123456789");
+        // User-secrets kan peka på sandbox-org:en. Testerna ska vara oberoende av lokal GitHub-konfiguration.
+        builder.UseSetting("GitHub:Org", "skol-org");
+        builder.UseSetting("GitHub:AppId", "0");
+        builder.UseSetting("GitHub:InstallationId", "0");
+        builder.UseSetting("GitHub:PrivateKey", "");
+        builder.UseSetting("GitHub:PrivateKeyPath", "");
         builder.ConfigureTestServices(services =>
         {
+            // Lokala user-secrets kan peka på sandbox-GitHub. Testerna ska alltid använda fake-repon.
+            services.RemoveAll<ILabProvisioner>();
+            services.AddSingleton<ILabProvisioner, FakeLabProvisioner>();
+            services.RemoveAll<IGitHubConnectionStatusProvider>();
+            services.AddSingleton<IGitHubConnectionStatusProvider, TestGitHubConnectionStatusProvider>();
+
             if (!UseTestAuthentication)
             {
                 return;

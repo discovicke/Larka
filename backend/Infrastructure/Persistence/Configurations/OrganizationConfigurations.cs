@@ -13,6 +13,8 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
     {
         builder.HasOne<School>().WithMany().HasForeignKey(user => user.SchoolId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(user => user.Email).IsUnique();
+        // Nullable: flera elever kan sakna GitHub. Postgres tillåter flera NULL i ett unikt index.
+        builder.HasIndex(user => user.GitHubLogin).IsUnique();
     }
 }
 

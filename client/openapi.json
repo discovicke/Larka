@@ -469,6 +469,55 @@
         }
       }
     },
+    "/api/integrations/github": {
+      "get": {
+        "tags": [
+          "Integrations"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitHubConnectionDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/groups": {
       "get": {
         "tags": [
@@ -3313,6 +3362,69 @@
           }
         }
       },
+      "GitHubConnectionDto": {
+        "required": [
+          "configured",
+          "appId",
+          "installationId",
+          "org",
+          "apiBaseUrl",
+          "connected",
+          "accountLogin",
+          "lastVerifiedAt",
+          "error",
+          "missingSettings"
+        ],
+        "type": "object",
+        "properties": {
+          "configured": {
+            "type": "boolean"
+          },
+          "appId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "installationId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "org": {
+            "type": "string"
+          },
+          "apiBaseUrl": {
+            "type": "string"
+          },
+          "connected": {
+            "type": "boolean"
+          },
+          "accountLogin": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "lastVerifiedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "error": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "missingSettings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "description": "GitHub-anslutningen som admin kan se i klienten. Inga hemligheter."
+      },
       "GradeDto": {
         "required": [
           "gradedById",
@@ -4869,6 +4981,9 @@
     },
     {
       "name": "Content"
+    },
+    {
+      "name": "Integrations"
     },
     {
       "name": "Groups"

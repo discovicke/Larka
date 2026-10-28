@@ -20,6 +20,9 @@ pnpm-debug.log*
 .env.*
 !.env.example
 
+# GitHub App credentials
+*.pem
+
 # Editors / OS
 .DS_Store
 .idea/

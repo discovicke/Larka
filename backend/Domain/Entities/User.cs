@@ -12,4 +12,7 @@ public class User
 
     // Hash från ASP.NET Cores PasswordHasher, för den enkla inloggningen. Null betyder att användaren inte kan logga in med lösenord.
     public string? PasswordHash { get; set; }
+
+    // GitHub-användarnamn, satt via OAuth. Null tills eleven har kopplat sitt GitHub-konto.
+    public string? GitHubLogin { get; set; }
 }

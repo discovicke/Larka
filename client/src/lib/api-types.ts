@@ -573,6 +573,68 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/integrations/github": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GitHubConnectionDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/groups": {
         parameters: {
             query?: never;
@@ -2837,6 +2899,22 @@ export interface components {
             name: string;
             email: string;
             role: components["schemas"]["UserRole"];
+        };
+        /** @description GitHub-anslutningen som admin kan se i klienten. Inga hemligheter. */
+        GitHubConnectionDto: {
+            configured: boolean;
+            /** Format: int64 */
+            appId: number;
+            /** Format: int64 */
+            installationId: number;
+            org: string;
+            apiBaseUrl: string;
+            connected: boolean;
+            accountLogin: null | string;
+            /** Format: date-time */
+            lastVerifiedAt: null | string;
+            error: null | string;
+            missingSettings: string[];
         };
         GradeDto: {
             /** Format: uuid */

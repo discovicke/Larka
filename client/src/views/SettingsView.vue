@@ -1,13 +1,87 @@
 <script setup lang="ts">
-import {PhCircleHalf, PhMoon, PhSun} from '@phosphor-icons/vue'
-import type {Component} from 'vue'
+import {
+  PhArrowClockwise,
+  PhCircleHalf,
+  PhGithubLogo,
+  PhMoon,
+  PhSun,
+} from '@phosphor-icons/vue'
+import {computed, onMounted, ref, type Component} from 'vue'
 
+import {Alert, AlertDescription} from '@/components/ui/alert'
+import {Badge} from '@/components/ui/badge'
+import {Button} from '@/components/ui/button'
 import {Field, FieldContent, FieldDescription, FieldLabel, FieldLegend, FieldSet} from '@/components/ui/field'
 import {RadioGroup, RadioGroupItem} from '@/components/ui/radio-group'
+import {Skeleton} from '@/components/ui/skeleton'
+import {useCurrentUser} from '@/composables/useCurrentUser'
 import {useTheme} from '@/composables/useTheme'
+import {errorMessage} from '@/lib/api'
+import {formatDate} from '@/lib/content'
+import {fetchGitHubConnection, type GitHubConnection} from '@/lib/integrations'
 import type {ThemePreference} from '@/lib/theme'
 
 const {preference, resolvedTheme} = useTheme()
+const {loadMe, can} = useCurrentUser()
+
+const isAdmin = computed(() => can('admin'))
+const github = ref<GitHubConnection | null>(null)
+const githubLoading = ref(false)
+const githubError = ref('')
+
+const githubBadge = computed<{
+  label: string
+  variant: 'default' | 'outline' | 'destructive'
+}>(() => {
+  if (!github.value) {
+    return githubError.value
+      ? {label: 'Fel', variant: 'destructive'}
+      : {label: 'Laddar', variant: 'outline'}
+  }
+  if (!github.value.configured) {
+    return {label: 'Ej konfigurerad', variant: 'outline'}
+  }
+  return github.value.connected
+    ? {label: 'Ansluten', variant: 'default'}
+    : {label: 'Inte ansluten', variant: 'destructive'}
+})
+
+const missingSettings = computed(() => {
+  const labels: Record<string, string> = {
+    AppId: 'App ID',
+    InstallationId: 'Installations-ID',
+    Org: 'Organisation',
+    PrivateKey: 'Privat nyckel',
+  }
+  return (github.value?.missingSettings ?? []).map((setting) => labels[setting] ?? setting)
+})
+
+const lastVerified = computed(() => github.value?.lastVerifiedAt
+  ? formatDate(github.value.lastVerifiedAt, true)
+  : '–')
+
+async function loadGitHubStatus() {
+  if (!isAdmin.value) {
+    return
+  }
+
+  githubLoading.value = true
+  githubError.value = ''
+  try {
+    github.value = await fetchGitHubConnection()
+  } catch (exception) {
+    githubError.value = errorMessage(exception)
+  } finally {
+    githubLoading.value = false
+  }
+}
+
+onMounted(async () => {
+  await loadMe()
+  if (isAdmin.value) {
+    await loadGitHubStatus()
+  }
+})
 
 const options: {
   value: ThemePreference
@@ -40,7 +114,7 @@ const options: {
   <div class="mx-auto flex w-full max-w-[720px] flex-col gap-6">
     <header class="flex flex-col gap-1">
       <h1 class="font-heading text-[30px] leading-tight font-semibold">Inställningar</h1>
-      <p class="text-muted-foreground">Anpassa hur RebornLMS ser ut.</p>
+      <p class="text-muted-foreground">Anpassa RebornLMS och se skolans integrationer.</p>
     </header>
 
     <section class="rounded-xl border p-5">
@@ -83,6 +157,103 @@ const options: {
             : 'ljust tema' }}
         </strong>.
       </p>
+    </section>
+
+    <section v-if="isAdmin" class="flex flex-col gap-3" data-test="integrations">
+      <header class="flex flex-col gap-1">
+        <h2 class="font-heading text-xl font-semibold">Integrationer</h2>
+        <p class="text-muted-foreground text-sm">
+          Anslutningar som gäller hela skolan. Bara admin kan se dem.
+        </p>
+      </header>
+
+      <div class="rounded-xl border p-5" data-test="github-integration">
+        <header class="flex flex-wrap items-start justify-between gap-3">
+          <div class="flex items-center gap-2.5">
+            <PhGithubLogo class="size-5 shrink-0"/>
+            <div class="flex flex-col gap-0.5">
+              <h3 class="text-base font-semibold">GitHub</h3>
+              <p class="text-muted-foreground text-sm">
+                Elevrepon skapas i skolans GitHub-organisation.
+              </p>
+            </div>
+          </div>
+          <Badge :variant="githubBadge.variant" data-test="github-status">
+            {{ githubBadge.label }}
+          </Badge>
+        </header>
+
+        <Skeleton v-if="githubLoading && !github" class="mt-4 h-28 w-full"/>
+        <Alert v-else-if="githubError && !github" variant="destructive" class="mt-4">
+          <AlertDescription>{{ githubError }}</AlertDescription>
+        </Alert>
+        <template v-else-if="github">
+          <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+            <div class="flex flex-col gap-0.5">
+              <dt class="text-muted-foreground text-xs">Organisation</dt>
+              <dd class="font-mono" data-test="github-org">{{ github.org || '–' }}</dd>
+            </div>
+            <div class="flex flex-col gap-0.5">
+              <dt class="text-muted-foreground text-xs">GitHub-konto</dt>
+              <dd class="font-mono" data-test="github-account">{{ github.accountLogin || '–' }}</dd>
+            </div>
+            <div class="flex flex-col gap-0.5">
+              <dt class="text-muted-foreground text-xs">App ID</dt>
+              <dd class="font-mono" data-test="github-app-id">{{ github.appId || '–' }}</dd>
+            </div>
+            <div class="flex flex-col gap-0.5">
+              <dt class="text-muted-foreground text-xs">Installations-ID</dt>
+              <dd class="font-mono" data-test="github-installation-id">
+                {{ github.installationId || '–' }}
+              </dd>
+            </div>
+            <div class="flex flex-col gap-0.5 sm:col-span-2">
+              <dt class="text-muted-foreground text-xs">API-adress</dt>
+              <dd class="font-mono break-all" data-test="github-api-url">{{ github.apiBaseUrl }}</dd>
+            </div>
+          </dl>
+
+          <p
+            v-if="missingSettings.length"
+            class="text-destructive mt-4 text-sm"
+            data-test="github-missing"
+          >
+            Saknas: {{ missingSettings.join(', ') }}
+          </p>
+          <p v-if="github.error" class="text-destructive mt-2 text-sm" data-test="github-error">
+            {{ github.error }}
+          </p>
+
+          <div class="mt-4 flex flex-wrap items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              :disabled="githubLoading"
+              @click="loadGitHubStatus"
+            >
+              <PhArrowClockwise/>
+              {{ githubLoading
+                ? 'Uppdaterar…'
+                : 'Uppdatera status' }}
+            </Button>
+            <span class="text-muted-foreground text-xs" data-test="github-verified">
+              Senast verifierad {{ lastVerified }}
+            </span>
+          </div>
+        </template>
+
+        <Button
+          v-if="githubError && !github"
+          variant="outline"
+          size="sm"
+          class="mt-3"
+          :disabled="githubLoading"
+          @click="loadGitHubStatus"
+        >
+          <PhArrowClockwise/>
+          Försök igen
+        </Button>
+      </div>
     </section>
   </div>
 </template>

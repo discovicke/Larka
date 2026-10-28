@@ -571,6 +571,9 @@ namespace Backend.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("GitHubLogin")
+                        .HasColumnType("text");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
@@ -588,6 +591,9 @@ namespace Backend.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.HasIndex("GitHubLogin")
                         .IsUnique();
 
                     b.HasIndex("SchoolId");

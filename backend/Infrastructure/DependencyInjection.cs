@@ -2,6 +2,7 @@ using System.Text;
 using Backend.Application.Abstractions;
 using Backend.Domain.Entities;
 using Backend.Infrastructure.Auth;
+using Backend.Infrastructure.GitHub;
 using Backend.Infrastructure.Labs;
 using Backend.Infrastructure.Persistence;
 using Backend.Infrastructure.Persistence.Repositories;
@@ -21,8 +22,7 @@ public static class DependencyInjection
         services.AddPersistence(config);
         services.AddAuth(config);
 
-        services.AddSingleton<ILabProvisioner, FakeLabProvisioner>();
-
+        services.AddGitHub(config);
         services.AddFileStorage(config);
 
         services.AddHealthChecks().AddDbContextCheck<AppDb>();
@@ -90,6 +90,36 @@ public static class DependencyInjection
                     ClockSkew = TimeSpan.FromMinutes(1)
                 };
             });
+    }
+
+    /// <summary>
+    /// GitHub App-klienten. Den kräver ingen konfiguration vid start: tjänsten kastar ett tydligt fel först när
+    /// något försöker använda den, så tester och lokal utveckling utan GitHub påverkas inte.
+    /// </summary>
+    private static void AddGitHub(this IServiceCollection services, IConfiguration config)
+    {
+        services.AddOptions<GitHubOptions>().Bind(config.GetSection(GitHubOptions.SectionName));
+        services.AddHttpClient(GitHubAppService.HttpClientName, (serviceProvider, http) =>
+        {
+            var github = serviceProvider.GetRequiredService<IOptions<GitHubOptions>>().Value;
+            var baseUrl = string.IsNullOrWhiteSpace(github.ApiBaseUrl)
+                ? "https://api.github.com/"
+                : github.ApiBaseUrl;
+            http.BaseAddress = new Uri($"{baseUrl.TrimEnd('/')}/");
+        });
+        services.AddSingleton<IGitHubAppService, GitHubAppService>();
+        services.AddSingleton<IGitHubConnectionStatusProvider, GitHubConnectionStatusProvider>();
+
+        // Utan app-credentials ska lokal utveckling och tester fortsätta med fake-repon.
+        var githubOptions = config.GetSection(GitHubOptions.SectionName).Get<GitHubOptions>();
+        if (githubOptions?.IsConfigured == true)
+        {
+            services.AddSingleton<ILabProvisioner, GitHubLabProvisioner>();
+        }
+        else
+        {
+            services.AddSingleton<ILabProvisioner, FakeLabProvisioner>();
+        }
     }
 
     /// <summary>
