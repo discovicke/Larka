@@ -36,6 +36,9 @@ public interface IGroupRepository
     /// <summary>Användarens starkaste roll per kurs, Teacher före Mentor före Student.</summary>
     Task<List<CourseRole>> GetCourseRolesAsync(Guid userId, CancellationToken ct);
 
+    /// <summary>Grupperna användaren är elev i.</summary>
+    Task<List<Guid>> GetStudentGroupIdsAsync(Guid userId, CancellationToken ct);
+
     /// <summary>Kurserna användaren läser som elev i någon grupp, med grupperna per kurs.</summary>
     Task<List<StudentCourse>> GetStudentCoursesAsync(Guid userId, CancellationToken ct);
     void Add(Group group);

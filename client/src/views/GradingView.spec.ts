@@ -153,6 +153,9 @@ describe('GradingView', () => {
       if (path === '/api/courses') {
         return {status: 200, body: [devops, databases]}
       }
+      if (path === '/api/me/today') {
+        return {status: 200, body: {todo: [], submitted: [], feedback: [], news: [], courses: []}}
+      }
       return {status: 200, body: []}
     })
 

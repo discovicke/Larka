@@ -24,6 +24,10 @@ public static class MeEndpoints
         app.MapGet("/me/study-plan", async (StudyPlanService service, CancellationToken ct) =>
             TypedResults.Ok(await service.GetAsync(ct))).WithTags("Me");
 
+        // Elevens Idag-sida: vad som ska göras, det som lämnats in, senaste återkoppling, nyheter och kurserna.
+        app.MapGet("/me/today", async (TodayService service, CancellationToken ct) =>
+            TypedResults.Ok(await service.GetAsync(ct))).WithTags("Me");
+
         return app;
     }
 }

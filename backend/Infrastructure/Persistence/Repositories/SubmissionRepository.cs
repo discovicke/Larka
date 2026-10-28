@@ -19,6 +19,16 @@ public class SubmissionRepository(AppDb db) : ISubmissionRepository
         WithDetails().Where(submission =>
             submission.StudentId == studentId && linkIds.Contains(submission.ContentLinkId)).ToListAsync(ct);
 
+    public Task<List<Submission>> GetRecentForStudentAsync(Guid studentId, int take, CancellationToken ct) =>
+        WithDetails()
+            .Where(submission => submission.StudentId == studentId
+                && submission.Status != SubmissionStatus.NotStarted)
+            .OrderByDescending(submission => submission.Grade != null
+                ? submission.Grade.GradedAt
+                : submission.SubmittedAt)
+            .Take(take)
+            .ToListAsync(ct);
+
     public Task<List<Submission>> GetByLinkAsync(Guid linkId, CancellationToken ct) =>
         WithDetails().Where(submission => submission.ContentLinkId == linkId).ToListAsync(ct);
 

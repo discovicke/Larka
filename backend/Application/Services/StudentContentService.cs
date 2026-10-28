@@ -59,7 +59,7 @@ public class StudentContentService(
             return ServiceResult<StudentModuleWithContentDto>.Invalid("news cannot be completed");
         }
 
-        if (!IsManual(linked.Content))
+        if (!PartRules.IsManual(linked.Content))
         {
             return ServiceResult<StudentModuleWithContentDto>.Invalid(
                 "this part is completed by handing in the assignment");
@@ -179,7 +179,7 @@ public class StudentContentService(
             link.Link.IsPinned,
             isLocked,
             IsSatisfied(link.Link.Id, byLinkId, completionByLinkId, submissionByLinkId),
-            IsManual(link.Content),
+            PartRules.IsManual(link.Content),
             blockers,
             link.Content.Assignment is null
                 ? null
@@ -207,39 +207,11 @@ public class StudentContentService(
             return false;
         }
 
-        return IsSatisfied(
+        return PartRules.IsSatisfied(
             link.Content,
             completionByLinkId.GetValueOrDefault(linkId),
             submissionByLinkId.GetValueOrDefault(linkId));
     }
-
-    private static bool IsSatisfied(Content content, PartCompletion? completion, Submission? submission)
-    {
-        if (IsManual(content))
-        {
-            return completion is not null;
-        }
-
-        if (content.Type != ContentType.Assignment || content.Assignment is null)
-        {
-            return false;
-        }
-
-        if (content.Assignment.CompletionRule == CompletionRule.Approved)
-        {
-            var level = submission?.Grade?.Level;
-            return submission?.Status == SubmissionStatus.Graded
-                && (level == GradeLevel.Pass || level == GradeLevel.Distinction);
-        }
-
-        // Inlämnat räcker. Ett betyg (t.ex. bedömning på plats) räknas också, även om SubmittedAt saknas.
-        return submission?.SubmittedAt is not null || submission?.Status == SubmissionStatus.Graded;
-    }
-
-    private static bool IsManual(Content content) =>
-        content.Type == ContentType.Theory
-        || (content.Type == ContentType.Assignment
-            && (content.Assignment is null || content.Assignment.SubmissionModes.Count == 0));
 
     private static bool IsVisible(LinkedContent link, DateTimeOffset now) =>
         ContentVisibility.IsVisible(link.Content, link.Link, now);

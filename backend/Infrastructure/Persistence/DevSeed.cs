@@ -162,7 +162,76 @@ public static class DevSeed
             }
         };
 
-        db.Content.AddRange(news, theory, assignment);
+        var secondNews = new Content
+        {
+            AuthorId = teacherId,
+            Type = ContentType.News,
+            Title = "Gästföreläsning om releasehantering",
+            BodyMd = "På fredag kommer en gäst och berättar om hur de släpper kod varje dag."
+        };
+        var tests = new Content
+        {
+            AuthorId = teacherId,
+            Type = ContentType.Assignment,
+            Title = "E2E-tester med Playwright",
+            BodyMd = "Skriv end-to-end-tester för inloggningen.",
+            Assignment = new AssignmentSpec
+            {
+                GradeScale = GradeScale.PassFailDistinction,
+                SubmissionModes = [SubmissionMode.Text]
+            }
+        };
+        var testPlan = new Content
+        {
+            AuthorId = teacherId,
+            Type = ContentType.Assignment,
+            Title = "Skriv en testplan",
+            BodyMd = "Beskriv vad som ska testas och hur.",
+            Assignment = new AssignmentSpec
+            {
+                GradeScale = GradeScale.PassFailDistinction,
+                SubmissionModes = [SubmissionMode.Text]
+            }
+        };
+        var testPlanLink = new ContentLink
+        {
+            ContentId = testPlan.Id,
+            CourseId = devOps.Id,
+            ModuleId = firstWeek.Id,
+            Position = 3,
+            PublishAt = DateTimeOffset.UtcNow.AddDays(-7),
+            DueAt = DateTimeOffset.UtcNow.AddDays(-2)
+        };
+        var gradedSubmission = new Submission
+        {
+            ContentLinkId = testPlanLink.Id,
+            StudentId = student.Id,
+            Status = SubmissionStatus.Graded,
+            BodyMd = "Testplanen ligger i repot.",
+            SubmittedAt = DateTimeOffset.UtcNow.AddDays(-3)
+        };
+
+        db.Content.AddRange(news, secondNews, theory, assignment, tests, testPlan);
+        db.ContentLinks.Add(testPlanLink);
+        db.ContentLinks.Add(new ContentLink { ContentId = secondNews.Id, GroupId = group.Id });
+        db.ContentLinks.Add(new ContentLink
+        {
+            ContentId = tests.Id,
+            CourseId = devOps.Id,
+            ModuleId = secondWeek.Id,
+            Position = 1,
+            DueAt = DateTimeOffset.UtcNow.AddDays(3)
+        });
+        db.Submissions.Add(gradedSubmission);
+        db.Grades.Add(new Grade
+        {
+            SubmissionId = gradedSubmission.Id,
+            GradedById = teacher.Id,
+            Level = GradeLevel.Pass,
+            Feedback = "Tydlig plan. Lägg gärna till hur ni mäter täckning.",
+            GradedAt = DateTimeOffset.UtcNow.AddDays(-1)
+        });
+
         var assignmentLink = new ContentLink
         {
             ContentId = assignment.Id,

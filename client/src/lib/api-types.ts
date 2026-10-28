@@ -413,6 +413,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TodayDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/calendar": {
         parameters: {
             query?: never;
@@ -3095,6 +3130,76 @@ export interface components {
         SubmitForm: {
             bodyMd?: null | string;
             files?: null | components["schemas"]["IFormFileCollection"];
+        };
+        /** @description En kurs eleven läser, med hur många av delarna som är klara. */
+        TodayCourseDto: {
+            /** Format: uuid */
+            courseId: string;
+            code: string;
+            title: string;
+            /** Format: int32 */
+            totalParts: number;
+            /** Format: int32 */
+            completedParts: number;
+        };
+        /** @description Elevens Idag-sida. Tomma listor när det inte finns något att visa. */
+        TodayDto: {
+            todo: components["schemas"]["TodayTodoDto"][];
+            submitted: components["schemas"]["TodaySubmissionDto"][];
+            feedback: components["schemas"]["TodayFeedbackDto"][];
+            news: components["schemas"]["TodayNewsDto"][];
+            courses: components["schemas"]["TodayCourseDto"][];
+        };
+        /** @description Lärarens återkoppling på en inlämning. Grade är null vid komplettering. */
+        TodayFeedbackDto: {
+            /** Format: uuid */
+            linkId: string;
+            title: string;
+            /** Format: uuid */
+            courseId: null | string;
+            courseTitle: null | string;
+            grade: null | components["schemas"]["GradeLevel"];
+            feedback: string;
+            /** Format: date-time */
+            gradedAt: string;
+        };
+        /** @description En nyhet från elevens kurser och grupper. Source är kursens eller gruppens namn. */
+        TodayNewsDto: {
+            /** Format: uuid */
+            contentId: string;
+            title: string;
+            /** Format: uuid */
+            courseId: null | string;
+            source: null | string;
+            /** Format: date-time */
+            publishAt: string;
+        };
+        /** @description En inlämning eleven gjort, med status och eventuellt betyg. */
+        TodaySubmissionDto: {
+            /** Format: uuid */
+            linkId: string;
+            title: string;
+            /** Format: uuid */
+            courseId: null | string;
+            courseTitle: null | string;
+            /** Format: date-time */
+            submittedAt: null | string;
+            status: components["schemas"]["SubmissionStatus"];
+            grade: null | components["schemas"]["GradeLevel"];
+        };
+        /** @description En uppgift som väntar: publicerad, med deadline från nu och inte inlämnad. */
+        TodayTodoDto: {
+            /** Format: uuid */
+            linkId: string;
+            /** Format: uuid */
+            contentId: string;
+            title: string;
+            /** Format: uuid */
+            courseId: null | string;
+            courseTitle: null | string;
+            /** Format: date-time */
+            dueAt: string;
+            status: components["schemas"]["SubmissionStatus"];
         };
         UpdateContentDto: {
             title: string;

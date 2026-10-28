@@ -318,6 +318,25 @@
         }
       }
     },
+    "/api/me/today": {
+      "get": {
+        "tags": [
+          "Me"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TodayDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/calendar": {
       "get": {
         "tags": [
@@ -4360,6 +4379,270 @@
             ]
           }
         }
+      },
+      "TodayCourseDto": {
+        "required": [
+          "courseId",
+          "code",
+          "title",
+          "totalParts",
+          "completedParts"
+        ],
+        "type": "object",
+        "properties": {
+          "courseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "totalParts": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "completedParts": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "description": "En kurs eleven läser, med hur många av delarna som är klara."
+      },
+      "TodayDto": {
+        "required": [
+          "todo",
+          "submitted",
+          "feedback",
+          "news",
+          "courses"
+        ],
+        "type": "object",
+        "properties": {
+          "todo": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TodayTodoDto"
+            }
+          },
+          "submitted": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TodaySubmissionDto"
+            }
+          },
+          "feedback": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TodayFeedbackDto"
+            }
+          },
+          "news": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TodayNewsDto"
+            }
+          },
+          "courses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TodayCourseDto"
+            }
+          }
+        },
+        "description": "Elevens Idag-sida. Tomma listor när det inte finns något att visa."
+      },
+      "TodayFeedbackDto": {
+        "required": [
+          "linkId",
+          "title",
+          "courseId",
+          "courseTitle",
+          "grade",
+          "feedback",
+          "gradedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "linkId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "courseId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "courseTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "grade": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/GradeLevel"
+              }
+            ]
+          },
+          "feedback": {
+            "type": "string"
+          },
+          "gradedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "description": "Lärarens återkoppling på en inlämning. Grade är null vid komplettering."
+      },
+      "TodayNewsDto": {
+        "required": [
+          "contentId",
+          "title",
+          "courseId",
+          "source",
+          "publishAt"
+        ],
+        "type": "object",
+        "properties": {
+          "contentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "courseId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "source": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "publishAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "description": "En nyhet från elevens kurser och grupper. Source är kursens eller gruppens namn."
+      },
+      "TodaySubmissionDto": {
+        "required": [
+          "linkId",
+          "title",
+          "courseId",
+          "courseTitle",
+          "submittedAt",
+          "status",
+          "grade"
+        ],
+        "type": "object",
+        "properties": {
+          "linkId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "courseId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "courseTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "submittedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SubmissionStatus"
+          },
+          "grade": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/GradeLevel"
+              }
+            ]
+          }
+        },
+        "description": "En inlämning eleven gjort, med status och eventuellt betyg."
+      },
+      "TodayTodoDto": {
+        "required": [
+          "linkId",
+          "contentId",
+          "title",
+          "courseId",
+          "courseTitle",
+          "dueAt",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "linkId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "courseId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "courseTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dueAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SubmissionStatus"
+          }
+        },
+        "description": "En uppgift som väntar: publicerad, med deadline från nu och inte inlämnad."
       },
       "UpdateContentDto": {
         "required": [

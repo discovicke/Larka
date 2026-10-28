@@ -12,6 +12,11 @@ public interface ISubmissionRepository
     Task<List<Submission>> GetForStudentAsync(
         Guid studentId, IReadOnlyCollection<Guid> linkIds, CancellationToken ct);
 
+    /// <summary>
+    /// Elevens senaste inlämningar (inte de som bara är utdelade), med betyg, de senaste först.
+    /// </summary>
+    Task<List<Submission>> GetRecentForStudentAsync(Guid studentId, int take, CancellationToken ct);
+
     Task<List<Submission>> GetByLinkAsync(Guid linkId, CancellationToken ct);
 
     // Lärare på en grupp som utdelningen gäller för, eller på en grupp som läser kursen den gäller för.

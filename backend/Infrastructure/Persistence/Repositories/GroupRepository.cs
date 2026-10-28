@@ -93,6 +93,12 @@ public class GroupRepository(AppDb db) : IGroupRepository
             .ToList();
     }
 
+    public Task<List<Guid>> GetStudentGroupIdsAsync(Guid userId, CancellationToken ct) =>
+        db.Enrollments
+            .Where(enrollment => enrollment.UserId == userId && enrollment.Role == GroupRole.Student)
+            .Select(enrollment => enrollment.GroupId)
+            .ToListAsync(ct);
+
     public async Task<List<StudentCourse>> GetStudentCoursesAsync(Guid userId, CancellationToken ct)
     {
         var studentGroupIds = db.Enrollments

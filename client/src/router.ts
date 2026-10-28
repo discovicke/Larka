@@ -20,8 +20,8 @@ import InboxView from '@/views/InboxView.vue'
 import LoginView from '@/views/LoginView.vue'
 import MaterialView from '@/views/MaterialView.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
-import PlaceholderView from '@/views/PlaceholderView.vue'
 import SettingsView from '@/views/SettingsView.vue'
+import TodayView from '@/views/TodayView.vue'
 import CourseAboutView from '@/views/course/CourseAboutView.vue'
 import CourseContentView from '@/views/course/CourseContentView.vue'
 import CourseLayout from '@/views/course/CourseLayout.vue'
@@ -62,7 +62,7 @@ export const routes: RouteRecordRaw[] = [
     name: 'app',
     component: AppLayout,
     children: [
-      {path: '', name: 'today', component: PlaceholderView, meta: {title: 'Idag'}},
+      {path: '', name: 'today', component: TodayView, meta: {title: 'Idag'}},
       {path: 'calendar', name: 'calendar', component: CalendarView, meta: {title: 'Kalender'}},
       {path: 'inbox', name: 'inbox', component: InboxView, meta: {title: 'Inkorg', fullBleed: true}},
       {path: 'material', name: 'material', component: MaterialView, meta: {title: 'Material'}},

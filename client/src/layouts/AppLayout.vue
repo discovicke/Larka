@@ -27,8 +27,8 @@ loadMe()
       >
         <RouterView/>
       </main>
-      <main v-else data-test="main-padded" class="px-[clamp(16px,3vw,40px)] pt-8 pb-16">
-        <div class="mx-auto flex max-w-[1120px] flex-col gap-6">
+      <main v-else data-test="main-padded" class="px-[clamp(16px,3vw,40px)] pt-5 pb-6 md:pt-8 md:pb-16">
+        <div class="mx-auto flex max-w-[1120px] flex-col gap-5 md:gap-6">
           <RouterView/>
         </div>
       </main>
