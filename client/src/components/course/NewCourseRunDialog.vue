@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import DatePicker from '@/components/DatePicker.vue'
 import {computed, ref, watch} from 'vue'
 import {useRouter} from 'vue-router'
 
@@ -172,23 +173,19 @@ async function create() {
         <div class="grid min-w-0 grid-cols-2 gap-3">
           <div class="flex min-w-0 flex-col gap-1.5">
             <FieldLabel for="run-starts">Startar</FieldLabel>
-            <Input
+            <DatePicker
               id="run-starts"
               v-model="startsOn"
-              type="date"
-              class="w-full"
-              required
+              :max="endsOn || undefined"
               data-test="run-starts"
             />
           </div>
           <div class="flex min-w-0 flex-col gap-1.5">
             <FieldLabel for="run-ends">Slutar</FieldLabel>
-            <Input
+            <DatePicker
               id="run-ends"
               v-model="endsOn"
-              type="date"
-              class="w-full"
-              required
+              :min="startsOn || undefined"
               data-test="run-ends"
             />
           </div>

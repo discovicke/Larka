@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import DateTimePicker from '@/components/DateTimePicker.vue'
 import {reactive, ref, watch} from 'vue'
 
 import {Alert, AlertDescription} from '@/components/ui/alert'
@@ -97,10 +98,10 @@ async function save() {
           </Field>
           <Field>
             <FieldLabel for="edit-module-publish-at">Veckan öppnar</FieldLabel>
-            <Input
+            <DateTimePicker
               id="edit-module-publish-at"
               v-model="form.publishAt"
-              type="datetime-local"
+              clearable
               data-test="edit-module-publish-at"
             />
             <FieldDescription>

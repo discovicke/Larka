@@ -3,6 +3,7 @@ import {describe, expect, it} from 'vitest'
 
 import {mockApi, sent} from '@/test/mockApi'
 import {meAs} from '@/test/me'
+import {pickDate} from '@/test/datePicker'
 import {renderApp} from '@/test/renderApp'
 
 const course = {
@@ -129,8 +130,8 @@ describe('CourseAboutView', () => {
     await flushPromises()
     await fill('#course-edit-description', 'Ny **beskrivning**')
     await fill('#course-edit-points', '30')
-    await fill('#course-edit-start', '2026-10-01')
-    await fill('#course-edit-end', '2026-12-01')
+    await pickDate('#course-edit-start', '2026-10-01')
+    await pickDate('#course-edit-end', '2026-12-01')
     await submitDialogForm()
 
     expect(sent('PUT', '/api/courses/c1')).toEqual({

@@ -3,6 +3,7 @@ import {describe, expect, it} from 'vitest'
 
 import {mockApi, requests, sent} from '@/test/mockApi'
 import {meAs} from '@/test/me'
+import {pickDate} from '@/test/datePicker'
 import {renderApp} from '@/test/renderApp'
 
 const courses = [
@@ -79,8 +80,8 @@ async function openDialog() {
 async function fillForm() {
   await type('run-code', 'NET26-DEVOPS')
   await type('run-class', 'g2', 'change')
-  await type('run-starts', '2026-10-12')
-  await type('run-ends', '2026-11-13')
+  await pickDate(field('run-starts'), '2026-10-12')
+  await pickDate(field('run-ends'), '2026-11-13')
 }
 
 describe('NewCourseRunDialog', () => {

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import DatePicker from '@/components/DatePicker.vue'
 import {PhEnvelopeSimple, PhPencilSimple} from '@phosphor-icons/vue'
 import {computed, nextTick, reactive, ref, watch} from 'vue'
 import {useRoute} from 'vue-router'
@@ -269,11 +270,21 @@ watch(() => route.name, scrollToStaff)
               </Field>
               <Field>
                 <FieldLabel for="course-edit-start">Startdatum</FieldLabel>
-                <Input id="course-edit-start" v-model="form.startsOn" type="date"/>
+                <DatePicker
+                  id="course-edit-start"
+                  v-model="form.startsOn"
+                  clearable
+                  :max="form.endsOn || undefined"
+                />
               </Field>
               <Field>
                 <FieldLabel for="course-edit-end">Slutdatum</FieldLabel>
-                <Input id="course-edit-end" v-model="form.endsOn" type="date"/>
+                <DatePicker
+                  id="course-edit-end"
+                  v-model="form.endsOn"
+                  clearable
+                  :min="form.startsOn || undefined"
+                />
               </Field>
             </div>
           </FieldGroup>

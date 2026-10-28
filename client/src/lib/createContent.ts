@@ -8,7 +8,7 @@ export interface ContentForm {
   partType: PartType
   title: string
   bodyMd: string
-  publishAt: string // från <input type="datetime-local">, tom = nu
+  publishAt: string // yyyy-mm-ddThh:mm (lokal tid), tom = nu
   dueAt: string
   gradeScale: Schema<'GradeScale'>
   submissionModes: SubmissionMode[]

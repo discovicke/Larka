@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import DateTimePicker from '@/components/DateTimePicker.vue'
 import {PhChalkboardTeacher, PhFiles, PhGithubLogo, PhTextAa} from '@phosphor-icons/vue'
 import {type Component, computed, onMounted, reactive, ref} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
@@ -272,16 +273,16 @@ async function save(status: Schema<'ContentStatus'> = 'Published') {
         <div class="grid grid-cols-[repeat(auto-fit,minmax(min(200px,100%),1fr))] gap-4">
           <Field>
             <FieldLabel for="publish-at">Publiceras</FieldLabel>
-            <Input id="publish-at" v-model="form.publishAt" type="datetime-local"/>
+            <DateTimePicker id="publish-at" v-model="form.publishAt" clearable/>
             <FieldDescription class="text-xs">Tomt = direkt.</FieldDescription>
           </Field>
           <Field v-if="isAssignment(form)" :data-invalid="!!errors.dueAt">
             <FieldLabel for="due-at">Slutar</FieldLabel>
-            <Input
+            <DateTimePicker
               id="due-at"
               v-model="form.dueAt"
-              type="datetime-local"
-              :aria-invalid="!!errors.dueAt"
+              clearable
+              :invalid="!!errors.dueAt"
             />
             <FieldError v-if="errors.dueAt">{{ errors.dueAt }}</FieldError>
           </Field>

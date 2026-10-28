@@ -1,8 +1,8 @@
 <script setup lang="ts">
+import DateTimePicker from '@/components/DateTimePicker.vue'
 import {reactive} from 'vue'
 
 import {Checkbox} from '@/components/ui/checkbox'
-import {Input} from '@/components/ui/input'
 import {Label} from '@/components/ui/label'
 import {useDevOptions} from '@/composables/useDevOptions'
 import {useDevSubmit} from '@/composables/useDevSubmit'
@@ -93,10 +93,10 @@ async function submit() {
       optional
     />
     <DevField id="publish-at" label="Publish at" hint="Leave empty for now.">
-      <Input id="publish-at" v-model="form.publishAt" type="datetime-local"/>
+      <DateTimePicker id="publish-at" v-model="form.publishAt" clearable/>
     </DevField>
     <DevField id="publish-due" label="Due at" hint="Only for assignments.">
-      <Input id="publish-due" v-model="form.dueAt" type="datetime-local"/>
+      <DateTimePicker id="publish-due" v-model="form.dueAt" clearable/>
     </DevField>
     <Label for="publish-pinned">
       <Checkbox

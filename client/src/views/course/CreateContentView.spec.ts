@@ -3,6 +3,7 @@ import {describe, expect, it, vi} from 'vitest'
 
 import {type Handler, mockApi, requests, sent} from '@/test/mockApi'
 import {meAs} from '@/test/me'
+import {pickDateTime} from '@/test/datePicker'
 import {renderApp} from '@/test/renderApp'
 
 const course = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps'}
@@ -170,6 +171,24 @@ describe('CreateContentView', () => {
     expect(requests.filter((request) => request.method === 'POST')).toHaveLength(1)
     expect(router.currentRoute.value.name).toBe('course-content')
   })
+
+  it('publicering och deadline väljs i datumväljarna och skickas som tid', async () => {
+    backend()
+    const {wrapper} = await renderApp('/courses/c1/modules/m1/new')
+
+    await wrapper.find('#part-Exercise').trigger('click')
+    await wrapper.find('#title').setValue('Planerad inlämning')
+    await pickDateTime('#publish-at', '2027-10-11T09:00')
+    await pickDateTime('#due-at', '2027-10-15T17:30')
+    expect(wrapper.find('#publish-at').text()).toBe('11 okt 2027 09:00')
+    expect(wrapper.find('#due-at').text()).toBe('15 okt 2027 17:30')
+    button('Publicera').click()
+    await flushPromises()
+
+    expect(sent('POST', '/api/content/with-link')).toMatchObject({
+      link: {publishAt: new Date('2027-10-11T09:00').toISOString(), dueAt: new Date('2027-10-15T17:30').toISOString()},
+    })
+  }, 20000)
 
   it('spara utkast skickar status Draft', async () => {
     backend()

@@ -1,4 +1,4 @@
-import {expect, type Page, test} from '@playwright/test'
+import {expect, type Locator, type Page, test} from '@playwright/test'
 
 import {routes, signInAndMockApi} from './mocks'
 
@@ -25,6 +25,16 @@ async function expectNoHorizontalScroll(page: Page) {
     innerWidth: window.innerWidth,
   }))
   expect(scrollWidth, `sidan är ${scrollWidth} px bred i ett fönster på ${innerWidth} px`).toBeLessThanOrEqual(innerWidth)
+}
+
+// Öppnar en datumväljare och klickar på en dag i månaden, som en användare.
+async function pickFirstDay(page: Page, trigger: Locator, which: 'first' | 'last' = 'first') {
+  await trigger.click()
+  const days = page.locator('[data-slot="calendar-cell-trigger"]:not([data-outside-view]):not([data-disabled])')
+  await (which === 'first'
+    ? days.first()
+    : days.last()).click()
+  await expect(page.locator('[data-slot="popover-content"]')).toHaveCount(0)
 }
 
 const pages = [
@@ -74,8 +84,8 @@ for (const [label, viewport] of [['390 px', phone], ['1440 px', desktop]] as con
       const dialog = page.getByRole('dialog')
       await dialog.locator('[data-test="run-code"]').fill('NET26-DEVOPS-MED-LÅNG-KOD')
       await dialog.locator('select').selectOption({index: 2})
-      await dialog.locator('[data-test="run-starts"]').fill('2026-10-12')
-      await dialog.locator('[data-test="run-ends"]').fill('2026-11-13')
+      await pickFirstDay(page, dialog.locator('[data-test="run-starts"]'))
+      await pickFirstDay(page, dialog.locator('[data-test="run-ends"]'), 'last')
       await expect(dialog.locator('[data-test="run-copy-label"]')).toContainText('2 veckor, 3 delar')
       await page.waitForTimeout(300)
 
@@ -90,6 +100,26 @@ for (const [label, viewport] of [['390 px', phone], ['1440 px', desktop]] as con
       expect(overflow.scroll).toBeLessThanOrEqual(0)
       await expectNoHorizontalScroll(page)
       await expect(dialog.getByRole('button', {name: 'Skapa kursomgång'})).toBeEnabled()
+    })
+
+    test('datumväljaren ryms i fönstret när den är öppen', async ({page}) => {
+      await open(page, routes.createContent, 'Typ av del')
+      await page.locator('#publish-at').click()
+      const popover = page.locator('[data-slot="popover-content"]')
+      await expect(popover).toBeVisible()
+      await expect(popover.locator('input[type="time"]')).toBeVisible()
+      await page.waitForTimeout(300)
+
+      const box = await popover.boundingBox()
+      const viewport = page.viewportSize()!
+      expect(box!.x).toBeGreaterThanOrEqual(0)
+      expect(box!.y).toBeGreaterThanOrEqual(0)
+      expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width)
+      expect(box!.y + box!.height).toBeLessThanOrEqual(viewport.height)
+      await expectNoHorizontalScroll(page)
+
+      await popover.locator('[data-slot="calendar-cell-trigger"]:not([data-outside-view])').first().click()
+      await expect(page.locator('#publish-at')).toContainText(/\d{1,2} \w+ \d{4} 09:00/)
     })
 
     test('skapa innehåll med varje typ av del', async ({page}) => {
