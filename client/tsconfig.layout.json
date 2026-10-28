@@ -1,0 +1,10 @@
+// Playwright-filerna (layoutkontrollerna) körs i Node och typkontrolleras för sig,
+// så att appbygget (vue-tsc -b) inte behöver Node-typer.
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "lib": ["ES2022", "DOM"]
+  },
+  "include": ["layout/**/*.ts", "playwright.config.ts"]
+}
