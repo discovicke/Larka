@@ -187,7 +187,7 @@ function courseLabel(course: SidebarCourse): string {
 
         <!-- Sökningen kommer senare, knappen visar var den ska ligga. -->
         <SidebarMenuItem>
-          <SidebarMenuButton tooltip="Sök" class="bg-sidebar-accent text-sidebar-foreground/70 border-sidebar-border border">
+          <SidebarMenuButton tooltip="Sök" class="bg-sidebar-foreground/10 text-sidebar-foreground/70 border-sidebar-border border">
             <PhMagnifyingGlass/>
             <span class="flex-1 group-data-[collapsible=icon]:hidden">Sök…</span>
             <kbd class="group-data-[collapsible=icon]:hidden bg-sidebar border-sidebar-border rounded border px-1 font-mono text-[11px]">⌘K</kbd>
@@ -242,7 +242,7 @@ function courseLabel(course: SidebarCourse): string {
       <Collapsible v-if="finishedCourses.length" v-model:open="finishedOpen" as-child>
         <SidebarGroup data-test="finished-courses">
           <CollapsibleTrigger as-child>
-            <SidebarGroupLabel as="button" class="hover:bg-sidebar-accent w-full cursor-pointer gap-1.5 group-data-[collapsible=icon]:justify-center">
+            <SidebarGroupLabel as="button" class="hover:bg-sidebar-foreground/10 w-full cursor-pointer gap-1.5 group-data-[collapsible=icon]:justify-center">
               <span class="flex-1 text-left">Avslutade</span>
               <PhCaretDown class="transition-transform" :class="{'-rotate-90': !finishedOpen}"/>
             </SidebarGroupLabel>
