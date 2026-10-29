@@ -270,7 +270,7 @@ load()
             <span class="text-muted-foreground">{{ studentCount(course) }}</span>
             <span
               v-if="course.toGrade > 0"
-              class="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300"
+              class="rounded-full bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning dark:bg-warning/20"
             >
               {{ course.toGrade }} att bedöma
             </span>

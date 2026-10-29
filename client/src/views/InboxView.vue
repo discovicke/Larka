@@ -58,8 +58,8 @@ const kindIcons: Record<InboxKind, Component> = {
 // Betyg är grönt som i mockupen, komplettering gult. Resten är dämpat.
 const kindIconClasses: Record<InboxKind, string> = {
   news: 'bg-muted',
-  grade: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
-  needsWork: 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
+  grade: 'bg-success/10 text-success dark:bg-success/20',
+  needsWork: 'bg-warning/10 text-warning dark:bg-warning/20',
   deadline: 'bg-muted',
   assignment: 'bg-muted',
 }

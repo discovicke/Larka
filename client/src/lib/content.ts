@@ -89,7 +89,7 @@ export function weekPublishState(
   if (live.length === module.content.length) {
     return {
       label: 'Publicerad',
-      class: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+      class: 'border-success/20 bg-success/10 text-success',
       kind: 'published',
     }
   }
@@ -97,7 +97,7 @@ export function weekPublishState(
   if (live.length > 0) {
     return {
       label: 'Delvis publicerad',
-      class: 'border-amber-200 bg-amber-50 text-amber-700',
+      class: 'border-warning/20 bg-warning/10 text-warning',
       kind: 'partial',
     }
   }

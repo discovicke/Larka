@@ -2,6 +2,7 @@
 import {ref} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 
+import AppLogo from '@/components/layout/AppLogo.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Button} from '@/components/ui/button'
 import {Field, FieldLabel} from '@/components/ui/field'
@@ -48,23 +49,21 @@ async function submit() {
 <template>
   <div class="flex min-h-svh flex-wrap items-stretch">
     <section
-      class="bg-primary text-primary-foreground flex flex-[1_1_420px] flex-col justify-between gap-12 p-[clamp(24px,5vw,64px)]"
+      class="bg-sidebar text-sidebar-foreground flex flex-[1_1_420px] flex-col justify-between gap-12 p-[clamp(24px,5vw,64px)]"
     >
       <div class="flex items-center gap-2.5">
-        <span
-          class="bg-primary-foreground text-primary font-heading flex size-9 items-center justify-center rounded-[7px] text-base font-bold"
-        >R</span>
+        <AppLogo class="size-9"/>
         <span class="text-lg font-semibold">RebornLMS</span>
       </div>
 
       <div class="flex max-w-[440px] flex-col gap-4">
         <h1 class="font-heading text-[40px] leading-[1.1] font-semibold">Allt för din utbildning, på ett ställe.</h1>
-        <p class="text-primary-foreground/80 text-base leading-relaxed">
+        <p class="text-sidebar-foreground/80 text-base leading-relaxed">
           Schema, uppgifter, betyg och LIA. Fungerar lika bra på mobilen som på datorn.
         </p>
       </div>
 
-      <div class="text-primary-foreground/60 text-[13px]">{{ exampleSchool.name }}</div>
+      <div class="text-sidebar-foreground/60 text-[13px]">{{ exampleSchool.name }}</div>
     </section>
 
     <main class="flex flex-[1_1_480px] items-center justify-center px-4 py-12">

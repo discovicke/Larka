@@ -47,7 +47,7 @@ function titleWithPoints(course: StudyPlanCourse): string {
 function statusClass(status: StudyPlanCourse['status']): string {
   switch (status) {
     case 'Completed':
-      return 'border-emerald-200 bg-emerald-50 text-emerald-700'
+      return 'border-success/20 bg-success/10 text-success'
     case 'Ongoing':
       return 'border-primary bg-primary text-primary-foreground'
     default:
@@ -58,11 +58,11 @@ function statusClass(status: StudyPlanCourse['status']): string {
 function assignmentStatusClass(assignment: StudyPlanAssignment): string {
   if (assignment.status === 'Graded' && assignment.grade) {
     return assignment.grade === 'Fail'
-      ? 'text-red-700 dark:text-red-400 font-semibold'
-      : 'text-emerald-700 dark:text-emerald-400 font-semibold'
+      ? 'text-destructive font-semibold'
+      : 'text-success font-semibold'
   }
   if (assignment.status === 'NeedsWork') {
-    return 'text-amber-700 dark:text-amber-400'
+    return 'text-warning'
   }
   return 'text-muted-foreground'
 }

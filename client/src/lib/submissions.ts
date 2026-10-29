@@ -76,10 +76,10 @@ export function checkLabel(status: Schema<'CheckStatus'>): string {
 /** Färgen på testernas läge. */
 export function checkClass(status: Schema<'CheckStatus'>): string {
   if (status === 'Green') {
-    return 'text-emerald-700 dark:text-emerald-400'
+    return 'text-success'
   }
   return status === 'Red'
-    ? 'text-red-700 dark:text-red-400'
+    ? 'text-destructive'
     : 'text-muted-foreground'
 }
 

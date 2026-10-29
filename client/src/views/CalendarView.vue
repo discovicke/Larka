@@ -106,7 +106,7 @@ function linkFor(item: Item): RouteLocationRaw | null {
 
 function chipClass(item: Item): string {
   return item.kind === 'Deadline'
-    ? 'border-red-200 bg-red-50 text-red-800'
+    ? 'border-destructive/20 bg-destructive/10 text-destructive'
     : 'bg-background'
 }
 

@@ -148,7 +148,7 @@ async function handleConnect() {
           :href="repoUrl"
           target="_blank"
           rel="noopener noreferrer"
-          class="text-primary hover:underline inline-flex items-center gap-1.5 font-mono text-sm font-medium break-all"
+          class="text-link hover:underline inline-flex items-center gap-1.5 font-mono text-sm font-medium break-all"
           data-test="student-repo-link"
         >
           <span>{{ repoUrl }}</span>

@@ -16,6 +16,7 @@ import {
 import {type Component, computed, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 
+import AppLogo from '@/components/layout/AppLogo.vue'
 import {Avatar, AvatarFallback} from '@/components/ui/avatar'
 import {
   DropdownMenu,
@@ -135,14 +136,12 @@ function courseLabel(course: {title: string, code: string}): string {
           <DropdownMenu>
             <DropdownMenuTrigger as-child>
               <SidebarMenuButton size="lg" tooltip="Byt skola" data-test="school-switcher">
-                <span
-                  class="bg-primary text-primary-foreground font-heading flex size-8 shrink-0 items-center justify-center rounded-[7px] text-sm font-bold"
-                >R</span>
+                <AppLogo/>
                 <span class="flex flex-1 flex-col leading-tight">
                   <span class="font-semibold">RebornLMS</span>
-                  <span class="text-muted-foreground text-xs">{{ exampleSchool.name }}</span>
+                  <span class="text-sidebar-foreground/70 text-xs">{{ exampleSchool.name }}</span>
                 </span>
-                <PhCaretUpDown class="text-muted-foreground"/>
+                <PhCaretUpDown class="text-sidebar-foreground/70"/>
               </SidebarMenuButton>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" class="w-(--reka-dropdown-menu-trigger-width) min-w-56">
@@ -157,10 +156,10 @@ function courseLabel(course: {title: string, code: string}): string {
 
         <!-- Sökningen kommer senare, knappen visar var den ska ligga. -->
         <SidebarMenuItem>
-          <SidebarMenuButton tooltip="Sök" class="bg-background text-muted-foreground border">
+          <SidebarMenuButton tooltip="Sök" class="bg-sidebar-accent text-sidebar-foreground/70 border-sidebar-border border">
             <PhMagnifyingGlass/>
             <span class="flex-1">Sök…</span>
-            <kbd class="bg-muted rounded border px-1 font-mono text-[11px]">⌘K</kbd>
+            <kbd class="bg-sidebar border-sidebar-border rounded border px-1 font-mono text-[11px]">⌘K</kbd>
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>
@@ -238,9 +237,9 @@ function courseLabel(course: {title: string, code: string}): string {
                 </Avatar>
                 <span class="flex min-w-0 flex-col leading-tight">
                   <span class="truncate font-medium">{{ userName }}</span>
-                  <span class="text-muted-foreground truncate text-xs">{{ userRole }} · {{ schoolName }}</span>
+                  <span class="text-sidebar-foreground/70 truncate text-xs">{{ userRole }} · {{ schoolName }}</span>
                 </span>
-                <PhCaretUpDown class="text-muted-foreground"/>
+                <PhCaretUpDown class="text-sidebar-foreground/70"/>
               </SidebarMenuButton>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" class="w-(--reka-dropdown-menu-trigger-width) min-w-56">

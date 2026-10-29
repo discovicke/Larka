@@ -261,7 +261,7 @@ watch(open, (isOpen) => {
                 :key="row.node.linkId"
                 class="border-l-2 px-4 py-3"
                 :class="row.part.status === 'Draft'
-                  ? 'border-l-amber-300 dark:border-l-amber-700'
+                  ? 'border-l-warning/60'
                   : 'border-l-transparent'"
                 :data-test="`roadmap-part-${row.node.linkId}`"
               >
@@ -274,7 +274,7 @@ watch(open, (isOpen) => {
                       <Badge
                         v-if="row.part.status === 'Draft'"
                         variant="outline"
-                        class="border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+                        class="border-warning/20 bg-warning/10 text-warning dark:border-warning/30 dark:bg-warning/20"
                       >
                         Utkast
                       </Badge>
@@ -370,7 +370,7 @@ watch(open, (isOpen) => {
 
                       <p
                         v-if="row.part.status === 'Draft'"
-                        class="mt-2 flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-300"
+                        class="mt-2 flex items-center gap-1.5 text-xs text-warning"
                         data-test="roadmap-draft"
                       >
                         <PhEye class="size-3.5"/>
@@ -387,7 +387,7 @@ watch(open, (isOpen) => {
 
                     <p v-if="preview" class="mt-2 flex items-center gap-1.5 text-xs" data-test="roadmap-preview-state">
                       <template v-if="row.preview === 'available'">
-                        <PhLockOpen class="size-3.5 text-emerald-600 dark:text-emerald-400"/>
+                        <PhLockOpen class="size-3.5 text-success"/>
                         Tillgänglig för en ny elev
                       </template>
                       <template v-else-if="row.preview === 'locked'">

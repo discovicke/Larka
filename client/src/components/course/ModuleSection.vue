@@ -94,7 +94,7 @@ function badgeOf(item: Schema<'ModuleContentItem'>): {label: string, class: stri
   }
   return {
     label: 'Publicerad',
-    class: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300',
+    class: 'border-success/20 bg-success/10 text-success dark:border-success/30 dark:bg-success/20',
   }
 }
 </script>

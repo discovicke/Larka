@@ -115,11 +115,11 @@ function gradeTile(item: Feedback): string {
 
 function gradeTileClass(item: Feedback): string {
   if (item.grade === 'Fail') {
-    return 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300'
+    return 'bg-destructive/10 text-destructive dark:bg-destructive/20'
   }
   return item.grade
-    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-    : 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+    ? 'bg-success/10 text-success dark:bg-success/20'
+    : 'bg-warning/10 text-warning dark:bg-warning/20'
 }
 
 function statusText(item: Submission): string {
@@ -135,7 +135,7 @@ function statusText(item: Submission): string {
 
 function dueClass(item: Todo): string {
   return isUrgent(item.dueAt, now)
-    ? 'text-red-600 dark:text-red-400'
+    ? 'text-destructive'
     : ''
 }
 
@@ -252,7 +252,7 @@ load()
                   <span class="truncate font-medium">{{ item.title }}</span>
                   <span class="text-muted-foreground flex flex-wrap items-center gap-x-2 text-[13px]">
                     <span v-if="item.courseTitle">{{ item.courseTitle }}</span>
-                    <span v-if="item.status === 'NeedsWork'" class="text-amber-700 dark:text-amber-300">
+                    <span v-if="item.status === 'NeedsWork'" class="text-warning">
                       Komplettering begärd
                     </span>
                   </span>
@@ -412,13 +412,13 @@ load()
         v-if="nextUp"
         :to="courseLink(nextUp.courseId)"
         data-test="next-up"
-        class="flex flex-col gap-2.5 rounded-[11px] bg-stone-900 p-4 text-stone-50"
+        class="flex flex-col gap-2.5 rounded-[11px] bg-sidebar p-4 text-sidebar-foreground"
       >
-        <span class="text-xs font-medium tracking-[0.04em] text-stone-300 uppercase">Närmast</span>
+        <span class="text-xs font-medium tracking-[0.04em] text-sidebar-foreground/70 uppercase">Närmast</span>
         <span class="text-[17px] leading-[1.3] font-semibold">{{ nextUp.title }}</span>
-        <span class="flex justify-between gap-3 text-[13px] text-stone-300">
+        <span class="flex justify-between gap-3 text-[13px] text-sidebar-foreground/70">
           <span>{{ nextUp.courseTitle }}</span>
-          <span class="font-medium text-red-300">{{ weekdayAndTime(nextUp.dueAt) }}</span>
+          <span class="font-medium text-sidebar-primary">{{ weekdayAndTime(nextUp.dueAt) }}</span>
         </span>
       </component>
 

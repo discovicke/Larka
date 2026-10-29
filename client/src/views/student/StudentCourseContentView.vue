@@ -277,16 +277,16 @@ function rowIcon(item: Schema<'StudentContentItem'>): Component {
 
 function rowIconClass(item: Schema<'StudentContentItem'>): string {
   if (item.isCompleted) {
-    return 'text-emerald-600 dark:text-emerald-400'
+    return 'text-success'
   }
   if (item.isLocked) {
     return 'text-muted-foreground'
   }
   if (item.submissionStatus === 'Submitted') {
-    return 'text-blue-600 dark:text-blue-400'
+    return 'text-info'
   }
   if (item.submissionStatus === 'NeedsWork' || item.gradeLevel === 'Fail') {
-    return 'text-rose-600 dark:text-rose-400'
+    return 'text-destructive'
   }
   return 'text-muted-foreground'
 }
@@ -389,7 +389,7 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
             <Badge
               v-else-if="selectedItem.isCompleted"
               variant="outline"
-              class="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
+              class="border-success/20 bg-success/10 text-success dark:border-success/30 dark:bg-success/20"
             >
               <PhCheckCircle/>
               Klar
@@ -400,7 +400,7 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
             <span>{{ selectedModule.title }}</span>
             <template v-if="selectedItem.dueAt">
               <span>·</span>
-              <span class="font-medium text-rose-600 dark:text-rose-400">{{ dueLabel(selectedItem) }}</span>
+              <span class="font-medium text-destructive">{{ dueLabel(selectedItem) }}</span>
             </template>
             <template v-if="selectedItem.type === 'News'">
               <span>·</span>
@@ -468,7 +468,7 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
                     :key="item.linkId"
                     class="flex items-center gap-2"
                   >
-                    <PhLockOpen class="size-4 text-emerald-600 dark:text-emerald-400"/>
+                    <PhLockOpen class="size-4 text-success"/>
                     <span class="font-medium">{{ item.title }}</span>
                     <span class="text-muted-foreground text-xs">{{ kindOf(item) }}</span>
                   </li>
@@ -594,7 +594,7 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
                   v-if="moduleProgress(module).total > 0
                     && moduleProgress(module).done === moduleProgress(module).total"
                   variant="outline"
-                  class="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
+                  class="border-success/20 bg-success/10 text-success dark:border-success/30 dark:bg-success/20"
                 >
                   <PhCheckCircle/>
                   Klar
@@ -651,7 +651,7 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
                         :disabled="savingLinkId === item.linkId"
                         @click.stop="setCompleted(item.linkId, !item.isCompleted)"
                       >
-                        <PhCheckCircle v-if="item.isCompleted" class="size-[18px] text-emerald-600 dark:text-emerald-400"/>
+                        <PhCheckCircle v-if="item.isCompleted" class="size-[18px] text-success"/>
                         <PhCircle v-else class="size-[18px]"/>
                       </Button>
                       <component
@@ -686,7 +686,7 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
                             variant="outline"
                             class="h-[22px] rounded-[5px]"
                             :class="item.isCompleted
-                              ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300'
+                              ? 'border-success/20 bg-success/10 text-success dark:border-success/30 dark:bg-success/20'
                               : ''"
                           >
                             {{ submissionLabel(item) }}
@@ -696,7 +696,7 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
                             class="text-[12px] whitespace-nowrap"
                             :class="item.isCompleted
                               ? 'text-muted-foreground'
-                              : 'font-medium text-rose-600 dark:text-rose-400'"
+                              : 'font-medium text-destructive'"
                           >
                             {{ dueLabel(item) }}
                           </span>
