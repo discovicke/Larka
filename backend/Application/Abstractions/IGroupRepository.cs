@@ -20,7 +20,7 @@ public record GroupRef(Guid Id, string Name);
 
 public interface IGroupRepository
 {
-    Task<List<Group>> GetAllAsync(CancellationToken ct);
+    Task<List<Group>> GetForSchoolAsync(Guid schoolId, CancellationToken ct);
     Task<Group?> GetAsync(Guid groupId, CancellationToken ct);
     Task<bool> ExistsAsync(Guid groupId, CancellationToken ct);
     Task<bool> NameExistsAsync(Guid schoolId, string name, string term, CancellationToken ct);

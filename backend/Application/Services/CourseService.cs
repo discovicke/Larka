@@ -9,20 +9,26 @@ namespace Backend.Application.Services;
 // Bara admin får skapa kurser, som för skolor, användare och grupper.
 public class CourseService(
     ICourseRepository courses,
-    ISchoolRepository schools,
     IGroupRepository groups,
     IPermissions permissions,
+    ICurrentSchool currentSchool,
     IUnitOfWork unitOfWork)
 {
     public async Task<List<CourseDto>> GetAllAsync(CancellationToken ct)
     {
-        var allCourses = await courses.GetAllAsync(ct);
-        return allCourses.Select(CourseDto.From).ToList();
+        var schoolId = await currentSchool.GetIdAsync(ct);
+        if (schoolId is null)
+        {
+            return [];
+        }
+
+        var schoolCourses = await courses.GetForSchoolAsync(schoolId.Value, ct);
+        return schoolCourses.Select(CourseDto.From).ToList();
     }
 
     public async Task<CourseDto?> GetAsync(Guid id, CancellationToken ct)
     {
-        var course = await courses.GetAsync(id, ct);
+        var course = await GetOwnAsync(id, ct);
         return course is null
             ? null
             : CourseDto.From(course);
@@ -45,7 +51,8 @@ public class CourseService(
             return ServiceResult<CourseDto>.Invalid("code is required");
         }
 
-        if (!await schools.ExistsAsync(dto.SchoolId, ct))
+        // Bara i den egna skolan, annars skulle admin skapa rader som den sedan inte ser.
+        if (!await currentSchool.OwnsAsync(dto.SchoolId, ct))
         {
             return ServiceResult<CourseDto>.Invalid("school does not exist");
         }
@@ -65,7 +72,7 @@ public class CourseService(
     /// <summary>Ändrar kursens uppgifter. Koden är låst, eftersom den är unik per skola.</summary>
     public async Task<ServiceResult<CourseDto>> UpdateAsync(Guid id, UpdateCourseDto dto, CancellationToken ct)
     {
-        var course = await courses.GetAsync(id, ct);
+        var course = await GetOwnAsync(id, ct);
         if (course is null)
         {
             return ServiceResult<CourseDto>.NotFound("course not found");
@@ -108,7 +115,7 @@ public class CourseService(
     /// <summary>Lärarna i grupperna som läser kursen. Null om kursen inte finns.</summary>
     public async Task<List<CourseStaffDto>?> GetStaffAsync(Guid id, CancellationToken ct)
     {
-        if (!await groups.CourseExistsAsync(id, ct))
+        if (await GetOwnAsync(id, ct) is null)
         {
             return null;
         }
@@ -124,5 +131,14 @@ public class CourseService(
                 group.Select(teacher => teacher.GroupName).OrderBy(name => name).ToList()))
             .OrderBy(member => member.Name)
             .ToList();
+    }
+
+    // En kurs i en annan skola räknas som att den inte finns.
+    private async Task<Course?> GetOwnAsync(Guid id, CancellationToken ct)
+    {
+        var course = await courses.GetAsync(id, ct);
+        return course is not null && await currentSchool.OwnsAsync(course.SchoolId, ct)
+            ? course
+            : null;
     }
 }

@@ -5,16 +5,29 @@ using Backend.Domain.Entities;
 
 namespace Backend.Application.Services;
 
-public class SchoolService(ISchoolRepository schools, IPermissions permissions, IUnitOfWork unitOfWork)
+public class SchoolService(
+    ISchoolRepository schools,
+    IPermissions permissions,
+    ICurrentSchool currentSchool,
+    IUnitOfWork unitOfWork)
 {
+    // Användaren ser bara sin egen skola, så listan har högst en rad.
     public async Task<List<SchoolDto>> GetAllAsync(CancellationToken ct)
     {
-        var allSchools = await schools.GetAllAsync(ct);
-        return allSchools.Select(SchoolDto.From).ToList();
+        var school = await GetAsync(await currentSchool.GetIdAsync(ct) ?? Guid.Empty, ct);
+        return school is null
+            ? []
+            : [school];
     }
 
+    /// <summary>Null (404) om skolan inte finns eller är en annan skola än användarens.</summary>
     public async Task<SchoolDto?> GetAsync(Guid id, CancellationToken ct)
     {
+        if (!await currentSchool.OwnsAsync(id, ct))
+        {
+            return null;
+        }
+
         var school = await schools.GetAsync(id, ct);
         return school is null
             ? null

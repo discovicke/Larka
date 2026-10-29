@@ -5,8 +5,6 @@ import {mockApi} from '@/test/mockApi'
 import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
-const school = {id: 's1', name: 'Nacka gymnasium'}
-
 const classGroup = {id: 'g1', schoolId: 's1', type: 'Class', name: 'TE22A', term: 'HT25'}
 const committee = {id: 'g2', schoolId: 's1', type: 'Committee', name: 'Elevrådet', term: ''}
 
@@ -20,9 +18,6 @@ function backend(groups = [classGroup, committee]) {
     }
     if (path === '/api/courses') {
       return {status: 200, body: [devops, java]}
-    }
-    if (path === '/api/schools') {
-      return {status: 200, body: [school]}
     }
     if (path === '/api/groups') {
       return {status: 200, body: groups}
@@ -45,7 +40,7 @@ describe('GroupsView', () => {
       .toEqual(['Grupp', 'Kod', 'Typ', 'Period'])
     const rows = wrapper.findAll('[data-test="group-row"]')
     expect(rows.map((row) => row.find('td').text()))
-      .toEqual(['Nacka gymnasium', 'Elevrådet', 'TE22A', 'DevOps', 'Java'])
+      .toEqual(['Edugrade', 'Elevrådet', 'TE22A', 'DevOps', 'Java'])
 
     expect(rows[0].text()).toContain('Skola')
     const classRow = rows.find((row) => row.text().includes('TE22A'))
@@ -92,8 +87,8 @@ describe('GroupsView', () => {
       if (path === '/api/courses') {
         return {status: 200, body: [devops]}
       }
-      if (path === '/api/schools') {
-        return {status: 200, body: [school]}
+      if (path === '/api/me') {
+        return {status: 200, body: meAs('Teacher', ['c1'])}
       }
       if (path === '/api/groups') {
         return {status: 500, body: 'boom'}

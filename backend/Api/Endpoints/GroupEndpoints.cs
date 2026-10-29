@@ -28,8 +28,14 @@ public static class GroupEndpoints
                 TypedResults.Created($"/api/groups/{group.Id}", group)));
 
         // Vilka kurser läser en grupp? Tom lista = fristående grupp (t.ex. committee).
-        groups.MapGet("/{id:guid}/courses", async (Guid id, GroupService service, CancellationToken ct) =>
-            TypedResults.Ok(await service.GetCoursesAsync(id, ct)));
+        groups.MapGet("/{id:guid}/courses", async Task<Results<Ok<List<CourseDto>>, NotFound>> (
+            Guid id, GroupService service, CancellationToken ct) =>
+        {
+            var courses = await service.GetCoursesAsync(id, ct);
+            return courses is null
+                ? TypedResults.NotFound()
+                : TypedResults.Ok(courses);
+        });
 
         groups.MapPost("/{id:guid}/courses/{courseId:guid}",
             async Task<Results<Created, Conflict, NotFound<string>, ProblemHttpResult>> (

@@ -7,20 +7,27 @@ namespace Backend.Application.Services;
 
 public class GroupService(
     IGroupRepository groups,
-    ISchoolRepository schools,
+    ICourseRepository courses,
     IUserRepository users,
     IPermissions permissions,
+    ICurrentSchool currentSchool,
     IUnitOfWork unitOfWork)
 {
     public async Task<List<GroupDto>> GetAllAsync(CancellationToken ct)
     {
-        var allGroups = await groups.GetAllAsync(ct);
-        return allGroups.Select(GroupDto.From).ToList();
+        var schoolId = await currentSchool.GetIdAsync(ct);
+        if (schoolId is null)
+        {
+            return [];
+        }
+
+        var schoolGroups = await groups.GetForSchoolAsync(schoolId.Value, ct);
+        return schoolGroups.Select(GroupDto.From).ToList();
     }
 
     public async Task<GroupDto?> GetAsync(Guid id, CancellationToken ct)
     {
-        var group = await groups.GetAsync(id, ct);
+        var group = await GetOwnAsync(id, ct);
         return group is null
             ? null
             : GroupDto.From(group);
@@ -39,7 +46,8 @@ public class GroupService(
             return ServiceResult<GroupDto>.Invalid("name is required");
         }
 
-        if (!await schools.ExistsAsync(dto.SchoolId, ct))
+        // Bara i den egna skolan, annars skulle admin skapa rader som den sedan inte ser.
+        if (!await currentSchool.OwnsAsync(dto.SchoolId, ct))
         {
             return ServiceResult<GroupDto>.Invalid("school does not exist");
         }
@@ -58,8 +66,14 @@ public class GroupService(
     }
 
     // Tom lista = fristående grupp (t.ex. committee).
-    public async Task<List<CourseDto>> GetCoursesAsync(Guid groupId, CancellationToken ct)
+    // Null (404) om gruppen inte finns eller är en annan skolas.
+    public async Task<List<CourseDto>?> GetCoursesAsync(Guid groupId, CancellationToken ct)
     {
+        if (await GetOwnAsync(groupId, ct) is null)
+        {
+            return null;
+        }
+
         var courses = await groups.GetCoursesAsync(groupId, ct);
         return courses.Select(CourseDto.From).ToList();
     }
@@ -72,12 +86,13 @@ public class GroupService(
             return ServiceResult<bool>.Forbidden();
         }
 
-        if (!await groups.ExistsAsync(groupId, ct))
+        if (await GetOwnAsync(groupId, ct) is null)
         {
             return ServiceResult<bool>.NotFound("group not found");
         }
 
-        if (!await groups.CourseExistsAsync(courseId, ct))
+        var course = await courses.GetAsync(courseId, ct);
+        if (course is null || !await currentSchool.OwnsAsync(course.SchoolId, ct))
         {
             return ServiceResult<bool>.NotFound("course not found");
         }
@@ -100,7 +115,7 @@ public class GroupService(
             return ServiceResult<MemberDto>.Forbidden();
         }
 
-        var group = await groups.GetAsync(groupId, ct);
+        var group = await GetOwnAsync(groupId, ct);
         if (group is null)
         {
             return ServiceResult<MemberDto>.NotFound("group not found");
@@ -126,5 +141,14 @@ public class GroupService(
         groups.AddMember(enrollment);
         await unitOfWork.SaveChangesAsync(ct);
         return ServiceResult<MemberDto>.Ok(MemberDto.From(enrollment));
+    }
+
+    // En grupp i en annan skola räknas som att den inte finns.
+    private async Task<Group?> GetOwnAsync(Guid id, CancellationToken ct)
+    {
+        var group = await groups.GetAsync(id, ct);
+        return group is not null && await currentSchool.OwnsAsync(group.SchoolId, ct)
+            ? group
+            : null;
     }
 }

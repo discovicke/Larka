@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Backend.Infrastructure.Persistence;
+using Backend.Infrastructure.Persistence.Configurations;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace backend.Tests;
@@ -18,14 +19,15 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
     [Fact]
     public async Task CreateGroup_ReturnsCreated_AndCanBeFetched()
     {
-        var schoolId = await AddSchoolAsync();
+        var schoolId = PlaceholderIds.SchoolId;
 
         var response = await _client.PostAsJsonAsync(
-            "/api/groups", new { schoolId, type = "class", name = " NET25 ", term = "HT25" });
+            "/api/groups", new { schoolId, type = "class", name = $" NET{Guid.NewGuid():N} "[..14], term = "HT25" });
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var group = await response.Content.ReadFromJsonAsync<GroupResponse>();
-        Assert.Equal("NET25", group!.Name);
+        Assert.StartsWith("NET", group!.Name);
+        Assert.DoesNotContain(' ', group.Name);
         Assert.Equal("Class", group.Type);
 
         var found = await _client.GetFromJsonAsync<GroupResponse>($"/api/groups/{group.Id}");
@@ -35,10 +37,10 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
     [Fact]
     public async Task CreateGroup_WithoutTerm_StoresEmptyTerm()
     {
-        var schoolId = await AddSchoolAsync();
+        var schoolId = PlaceholderIds.SchoolId;
 
         var response = await _client.PostAsJsonAsync(
-            "/api/groups", new { schoolId, type = "committee", name = "Elevråd" });
+            "/api/groups", new { schoolId, type = "committee", name = $"Elevråd {Guid.NewGuid():N}"[..16] });
 
         var group = await response.Content.ReadFromJsonAsync<GroupResponse>();
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -48,8 +50,8 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
     [Fact]
     public async Task CreateGroup_WithSameNameAndTerm_ReturnsBadRequest()
     {
-        var schoolId = await AddSchoolAsync();
-        var body = new { schoolId, type = "class", name = "NET26", term = "HT26" };
+        var schoolId = PlaceholderIds.SchoolId;
+        var body = new { schoolId, type = "class", name = $"NET{Guid.NewGuid():N}"[..14], term = "HT26" };
         await _client.PostAsJsonAsync("/api/groups", body);
 
         var response = await _client.PostAsJsonAsync("/api/groups", body);
@@ -142,8 +144,9 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
 
     private async Task<GroupResponse> CreateGroupAsync()
     {
-        var schoolId = await AddSchoolAsync();
-        var response = await _client.PostAsJsonAsync("/api/groups", new { schoolId, type = "class", name = "NET25" });
+        var schoolId = PlaceholderIds.SchoolId;
+        var name = $"NET{Guid.NewGuid():N}"[..10];
+        var response = await _client.PostAsJsonAsync("/api/groups", new { schoolId, type = "class", name });
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<GroupResponse>())!;
     }
@@ -154,6 +157,98 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
             "/api/courses", new { schoolId, title = "DevOps", code = "DEVOPS" });
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<CourseResponse>())!;
+    }
+
+    [Fact]
+    public async Task ListGroups_ShowsOnlyTheCallersSchool()
+    {
+        var other = await AddOtherSchoolAsync();
+        var own = await CreateGroupAsync();
+
+        var asAdmin = await _client.GetFromJsonAsync<List<GroupResponse>>("/api/groups");
+        var asOtherUser = await GetAsync("/api/groups", other.UserId);
+
+        Assert.Contains(asAdmin!, item => item.Id == own.Id);
+        Assert.DoesNotContain(asAdmin!, item => item.Id == other.GroupId);
+        Assert.All(asAdmin!, item => Assert.Equal(PlaceholderIds.SchoolId, item.SchoolId));
+        var groups = await asOtherUser.Content.ReadFromJsonAsync<List<GroupResponse>>();
+        Assert.Equal([other.GroupId], groups!.Select(item => item.Id));
+    }
+
+    [Fact]
+    public async Task CreateGroup_AtAnotherSchool_ReturnsBadRequest_EvenForAdmin()
+    {
+        var other = await AddOtherSchoolAsync();
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var schoolId = (await db.Groups.FindAsync(other.GroupId))!.SchoolId;
+
+        var response = await _client.PostAsJsonAsync(
+            "/api/groups", new { schoolId, type = "class", name = "NET25", term = "HT25" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("school does not exist", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task GetGroup_AtAnotherSchool_Returns404_EvenForAdmin()
+    {
+        var other = await AddOtherSchoolAsync();
+        var own = await CreateGroupAsync();
+
+        var ownResponse = await _client.GetAsync($"/api/groups/{own.Id}");
+        var otherResponse = await _client.GetAsync($"/api/groups/{other.GroupId}");
+        var otherCourses = await _client.GetAsync($"/api/groups/{other.GroupId}/courses");
+
+        Assert.Equal(HttpStatusCode.OK, ownResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, otherResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, otherCourses.StatusCode);
+    }
+
+    [Fact]
+    public async Task AddCourse_AtAnotherSchool_Returns404()
+    {
+        var other = await AddOtherSchoolAsync();
+        var own = await CreateGroupAsync();
+        using var scope = factory.Services.CreateScope();
+        var ownCourse = await TestData.AddCourseAsync(
+            scope.ServiceProvider.GetRequiredService<AppDb>(), PlaceholderIds.SchoolId);
+
+        var otherGroup = await _client.PostAsync($"/api/groups/{other.GroupId}/courses/{ownCourse.Id}", null);
+        var otherCourse = await _client.PostAsync($"/api/groups/{own.Id}/courses/{other.CourseId}", null);
+
+        Assert.Equal(HttpStatusCode.NotFound, otherGroup.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, otherCourse.StatusCode);
+    }
+
+    [Fact]
+    public async Task AddMember_ToGroupAtAnotherSchool_Returns404()
+    {
+        var other = await AddOtherSchoolAsync();
+
+        var response = await _client.PostAsJsonAsync(
+            $"/api/groups/{other.GroupId}/members", new { userId = other.UserId });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    private async Task<HttpResponseMessage> GetAsync(string path, Guid userId)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.Add(TestAuthHandler.Header, userId.ToString());
+        return await _client.SendAsync(request);
+    }
+
+    // En annan skola med en användare, en grupp och en kurs.
+    private async Task<(Guid UserId, Guid GroupId, Guid CourseId)> AddOtherSchoolAsync()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var school = await TestData.AddSchoolAsync(db);
+        var user = await TestData.AddUserAsync(db, school.Id);
+        var group = await TestData.AddGroupAsync(db, school.Id);
+        var course = await TestData.AddCourseAsync(db, school.Id);
+        return (user.Id, group.Id, course.Id);
     }
 
     private async Task<Guid> AddSchoolAsync()

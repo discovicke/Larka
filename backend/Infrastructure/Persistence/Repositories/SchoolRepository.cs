@@ -6,9 +6,6 @@ namespace Backend.Infrastructure.Persistence.Repositories;
 
 public class SchoolRepository(AppDb db) : ISchoolRepository
 {
-    public Task<List<School>> GetAllAsync(CancellationToken ct) =>
-        db.Schools.OrderBy(school => school.Name).ToListAsync(ct);
-
     public Task<School?> GetAsync(Guid id, CancellationToken ct) =>
         db.Schools.FirstOrDefaultAsync(school => school.Id == id, ct);
 

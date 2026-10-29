@@ -8,6 +8,7 @@ import {Input} from '@/components/ui/input'
 import {Skeleton} from '@/components/ui/skeleton'
 import {useCourses} from '@/composables/useCourses'
 import {api, type Schema} from '@/lib/api'
+import {fetchMe} from '@/lib/me'
 
 interface GroupRow {
   key: string
@@ -34,7 +35,8 @@ const groupTypeLabels: Record<Schema<'GroupType'>, string> = {
 
 const {courses, status} = useCourses()
 
-const schools = ref<Schema<'SchoolDto'>[]>([])
+// Användarens egen skola, från /api/me. Grupper och kurser är redan avgränsade till den av API:et.
+const school = ref<Schema<'SchoolRefDto'> | null>(null)
 const groups = ref<Schema<'GroupDto'>[]>([])
 const loading = ref(true)
 const error = ref('')
@@ -44,12 +46,11 @@ const search = ref('')
 const isLoading = computed(() => loading.value || status.value === 'loading')
 
 const rows = computed<GroupRow[]>(() => {
-  const school = schools.value[0]
   const schoolRows: GroupRow[] = []
-  if (school) {
+  if (school.value) {
     schoolRows.push({
-      key: `school-${school.id}`,
-      name: school.name,
+      key: `school-${school.value.id}`,
+      name: school.value.name,
       code: '–',
       type: 'Skola',
       period: '–',
@@ -111,11 +112,11 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const [schoolResult, groupResult] = await Promise.all([
-      api.GET('/api/schools'),
+    const [me, groupResult] = await Promise.all([
+      fetchMe(),
       api.GET('/api/groups'),
     ])
-    schools.value = schoolResult.data ?? []
+    school.value = me.school
     groups.value = groupResult.data ?? []
   } catch {
     error.value = 'Kunde inte hämta grupperna.'

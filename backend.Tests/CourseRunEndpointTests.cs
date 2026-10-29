@@ -158,7 +158,11 @@ public class CourseRunEndpointTests(TestWebApplicationFactory factory) : IClassF
             .ToListAsync();
         var member = Assert.Single(enrollments);
         Assert.Equal((scenario.TeacherId, GroupRole.Teacher), (member.UserId, member.Role));
-        var staff = await _client.GetFromJsonAsync<List<StaffResponse>>($"/api/courses/{run.CourseId}/staff");
+        // Kursen ligger i en annan skola än adminen, så läraren hämtar listan.
+        var request = new HttpRequestMessage(HttpMethod.Get, $"/api/courses/{run.CourseId}/staff");
+        request.Headers.Add(TestAuthHandler.Header, scenario.TeacherId.ToString());
+        var staffResponse = await _client.SendAsync(request);
+        var staff = await staffResponse.Content.ReadFromJsonAsync<List<StaffResponse>>();
         Assert.Equal([scenario.TeacherId], staff!.Select(teacher => teacher.UserId));
     }
 

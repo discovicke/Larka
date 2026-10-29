@@ -6,9 +6,6 @@ namespace Backend.Infrastructure.Persistence.Repositories;
 
 public class CourseRepository(AppDb db) : ICourseRepository
 {
-    public Task<List<Course>> GetAllAsync(CancellationToken ct) =>
-        db.Courses.OrderBy(course => course.Code).ToListAsync(ct);
-
     public Task<Course?> GetAsync(Guid id, CancellationToken ct) =>
         db.Courses.FirstOrDefaultAsync(course => course.Id == id, ct);
 

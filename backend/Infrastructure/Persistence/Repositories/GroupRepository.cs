@@ -7,7 +7,8 @@ namespace Backend.Infrastructure.Persistence.Repositories;
 
 public class GroupRepository(AppDb db) : IGroupRepository
 {
-    public Task<List<Group>> GetAllAsync(CancellationToken ct) => db.Groups.ToListAsync(ct);
+    public Task<List<Group>> GetForSchoolAsync(Guid schoolId, CancellationToken ct) =>
+        db.Groups.Where(group => group.SchoolId == schoolId).ToListAsync(ct);
 
     public Task<Group?> GetAsync(Guid groupId, CancellationToken ct) =>
         db.Groups.FirstOrDefaultAsync(group => group.Id == groupId, ct);

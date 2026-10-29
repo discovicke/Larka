@@ -657,8 +657,7 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     {
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
-        var school = await TestData.AddSchoolAsync(db);
-        return (await TestData.AddCourseAsync(db, school.Id)).Id;
+        return (await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId)).Id;
     }
 
     private async Task<(Guid GroupId, Guid StudentId)> AddGroupWithStudentAsync()
@@ -723,9 +722,11 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     // Skola, grupp och kurs skapas via API:et, och gruppen får läsa kursen.
     private async Task<(Guid GroupId, Guid CourseId)> AddGroupWithCourseAsync()
     {
-        var school = await PostAsync("/api/schools", new { name = "Skola" });
-        var group = await PostAsync("/api/groups", new { schoolId = school.Id, type = "class", name = "NET25" });
-        var course = await PostAsync("/api/courses", new { schoolId = school.Id, title = "Kurs", code = "KURS" });
+        // Adminen i testerna ser bara sin egen skola, så allt skapas i den.
+        var schoolId = PlaceholderIds.SchoolId;
+        var unique = Guid.NewGuid().ToString("N")[..8];
+        var group = await PostAsync("/api/groups", new { schoolId, type = "class", name = $"NET-{unique}" });
+        var course = await PostAsync("/api/courses", new { schoolId, title = "Kurs", code = $"KURS-{unique}" });
         var link = await _client.PostAsync($"/api/groups/{group.Id}/courses/{course.Id}", null);
         link.EnsureSuccessStatusCode();
         return (group.Id, course.Id);

@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Backend.Domain.Enums;
 using Backend.Infrastructure.Persistence;
+using Backend.Infrastructure.Persistence.Configurations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -282,7 +283,9 @@ public class AuthorizationTests(TestWebApplicationFactory factory) : IClassFixtu
     public async Task CreateCourse_StudentAndTeacherAreForbidden_AdminSucceeds()
     {
         var scenario = await AddScenarioAsync();
-        var course = new { schoolId = scenario.SchoolId, title = "Ny kurs", code = "NY" };
+        // Admin är placeholder-användaren, så kursen skapas i dess skola.
+        var code = $"NY{Guid.NewGuid():N}"[..10];
+        var course = new { schoolId = PlaceholderIds.SchoolId, title = "Ny kurs", code };
 
         var byStudent = await PostJsonAsync("/api/courses", scenario.StudentId, course);
         var byTeacher = await PostJsonAsync("/api/courses", scenario.TeacherId, course);

@@ -26,6 +26,7 @@ public static class DependencyInjection
         services.AddScoped<TodayService>();
         services.AddScoped<TeachingService>();
         services.AddScoped<IPermissions, PermissionService>();
+        services.AddScoped<ICurrentSchool, CurrentSchool>();
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<SubmissionService>();
         services.AddScoped<NotificationService>();

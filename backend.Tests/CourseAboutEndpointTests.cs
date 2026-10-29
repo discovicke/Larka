@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Backend.Domain.Entities;
 using Backend.Domain.Enums;
 using Backend.Infrastructure.Persistence;
+using Backend.Infrastructure.Persistence.Configurations;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace backend.Tests;
@@ -292,9 +293,9 @@ public class CourseAboutEndpointTests(TestWebApplicationFactory factory) : IClas
     {
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
-        var school = await TestData.AddSchoolAsync(db);
-        var group = await TestData.AddGroupAsync(db, school.Id);
-        var course = await TestData.AddCourseAsync(db, school.Id, group.Id);
+        // Adminen i testerna ser bara sin egen skola, så kursen ligger i den.
+        var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
+        var course = await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId, group.Id);
         var teacher = await TestData.AddMemberAsync(db, group, GroupRole.Teacher, UserRole.Teacher);
         var student = await TestData.AddMemberAsync(db, group, GroupRole.Student, UserRole.Student);
         return (course, teacher, student);
