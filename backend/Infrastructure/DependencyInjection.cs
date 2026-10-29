@@ -73,6 +73,18 @@ public static class DependencyInjection
             scope.ServiceProvider.GetRequiredService<ILogger<DemoSeed>>()
                 .LogError(exception, "Demodatan kunde inte läggas in");
         }
+
+        // Förnyar texterna i en demodata som redan finns (se DemoContentRefresh). Egen transaktion och eget felfång,
+        // så att ett fel här varken stoppar starten eller rullar tillbaka seeden.
+        try
+        {
+            await scope.ServiceProvider.GetRequiredService<DemoContentRefresh>().RefreshAsync(CancellationToken.None);
+        }
+        catch (Exception exception)
+        {
+            scope.ServiceProvider.GetRequiredService<ILogger<DemoContentRefresh>>()
+                .LogError(exception, "Demoinnehållet kunde inte uppdateras");
+        }
     }
 
     /// <summary>
@@ -95,6 +107,7 @@ public static class DependencyInjection
         services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
         services.AddScoped<AccountSeed>();
         services.AddScoped<DemoSeed>();
+        services.AddScoped<DemoContentRefresh>();
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUser, ClaimsCurrentUser>();
 

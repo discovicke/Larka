@@ -76,7 +76,9 @@ public sealed class DemoSeed(AppDb db, IPasswordHasher<User> passwordHasher, ILo
         return true;
     }
 
-    private async Task<School?> FindSchoolAsync(CancellationToken ct) =>
+    private Task<School?> FindSchoolAsync(CancellationToken ct) => FindSchoolAsync(db, ct);
+
+    internal static async Task<School?> FindSchoolAsync(AppDb db, CancellationToken ct) =>
         await db.Schools.FirstOrDefaultAsync(row => row.Id == PlaceholderIds.SchoolId, ct)
         ?? await db.Schools.OrderBy(row => row.Name).FirstOrDefaultAsync(ct);
 
@@ -172,7 +174,7 @@ internal sealed class DemoBuilder(
     private static readonly DateTimeOffset _cutoff = Se(2026, 10, 29, 9);
 
     // Eleven i demokontot sitter på plats 6 i .NET25, så att hen inte är först i klasslistan.
-    private const int _publicStudentPosition = 6;
+    internal const int PublicStudentPosition = 6;
 
     private readonly Dictionary<string, User> _users = new()
     {
@@ -225,7 +227,7 @@ internal sealed class DemoBuilder(
             .ToList();
         if (spec.HasPublicStudent)
         {
-            students.Insert(Math.Min(_publicStudentPosition, students.Count), publicStudent);
+            students.Insert(Math.Min(PublicStudentPosition, students.Count), publicStudent);
         }
 
         foreach (var student in students)
@@ -281,46 +283,14 @@ internal sealed class DemoBuilder(
         User author,
         List<User> students)
     {
-        var module = new Module
-        {
-            CourseId = course.Id,
-            Title = spec.Title,
-            Description = spec.Description,
-            Position = moduleIndex + 1,
-            PublishAt = spec.PublishAt
-        };
+        var module = NewModule(course.Id, spec, moduleIndex + 1);
         db.Modules.Add(module);
 
-        // En vecka utan eget publiceringsdatum är öppen direkt, även i en kurs som startar längre fram.
-        var courseStart = Se(courseSpec.Start, 7);
-        var publishAt = spec.PublishAt ?? (courseStart < _cutoff.AddDays(-7)
-            ? courseStart
-            : _cutoff.AddDays(-7));
+        var publishAt = PartPublishAt(courseSpec, spec);
         var built = new List<(PartSpec Spec, Content Content, ContentLink Link)>();
         foreach (var part in spec.Parts)
         {
-            var content = new Content
-            {
-                AuthorId = author.Id,
-                Type = part.Type,
-                Title = part.Title,
-                BodyMd = part.Body,
-                Status = ContentStatus.Published,
-                CreatedAt = publishAt.AddDays(-3),
-                Assignment = part.Type == ContentType.Assignment
-                    ? new AssignmentSpec { GradeScale = part.Scale, SubmissionModes = [.. part.Modes] }
-                    : null
-            };
-            var link = new ContentLink
-            {
-                ContentId = content.Id,
-                GroupId = group.Id,
-                CourseId = course.Id,
-                ModuleId = module.Id,
-                Position = built.Count + 1,
-                PublishAt = publishAt,
-                DueAt = part.DueAt
-            };
+            var (content, link) = NewPart(part, author.Id, group.Id, course.Id, module.Id, built.Count + 1, publishAt);
             db.Content.Add(content);
             db.ContentLinks.Add(link);
             built.Add((part, content, link));
@@ -531,9 +501,80 @@ internal sealed class DemoBuilder(
     private void AddNews(Group group, Course? course, NewsSpec spec, List<User> students)
     {
         var author = UserOf(spec.Author);
+        var (content, link) = NewNews(spec, author.Id, group.Id, course?.Id);
+        db.Content.Add(content);
+        db.ContentLinks.Add(link);
+        _news.Add(new NewsItem(group.Id, content, spec.At, author.Id));
+
+        foreach (var comment in spec.Comments)
+        {
+            db.Comments.Add(NewComment(content.Id, CommentAuthor(comment.Author, students).Id, spec, comment));
+        }
+    }
+
+    // --- Delas med DemoContentRefresh, så att nytt innehåll i prod blir exakt som det seeden hade skapat ---
+
+    internal static Module NewModule(Guid courseId, ModuleSpec spec, int position) => new()
+    {
+        CourseId = courseId,
+        Title = spec.Title,
+        Description = spec.Description,
+        Position = position,
+        PublishAt = spec.PublishAt
+    };
+
+    /// <summary>
+    /// När veckans delar publiceras. En vecka utan eget publiceringsdatum är öppen direkt, även i en kurs som
+    /// startar längre fram.
+    /// </summary>
+    internal static DateTimeOffset PartPublishAt(CourseSpec courseSpec, ModuleSpec spec)
+    {
+        var courseStart = Se(courseSpec.Start, 7);
+        return spec.PublishAt ?? (courseStart < _cutoff.AddDays(-7)
+            ? courseStart
+            : _cutoff.AddDays(-7));
+    }
+
+    internal static (Content Content, ContentLink Link) NewPart(
+        PartSpec part,
+        Guid authorId,
+        Guid groupId,
+        Guid courseId,
+        Guid moduleId,
+        int position,
+        DateTimeOffset publishAt)
+    {
         var content = new Content
         {
-            AuthorId = author.Id,
+            AuthorId = authorId,
+            Type = part.Type,
+            Title = part.Title,
+            BodyMd = part.Body,
+            Status = ContentStatus.Published,
+            CreatedAt = publishAt.AddDays(-3),
+            Assignment = part.Type == ContentType.Assignment
+                ? new AssignmentSpec { GradeScale = part.Scale, SubmissionModes = [.. part.Modes] }
+                : null
+        };
+        var link = new ContentLink
+        {
+            ContentId = content.Id,
+            GroupId = groupId,
+            CourseId = courseId,
+            ModuleId = moduleId,
+            Position = position,
+            PublishAt = publishAt,
+            DueAt = part.DueAt
+        };
+        return (content, link);
+    }
+
+    internal static (Content Content, ContentLink Link) NewNews(
+        NewsSpec spec, Guid authorId, Guid groupId, Guid? courseId)
+    {
+        var content = new Content
+        {
+            AuthorId = authorId,
             Type = ContentType.News,
             Title = spec.Title,
             BodyMd = spec.Body,
@@ -543,28 +584,23 @@ internal sealed class DemoBuilder(
         var link = new ContentLink
         {
             ContentId = content.Id,
-            GroupId = group.Id,
+            GroupId = groupId,
             CourseId = spec.InCourse
-                ? course?.Id
+                ? courseId
                 : null,
             IsPinned = spec.Pinned,
             PublishAt = spec.At
         };
-        db.Content.Add(content);
-        db.ContentLinks.Add(link);
-        _news.Add(new NewsItem(group.Id, content, spec.At, author.Id));
-
-        foreach (var comment in spec.Comments)
-        {
-            db.Comments.Add(new Comment
-            {
-                ContentId = content.Id,
-                AuthorId = CommentAuthor(comment.Author, students).Id,
-                BodyMd = comment.Body,
-                CreatedAt = spec.At.AddHours(comment.HoursAfter)
-            });
-        }
+        return (content, link);
     }
+
+    internal static Comment NewComment(Guid contentId, Guid authorId, NewsSpec news, CommentSpec comment) => new()
+    {
+        ContentId = contentId,
+        AuthorId = authorId,
+        BodyMd = comment.Body,
+        CreatedAt = news.At.AddHours(comment.HoursAfter)
+    };
 
     /// <summary>
     /// Inkorgen för de två offentliga kontona, räknad på det som hänt de senaste veckorna. Andra användare får

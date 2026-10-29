@@ -221,10 +221,10 @@ public class DemoSeedTests(DemoSeedTests.DemoFixture fixture) : IClassFixture<De
         Assert.Equal(
             new Dictionary<string, string>
             {
-                ["Git-flöde i teamet"] = "Graded",
-                ["CI-pipeline för er backend"] = "NeedsWork",
-                ["Containerisera applikationen"] = "Submitted",
-                ["Testautomation i CI"] = "NotStarted"
+                ["Inlämning: Git-flöde i teamet"] = "Graded",
+                ["Laboration: CI/CD"] = "NeedsWork",
+                ["Laboration: Docker och containrar"] = "Submitted",
+                ["Laboration: Testautomation i CI"] = "NotStarted"
             },
             devOps.Assignments.ToDictionary(assignment => assignment.Title, assignment => assignment.Status));
         Assert.All(
@@ -234,9 +234,9 @@ public class DemoSeedTests(DemoSeedTests.DemoFixture fixture) : IClassFixture<De
         // Något ska in i veckan och något längre fram. Den försenade uppgiften visas inte som att göra, och
         // veckan med sista uppgiften öppnar först fredag.
         Assert.Equal(
-            ["Testautomation i CI", "Skicka in vald LIA-plats"],
+            ["Laboration: Testautomation i CI", "Inlämning: Vald LIA-plats"],
             today.Todo.Select(item => item.Title));
-        Assert.Contains(today.Feedback, item => item.Title == "CI-pipeline för er backend");
+        Assert.Contains(today.Feedback, item => item.Title == "Laboration: CI/CD");
         Assert.NotEmpty(today.News);
         Assert.Contains(notifications.Items, item => item.Kind == "SubmissionNeedsWork" && item.ReadAt is null);
         Assert.Contains(notifications.Items, item => item.ReadAt is not null);
@@ -251,8 +251,10 @@ public class DemoSeedTests(DemoSeedTests.DemoFixture fixture) : IClassFixture<De
         Assert.True(teaching.ToGradeTotal >= 8);
         Assert.Equal(8, teaching.ToGrade.Count);
         Assert.All(teaching.ToGrade, item => Assert.Equal("DevOps", item.CourseTitle));
-        Assert.Contains(teaching.Deadlines, item => item.Title == "Testautomation i CI" && item.Students >= 18);
-        Assert.Contains(teaching.Scheduled, item => item.Kind == "Week" && item.Title.StartsWith("Vecka 46"));
+        Assert.Contains(
+            teaching.Deadlines,
+            item => item.Title == "Laboration: Testautomation i CI" && item.Students >= 18);
+        Assert.Contains(teaching.Scheduled, item => item.Kind == "Week" && item.Title.StartsWith("Vecka 5 –"));
         Assert.Equal(".NET25_DEVOPS", teaching.Courses.Single(course => course.ToGrade > 0).Code);
         Assert.Contains(groups, group => group.Name == ".NET25" && group.Type == "Class" && group.MemberCount >= 25);
         // Läraren ser bara sina egna grupper, inte andra klasser i skolan.

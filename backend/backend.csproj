@@ -21,6 +21,11 @@
     <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="10.3.0" />
   </ItemGroup>
 
+  <!-- Testerna provar DemoContentRefresh mot egna kataloger, och DemoCatalog är internal. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="backend.Tests" />
+  </ItemGroup>
+
   <PropertyGroup>
     <ClientRoot>$(MSBuildProjectDirectory)/../client/</ClientRoot>
   </PropertyGroup>
