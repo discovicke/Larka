@@ -215,7 +215,7 @@ function courseLabel(course: {title: string, code: string}): string {
             <SidebarMenuButton
               as-child
               tooltip="Alla grupper"
-              :is-active="route.name === 'groups'"
+              :is-active="route.name === 'groups' || route.name === 'group'"
             >
               <RouterLink :to="{name: 'groups'}">
                 <PhUsersThree/>

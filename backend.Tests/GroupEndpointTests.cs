@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Backend.Domain.Enums;
 using Backend.Infrastructure.Persistence;
 using Backend.Infrastructure.Persistence.Configurations;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,6 +16,8 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
     private record CourseResponse(Guid Id, string Code);
 
     private record MemberResponse(Guid UserId, Guid GroupId, string Role);
+
+    private record GroupMemberResponse(Guid UserId, string Name, string Role);
 
     [Fact]
     public async Task CreateGroup_ReturnsCreated_AndCanBeFetched()
@@ -138,6 +141,47 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
         var userId = await AddUserAsync(await AddSchoolAsync());
 
         var response = await _client.PostAsJsonAsync($"/api/groups/{Guid.NewGuid()}/members", new { userId });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetMembers_ListsNameAndRoleOfEachMember()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
+        var teacher = await TestData.AddMemberAsync(db, group, GroupRole.Teacher, UserRole.Teacher);
+        var mentor = await TestData.AddMemberAsync(db, group, GroupRole.Mentor, UserRole.Teacher);
+        var student = await TestData.AddMemberAsync(db, group);
+
+        var members = await _client.GetFromJsonAsync<List<GroupMemberResponse>>($"/api/groups/{group.Id}/members");
+
+        Assert.Equal(3, members!.Count);
+        Assert.Equal("Teacher", members.Single(member => member.UserId == teacher.Id).Role);
+        Assert.Equal("Mentor", members.Single(member => member.UserId == mentor.Id).Role);
+        var studentRow = members.Single(member => member.UserId == student.Id);
+        Assert.Equal("Student", studentRow.Role);
+        Assert.Equal(student.Name, studentRow.Name);
+    }
+
+    [Fact]
+    public async Task GetMembers_OfGroupThatDoesNotExist_Returns404()
+    {
+        var response = await _client.GetAsync($"/api/groups/{Guid.NewGuid()}/members");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetMembers_OfAnotherSchoolsGroup_Returns404()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var group = await TestData.AddGroupAsync(db);
+        await TestData.AddMemberAsync(db, group);
+
+        var response = await _client.GetAsync($"/api/groups/{group.Id}/members");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }

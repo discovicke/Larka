@@ -1,3 +1,4 @@
+using Backend.Application.Dtos;
 using Backend.Domain.Entities;
 using Backend.Domain.Enums;
 
@@ -54,6 +55,10 @@ public interface IGroupRepository
 
     /// <summary>Grupperna användaren är medlem i, med vilken roll som helst, sorterade på namn.</summary>
     Task<List<GroupRef>> GetMemberGroupsAsync(Guid userId, CancellationToken ct);
+
+    /// <summary>Medlemmarna i gruppen, med namn och roll.</summary>
+    Task<List<GroupMemberDto>> GetMembersAsync(Guid groupId, CancellationToken ct);
+
     void Add(Group group);
     void AddCourse(GroupCourse groupCourse);
     void AddMember(Enrollment enrollment);

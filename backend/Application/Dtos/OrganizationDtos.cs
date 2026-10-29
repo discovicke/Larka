@@ -19,6 +19,9 @@ public record MemberDto(Guid UserId, Guid GroupId, GroupRole Role)
         new(enrollment.UserId, enrollment.GroupId, enrollment.Role);
 }
 
+/// <summary>En medlem i en grupp, med namn och rollen i just den gruppen.</summary>
+public record GroupMemberDto(Guid UserId, string Name, GroupRole Role);
+
 public record CreateSchoolDto(string Name);
 
 public record CreateUserDto(Guid SchoolId, string Name, string Email, UserRole Role);

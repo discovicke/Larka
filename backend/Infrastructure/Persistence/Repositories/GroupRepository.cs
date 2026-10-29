@@ -1,4 +1,5 @@
 using Backend.Application.Abstractions;
+using Backend.Application.Dtos;
 using Backend.Domain.Entities;
 using Backend.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -138,6 +139,18 @@ public class GroupRepository(AppDb db) : IGroupRepository
                where courseIds.Contains(groupCourse.CourseId) && enrollment.Role == GroupRole.Student
                select new CourseStudent(groupCourse.CourseId, enrollment.UserId))
             .Distinct()
+            .ToListAsync(ct);
+
+    public Task<List<GroupMemberDto>> GetMembersAsync(Guid groupId, CancellationToken ct) =>
+        db.Enrollments
+            .Where(enrollment => enrollment.GroupId == groupId)
+            .Join(
+                db.Users,
+                enrollment => enrollment.UserId,
+                user => user.Id,
+                (enrollment, user) => new { UserId = user.Id, user.Name, enrollment.Role })
+            .OrderBy(row => row.Name)
+            .Select(row => new GroupMemberDto(row.UserId, row.Name, row.Role))
             .ToListAsync(ct);
 
     // Lärare går före mentor, som går före elev.

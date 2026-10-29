@@ -1282,7 +1282,55 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GroupMemberDto"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
         put?: never;
         post: {
             parameters: {
@@ -3723,6 +3771,13 @@ export interface components {
             type: components["schemas"]["GroupType"];
             name: string;
             term: string;
+        };
+        /** @description En medlem i en grupp, med namn och rollen i just den gruppen. */
+        GroupMemberDto: {
+            /** Format: uuid */
+            userId: string;
+            name: string;
+            role: components["schemas"]["GroupRole"];
         };
         /** @description En grupp användaren är medlem i, med vilken roll som helst. */
         GroupRefDto: {

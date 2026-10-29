@@ -8,10 +8,12 @@ import {Input} from '@/components/ui/input'
 import {Skeleton} from '@/components/ui/skeleton'
 import {useCourses} from '@/composables/useCourses'
 import {api, type Schema} from '@/lib/api'
+import {groupTypeLabels} from '@/lib/groups'
 import {fetchMe} from '@/lib/me'
 
 interface GroupRow {
   key: string
+  kind: 'school' | 'group' | 'course'
   name: string
   code: string
   type: string
@@ -26,12 +28,6 @@ const filters: {value: Filter, label: string}[] = [
   {value: 'groups', label: 'Grupper'},
   {value: 'courses', label: 'Kurser'},
 ]
-
-const groupTypeLabels: Record<Schema<'GroupType'>, string> = {
-  Class: 'Klass',
-  Committee: 'Kommitté',
-  Other: 'Grupp',
-}
 
 const {courses, status} = useCourses()
 
@@ -50,6 +46,7 @@ const rows = computed<GroupRow[]>(() => {
   if (school.value) {
     schoolRows.push({
       key: `school-${school.value.id}`,
+      kind: 'school',
       name: school.value.name,
       code: '–',
       type: 'Skola',
@@ -61,16 +58,19 @@ const rows = computed<GroupRow[]>(() => {
     .sort((left, right) => left.name.localeCompare(right.name, 'sv'))
     .map((group) => ({
       key: `group-${group.id}`,
+      kind: 'group',
       name: group.name,
       code: '–',
       type: groupTypeLabels[group.type],
       period: group.term || '–',
+      to: {name: 'group', params: {groupId: group.id}},
     }))
 
   const courseRows: GroupRow[] = [...courses.value]
     .sort((left, right) => left.title.localeCompare(right.title, 'sv'))
     .map((course) => ({
       key: `course-${course.id}`,
+      kind: 'course',
       name: course.title,
       code: course.code,
       type: 'Kurs',
@@ -84,10 +84,10 @@ const rows = computed<GroupRow[]>(() => {
 const visibleRows = computed(() => {
   const text = search.value.trim().toLowerCase()
   return rows.value.filter((row) => {
-    if (filter.value === 'groups' && row.to) {
+    if (filter.value === 'groups' && row.kind === 'course') {
       return false
     }
-    if (filter.value === 'courses' && !row.to) {
+    if (filter.value === 'courses' && row.kind !== 'course') {
       return false
     }
     return !text

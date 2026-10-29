@@ -107,6 +107,17 @@ public class GroupService(
         return ServiceResult<bool>.Ok(true);
     }
 
+    // En grupp i en annan skola svarar som om den inte fanns.
+    public async Task<ServiceResult<List<GroupMemberDto>>> GetMembersAsync(Guid groupId, CancellationToken ct)
+    {
+        if (await GetOwnAsync(groupId, ct) is null)
+        {
+            return ServiceResult<List<GroupMemberDto>>.NotFound("group not found");
+        }
+
+        return ServiceResult<List<GroupMemberDto>>.Ok(await groups.GetMembersAsync(groupId, ct));
+    }
+
     // Rollen gäller bara i den här gruppen. En lärare kan vara elev i en annan grupp.
     public async Task<ServiceResult<MemberDto>> AddMemberAsync(Guid groupId, AddMemberDto dto, CancellationToken ct)
     {

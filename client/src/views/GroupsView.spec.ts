@@ -61,6 +61,17 @@ describe('GroupsView', () => {
     expect(link.text()).toBe('DevOps')
   })
 
+  it('en grupp länkar till gruppens sida men skolan är ingen länk', async () => {
+    backend()
+
+    const {wrapper} = await renderApp('/groups')
+
+    const link = wrapper.find('[data-test="group-row"] a[href="/groups/g1"]')
+    expect(link.text()).toBe('TE22A')
+    const schoolRow = wrapper.findAll('[data-test="group-row"]')[0]
+    expect(schoolRow.find('a').exists()).toBe(false)
+  })
+
   it('sökningen filtrerar raderna', async () => {
     backend()
     const {wrapper} = await renderApp('/groups')
@@ -80,6 +91,17 @@ describe('GroupsView', () => {
     await flushPromises()
 
     expect(rowNames(wrapper)).toEqual(['DevOps', 'Java'])
+  })
+
+  it('Grupper-fliken visar skolan och grupperna men inte kurserna', async () => {
+    backend()
+    const {wrapper} = await renderApp('/groups')
+
+    const grupper = wrapper.findAll('[role="tab"]').find((tab) => tab.text() === 'Grupper')
+    await grupper?.trigger('click')
+    await flushPromises()
+
+    expect(rowNames(wrapper)).toEqual(['Edugrade', 'Elevrådet', 'TE22A'])
   })
 
   it('visar ett fel när grupperna inte kan hämtas', async () => {

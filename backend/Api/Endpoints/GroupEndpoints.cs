@@ -58,6 +58,9 @@ public static class GroupEndpoints
                     : TypedResults.Conflict();
             });
 
+        groups.MapGet("/{id:guid}/members", async (Guid id, GroupService service, CancellationToken ct) =>
+            (await service.GetMembersAsync(id, ct)).ToHttp(members => TypedResults.Ok(members)));
+
         groups.MapPost("/{id:guid}/members",
             async (Guid id, AddMemberDto memberDto, GroupService service, CancellationToken ct) =>
                 (await service.AddMemberAsync(id, memberDto, ct)).ToHttp(member =>
