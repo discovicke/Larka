@@ -1,6 +1,6 @@
 using System.Net;
-using System.Text;
 using Backend.Application.Abstractions;
+using Backend.Application.Services;
 using Backend.Domain.Entities;
 using Backend.Domain.Enums;
 using Backend.Infrastructure.GitHub;
@@ -26,7 +26,11 @@ public sealed class GitHubLabProvisioner(
     private sealed record SchoolConnection(long InstallationId, string Org);
 
     public async Task<IReadOnlyList<StudentRepo>> ProvisionAsync(
-        string templateRepo, string assignmentTitle, IReadOnlyList<RepoRequest> requests, CancellationToken ct)
+        string templateRepo,
+        string assignmentTitle,
+        string? repoNamePattern,
+        IReadOnlyList<RepoRequest> requests,
+        CancellationToken ct)
     {
         EnsureAppConfigured();
         var (templateOwner, templateName) = ParseRepo(templateRepo, nameof(templateRepo));
@@ -37,7 +41,8 @@ public sealed class GitHubLabProvisioner(
         foreach (var request in requests)
         {
             var connection = await GetConnectionAsync(request.Student.SchoolId, connections, ct);
-            var repoName = BuildRepoName(assignmentTitle, request.Student, usedNames);
+            var repoName = GitHubRepoNaming.ForStudent(
+                repoNamePattern, assignmentTitle, request.Student, usedNames);
             var repository = await CreateOrGetRepositoryAsync(
                 connection,
                 templateOwner,
@@ -64,12 +69,95 @@ public sealed class GitHubLabProvisioner(
             {
                 SubmissionId = request.SubmissionId,
                 RepoFullName = repository.FullName,
+                ProvisioningState = RepoProvisioningState.Ready,
                 CheckStatus = CheckStatus.Pending,
                 UpdatedAt = time.GetUtcNow()
             });
         }
 
         return repos;
+    }
+
+    public async Task<StudentRepo> ProvisionOneAsync(RepoProvisioningContext context, CancellationToken ct)
+    {
+        EnsureAppConfigured();
+        var repo = context.Repo;
+        if (string.IsNullOrWhiteSpace(repo.TemplateRepo))
+        {
+            throw new InvalidOperationException("Studentrepo saknar mallrepo.");
+        }
+
+        var (templateOwner, templateName) = ParseRepo(repo.TemplateRepo, nameof(repo.TemplateRepo));
+        var connection = await GetConnectionAsync(
+            context.Student.SchoolId, new Dictionary<Guid, SchoolConnection>(), ct);
+        var repoName = string.IsNullOrWhiteSpace(repo.DesiredRepoName)
+            ? GitHubRepoNaming.ForStudent(
+                repo.RepoNamePattern, repo.AssignmentTitle ?? "assignment", context.Student)
+            : repo.DesiredRepoName;
+
+        var repository = await CreateOrGetRepositoryAsync(
+            connection,
+            templateOwner,
+            templateName,
+            repoName,
+            repo.AssignmentTitle ?? "assignment",
+            ct);
+        var (repoOwner, repoNameFromResponse) = ParseRepo(repository.FullName, nameof(repository.FullName));
+
+        if (!string.IsNullOrWhiteSpace(context.Student.GitHubLogin))
+        {
+            await AddCollaboratorAsync(
+                connection, repoOwner, repoNameFromResponse, context.Student.GitHubLogin, ct);
+        }
+        else
+        {
+            logger.LogWarning(
+                "Student {StudentId} has no GitHub login; {Repo} was created without a collaborator",
+                context.Student.Id,
+                repository.FullName);
+        }
+
+        repo.RepoFullName = repository.FullName;
+        repo.ProvisioningState = RepoProvisioningState.Ready;
+        repo.ProvisioningError = null;
+        repo.NextProvisioningAttemptAt = null;
+        repo.UpdatedAt = time.GetUtcNow();
+        return repo;
+    }
+
+    public async Task<RepoLockResult> LockAtDeadlineAsync(
+        StudentRepoContext context, DateTimeOffset deadline, CancellationToken ct)
+    {
+        EnsureAppConfigured();
+        var repo = context.Repo;
+        if (repo.ProvisioningState != RepoProvisioningState.Ready
+            || string.IsNullOrWhiteSpace(repo.RepoFullName))
+        {
+            return new RepoLockResult(false, null, null, "Repot är inte skapat än.");
+        }
+
+        var connection = await GetConnectionAsync(
+            context.SchoolId, new Dictionary<Guid, SchoolConnection>(), ct);
+        var (owner, name) = ParseRepo(repo.RepoFullName, nameof(repo.RepoFullName));
+        var latest = await github.GetLatestCommitAsync(
+            connection.InstallationId, owner, name, ct, deadline);
+        if (latest is not null)
+        {
+            repo.LastSha = latest.Sha;
+            repo.CheckStatus = await github.GetCheckStatusAsync(
+                connection.InstallationId, owner, name, latest.Sha, ct);
+        }
+
+        await github.ArchiveRepositoryAsync(connection.InstallationId, owner, name, ct);
+
+        var lockedAt = time.GetUtcNow();
+        repo.SubmissionSha = latest?.Sha;
+        repo.LockedAt = lockedAt;
+        repo.LockError = latest is null
+            ? "Ingen commit före deadline."
+            : null;
+        repo.UpdatedAt = lockedAt;
+        return new RepoLockResult(true, latest?.Sha, latest?.AuthoredAt, repo.LockError);
     }
 
     public async Task RefreshCheckStatusAsync(
@@ -142,6 +230,58 @@ public sealed class GitHubLabProvisioner(
         }
     }
 
+    public async Task RevokeAccessAsync(User student, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(student.GitHubLogin) || !_options.IsAppConfigured)
+        {
+            return;
+        }
+
+        var repos = await submissions.GetReposForStudentAsync(student.Id, ct);
+        if (repos.Count == 0)
+        {
+            return;
+        }
+
+        SchoolConnection connection;
+        try
+        {
+            connection = await GetConnectionAsync(
+                student.SchoolId, new Dictionary<Guid, SchoolConnection>(), ct);
+        }
+        catch (InvalidOperationException exception)
+        {
+            logger.LogWarning(
+                exception,
+                "Could not revoke {GitHubLogin} from existing repositories",
+                student.GitHubLogin);
+            return;
+        }
+
+        foreach (var repo in repos)
+        {
+            if (string.IsNullOrWhiteSpace(repo.RepoFullName))
+            {
+                continue;
+            }
+
+            try
+            {
+                var (owner, name) = ParseRepo(repo.RepoFullName, nameof(repo.RepoFullName));
+                await github.RemoveCollaboratorAsync(
+                    connection.InstallationId, owner, name, student.GitHubLogin, ct);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                logger.LogWarning(
+                    exception,
+                    "Could not remove {GitHubLogin} from {Repo}",
+                    student.GitHubLogin,
+                    repo.RepoFullName);
+            }
+        }
+    }
+
     private async Task<SchoolConnection> GetConnectionAsync(
         Guid schoolId,
         Dictionary<Guid, SchoolConnection> cache,
@@ -159,6 +299,12 @@ public sealed class GitHubLabProvisioner(
             {
                 throw new InvalidOperationException(
                     "Skolans GitHub-anslutning är frånkopplad. Anslut GitHub i Inställningar.");
+            }
+
+            if (!saved.Enabled)
+            {
+                throw new InvalidOperationException(
+                    "GitHub är avstängt för skolan. Aktivera det i Inställningar.");
             }
 
             if (string.IsNullOrWhiteSpace(saved.Org))
@@ -242,54 +388,6 @@ public sealed class GitHubLabProvisioner(
                 owner,
                 name);
         }
-    }
-
-    private static string BuildRepoName(string assignmentTitle, User student, HashSet<string> usedNames)
-    {
-        var title = Slug(assignmentTitle, 50, "assignment");
-        var studentKey = string.IsNullOrWhiteSpace(student.GitHubLogin)
-            ? student.Email.Split('@', 2)[0]
-            : student.GitHubLogin;
-        var studentSlug = Slug(studentKey, 40, student.Id.ToString("N")[..8]);
-        var name = $"{title}-{studentSlug}";
-
-        if (!usedNames.Add(name))
-        {
-            name = $"{name}-{student.Id.ToString("N")[..8]}";
-            usedNames.Add(name);
-        }
-
-        return name;
-    }
-
-    // GitHub-reponamn: gemener, siffror och bindestreck. Samma titel/elev ska ge samma namn vid omkörning.
-    private static string Slug(string value, int maxLength, string fallback)
-    {
-        var builder = new StringBuilder(value.Length);
-        var previousWasSeparator = false;
-        foreach (var character in value.ToLowerInvariant())
-        {
-            if (char.IsAsciiLetterOrDigit(character))
-            {
-                builder.Append(character);
-                previousWasSeparator = false;
-            }
-            else if (!previousWasSeparator)
-            {
-                builder.Append('-');
-                previousWasSeparator = true;
-            }
-        }
-
-        var slug = builder.ToString().Trim('-');
-        if (slug.Length == 0)
-        {
-            slug = fallback;
-        }
-
-        return slug.Length > maxLength
-            ? slug[..maxLength].TrimEnd('-')
-            : slug;
     }
 
     private static (string Owner, string Name) ParseRepo(string value, string parameterName)

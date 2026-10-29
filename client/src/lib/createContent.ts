@@ -13,10 +13,16 @@ export interface ContentForm {
   gradeScale: Schema<'GradeScale'>
   submissionModes: SubmissionMode[]
   templateRepo: string
+  repoNamePattern: string
   isPinned: boolean
 }
 
-export type FormErrors = Partial<Record<'title' | 'dueAt' | 'templateRepo', string>>
+export type FormErrors = Partial<Record<
+  'title' | 'dueAt' | 'templateRepo' | 'repoNamePattern',
+  string
+>>
+
+export const defaultRepoNamePattern = '{assignmentSlug}-{githubLogin}'
 
 export function emptyForm(): ContentForm {
   return {
@@ -28,6 +34,7 @@ export function emptyForm(): ContentForm {
     gradeScale: 'PassFail',
     submissionModes: [],
     templateRepo: '',
+    repoNamePattern: defaultRepoNamePattern,
     isPinned: false,
   }
 }
@@ -51,6 +58,15 @@ export function validate(form: ContentForm): FormErrors {
   }
   if (usesRepo(form) && !form.templateRepo.trim()) {
     errors.templateRepo = 'Ange mallrepot, t.ex. edugrade-net25/mall-lab2.'
+  }
+  if (usesRepo(form)) {
+    const pattern = form.repoNamePattern.trim()
+    if (pattern && !/\{(githubLogin|studentEmail|studentId)\}/i.test(pattern)) {
+      errors.repoNamePattern = 'Mönstret måste innehålla {githubLogin}, {studentEmail} eller {studentId}.'
+    }
+    if (pattern && /[/\\]/.test(pattern)) {
+      errors.repoNamePattern = 'Mönstret får inte innehålla slash.'
+    }
   }
   return errors
 }
@@ -79,6 +95,13 @@ export function toRequests(
       templateRepo: usesRepo(form)
         ? form.templateRepo.trim()
         : null,
+      repoNamePattern: usesRepo(form)
+        ? form.repoNamePattern.trim() || null
+        : null,
+      workMode: 'Individual',
+      lockAtDeadline: true,
+      feedbackPullRequest: false,
+      allowLate: false,
     },
     link: {...link, dueAt: isoOrNull(form.dueAt)},
   }
@@ -113,6 +136,13 @@ export function toUpdateRequests(
       templateRepo: usesRepo(form)
         ? form.templateRepo.trim()
         : null,
+      repoNamePattern: usesRepo(form)
+        ? form.repoNamePattern.trim() || null
+        : null,
+      workMode: 'Individual',
+      lockAtDeadline: true,
+      feedbackPullRequest: false,
+      allowLate: false,
     },
     link,
   }

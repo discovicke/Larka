@@ -78,5 +78,6 @@ public class SchoolGitHubInstallationConfiguration : IEntityTypeConfiguration<Sc
         builder.HasOne<School>().WithMany()
             .HasForeignKey(installation => installation.SchoolId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(installation => installation.SchoolId).IsUnique();
+        builder.Property(installation => installation.Enabled).HasDefaultValue(true);
     }
 }

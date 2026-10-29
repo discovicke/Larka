@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Backend.Application.Services;
 using Backend.Domain.Entities;
 using Backend.Domain.Enums;
 using Backend.Infrastructure.Persistence;
@@ -28,7 +29,12 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
         string RepoFullName,
         string? LastSha,
         string CheckStatus,
-        DateTimeOffset UpdatedAt);
+        DateTimeOffset UpdatedAt,
+        string ProvisioningState,
+        string? ProvisioningError,
+        string? SubmissionSha,
+        DateTimeOffset? LockedAt,
+        string? LockError);
 
     private record ItemResponse(
         Guid LinkId,
@@ -454,12 +460,20 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
             templateRepo = "skol-org/template"
         });
 
+        using (var scope = factory.Services.CreateScope())
+        {
+            await scope.ServiceProvider
+                .GetRequiredService<GitHubRepoProvisioningService>()
+                .ProcessPendingAsync(CancellationToken.None);
+        }
+
         var item = Assert.Single(
             (await GetStudentModulesAsync(setup, setup.StudentIds[0])).Single().Content);
 
         Assert.True(item.HasRepoMode);
         Assert.NotNull(item.Repo);
         Assert.StartsWith("skol-org/", item.Repo.RepoFullName);
+        Assert.Equal("Ready", item.Repo.ProvisioningState);
         Assert.Equal("Pending", item.Repo.CheckStatus);
     }
 

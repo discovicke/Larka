@@ -35,8 +35,10 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
         builder.UseSetting("ConnectionStrings:Default", _connectionString.Value);
         builder.UseSetting("Database:SeedDevData", "false");
 
-        // Jobbet körs inte av sig självt i testerna. De anropar NotificationService.CreateScheduledAsync direkt.
+        // Jobben körs inte av sig själva i testerna. Testerna anropar tjänsterna direkt.
         builder.UseSetting("Notifications:Job:Enabled", "false");
+        builder.UseSetting("GitHub:ProvisioningJob:Enabled", "false");
+        builder.UseSetting("GitHub:DeadlineLockJob:Enabled", "false");
         builder.UseSetting("Auth:Jwt:Key", "test-only-key-0123456789abcdef0123456789");
         // User-secrets kan peka på sandbox-org:en. Testerna ska vara oberoende av lokal GitHub-konfiguration.
         // FakeLabProvisioner använder Org för reponamn. InstallationId=0 gör att det inte räknas som legacy.

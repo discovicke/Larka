@@ -67,7 +67,44 @@ Jobbet skapar notiser när en publiceringstid har passerat och påminnelser 24 t
 | `PORT`                      | Render        | `8080`, porten som aspnet-imagen lyssnar på.                     |
 | `APP_VERSION`, `GIT_COMMIT` | Docker-imagen | Bakas in vid bygget och visas av `GET /version`.                 |
 
-GitHub-integrationens inställningar (`GitHub:*`) dokumenteras separat.
+### GitHub
+
+GitHub-appen är gemensam för plattformen. Varje skola har en installation och en organisation.
+
+| Nyckel                     | Hemlig | Vad                                                           |
+| -------------------------- | ------ | ------------------------------------------------------------- |
+| `GitHub:AppId`             | nej    | GitHub Appens ID.                                             |
+| `GitHub:AppSlug`           | nej    | Appens slug, används i installationslänken.                   |
+| `GitHub:PrivateKey`        | ja     | PEM eller base64-kodad PEM.                                   |
+| `GitHub:PrivateKeyPath`    | ja     | Alternativ filsökväg. Används om `PrivateKey` saknas.         |
+| `GitHub:ClientId`          | nej    | OAuth client id för elevens GitHub-koppling.                  |
+| `GitHub:ClientSecret`      | ja     | OAuth client secret.                                          |
+| `GitHub:WebhookSecret`     | ja     | Secret för webhook-signaturer när webhooken är aktiverad.     |
+| `GitHub:ApiBaseUrl`        | nej    | Standard `https://api.github.com/`.                           |
+| `GitHub:ProvisioningJob:*` | nej    | Bakgrundsjobb för att skapa elevrepon. Standard är aktiverat. |
+| `GitHub:DeadlineLockJob:*` | nej    | Bakgrundsjobb för deadline-låsning. Standard är aktiverat.    |
+
+`GitHub:InstallationId` och `GitHub:Org` finns kvar som lokal dev-fallback, men en rad i
+`SchoolGitHubInstallations` vinner alltid.
+
+#### Säkerhetskrav i GitHub-organisationen
+
+Elevrepon ägs av organisationen. Eleven läggs till som collaborator med `push`, inte som ägare.
+Det gör att skolan behåller kontrollen och att GitHub Actions, org-policyer och appens åtkomst fungerar.
+
+För att elever bara ska se sina egna repon och mallar som de har fått åtkomst till:
+
+1. Sätt **Organization settings → Member privileges → Base permissions** till **No permission**.
+   Med `Read` eller `Write` ser alla organisationens medlemmar alla privata repon.
+2. Stäng av **Allow members to create repositories** om eleverna inte ska kunna skapa egna repon.
+3. Stäng av **Allow members to delete repositories**.
+4. Stäng av **Allow members to change repository visibility**.
+5. Kräv tvåfaktorsautentisering för organisationen.
+6. Lägg inte elever i team som har åtkomst till andra elevrepon. Team får användas för lärare eller
+   grupprepon, aldrig för att ge hela klassen åtkomst till individuella elevrepon.
+
+GitHub Appens installation har fortfarande åtkomst till organisationens repon och kan skapa,
+arkivera och hantera elevrepon. Mallrepon ska vara privata och markerade som **Template repository**.
 
 ## Klient och tester
 

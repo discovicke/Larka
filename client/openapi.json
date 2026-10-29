@@ -629,6 +629,125 @@
         }
       }
     },
+    "/api/integrations/github/templates": {
+      "get": {
+        "tags": [
+          "Integrations"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GitHubTemplateRepoDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/github/templates/{owner}/{repo}/latest-commit": {
+      "get": {
+        "tags": [
+          "Integrations"
+        ],
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitHubTemplateCommitDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/integrations/github/install": {
       "get": {
         "tags": [
@@ -700,6 +819,65 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/GitHubConnectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitHubConnectionDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/github/enabled": {
+      "put": {
+        "tags": [
+          "Integrations"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GitHubEnabledRequest"
               }
             }
           },
@@ -2567,6 +2745,65 @@
         }
       }
     },
+    "/api/content/github/repo-name-preview": {
+      "post": {
+        "tags": [
+          "Content"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RepoNamePreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepoNamePreviewDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/content/{id}": {
       "get": {
         "tags": [
@@ -3767,7 +4004,12 @@
         "required": [
           "gradeScale",
           "submissionModes",
-          "templateRepo"
+          "templateRepo",
+          "repoNamePattern",
+          "workMode",
+          "lockAtDeadline",
+          "feedbackPullRequest",
+          "allowLate"
         ],
         "type": "object",
         "properties": {
@@ -3785,6 +4027,24 @@
               "null",
               "string"
             ]
+          },
+          "repoNamePattern": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "workMode": {
+            "$ref": "#/components/schemas/RepoWorkMode"
+          },
+          "lockAtDeadline": {
+            "type": "boolean"
+          },
+          "feedbackPullRequest": {
+            "type": "boolean"
+          },
+          "allowLate": {
+            "type": "boolean"
           }
         }
       },
@@ -4356,6 +4616,40 @@
               "null",
               "string"
             ]
+          },
+          "repoNamePattern": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "workMode": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RepoWorkMode"
+              }
+            ]
+          },
+          "lockAtDeadline": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "feedbackPullRequest": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "allowLate": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         }
       },
@@ -4600,7 +4894,11 @@
           "lastVerifiedAt",
           "error",
           "missingSettings",
-          "usingLegacyInstallation"
+          "usingLegacyInstallation",
+          "enabled",
+          "studentCount",
+          "linkedStudentCount",
+          "repoCount"
         ],
         "type": "object",
         "properties": {
@@ -4651,6 +4949,21 @@
           },
           "usingLegacyInstallation": {
             "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "studentCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "linkedStudentCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "repoCount": {
+            "type": "integer",
+            "format": "int32"
           }
         },
         "description": "GitHub-anslutningen som admin kan se i klienten. Inga hemligheter."
@@ -4677,6 +4990,17 @@
           }
         },
         "description": "installationId sätts efter GitHubs setup-redirect. Utan id verifierar servern om skolans sparade\ninstallation fortfarande fungerar (återanslut)."
+      },
+      "GitHubEnabledRequest": {
+        "required": [
+          "enabled"
+        ],
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        }
       },
       "GitHubInstallLinkDto": {
         "required": [
@@ -4707,6 +5031,57 @@
             ]
           }
         }
+      },
+      "GitHubTemplateCommitDto": {
+        "required": [
+          "sha",
+          "message",
+          "authoredAt"
+        ],
+        "type": "object",
+        "properties": {
+          "sha": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "authoredAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "GitHubTemplateRepoDto": {
+        "required": [
+          "fullName",
+          "htmlUrl",
+          "defaultBranch",
+          "isPrivate",
+          "isArchived"
+        ],
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string"
+          },
+          "htmlUrl": {
+            "type": "string"
+          },
+          "defaultBranch": {
+            "type": "string"
+          },
+          "isPrivate": {
+            "type": "boolean"
+          },
+          "isArchived": {
+            "type": "boolean"
+          }
+        },
+        "description": "Ett mallrepo som läraren kan välja. Innehåller inga tokens eller hemligheter."
       },
       "GradeDto": {
         "required": [
@@ -4967,6 +5342,10 @@
               "null",
               "string"
             ]
+          },
+          "gitHubEnabled": {
+            "type": "boolean",
+            "default": false
           }
         },
         "description": "Den inloggade användaren, skolan och rollen per kurs."
@@ -5389,6 +5768,79 @@
           }
         }
       },
+      "RepoNamePreviewDto": {
+        "required": [
+          "name",
+          "pattern"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "pattern": {
+            "type": "string"
+          }
+        }
+      },
+      "RepoNamePreviewRequest": {
+        "required": [
+          "pattern",
+          "assignmentTitle"
+        ],
+        "type": "object",
+        "properties": {
+          "pattern": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "assignmentTitle": {
+            "type": "string"
+          },
+          "gitHubLogin": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "studentName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "studentEmail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "studentId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        },
+        "description": "Förhandsvisning av reponamn. Värdena är exempel som läraren ser i formuläret."
+      },
+      "RepoProvisioningState": {
+        "enum": [
+          "Pending",
+          "Creating",
+          "Ready",
+          "Failed"
+        ]
+      },
+      "RepoWorkMode": {
+        "enum": [
+          "Individual",
+          "Group"
+        ]
+      },
       "RoadmapLinkDto": {
         "required": [
           "linkId",
@@ -5672,7 +6124,12 @@
           "repoFullName",
           "lastSha",
           "checkStatus",
-          "updatedAt"
+          "updatedAt",
+          "provisioningState",
+          "provisioningError",
+          "submissionSha",
+          "lockedAt",
+          "lockError"
         ],
         "type": "object",
         "properties": {
@@ -5691,6 +6148,34 @@
           "updatedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "provisioningState": {
+            "$ref": "#/components/schemas/RepoProvisioningState"
+          },
+          "provisioningError": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "submissionSha": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "lockedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "lockError": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -6533,6 +7018,40 @@
             "type": [
               "null",
               "string"
+            ]
+          },
+          "repoNamePattern": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "workMode": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RepoWorkMode"
+              }
+            ]
+          },
+          "lockAtDeadline": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "feedbackPullRequest": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "allowLate": {
+            "type": [
+              "null",
+              "boolean"
             ]
           }
         }

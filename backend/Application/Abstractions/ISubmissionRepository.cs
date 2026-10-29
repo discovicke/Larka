@@ -18,6 +18,13 @@ public record CourseToGradeCount(Guid CourseId, int Count);
 /// <summary>En påbörjad inlämning på en länk.</summary>
 public record ActiveSubmission(Guid LinkId, Guid StudentId);
 
+/// <summary>En elevrepo som ska låsas eftersom länkens deadline har passerat.</summary>
+public record RepoLockContext(
+    StudentRepo Repo,
+    Submission Submission,
+    Guid SchoolId,
+    DateTimeOffset Deadline);
+
 // Inlämningar hämtas med filer, repo och betyg.
 public interface ISubmissionRepository
 {
@@ -59,6 +66,17 @@ public interface ISubmissionRepository
     void AddGrade(Grade grade);
     Task<List<StudentRepoContext>> GetAllReposAsync(CancellationToken ct);
 
+    /// <summary>Pending/failed repon som är redo att försökas igen, med elev och skola.</summary>
+    Task<List<RepoProvisioningContext>> GetPendingReposAsync(
+        DateTimeOffset now, int take, int maxAttempts, CancellationToken ct);
+
+    /// <summary>Repon vars deadline passerat och som ännu inte låsts.</summary>
+    Task<List<RepoLockContext>> GetReposToLockAsync(
+        DateTimeOffset now, int take, CancellationToken ct);
+
     /// <summary>Elevens redan skapade repon. Används när eleven kopplar GitHub efter utdelningen.</summary>
     Task<List<StudentRepo>> GetReposForStudentAsync(Guid studentId, CancellationToken ct);
+
+    /// <summary>Antal elevrepon i skolan, för adminöversikten.</summary>
+    Task<int> CountReposForSchoolAsync(Guid schoolId, CancellationToken ct);
 }

@@ -12,7 +12,12 @@ public record CreateContentDto(
     ContentStatus? Status = null,
     GradeScale? GradeScale = null, // uppgiftsfälten gäller bara uppgifter. Utan skala = övning, med = inlämning
     List<SubmissionMode>? SubmissionModes = null, // ett eller flera sätt att lämna in
-    string? TemplateRepo = null); // "org/mall", krävs för Repo och bara där
+    string? TemplateRepo = null, // "org/mall", krävs för Repo och bara där
+    string? RepoNamePattern = null, // t.ex. "lab2-{githubLogin}"; null = standardmönstret
+    RepoWorkMode? WorkMode = null,
+    bool? LockAtDeadline = null,
+    bool? FeedbackPullRequest = null, // fas 2
+    bool? AllowLate = null); // fas 2
 
 // Skapar innehållet och länken i samma transaktion, så att ett fel i länken inte lämnar ett orphan.
 public record CreateContentWithLinkDto(CreateContentDto Content, CreateContentLinkDto Link);
@@ -36,9 +41,25 @@ public record UpdateContentDto(
     string BodyMd,
     GradeScale? GradeScale = null,
     List<SubmissionMode>? SubmissionModes = null,
-    string? TemplateRepo = null);
+    string? TemplateRepo = null,
+    string? RepoNamePattern = null,
+    RepoWorkMode? WorkMode = null,
+    bool? LockAtDeadline = null,
+    bool? FeedbackPullRequest = null, // fas 2
+    bool? AllowLate = null); // fas 2
 
 public record UpdateContentStatusDto(ContentStatus Status);
+
+/// <summary>Förhandsvisning av reponamn. Värdena är exempel som läraren ser i formuläret.</summary>
+public record RepoNamePreviewRequest(
+    string? Pattern,
+    string AssignmentTitle,
+    string? GitHubLogin = null,
+    string? StudentName = null,
+    string? StudentEmail = null,
+    Guid? StudentId = null);
+
+public record RepoNamePreviewDto(string Name, string Pattern);
 
 // ModuleId flyttas i ett eget flöde, eftersom flytten också påverkar ordningen och beroenden.
 public record UpdateContentLinkDto(
@@ -83,10 +104,23 @@ public record ContentDto(
 public record AssignmentSpecDto(
     GradeScale GradeScale,
     List<SubmissionMode> SubmissionModes,
-    string? TemplateRepo)
+    string? TemplateRepo,
+    string? RepoNamePattern,
+    RepoWorkMode WorkMode,
+    bool LockAtDeadline,
+    bool FeedbackPullRequest,
+    bool AllowLate)
 {
     public static AssignmentSpecDto From(AssignmentSpec spec) =>
-        new(spec.GradeScale, spec.SubmissionModes, spec.TemplateRepo);
+        new(
+            spec.GradeScale,
+            spec.SubmissionModes,
+            spec.TemplateRepo,
+            spec.RepoNamePattern,
+            spec.WorkMode,
+            spec.LockAtDeadline,
+            spec.FeedbackPullRequest,
+            spec.AllowLate);
 }
 
 public record ContentLinkDto(

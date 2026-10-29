@@ -18,6 +18,15 @@ public static class IntegrationEndpoints
         integrations.MapGet("/github", async (IntegrationService service, CancellationToken ct) =>
             (await service.GetGitHubStatusAsync(ct)).ToHttp(status => TypedResults.Ok(status)));
 
+        // Lärarens mallrepon. Bara metadata, aldrig installationstoken.
+        integrations.MapGet("/github/templates", async (
+            GitHubTemplateService service, CancellationToken ct) =>
+            (await service.GetTemplatesAsync(ct)).ToHttp(TypedResults.Ok));
+
+        integrations.MapGet("/github/templates/{owner}/{repo}/latest-commit", async (
+            string owner, string repo, GitHubTemplateService service, CancellationToken ct) =>
+            (await service.GetLatestCommitAsync(owner, repo, ct)).ToHttp(TypedResults.Ok));
+
         // Klienten öppnar länken i webbläsaren. State-cookien gör att setup-callbacken kan lita på
         // att det är samma admin och skola som startade installationen.
         integrations.MapGet("/github/install", async (
@@ -72,6 +81,12 @@ public static class IntegrationEndpoints
             GitHubConnectRequest request,
             CancellationToken ct) =>
             (await service.ConnectAsync(request, ct)).ToHttp(status => TypedResults.Ok(status)));
+
+        integrations.MapPut("/github/enabled", async (
+            IntegrationService service,
+            GitHubEnabledRequest request,
+            CancellationToken ct) =>
+            (await service.SetEnabledAsync(request.Enabled, ct)).ToHttp(status => TypedResults.Ok(status)));
 
         integrations.MapDelete("/github", async (IntegrationService service, CancellationToken ct) =>
             (await service.DisconnectAsync(ct)).ToHttp(_ => TypedResults.NoContent()));

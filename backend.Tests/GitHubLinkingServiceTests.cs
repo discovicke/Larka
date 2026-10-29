@@ -78,11 +78,13 @@ public class GitHubLinkingServiceTests(TestWebApplicationFactory factory)
         await db.SaveChangesAsync();
 
         var currentUser = new StubCurrentUser(user.Id);
-        var service = CreateService(scope, currentUser);
+        var provisioner = new RecordingLabProvisioner();
+        var service = CreateService(scope, currentUser, provisioner);
 
         var result = await service.UnlinkAsync(CancellationToken.None);
 
         Assert.Equal(ResultStatus.Ok, result.Status);
+        Assert.Equal(user.Id, provisioner.Revoked?.Id);
         var updated = await db.Users.FindAsync(user.Id);
         Assert.NotNull(updated);
         Assert.Null(updated.GitHubLogin);
@@ -114,11 +116,22 @@ public class GitHubLinkingServiceTests(TestWebApplicationFactory factory)
     {
         public User? Invited { get; private set; }
 
+        public User? Revoked { get; private set; }
+
         public Task<IReadOnlyList<StudentRepo>> ProvisionAsync(
             string templateRepo,
             string assignmentTitle,
+            string? repoNamePattern,
             IReadOnlyList<RepoRequest> requests,
             CancellationToken ct) => throw new NotSupportedException();
+
+        public Task<StudentRepo> ProvisionOneAsync(
+            RepoProvisioningContext context, CancellationToken ct) =>
+            throw new NotSupportedException();
+
+        public Task<RepoLockResult> LockAtDeadlineAsync(
+            StudentRepoContext context, DateTimeOffset deadline, CancellationToken ct) =>
+            throw new NotSupportedException();
 
         public Task RefreshCheckStatusAsync(
             IReadOnlyList<StudentRepoContext> repos, CancellationToken ct) =>
@@ -127,6 +140,12 @@ public class GitHubLinkingServiceTests(TestWebApplicationFactory factory)
         public Task InviteToExistingReposAsync(User student, CancellationToken ct)
         {
             Invited = student;
+            return Task.CompletedTask;
+        }
+
+        public Task RevokeAccessAsync(User student, CancellationToken ct)
+        {
+            Revoked = student;
             return Task.CompletedTask;
         }
     }

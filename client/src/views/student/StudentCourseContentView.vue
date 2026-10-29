@@ -127,7 +127,7 @@ function openPart(item: Schema<'StudentContentItem'>) {
 }
 
 function repoUrlFor(item: Schema<'StudentContentItem'>): string | null {
-  return item.repo
+  return item.repo?.repoFullName
     ? `https://github.com/${item.repo.repoFullName}`
     : null
 }
@@ -446,6 +446,8 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
               :repo-url="repoUrlFor(selectedItem)"
               :latest-commit="selectedItem.repo?.lastSha"
               :check-status="selectedItem.repo?.checkStatus"
+              :repo-provisioning-state="selectedItem.repo?.provisioningState"
+              :repo-provisioning-error="selectedItem.repo?.provisioningError"
               :redirect-to="route.fullPath"
             />
 

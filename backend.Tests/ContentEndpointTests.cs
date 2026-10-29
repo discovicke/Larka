@@ -24,7 +24,17 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     private record ContentDetail(
         Guid Id, string Type, string Title, string BodyMd, string Status, AssignmentDetail? Assignment);
 
-    private record AssignmentDetail(string GradeScale, List<string> SubmissionModes, string? TemplateRepo);
+    private record AssignmentDetail(
+        string GradeScale,
+        List<string> SubmissionModes,
+        string? TemplateRepo,
+        string? RepoNamePattern = null,
+        string? WorkMode = null,
+        bool LockAtDeadline = true,
+        bool FeedbackPullRequest = false,
+        bool AllowLate = false);
+
+    private record RepoNamePreview(string Name, string Pattern);
 
     private record FeedItem(Guid ContentId, string Type, string Title, Guid? GroupId, Guid? CourseId, bool IsPinned);
 
@@ -316,6 +326,87 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateRepoAssignment_StoresGitHubSettings()
+    {
+        var content = await CreateAssignmentAsync(
+            "Labb 2",
+            gradeScale: "passFail",
+            submissionModes: ["repo"],
+            templateRepo: "org/template",
+            repoNamePattern: "lab2-{githubLogin}");
+
+        var detail = await _client.GetFromJsonAsync<ContentDetail>($"/api/content/{content.Id}");
+
+        Assert.Equal("lab2-{githubLogin}", detail!.Assignment!.RepoNamePattern);
+        Assert.Equal("Individual", detail.Assignment.WorkMode);
+        Assert.True(detail.Assignment.LockAtDeadline);
+        Assert.False(detail.Assignment.FeedbackPullRequest);
+        Assert.False(detail.Assignment.AllowLate);
+    }
+
+    [Fact]
+    public async Task CreateRepoAssignment_WithInvalidPattern_ReturnsBadRequest()
+    {
+        var response = await _client.PostAsJsonAsync("/api/content", new
+        {
+            type = "assignment",
+            title = "Labb",
+            bodyMd = "",
+            gradeScale = "passFail",
+            submissionModes = new[] { "repo" },
+            templateRepo = "org/template",
+            repoNamePattern = "lab2/{githubLogin}"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateRepoAssignment_WithGroupMode_ReturnsBadRequest()
+    {
+        var response = await _client.PostAsJsonAsync("/api/content", new
+        {
+            type = "assignment",
+            title = "Labb",
+            bodyMd = "",
+            gradeScale = "passFail",
+            submissionModes = new[] { "repo" },
+            templateRepo = "org/template",
+            workMode = "group"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PreviewRepoName_UsesSameNamingAsProvisioning()
+    {
+        var response = await _client.PostAsJsonAsync("/api/content/github/repo-name-preview", new
+        {
+            pattern = "lab2-{githubLogin}",
+            assignmentTitle = "Labb 2",
+            githubLogin = "alice"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var preview = await response.Content.ReadFromJsonAsync<RepoNamePreview>();
+        Assert.Equal("lab2-alice", preview!.Name);
+        Assert.Equal("lab2-{githubLogin}", preview.Pattern);
+    }
+
+    [Fact]
+    public async Task PreviewRepoName_WithInvalidPattern_ReturnsBadRequest()
+    {
+        var response = await _client.PostAsJsonAsync("/api/content/github/repo-name-preview", new
+        {
+            pattern = "lab2/{githubLogin}",
+            assignmentTitle = "Labb 2"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]
@@ -612,7 +703,8 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
         string status = "published",
         string? gradeScale = null,
         string[]? submissionModes = null,
-        string? templateRepo = null)
+        string? templateRepo = null,
+        string? repoNamePattern = null)
     {
         var response = await _client.PostAsJsonAsync("/api/content", new
         {
@@ -622,7 +714,8 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
             status,
             gradeScale,
             submissionModes,
-            templateRepo
+            templateRepo,
+            repoNamePattern
         });
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<ContentResponse>())!;

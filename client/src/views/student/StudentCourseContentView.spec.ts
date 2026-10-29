@@ -35,6 +35,8 @@ interface StudentItem {
     lastSha: string | null
     checkStatus: string
     updatedAt: string
+    provisioningState?: 'Pending' | 'Creating' | 'Ready' | 'Failed'
+    provisioningError?: string | null
   } | null
 }
 
@@ -340,6 +342,26 @@ describe('StudentCourseContentView', () => {
       .toBe('https://github.com/skol-org/repo-alice')
     expect(wrapper.find('[data-test="student-repo-commit"]').text()).toContain('abcdef1')
     expect(wrapper.find('[data-test="student-repo-status"]').text()).toContain('Tester godkända')
+  })
+
+  it('visar vänteläge i stället för trasig länk när repot skapas', async () => {
+    backend([{
+      ...repoAssignment,
+      repo: {
+        ...repoAssignment.repo!,
+        repoFullName: '',
+        lastSha: null,
+        provisioningState: 'Pending',
+      },
+    }], 'alice')
+    const {wrapper} = await renderApp('/courses/c1/content')
+
+    await wrapper.find('[data-test="student-open-l7"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="github-pending-repo"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="student-repo-link"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('https://github.com/')
   })
 
   it('visar koppla GitHub-CTA i stället för repolänk för en okopplad elev', async () => {

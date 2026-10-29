@@ -45,10 +45,28 @@ public record SubmissionFileDto(Guid Id, string FileName, string Url, long SizeB
         new(file.Id, file.FileName, url, file.SizeBytes);
 }
 
-public record StudentRepoDto(string RepoFullName, string? LastSha, CheckStatus CheckStatus, DateTimeOffset UpdatedAt)
+public record StudentRepoDto(
+    string RepoFullName,
+    string? LastSha,
+    CheckStatus CheckStatus,
+    DateTimeOffset UpdatedAt,
+    RepoProvisioningState ProvisioningState,
+    string? ProvisioningError,
+    string? SubmissionSha,
+    DateTimeOffset? LockedAt,
+    string? LockError)
 {
     public static StudentRepoDto From(StudentRepo repo) =>
-        new(repo.RepoFullName, repo.LastSha, repo.CheckStatus, repo.UpdatedAt);
+        new(
+            repo.RepoFullName,
+            repo.LastSha,
+            repo.CheckStatus,
+            repo.UpdatedAt,
+            repo.ProvisioningState,
+            repo.ProvisioningError,
+            repo.SubmissionSha,
+            repo.LockedAt,
+            repo.LockError);
 }
 
 public record GradeDto(Guid GradedById, GradeLevel? Level, string Feedback, DateTimeOffset GradedAt)

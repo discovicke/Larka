@@ -46,16 +46,25 @@ public sealed class TestGitHubAppService : IGitHubAppService
     public Task<IReadOnlyList<GitHubRepository>> ListRepositoriesAsync(
         long installationId, CancellationToken ct) => throw new NotSupportedException();
 
+    public List<GitHubRepository> TemplateRepositories { get; set; } = [];
+
     public Task<IReadOnlyList<GitHubRepository>> ListTemplateRepositoriesAsync(
-        long installationId, CancellationToken ct) => throw new NotSupportedException();
+        long installationId, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<GitHubRepository>>(TemplateRepositories);
 
     public Task<GitHubRepository> GetRepositoryAsync(
         long installationId, string owner, string name, CancellationToken ct) =>
         throw new NotSupportedException();
 
+    public GitHubCommit? LatestTemplateCommit { get; set; }
+
     public Task<GitHubCommit?> GetLatestCommitAsync(
-        long installationId, string owner, string name, CancellationToken ct) =>
-        throw new NotSupportedException();
+        long installationId,
+        string owner,
+        string name,
+        CancellationToken ct,
+        DateTimeOffset? until = null) =>
+        Task.FromResult(LatestTemplateCommit);
 
     public Task<CheckStatus> GetCheckStatusAsync(
         long installationId, string owner, string name, string reference, CancellationToken ct) =>
@@ -72,6 +81,10 @@ public sealed class TestGitHubAppService : IGitHubAppService
         CancellationToken ct) => throw new NotSupportedException();
 
     public Task AddCollaboratorAsync(
+        long installationId, string owner, string name, string username, CancellationToken ct) =>
+        throw new NotSupportedException();
+
+    public Task RemoveCollaboratorAsync(
         long installationId, string owner, string name, string username, CancellationToken ct) =>
         throw new NotSupportedException();
 

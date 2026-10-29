@@ -31,7 +31,8 @@ public class SubmissionService(
 
     /// <summary>
     /// Delar ut en uppgift: en inlämning (NotStarted) per elev i länkens grupp, eller i alla grupper som läser
-    /// kursen. I repo-läge får varje elev ett repo från mallen. Sparar inte, det gör den som anropar.
+    /// kursen. I repo-läge skapas en pending repo-rad som bakgrundsjobbet provisionerar. Sparar inte, det gör
+    /// den som anropar.
     /// </summary>
     public async Task HandOutAsync(ContentLink link, Content content, CancellationToken ct)
     {
@@ -51,13 +52,22 @@ public class SubmissionService(
 
         if (UsesRepo(spec.SubmissionModes))
         {
-            var requests = newSubmissions
-                .Zip(students, (submission, student) => new RepoRequest(submission.Id, student))
-                .ToList();
-            var repos = await provisioner.ProvisionAsync(spec.TemplateRepo!, content.Title, requests, ct);
-            foreach (var repo in repos)
+            var now = time.GetUtcNow();
+            var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (submission, student) in newSubmissions.Zip(students))
             {
-                newSubmissions.Single(submission => submission.Id == repo.SubmissionId).Repo = repo;
+                submission.Repo = new StudentRepo
+                {
+                    SubmissionId = submission.Id,
+                    TemplateRepo = spec.TemplateRepo,
+                    AssignmentTitle = content.Title,
+                    RepoNamePattern = spec.RepoNamePattern,
+                    DesiredRepoName = GitHubRepoNaming.ForStudent(
+                        spec.RepoNamePattern, content.Title, student, usedNames),
+                    ProvisioningState = RepoProvisioningState.Pending,
+                    NextProvisioningAttemptAt = now,
+                    UpdatedAt = now
+                };
             }
         }
 

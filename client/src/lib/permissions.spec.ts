@@ -14,6 +14,8 @@ function user(role: Me['role'], courses: Me['courses']): Me {
     school: {id: 's1', name: 'Edugrade'},
     courses,
     groups: [],
+    gitHubLogin: null,
+    gitHubEnabled: false,
   }
 }
 

@@ -19,6 +19,7 @@ public class AssignmentSpecConfiguration : IEntityTypeConfiguration<AssignmentSp
 
         // Standardvärdet gäller rader som skapas utanför EF och de som fanns innan kolumnen kom.
         builder.Property(spec => spec.CompletionRule).HasDefaultValue(CompletionRule.Submitted);
+        builder.Property(spec => spec.LockAtDeadline).HasDefaultValue(true);
     }
 }
 

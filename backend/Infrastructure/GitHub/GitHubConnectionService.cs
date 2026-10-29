@@ -90,7 +90,8 @@ public sealed class GitHubConnectionService(
                 null,
                 saved?.LastVerifiedAt,
                 null,
-                missing);
+                missing,
+                enabled: saved?.Enabled ?? false);
         }
 
         // En lokal frånkoppling ska vinna över dev-fallbacken. Annars skulle disconnect inte stoppa
@@ -104,7 +105,8 @@ public sealed class GitHubConnectionService(
                 null,
                 saved.LastVerifiedAt,
                 null,
-                missing);
+                missing,
+                enabled: saved.Enabled);
         }
 
         if (saved is not null)
@@ -125,7 +127,8 @@ public sealed class GitHubConnectionService(
                 installation?.AccountLogin,
                 saved.LastVerifiedAt,
                 error,
-                missing);
+                missing,
+                enabled: saved.Enabled);
         }
 
         // Dev-fallback tills skolan har kopplat via Inställningar. Kan tas bort senare.
@@ -143,7 +146,8 @@ public sealed class GitHubConnectionService(
                     : null,
                 error,
                 missing,
-                usingLegacyInstallation: true);
+                usingLegacyInstallation: true,
+                enabled: true);
         }
 
         return Status(0, "", false, null, null, null, missing);
@@ -205,6 +209,7 @@ public sealed class GitHubConnectionService(
                 InstallationId = installationId,
                 Org = installation.AccountLogin,
                 Connected = true,
+                Enabled = true,
                 ConnectedAt = now,
                 DisconnectedAt = null,
                 LastVerifiedAt = now
@@ -216,6 +221,7 @@ public sealed class GitHubConnectionService(
             saved.InstallationId = installationId;
             saved.Org = installation.AccountLogin;
             saved.Connected = true;
+            saved.Enabled = true;
             saved.ConnectedAt = now;
             saved.DisconnectedAt = null;
             saved.LastVerifiedAt = now;
@@ -229,7 +235,8 @@ public sealed class GitHubConnectionService(
             installation.AccountLogin,
             now,
             null,
-            MissingSettings);
+            MissingSettings,
+            enabled: true);
     }
 
     public async Task<GitHubConnectionStatus> ReconnectAsync(
@@ -251,6 +258,36 @@ public sealed class GitHubConnectionService(
         return await ConnectAsync(schoolId, saved.InstallationId, ct);
     }
 
+    public async Task<GitHubConnectionStatus> SetEnabledAsync(
+        Guid schoolId, bool enabled, CancellationToken ct)
+    {
+        var saved = await installations.GetForSchoolAsync(schoolId, ct);
+        if (saved is null || !saved.Connected || saved.InstallationId <= 0)
+        {
+            return Status(
+                saved?.InstallationId ?? 0,
+                saved?.Org ?? "",
+                false,
+                null,
+                saved?.LastVerifiedAt,
+                "Anslut GitHub innan du aktiverar det.",
+                MissingSettings,
+                enabled: false);
+        }
+
+        saved.Enabled = enabled;
+        await unitOfWork.SaveChangesAsync(ct);
+        return Status(
+            saved.InstallationId,
+            saved.Org,
+            true,
+            saved.Org,
+            saved.LastVerifiedAt,
+            null,
+            MissingSettings,
+            enabled: enabled);
+    }
+
     public async Task DisconnectAsync(Guid schoolId, CancellationToken ct)
     {
         var saved = await installations.GetForSchoolAsync(schoolId, ct);
@@ -270,6 +307,7 @@ public sealed class GitHubConnectionService(
                 InstallationId = _options.InstallationId,
                 Org = _options.Org,
                 Connected = false,
+                Enabled = false,
                 ConnectedAt = now,
                 DisconnectedAt = now
             };
@@ -278,6 +316,7 @@ public sealed class GitHubConnectionService(
         else
         {
             saved.Connected = false;
+            saved.Enabled = false;
             saved.DisconnectedAt = now;
         }
 
@@ -362,7 +401,8 @@ public sealed class GitHubConnectionService(
         DateTimeOffset? lastVerifiedAt,
         string? error,
         IReadOnlyList<string>? missingSettings = null,
-        bool usingLegacyInstallation = false) =>
+        bool usingLegacyInstallation = false,
+        bool enabled = false) =>
         new(
             Configured: IsConfigured,
             AppId: _options.AppId,
@@ -374,5 +414,6 @@ public sealed class GitHubConnectionService(
             LastVerifiedAt: lastVerifiedAt,
             Error: error,
             MissingSettings: missingSettings ?? MissingSettings,
-            UsingLegacyInstallation: usingLegacyInstallation);
+            UsingLegacyInstallation: usingLegacyInstallation,
+            Enabled: enabled);
 }

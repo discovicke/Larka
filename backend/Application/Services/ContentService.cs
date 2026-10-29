@@ -31,6 +31,43 @@ public class ContentService(
             : ContentDto.From(content);
     }
 
+    /// <summary>
+    /// Visar läraren samma reponamn som provisioning skapar. Exempelvärden används när eleven inte är vald.
+    /// </summary>
+    public async Task<ServiceResult<RepoNamePreviewDto>> PreviewRepoNameAsync(
+        RepoNamePreviewRequest request, CancellationToken ct)
+    {
+        if (!await permissions.CanCreateContentAsync(ct))
+        {
+            return ServiceResult<RepoNamePreviewDto>.Forbidden();
+        }
+
+        if (string.IsNullOrWhiteSpace(request.AssignmentTitle))
+        {
+            return ServiceResult<RepoNamePreviewDto>.Invalid("assignmentTitle is required");
+        }
+
+        var patternError = GitHubRepoNaming.Validate(request.Pattern);
+        if (patternError is not null)
+        {
+            return ServiceResult<RepoNamePreviewDto>.Invalid(patternError);
+        }
+
+        var values = new RepoNameValues(
+            request.AssignmentTitle,
+            request.GitHubLogin,
+            string.IsNullOrWhiteSpace(request.StudentName)
+                ? "Elev"
+                : request.StudentName,
+            string.IsNullOrWhiteSpace(request.StudentEmail)
+                ? "elev@example.com"
+                : request.StudentEmail,
+            request.StudentId ?? Guid.Empty);
+        var pattern = GitHubRepoNaming.EffectivePattern(request.Pattern);
+        return ServiceResult<RepoNamePreviewDto>.Ok(
+            new RepoNamePreviewDto(GitHubRepoNaming.Render(request.Pattern, values), pattern));
+    }
+
     // Typ, status och läge är enums i DTO:n, så okända värden stoppas redan när JSON läses in (400).
     public async Task<ServiceResult<ContentDto>> CreateAsync(CreateContentDto dto, CancellationToken ct)
     {
@@ -242,7 +279,14 @@ public class ContentService(
         }
 
         var fieldError = CheckAssignmentFields(
-            content.Type, dto.GradeScale, dto.SubmissionModes, dto.TemplateRepo);
+            content.Type,
+            dto.GradeScale,
+            dto.SubmissionModes,
+            dto.TemplateRepo,
+            dto.RepoNamePattern,
+            dto.WorkMode ?? RepoWorkMode.Individual,
+            dto.FeedbackPullRequest ?? false,
+            dto.AllowLate ?? false);
         if (fieldError is not null)
         {
             return ServiceResult<ContentDto>.Invalid(fieldError);
@@ -257,6 +301,13 @@ public class ContentService(
             spec.GradeScale = dto.GradeScale ?? GradeScale.None;
             spec.SubmissionModes = (dto.SubmissionModes ?? []).Distinct().ToList();
             spec.TemplateRepo = dto.TemplateRepo;
+            ApplyGitHubSettings(
+                spec,
+                dto.RepoNamePattern,
+                dto.WorkMode ?? RepoWorkMode.Individual,
+                dto.LockAtDeadline ?? true,
+                dto.FeedbackPullRequest ?? false,
+                dto.AllowLate ?? false);
             // En regel som inte längre kan uppfyllas får inte låsa nästa del för alltid.
             if (spec.GradeScale == GradeScale.None || spec.SubmissionModes.Count == 0)
             {
@@ -544,7 +595,15 @@ public class ContentService(
             return ValidationResult<Content>.Invalid("title is required");
         }
 
-        var fieldError = CheckAssignmentFields(type, dto.GradeScale, dto.SubmissionModes, dto.TemplateRepo);
+        var fieldError = CheckAssignmentFields(
+            type,
+            dto.GradeScale,
+            dto.SubmissionModes,
+            dto.TemplateRepo,
+            dto.RepoNamePattern,
+            dto.WorkMode ?? RepoWorkMode.Individual,
+            dto.FeedbackPullRequest ?? false,
+            dto.AllowLate ?? false);
         if (fieldError is not null)
         {
             return ValidationResult<Content>.Invalid(fieldError);
@@ -563,13 +622,21 @@ public class ContentService(
         };
         if (type == ContentType.Assignment)
         {
-            content.Assignment = new AssignmentSpec
+            var spec = new AssignmentSpec
             {
                 ContentId = content.Id,
                 GradeScale = scale,
                 SubmissionModes = modes,
                 TemplateRepo = dto.TemplateRepo
             };
+            ApplyGitHubSettings(
+                spec,
+                dto.RepoNamePattern,
+                dto.WorkMode ?? RepoWorkMode.Individual,
+                dto.LockAtDeadline ?? true,
+                dto.FeedbackPullRequest ?? false,
+                dto.AllowLate ?? false);
+            content.Assignment = spec;
         }
 
         return ValidationResult<Content>.Ok(content);
@@ -635,23 +702,92 @@ public class ContentService(
     }
 
     private static string? CheckAssignmentFields(
-        ContentType type, GradeScale? gradeScale, List<SubmissionMode>? modes, string? templateRepo)
+        ContentType type,
+        GradeScale? gradeScale,
+        List<SubmissionMode>? modes,
+        string? templateRepo,
+        string? repoNamePattern,
+        RepoWorkMode workMode,
+        bool feedbackPullRequest,
+        bool allowLate)
     {
-        var hasAssignmentFields = gradeScale is not null || modes is not null || templateRepo is not null;
+        var hasAssignmentFields = gradeScale is not null
+            || modes is not null
+            || templateRepo is not null
+            || !string.IsNullOrWhiteSpace(repoNamePattern)
+            || feedbackPullRequest
+            || allowLate
+            || workMode != RepoWorkMode.Individual;
         if (type != ContentType.Assignment && hasAssignmentFields)
         {
-            return "gradeScale, submissionModes and templateRepo are only allowed on assignments";
+            return "gradeScale, submissionModes and GitHub settings are only allowed on assignments";
         }
 
         var submissionModes = modes ?? [];
-        if (SubmissionService.UsesRepo(submissionModes) != (templateRepo is not null))
+        var usesRepo = SubmissionService.UsesRepo(submissionModes);
+        if (usesRepo != (templateRepo is not null))
         {
             return "templateRepo is required for repo, and only allowed there";
         }
 
-        return templateRepo is not null && !LooksLikeOrgAndName(templateRepo)
-            ? "templateRepo must look like org/name"
-            : null;
+        if (!usesRepo)
+        {
+            return !string.IsNullOrWhiteSpace(repoNamePattern)
+                || feedbackPullRequest
+                || allowLate
+                || workMode != RepoWorkMode.Individual
+                ? "repoNamePattern and repo work settings are only allowed with repo submission mode"
+                : null;
+        }
+
+        if (workMode != RepoWorkMode.Individual)
+        {
+            return "group repositories are not supported yet";
+        }
+
+        if (feedbackPullRequest)
+        {
+            return "feedback pull requests are not supported yet";
+        }
+
+        if (allowLate)
+        {
+            return "late submissions are not supported yet";
+        }
+
+        if (!LooksLikeOrgAndName(templateRepo!))
+        {
+            return "templateRepo must look like org/name";
+        }
+
+        return GitHubRepoNaming.Validate(repoNamePattern);
+    }
+
+    private static void ApplyGitHubSettings(
+        AssignmentSpec spec,
+        string? repoNamePattern,
+        RepoWorkMode workMode,
+        bool lockAtDeadline,
+        bool feedbackPullRequest,
+        bool allowLate)
+    {
+        if (!SubmissionService.UsesRepo(spec.SubmissionModes))
+        {
+            spec.RepoNamePattern = null;
+            spec.WorkMode = RepoWorkMode.Individual;
+            spec.LockAtDeadline = true;
+            spec.FeedbackPullRequest = false;
+            spec.AllowLate = false;
+            return;
+        }
+
+        spec.RepoNamePattern = string.IsNullOrWhiteSpace(repoNamePattern)
+            ? null
+            : repoNamePattern.Trim();
+        spec.WorkMode = workMode;
+        spec.LockAtDeadline = lockAtDeadline;
+        spec.FeedbackPullRequest = feedbackPullRequest;
+        spec.AllowLate = allowLate;
     }
 
     // Lärare på någon av innehållets länkar, admin, eller den som skrev innehållet.

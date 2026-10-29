@@ -121,11 +121,51 @@ public class SubmissionRepository(AppDb db) : ISubmissionRepository
                 (item, user) => new StudentRepoContext(item.Repo, user.SchoolId))
             .ToListAsync(ct);
 
+    public Task<List<RepoProvisioningContext>> GetPendingReposAsync(
+        DateTimeOffset now, int take, int maxAttempts, CancellationToken ct) =>
+        (from repo in db.StudentRepos
+         join submission in db.Submissions on repo.SubmissionId equals submission.Id
+         join student in db.Users on submission.StudentId equals student.Id
+         where (repo.ProvisioningState == RepoProvisioningState.Pending
+                 || repo.ProvisioningState == RepoProvisioningState.Failed)
+             && repo.ProvisioningAttempts < maxAttempts
+             && (repo.NextProvisioningAttemptAt == null || repo.NextProvisioningAttemptAt <= now)
+         orderby repo.NextProvisioningAttemptAt, repo.UpdatedAt
+         select new RepoProvisioningContext(repo, student))
+        .Take(take)
+        .ToListAsync(ct);
+
+    public Task<List<RepoLockContext>> GetReposToLockAsync(
+        DateTimeOffset now, int take, CancellationToken ct) =>
+        (from repo in db.StudentRepos
+         join submission in db.Submissions on repo.SubmissionId equals submission.Id
+         join student in db.Users on submission.StudentId equals student.Id
+         join link in db.ContentLinks on submission.ContentLinkId equals link.Id
+         join content in db.Content on link.ContentId equals content.Id
+         where repo.ProvisioningState == RepoProvisioningState.Ready
+             && repo.LockedAt == null
+             && link.DueAt != null
+             && link.DueAt <= now
+             && content.Assignment != null
+             && content.Assignment.LockAtDeadline
+             && content.Assignment.SubmissionModes.Contains(SubmissionMode.Repo)
+         orderby link.DueAt, repo.UpdatedAt
+         select new RepoLockContext(repo, submission, student.SchoolId, link.DueAt!.Value))
+        .Take(take)
+        .ToListAsync(ct);
+
     public Task<List<StudentRepo>> GetReposForStudentAsync(Guid studentId, CancellationToken ct) =>
         (from repo in db.StudentRepos
          join submission in db.Submissions on repo.SubmissionId equals submission.Id
          where submission.StudentId == studentId
          select repo).ToListAsync(ct);
+
+    public Task<int> CountReposForSchoolAsync(Guid schoolId, CancellationToken ct) =>
+        (from repo in db.StudentRepos
+         join submission in db.Submissions on repo.SubmissionId equals submission.Id
+         join student in db.Users on submission.StudentId equals student.Id
+         where student.SchoolId == schoolId
+         select repo).CountAsync(ct);
 
     private IQueryable<Submission> WithDetails() =>
         db.Submissions

@@ -35,6 +35,7 @@ describe('toRequests', () => {
       gradeScale: 'PassFailDistinction',
       submissionModes: ['Text', 'Repo'],
       templateRepo: ' org/mall ',
+      repoNamePattern: ' lab2-{githubLogin} ',
       dueAt: '2026-11-01T10:00',
     }), 'Published', target)
 
@@ -42,6 +43,11 @@ describe('toRequests', () => {
       gradeScale: 'PassFailDistinction',
       submissionModes: ['Text', 'Repo'],
       templateRepo: 'org/mall',
+      repoNamePattern: 'lab2-{githubLogin}',
+      workMode: 'Individual',
+      lockAtDeadline: true,
+      feedbackPullRequest: false,
+      allowLate: false,
     })
     expect(link.dueAt).toBe(new Date('2026-11-01T10:00').toISOString())
   })
@@ -73,6 +79,7 @@ describe('toUpdateRequests', () => {
       gradeScale: 'PassFailDistinction',
       submissionModes: ['Text', 'Repo'],
       templateRepo: ' org/mall ',
+      repoNamePattern: 'lab2-{githubLogin}',
       dueAt: '2026-11-01T10:00',
     }))
 
@@ -80,6 +87,7 @@ describe('toUpdateRequests', () => {
       gradeScale: 'PassFailDistinction',
       submissionModes: ['Text', 'Repo'],
       templateRepo: 'org/mall',
+      repoNamePattern: 'lab2-{githubLogin}',
     })
     expect(link.dueAt).toBe(new Date('2026-11-01T10:00').toISOString())
   })
@@ -100,6 +108,17 @@ describe('validate', () => {
     const errors = validate(form({partType: 'Submission', submissionModes: ['Repo']}))
 
     expect(Object.keys(errors)).toEqual(['templateRepo'])
+  })
+
+  it('GitHub-mönstret måste innehålla en unik platshållare', () => {
+    const errors = validate(form({
+      partType: 'Submission',
+      submissionModes: ['Repo'],
+      templateRepo: 'org/mall',
+      repoNamePattern: 'lab2-{assignmentSlug}',
+    }))
+
+    expect(errors.repoNamePattern).toContain('{githubLogin}')
   })
 
   it('ett ifyllt formulär har inga fel', () => {

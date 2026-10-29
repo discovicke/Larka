@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   PhArrowClockwise,
+  PhArrowSquareOut,
   PhCaretRight,
   PhCircleHalf,
   PhGithubLogo,
@@ -27,6 +28,7 @@ import {
   fetchGitHubAuthorizeUrl,
   fetchGitHubConnection,
   fetchGitHubInstallUrl,
+  setGitHubEnabled,
   unlinkGitHub,
   type GitHubConnection,
 } from '@/lib/integrations'
@@ -61,9 +63,12 @@ const githubBadge = computed<{
   if (!github.value.configured) {
     return {label: 'Ej konfigurerad', variant: 'outline'}
   }
-  return github.value.connected
+  if (!github.value.connected) {
+    return {label: 'Inte ansluten', variant: 'destructive'}
+  }
+  return github.value.enabled
     ? {label: 'Ansluten', variant: 'default'}
-    : {label: 'Inte ansluten', variant: 'destructive'}
+    : {label: 'Pausad', variant: 'outline'}
 })
 
 const missingSettings = computed(() => {
@@ -78,6 +83,14 @@ const missingSettings = computed(() => {
 const lastVerified = computed(() => github.value?.lastVerifiedAt
   ? formatDate(github.value.lastVerifiedAt, true)
   : '–')
+
+const manageGitHubUrl = computed(() => github.value?.accountLogin
+  ? `https://github.com/organizations/${encodeURIComponent(github.value.accountLogin)}/settings/installations/${github.value.installationId}`
+  : null)
+
+const memberPrivilegesUrl = computed(() => github.value?.accountLogin
+  ? `https://github.com/organizations/${encodeURIComponent(github.value.accountLogin)}/settings/member_privileges`
+  : null)
 
 async function loadGitHubStatus() {
   if (!isAdmin.value) {
@@ -160,6 +173,18 @@ async function handleDisconnectGitHub() {
   try {
     await disconnectGitHub()
     await loadGitHubStatus()
+  } catch (exception) {
+    githubError.value = errorMessage(exception)
+  } finally {
+    githubLoading.value = false
+  }
+}
+
+async function handleToggleGitHubEnabled(enabled: boolean) {
+  githubLoading.value = true
+  githubError.value = ''
+  try {
+    github.value = await setGitHubEnabled(enabled)
   } catch (exception) {
     githubError.value = errorMessage(exception)
   } finally {
@@ -561,11 +586,39 @@ const options: {
                     {{ github.installationId || '–' }}
                   </dd>
                 </div>
+                <div class="flex flex-col gap-0.5">
+                  <dt class="text-muted-foreground text-xs">Elever med GitHub</dt>
+                  <dd data-test="github-students">
+                    {{ github.linkedStudentCount }} av {{ github.studentCount }}
+                  </dd>
+                </div>
+                <div class="flex flex-col gap-0.5">
+                  <dt class="text-muted-foreground text-xs">Repon</dt>
+                  <dd data-test="github-repos">{{ github.repoCount }}</dd>
+                </div>
                 <div class="flex flex-col gap-0.5 sm:col-span-2">
                   <dt class="text-muted-foreground text-xs">API-adress</dt>
                   <dd class="font-mono break-all" data-test="github-api-url">{{ github.apiBaseUrl }}</dd>
                 </div>
               </dl>
+
+              <label
+                v-if="github.connected"
+                class="mt-4 flex items-center gap-2.5 text-sm"
+                data-test="github-enabled"
+              >
+                <Checkbox
+                  :model-value="github.enabled"
+                  :disabled="githubLoading"
+                  @update:model-value="(value) => handleToggleGitHubEnabled(value === true)"
+                />
+                <span>
+                  Aktivera GitHub för skolan
+                  <span class="text-muted-foreground block text-xs">
+                    Pausa utan att koppla från appen eller påverka befintliga repon.
+                  </span>
+                </span>
+              </label>
 
               <p
                 v-if="missingSettings.length"
@@ -601,6 +654,22 @@ const options: {
                       : 'Anslut GitHub' }}
                 </Button>
                 <Button
+                  v-if="manageGitHubUrl"
+                  variant="outline"
+                  size="sm"
+                  as-child
+                >
+                  <a
+                    :href="manageGitHubUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    data-test="github-manage"
+                  >
+                    <PhArrowSquareOut/>
+                    Hantera på GitHub
+                  </a>
+                </Button>
+                <Button
                   v-if="github.connected"
                   variant="destructive"
                   size="sm"
@@ -628,6 +697,30 @@ const options: {
               <p class="text-muted-foreground mt-3 text-xs">
                 Frånkoppling tar bara bort kopplingen här. GitHub-appen och elevrepon påverkas inte.
               </p>
+              <div
+                v-if="github.connected"
+                class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+                data-test="github-security-warning"
+              >
+                <p class="font-medium">Kontrollera organisationens basbehörighet</p>
+                <p class="mt-1 text-xs">
+                  Om medlemmar har <strong>Read</strong> eller <strong>Write</strong> som basbehörighet ser
+                  alla elever alla privata repon, inklusive mallar och klasskamraters repon. Sätt
+                  <strong>Member privileges → Base permissions</strong> till <strong>No permission</strong>.
+                  Stäng också av medlemmars repo-skapande, radering och ändring av visibility.
+                </p>
+                <a
+                  v-if="memberPrivilegesUrl"
+                  :href="memberPrivilegesUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="mt-2 inline-flex items-center gap-1 text-xs font-medium underline underline-offset-3"
+                  data-test="github-member-privileges"
+                >
+                  Öppna medlemsinställningar
+                  <PhArrowSquareOut class="size-3.5"/>
+                </a>
+              </div>
             </template>
 
             <Button

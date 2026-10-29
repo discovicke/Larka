@@ -786,6 +786,133 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/integrations/github/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GitHubTemplateRepoDto"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/github/templates/{owner}/{repo}/latest-commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    owner: string;
+                    repo: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GitHubTemplateCommitDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/integrations/github/install": {
         parameters: {
             query?: never;
@@ -941,6 +1068,72 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/github/enabled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["GitHubEnabledRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GitHubConnectionDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2724,6 +2917,72 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/content/github/repo-name-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RepoNamePreviewRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RepoNamePreviewDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/content/{id}": {
         parameters: {
             query?: never;
@@ -3918,6 +4177,11 @@ export interface components {
             gradeScale: components["schemas"]["GradeScale"];
             submissionModes: components["schemas"]["SubmissionMode"][];
             templateRepo: null | string;
+            repoNamePattern: null | string;
+            workMode: components["schemas"]["RepoWorkMode"];
+            lockAtDeadline: boolean;
+            feedbackPullRequest: boolean;
+            allowLate: boolean;
         };
         /** @description Url är en tidsbegränsad länk som skapas när bilagan läses, inte något som sparas. */
         AttachmentDto: {
@@ -4085,6 +4349,11 @@ export interface components {
             gradeScale?: null | components["schemas"]["GradeScale"];
             submissionModes?: null | components["schemas"]["SubmissionMode"][];
             templateRepo?: null | string;
+            repoNamePattern?: null | string;
+            workMode?: null | components["schemas"]["RepoWorkMode"];
+            lockAtDeadline?: null | boolean;
+            feedbackPullRequest?: null | boolean;
+            allowLate?: null | boolean;
         };
         CreateContentLinkDto: {
             /** Format: uuid */
@@ -4166,6 +4435,13 @@ export interface components {
             error: null | string;
             missingSettings: string[];
             usingLegacyInstallation: boolean;
+            enabled: boolean;
+            /** Format: int32 */
+            studentCount: number;
+            /** Format: int32 */
+            linkedStudentCount: number;
+            /** Format: int32 */
+            repoCount: number;
         };
         /**
          * @description installationId sätts efter GitHubs setup-redirect. Utan id verifierar servern om skolans sparade
@@ -4176,6 +4452,9 @@ export interface components {
             installationId: null | number;
             state: null | string;
         };
+        GitHubEnabledRequest: {
+            enabled: boolean;
+        };
         /** @description Installationslänk och den signerade state som klienten skickar tillbaka efter setup. */
         GitHubInstallLinkDto: {
             url: string;
@@ -4183,6 +4462,20 @@ export interface components {
         };
         GitHubLinkDto: {
             login: null | string;
+        };
+        GitHubTemplateCommitDto: {
+            sha: string;
+            message: string;
+            /** Format: date-time */
+            authoredAt: null | string;
+        };
+        /** @description Ett mallrepo som läraren kan välja. Innehåller inga tokens eller hemligheter. */
+        GitHubTemplateRepoDto: {
+            fullName: string;
+            htmlUrl: string;
+            defaultBranch: string;
+            isPrivate: boolean;
+            isArchived: boolean;
         };
         GradeDto: {
             /** Format: uuid */
@@ -4258,6 +4551,8 @@ export interface components {
             courses: components["schemas"]["CourseRoleDto"][];
             groups: components["schemas"]["GroupRefDto"][];
             gitHubLogin?: null | string;
+            /** @default false */
+            gitHubEnabled: boolean;
         };
         MemberDto: {
             /** Format: uuid */
@@ -4378,6 +4673,24 @@ export interface components {
         ReorderModulesDto: {
             moduleIds: string[];
         };
+        RepoNamePreviewDto: {
+            name: string;
+            pattern: string;
+        };
+        /** @description Förhandsvisning av reponamn. Värdena är exempel som läraren ser i formuläret. */
+        RepoNamePreviewRequest: {
+            pattern: null | string;
+            assignmentTitle: string;
+            gitHubLogin?: null | string;
+            studentName?: null | string;
+            studentEmail?: null | string;
+            /** Format: uuid */
+            studentId?: null | string;
+        };
+        /** @enum {unknown} */
+        RepoProvisioningState: "Pending" | "Creating" | "Ready" | "Failed";
+        /** @enum {unknown} */
+        RepoWorkMode: "Individual" | "Group";
         RoadmapLinkDto: {
             /** Format: uuid */
             linkId: string;
@@ -4459,6 +4772,12 @@ export interface components {
             checkStatus: components["schemas"]["CheckStatus"];
             /** Format: date-time */
             updatedAt: string;
+            provisioningState: components["schemas"]["RepoProvisioningState"];
+            provisioningError: null | string;
+            submissionSha: null | string;
+            /** Format: date-time */
+            lockedAt: null | string;
+            lockError: null | string;
         };
         /** @description En uppgift eleven kan lämna in i kursen, med elevens egen inlämning och betyg. */
         StudyPlanAssignmentDto: {
@@ -4692,6 +5011,11 @@ export interface components {
             gradeScale?: null | components["schemas"]["GradeScale"];
             submissionModes?: null | components["schemas"]["SubmissionMode"][];
             templateRepo?: null | string;
+            repoNamePattern?: null | string;
+            workMode?: null | components["schemas"]["RepoWorkMode"];
+            lockAtDeadline?: null | boolean;
+            feedbackPullRequest?: null | boolean;
+            allowLate?: null | boolean;
         };
         UpdateContentLinkDto: {
             /** Format: date-time */
@@ -4771,6 +5095,8 @@ export const gradeScaleValues: ReadonlyArray<FlattenedDeepRequired<components>["
 export const groupRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GroupRole"]> = ["Student", "Teacher", "Mentor"];
 export const groupTypeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GroupType"]> = ["Class", "Committee", "Other"];
 export const notificationKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationKind"]> = ["NewsPublished", "AssignmentPublished", "DeadlineSoon", "SubmissionNeedsWork", "SubmissionGraded"];
+export const repoProvisioningStateValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RepoProvisioningState"]> = ["Pending", "Creating", "Ready", "Failed"];
+export const repoWorkModeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RepoWorkMode"]> = ["Individual", "Group"];
 export const studyPlanCourseStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["StudyPlanCourseStatus"]> = ["Upcoming", "Ongoing", "Completed"];
 export const submissionModeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["SubmissionMode"]> = ["Text", "File", "Repo", "OnSite"];
 export const submissionStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["SubmissionStatus"]> = ["NotStarted", "Submitted", "NeedsWork", "Graded"];

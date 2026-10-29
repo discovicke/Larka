@@ -154,15 +154,27 @@ public sealed class GitHubAppService(
     }
 
     public async Task<GitHubCommit?> GetLatestCommitAsync(
-        long installationId, string owner, string name, CancellationToken ct)
+        long installationId,
+        string owner,
+        string name,
+        CancellationToken ct,
+        DateTimeOffset? until = null)
     {
         EnsurePathPart(owner, nameof(owner));
         EnsurePathPart(name, nameof(name));
 
+        var path = $"repos/{owner}/{name}/commits?per_page=1";
+        if (until is not null)
+        {
+            var value = Uri.EscapeDataString(
+                until.Value.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
+            path += $"&until={value}";
+        }
+
         var token = await GetInstallationTokenAsync(installationId, ct);
         using var response = await SendAsync(
             HttpMethod.Get,
-            $"repos/{owner}/{name}/commits?per_page=1",
+            path,
             token.Token,
             null,
             ct);
@@ -244,6 +256,22 @@ public sealed class GitHubAppService(
             $"repos/{owner}/{name}/collaborators/{Uri.EscapeDataString(username)}",
             token.Token,
             new CollaboratorRequest("push"),
+            ct);
+    }
+
+    public async Task RemoveCollaboratorAsync(
+        long installationId, string owner, string name, string username, CancellationToken ct)
+    {
+        EnsurePathPart(owner, nameof(owner));
+        EnsurePathPart(name, nameof(name));
+        EnsurePathPart(username, nameof(username));
+
+        var token = await GetInstallationTokenAsync(installationId, ct);
+        using var response = await SendAsync(
+            HttpMethod.Delete,
+            $"repos/{owner}/{name}/collaborators/{Uri.EscapeDataString(username)}",
+            token.Token,
+            null,
             ct);
     }
 

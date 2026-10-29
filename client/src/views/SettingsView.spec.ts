@@ -22,6 +22,10 @@ const connectedGitHub: GitHubConnection = {
   error: null,
   missingSettings: [],
   usingLegacyInstallation: false,
+  enabled: true,
+  studentCount: 0,
+  linkedStudentCount: 0,
+  repoCount: 0,
 }
 
 function settingsBackend(
@@ -61,6 +65,12 @@ function settingsBackend(
           org: 'skol-org',
           accountLogin: 'skol-org',
         },
+      }
+    }
+    if (method === 'PUT' && path === '/api/integrations/github/enabled') {
+      return {
+        status: 200,
+        body: {...github, enabled: (body as {enabled: boolean}).enabled},
       }
     }
     if (method === 'DELETE' && path === '/api/integrations/github') {
@@ -141,6 +151,19 @@ describe('SettingsView', () => {
     expect(wrapper.find('[data-test="github-disconnect"]').exists()).toBe(true)
   })
 
+  it('visar säkerhetsvarning för organisationens basbehörighet', async () => {
+    settingsBackend('Admin')
+
+    const {wrapper} = await mountSettings()
+    await flushPromises()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="github-security-warning"]').text()).toContain('No permission')
+    expect(wrapper.find('[data-test="github-member-privileges"]').attributes('href')).toContain(
+      '/organizations/EduEdugrade-Sandbox/settings/member_privileges',
+    )
+  })
+
   it('ansluter GitHub för admin när den är konfigurerad men inte ansluten', async () => {
     settingsBackend('Admin', {
       ...connectedGitHub,
@@ -173,6 +196,43 @@ describe('SettingsView', () => {
 
     await disconnectButton.trigger('click')
     await flushPromises()
+  })
+
+  it('visar GitHub-sammanställning och hanteringslänk', async () => {
+    settingsBackend('Admin', {
+      ...connectedGitHub,
+      studentCount: 28,
+      linkedStudentCount: 25,
+      repoCount: 142,
+    })
+
+    const {wrapper} = await mountSettings()
+    await flushPromises()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="github-students"]').text()).toBe('25 av 28')
+    expect(wrapper.find('[data-test="github-repos"]').text()).toBe('142')
+    expect(wrapper.find('[data-test="github-manage"]').attributes('href')).toContain(
+      '/organizations/EduEdugrade-Sandbox/settings/installations/176124626',
+    )
+  })
+
+  it('pausar GitHub utan att koppla från', async () => {
+    settingsBackend('Admin')
+
+    const {wrapper} = await mountSettings()
+    await flushPromises()
+    await flushPromises()
+
+    const toggle = wrapper.find('[data-test="github-enabled"] button')
+    expect(toggle.exists()).toBe(true)
+    await toggle.trigger('click')
+    await flushPromises()
+
+    const request = requests.find((candidate) =>
+      candidate.method === 'PUT' && candidate.path === '/api/integrations/github/enabled')
+    expect(request?.body).toEqual({enabled: false})
+    expect(wrapper.find('[data-test="github-status"]').text()).toBe('Pausad')
   })
 
   it('visar saknad konfiguration för admin', async () => {

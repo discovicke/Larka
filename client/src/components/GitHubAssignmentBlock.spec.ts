@@ -43,6 +43,22 @@ describe('GitHubAssignmentBlock', () => {
     expect(wrapper.find('[data-test="student-repo-link"]').exists()).toBe(false)
   })
 
+  it('visar tydligt fel när repot inte kunde skapas', () => {
+    const wrapper = mount(GitHubAssignmentBlock, {
+      props: {
+        hasRepoMode: true,
+        gitHubLogin: 'elev-kalle',
+        repoUrl: null,
+        repoProvisioningState: 'Failed',
+        repoProvisioningError: 'Mallrepot är inte markerat som template.',
+      },
+    })
+
+    expect(wrapper.find('[data-test="github-provisioning-failed"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Mallrepot är inte markerat som template.')
+    expect(wrapper.find('[data-test="student-repo-provisioning-failed"]').exists()).toBe(true)
+  })
+
   it('visar repolänk, senaste commit och status när repot är klart', () => {
     const wrapper = mount(GitHubAssignmentBlock, {
       props: {

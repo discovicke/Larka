@@ -180,7 +180,12 @@ public class CourseCopyService(
                 GradeScale = original.Assignment.GradeScale,
                 SubmissionModes = [.. original.Assignment.SubmissionModes],
                 CompletionRule = original.Assignment.CompletionRule,
-                TemplateRepo = original.Assignment.TemplateRepo
+                TemplateRepo = original.Assignment.TemplateRepo,
+                RepoNamePattern = original.Assignment.RepoNamePattern,
+                WorkMode = original.Assignment.WorkMode,
+                LockAtDeadline = original.Assignment.LockAtDeadline,
+                FeedbackPullRequest = original.Assignment.FeedbackPullRequest,
+                AllowLate = original.Assignment.AllowLate
             };
         }
 

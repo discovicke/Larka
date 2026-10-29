@@ -82,6 +82,19 @@ public class GitHubLinkingService(
             return ServiceResult<bool>.NotFound("user not found");
         }
 
+        try
+        {
+            await provisioner.RevokeAccessAsync(user, ct);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // En GitHub-tillfällighet ska inte hindra eleven från att koppla från lokalt.
+            logger.LogWarning(
+                exception,
+                "Could not revoke GitHub access for {GitHubLogin}",
+                user.GitHubLogin);
+        }
+
         user.GitHubLogin = null;
         await unitOfWork.SaveChangesAsync(ct);
         return ServiceResult<bool>.Ok(true);

@@ -27,14 +27,28 @@ namespace Backend.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("ContentId")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("AllowLate")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("CompletionRule")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("text")
                         .HasDefaultValue("Submitted");
 
+                    b.Property<bool>("FeedbackPullRequest")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("GradeScale")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("LockAtDeadline")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("RepoNamePattern")
                         .HasColumnType("text");
 
                     b.PrimitiveCollection<string[]>("SubmissionModes")
@@ -43,6 +57,9 @@ namespace Backend.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("TemplateRepo")
                         .HasColumnType("text");
+
+                    b.Property<int>("WorkMode")
+                        .HasColumnType("integer");
 
                     b.HasKey("ContentId");
 
@@ -493,6 +510,11 @@ namespace Backend.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("DisconnectedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<bool>("Enabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
                     b.Property<long>("InstallationId")
                         .HasColumnType("bigint");
 
@@ -519,15 +541,48 @@ namespace Backend.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("SubmissionId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("AssignmentTitle")
+                        .HasColumnType("text");
+
                     b.Property<string>("CheckStatus")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("DesiredRepoName")
                         .HasColumnType("text");
 
                     b.Property<string>("LastSha")
                         .HasColumnType("text");
 
+                    b.Property<string>("LockError")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("LockedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("NextProvisioningAttemptAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ProvisioningAttempts")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ProvisioningError")
+                        .HasColumnType("text");
+
+                    b.Property<int>("ProvisioningState")
+                        .HasColumnType("integer");
+
                     b.Property<string>("RepoFullName")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("RepoNamePattern")
+                        .HasColumnType("text");
+
+                    b.Property<string>("SubmissionSha")
+                        .HasColumnType("text");
+
+                    b.Property<string>("TemplateRepo")
                         .HasColumnType("text");
 
                     b.Property<DateTimeOffset>("UpdatedAt")

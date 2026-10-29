@@ -21,6 +21,8 @@ const props = withDefaults(
     repoUrl?: string | null
     latestCommit?: string | null
     checkStatus?: 'Pending' | 'Green' | 'Red' | null
+    repoProvisioningState?: 'Pending' | 'Creating' | 'Ready' | 'Failed' | null
+    repoProvisioningError?: string | null
     authorizeUrl?: string | null
     redirectTo?: string | null
   }>(),
@@ -30,6 +32,8 @@ const props = withDefaults(
     repoUrl: null,
     latestCommit: null,
     checkStatus: null,
+    repoProvisioningState: null,
+    repoProvisioningError: null,
     authorizeUrl: null,
     redirectTo: null,
   },
@@ -101,6 +105,22 @@ async function handleConnect() {
         <component :is="statusBadge.icon" class="size-3.5"/>
         {{ statusBadge.label }}
       </Badge>
+      <Badge
+        v-else-if="repoProvisioningState === 'Failed'"
+        variant="destructive"
+        data-test="student-repo-provisioning-failed"
+      >
+        Repot kunde inte skapas
+      </Badge>
+      <Badge
+        v-else-if="gitHubLogin"
+        variant="outline"
+        class="gap-1.5"
+        data-test="student-repo-provisioning"
+      >
+        <PhClock class="size-3.5"/>
+        Repot skapas
+      </Badge>
     </header>
 
     <!-- Fall 1: Eleven har inte kopplat GitHub -->
@@ -122,7 +142,19 @@ async function handleConnect() {
       </Button>
     </div>
 
-    <!-- Fall 2: Eleven är kopplad men repot skapas fortfarande -->
+    <!-- Fall 2a: Repot kunde inte skapas -->
+    <div
+      v-else-if="!repoUrl && repoProvisioningState === 'Failed'"
+      class="flex flex-col gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm"
+      data-test="github-provisioning-failed"
+    >
+      <p class="font-medium">Ditt uppgiftsrepo kunde inte skapas.</p>
+      <p class="text-muted-foreground text-xs">
+        {{ repoProvisioningError || 'Kontakta din lärare så att GitHub-inställningarna kan kontrolleras.' }}
+      </p>
+    </div>
+
+    <!-- Fall 2b: Eleven är kopplad men repot skapas fortfarande -->
     <div
       v-else-if="!repoUrl"
       class="flex flex-col gap-1 rounded-lg border border-dashed p-4 text-sm"

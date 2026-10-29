@@ -10,6 +10,7 @@ public class IntegrationService(
     IGitHubConnectionService github,
     IGitHubInstallStateProtector stateProtector,
     IUserRepository users,
+    ISubmissionRepository submissions,
     ICurrentUser currentUser)
 {
     public async Task<ServiceResult<GitHubConnectionDto>> GetGitHubStatusAsync(CancellationToken ct)
@@ -26,7 +27,7 @@ public class IntegrationService(
         }
 
         var status = await github.GetStatusAsync(user.SchoolId, ct);
-        return ServiceResult<GitHubConnectionDto>.Ok(ToDto(status));
+        return ServiceResult<GitHubConnectionDto>.Ok(await ToDtoAsync(status, user.SchoolId, ct));
     }
 
     /// <summary>
@@ -85,7 +86,8 @@ public class IntegrationService(
         {
             var reconnected = await github.ReconnectAsync(user.SchoolId, ct);
             return reconnected.Connected
-                ? ServiceResult<GitHubConnectionDto>.Ok(ToDto(reconnected))
+                ? ServiceResult<GitHubConnectionDto>.Ok(
+                    await ToDtoAsync(reconnected, user.SchoolId, ct))
                 : ServiceResult<GitHubConnectionDto>.Invalid(
                     reconnected.Error ?? "Kunde inte återansluta GitHub.");
         }
@@ -100,9 +102,32 @@ public class IntegrationService(
 
         var status = await github.ConnectAsync(user.SchoolId, request.InstallationId.Value, ct);
         return status.Connected
-            ? ServiceResult<GitHubConnectionDto>.Ok(ToDto(status))
+            ? ServiceResult<GitHubConnectionDto>.Ok(
+                await ToDtoAsync(status, user.SchoolId, ct))
             : ServiceResult<GitHubConnectionDto>.Invalid(
                 status.Error ?? "Kunde inte ansluta GitHub-installationen.");
+    }
+
+    public async Task<ServiceResult<GitHubConnectionDto>> SetEnabledAsync(
+        bool enabled, CancellationToken ct)
+    {
+        if (!await permissions.IsAdminAsync(ct))
+        {
+            return ServiceResult<GitHubConnectionDto>.Forbidden();
+        }
+
+        var user = await users.GetAsync(currentUser.UserId, ct);
+        if (user is null)
+        {
+            return ServiceResult<GitHubConnectionDto>.NotFound("Användaren hittades inte.");
+        }
+
+        var status = await github.SetEnabledAsync(user.SchoolId, enabled, ct);
+        return status.Connected
+            ? ServiceResult<GitHubConnectionDto>.Ok(
+                await ToDtoAsync(status, user.SchoolId, ct))
+            : ServiceResult<GitHubConnectionDto>.Invalid(
+                status.Error ?? "GitHub är inte anslutet.");
     }
 
     public async Task<ServiceResult<bool>> DisconnectAsync(CancellationToken ct)
@@ -122,8 +147,13 @@ public class IntegrationService(
         return ServiceResult<bool>.Ok(true);
     }
 
-    private static GitHubConnectionDto ToDto(GitHubConnectionStatus status) =>
-        new(
+    private async Task<GitHubConnectionDto> ToDtoAsync(
+        GitHubConnectionStatus status, Guid schoolId, CancellationToken ct)
+    {
+        var (studentCount, linkedStudentCount) =
+            await users.GetGitHubStudentCountsAsync(schoolId, ct);
+        var repoCount = await submissions.CountReposForSchoolAsync(schoolId, ct);
+        return new(
             status.Configured,
             status.AppId,
             status.InstallationId,
@@ -134,5 +164,10 @@ public class IntegrationService(
             status.LastVerifiedAt,
             status.Error,
             status.MissingSettings.ToList(),
-            status.UsingLegacyInstallation);
+            status.UsingLegacyInstallation,
+            status.Enabled,
+            studentCount,
+            linkedStudentCount,
+            repoCount);
+    }
 }

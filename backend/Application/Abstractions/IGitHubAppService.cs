@@ -64,7 +64,11 @@ public interface IGitHubAppService
         long installationId, string owner, string name, CancellationToken ct);
 
     Task<GitHubCommit?> GetLatestCommitAsync(
-        long installationId, string owner, string name, CancellationToken ct);
+        long installationId,
+        string owner,
+        string name,
+        CancellationToken ct,
+        DateTimeOffset? until = null);
 
     /// <summary>Sammanfattar check-runs för en commit: Pending, Green eller Red.</summary>
     Task<CheckStatus> GetCheckStatusAsync(
@@ -81,6 +85,9 @@ public interface IGitHubAppService
         CancellationToken ct);
 
     Task AddCollaboratorAsync(
+        long installationId, string owner, string name, string username, CancellationToken ct);
+
+    Task RemoveCollaboratorAsync(
         long installationId, string owner, string name, string username, CancellationToken ct);
 
     Task ArchiveRepositoryAsync(long installationId, string owner, string name, CancellationToken ct);

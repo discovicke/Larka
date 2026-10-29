@@ -24,9 +24,23 @@ public class IntegrationEndpointTests(TestWebApplicationFactory factory)
         string? AccountLogin,
         DateTimeOffset? LastVerifiedAt,
         string? Error,
-        List<string> MissingSettings);
+        List<string> MissingSettings,
+        bool UsingLegacyInstallation = false,
+        bool Enabled = false,
+        int StudentCount = 0,
+        int LinkedStudentCount = 0,
+        int RepoCount = 0);
 
     private record InstallLinkResponse(string Url, string State);
+
+    private record TemplateRepoResponse(
+        string FullName,
+        string HtmlUrl,
+        string DefaultBranch,
+        bool IsPrivate,
+        bool IsArchived);
+
+    private record TemplateCommitResponse(string Sha, string Message, DateTimeOffset? AuthoredAt);
 
     [Fact]
     public async Task GetGitHubStatus_AsAdmin_ReturnsSanitizedUnconnectedStatus()
@@ -104,6 +118,76 @@ public class IntegrationEndpointTests(TestWebApplicationFactory factory)
         Assert.NotNull(statusAfterDisconnect);
         Assert.False(statusAfterDisconnect.Connected);
         Assert.Equal(5678, statusAfterDisconnect.InstallationId);
+    }
+
+    [Fact]
+    public async Task Templates_ReturnOnlySanitizedTemplateMetadata()
+    {
+        await ResetAsync();
+        var link = await GetInstallLinkAsync();
+        await _client.PostAsJsonAsync("/api/integrations/github/connect", new
+        {
+            installationId = 5678,
+            state = link.State
+        });
+
+        var github = Assert.IsType<TestGitHubAppService>(
+            factory.Services.GetRequiredService<IGitHubAppService>());
+        github.TemplateRepositories =
+        [
+            new GitHubRepository(
+                "skol-org/template",
+                "https://github.com/skol-org/template",
+                "main",
+                true,
+                true,
+                false)
+        ];
+        github.LatestTemplateCommit = new GitHubCommit(
+            "abc123", "Template update", DateTimeOffset.Parse("2026-10-28T09:30:00Z"));
+
+        var templates = await _client.GetFromJsonAsync<List<TemplateRepoResponse>>(
+            "/api/integrations/github/templates");
+        var template = Assert.Single(templates!);
+        Assert.Equal("skol-org/template", template.FullName);
+        Assert.True(template.IsPrivate);
+
+        var commit = await _client.GetFromJsonAsync<TemplateCommitResponse>(
+            "/api/integrations/github/templates/skol-org/template/latest-commit");
+        Assert.Equal("abc123", commit!.Sha);
+        Assert.Equal("Template update", commit.Message);
+    }
+
+    [Fact]
+    public async Task SetEnabled_RequiresConnectionAndTogglesWithoutDisconnecting()
+    {
+        await ResetAsync();
+
+        var beforeConnect = await _client.PutAsJsonAsync(
+            "/api/integrations/github/enabled", new { enabled = true });
+        Assert.Equal(HttpStatusCode.BadRequest, beforeConnect.StatusCode);
+
+        var link = await GetInstallLinkAsync();
+        var connectResponse = await _client.PostAsJsonAsync("/api/integrations/github/connect", new
+        {
+            installationId = 5678,
+            state = link.State
+        });
+        connectResponse.EnsureSuccessStatusCode();
+
+        var disabled = await _client.PutAsJsonAsync(
+            "/api/integrations/github/enabled", new { enabled = false });
+        disabled.EnsureSuccessStatusCode();
+        var disabledStatus = await disabled.Content.ReadFromJsonAsync<GitHubStatusResponse>();
+        Assert.True(disabledStatus!.Connected);
+        Assert.False(disabledStatus.Enabled);
+
+        var enabled = await _client.PutAsJsonAsync(
+            "/api/integrations/github/enabled", new { enabled = true });
+        enabled.EnsureSuccessStatusCode();
+        var enabledStatus = await enabled.Content.ReadFromJsonAsync<GitHubStatusResponse>();
+        Assert.True(enabledStatus!.Connected);
+        Assert.True(enabledStatus.Enabled);
     }
 
     [Fact]

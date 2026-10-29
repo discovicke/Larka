@@ -15,7 +15,8 @@ public record GitHubConnectionStatus(
     DateTimeOffset? LastVerifiedAt,
     string? Error,
     IReadOnlyList<string> MissingSettings,
-    bool UsingLegacyInstallation);
+    bool UsingLegacyInstallation,
+    bool Enabled);
 
 /// <summary>
 /// Skolans GitHub-anslutning. App-credentials är gemensamma för hela plattformen, medan installation
@@ -38,6 +39,10 @@ public interface IGitHubConnectionService
 
     /// <summary>Verifierar om skolans sparade installation fortfarande fungerar.</summary>
     Task<GitHubConnectionStatus> ReconnectAsync(Guid schoolId, CancellationToken ct);
+
+    /// <summary>Pausar/aktiverar GitHub utan att koppla från installationen.</summary>
+    Task<GitHubConnectionStatus> SetEnabledAsync(
+        Guid schoolId, bool enabled, CancellationToken ct);
 
     /// <summary>Kopplar från lokalt. Appen är kvar på GitHub och befintliga repon påverkas inte.</summary>
     Task DisconnectAsync(Guid schoolId, CancellationToken ct);

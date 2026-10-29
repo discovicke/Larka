@@ -4,7 +4,13 @@ import type {Me, MeRole} from '@/lib/me'
  * En inloggad användare i testerna. Lärarrollen gäller kurserna man anger, så att mockarna kan
  * svara som en lärare i sina egna kurser och som elev i andras.
  */
-export function meAs(role: MeRole, courses: string[] = [], name = 'Anna Lärare', gitHubLogin: string | null = null): Me {
+export function meAs(
+  role: MeRole,
+  courses: string[] = [],
+  name = 'Anna Lärare',
+  gitHubLogin: string | null = null,
+  gitHubEnabled = false,
+): Me {
   return {
     id: 'u-me',
     name,
@@ -19,5 +25,6 @@ export function meAs(role: MeRole, courses: string[] = [], name = 'Anna Lärare'
     })),
     groups: [],
     gitHubLogin,
+    gitHubEnabled,
   }
 }

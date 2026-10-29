@@ -23,6 +23,16 @@ public class UserRepository(AppDb db) : IUserRepository
         return rows.ToDictionary(row => row.Id, row => row.MutedNotificationKinds);
     }
 
+    public async Task<(int TotalStudents, int LinkedStudents)> GetGitHubStudentCountsAsync(
+        Guid schoolId, CancellationToken ct)
+    {
+        var students = db.Users.Where(user =>
+            user.SchoolId == schoolId && user.Role == UserRole.Student);
+        return (
+            await students.CountAsync(ct),
+            await students.CountAsync(user => user.GitHubLogin != null, ct));
+    }
+
     public void Add(User user) => db.Users.Add(user);
 
     public Task<User?> GetByEmailAsync(string email, CancellationToken ct)

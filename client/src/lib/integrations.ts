@@ -32,6 +32,36 @@ export async function disconnectGitHub(): Promise<void> {
   await api.DELETE('/api/integrations/github')
 }
 
+export async function setGitHubEnabled(enabled: boolean): Promise<GitHubConnection> {
+  const {data} = await api.PUT('/api/integrations/github/enabled', {body: {enabled}})
+  return data!
+}
+
+export type GitHubTemplateRepo = Schema<'GitHubTemplateRepoDto'>
+export type GitHubTemplateCommit = Schema<'GitHubTemplateCommitDto'>
+
+export async function fetchGitHubTemplates(): Promise<GitHubTemplateRepo[]> {
+  const {data} = await api.GET('/api/integrations/github/templates')
+  return data ?? []
+}
+
+export async function fetchGitHubTemplateCommit(fullName: string): Promise<GitHubTemplateCommit> {
+  const [owner, repo] = fullName.split('/', 2)
+  const {data} = await api.GET('/api/integrations/github/templates/{owner}/{repo}/latest-commit', {
+    params: {path: {owner, repo}},
+  })
+  return data!
+}
+
+export type UnlinkedGitHubStudent = Schema<'UnlinkedGitHubStudentDto'>
+
+export async function fetchUnlinkedGitHubStudents(courseId: string): Promise<UnlinkedGitHubStudent[]> {
+  const {data} = await api.GET('/api/courses/{id}/students/unlinked-github', {
+    params: {path: {id: courseId}},
+  })
+  return data ?? []
+}
+
 export type GitHubLink = Schema<'GitHubLinkDto'>
 
 export async function fetchGitHubLink(): Promise<GitHubLink> {

@@ -1,5 +1,6 @@
 using System.Text;
 using Backend.Application.Abstractions;
+using Backend.Application.Services;
 using Backend.Domain.Entities;
 using Backend.Infrastructure.Auth;
 using Backend.Infrastructure.GitHub;
@@ -128,6 +129,12 @@ public static class DependencyInjection
         services.AddSingleton<IGitHubInstallStateProtector, GitHubInstallStateProtector>();
         services.AddScoped<IGitHubConnectionService, GitHubConnectionService>();
         services.AddScoped<IGitHubOAuthService, GitHubOAuthService>();
+        services.AddOptions<GitHubProvisioningOptions>()
+            .Bind(config.GetSection(GitHubProvisioningOptions.SectionName));
+        services.AddOptions<GitHubDeadlineLockOptions>()
+            .Bind(config.GetSection(GitHubDeadlineLockOptions.SectionName));
+        services.AddHostedService<GitHubProvisioningJob>();
+        services.AddHostedService<GitHubDeadlineLockJob>();
 
         // Utan app-credentials ska lokal utveckling och tester fortsätta med fake-repon.
         var githubOptions = config.GetSection(GitHubOptions.SectionName).Get<GitHubOptions>();

@@ -21,7 +21,14 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
 
     private record FileResponse(string FileName);
 
-    private record RepoResponse(string RepoFullName, string CheckStatus);
+    private record RepoResponse(
+        string RepoFullName,
+        string CheckStatus,
+        string ProvisioningState,
+        string? ProvisioningError,
+        string? SubmissionSha,
+        DateTimeOffset? LockedAt,
+        string? LockError);
 
     private record GradeResponse(string? Level, string Feedback);
 
@@ -67,7 +74,7 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     }
 
     [Fact]
-    public async Task LinkingRepoAssignment_ToCourse_GivesEveryStudentInReadingGroupsARepo()
+    public async Task LinkingRepoAssignment_ToCourse_GivesEveryStudentAPendingRepo()
     {
         var courseId = await AddCourseReadByTwoGroupsAsync();
         var assignment = await CreateAssignmentAsync(
@@ -77,8 +84,61 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
 
         var submissions = await ListAsync(linkId);
         Assert.Equal(2, submissions.Count);
-        Assert.All(submissions, submission => Assert.Equal("Pending", submission.Repo!.CheckStatus));
+        Assert.All(submissions, submission => Assert.Equal("Pending", submission.Repo!.ProvisioningState));
+        Assert.All(submissions, submission => Assert.Equal("", submission.Repo!.RepoFullName));
+    }
+
+    [Fact]
+    public async Task PendingRepo_IsProvisionedByBackgroundService()
+    {
+        var courseId = await AddCourseReadByTwoGroupsAsync();
+        var assignment = await CreateAssignmentAsync(
+            new { submissionModes = new[] { "repo" }, templateRepo = "skol-org/labb-1-mall" });
+        var linkId = await LinkAsync(assignment, new { courseId });
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var service = scope.ServiceProvider.GetRequiredService<GitHubRepoProvisioningService>();
+            Assert.True(await service.ProcessPendingAsync(CancellationToken.None) >= 2);
+        }
+
+        var submissions = await ListAsync(linkId);
+        Assert.All(submissions, submission => Assert.Equal("Ready", submission.Repo!.ProvisioningState));
         Assert.All(submissions, submission => Assert.StartsWith("skol-org/labb-", submission.Repo!.RepoFullName));
+    }
+
+    [Fact]
+    public async Task ReadyRepo_IsLockedAtDeadlineAndSavedAsSubmission()
+    {
+        var courseId = await AddCourseReadByTwoGroupsAsync();
+        var assignment = await CreateAssignmentAsync(
+            new
+            {
+                submissionModes = new[] { "repo" },
+                templateRepo = "skol-org/labb-1-mall",
+                lockAtDeadline = true
+            });
+        var linkId = await LinkAsync(assignment, new
+        {
+            courseId,
+            dueAt = DateTimeOffset.UtcNow.AddMinutes(-1)
+        });
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            await scope.ServiceProvider
+                .GetRequiredService<GitHubRepoProvisioningService>()
+                .ProcessPendingAsync(CancellationToken.None);
+            var locked = await scope.ServiceProvider
+                .GetRequiredService<GitHubDeadlineLockService>()
+                .ProcessDueAsync(CancellationToken.None);
+            Assert.True(locked >= 2);
+        }
+
+        var submissions = await ListAsync(linkId);
+        Assert.All(submissions, submission => Assert.Equal("Submitted", submission.Status));
+        Assert.All(submissions, submission => Assert.NotNull(submission.Repo!.LockedAt));
+        Assert.All(submissions, submission => Assert.Equal("fake-submission-sha", submission.Repo!.SubmissionSha));
     }
 
     [Fact]

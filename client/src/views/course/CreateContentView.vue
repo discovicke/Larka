@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import DateTimePicker from '@/components/DateTimePicker.vue'
 import {PhChalkboardTeacher, PhFiles, PhGithubLogo, PhTextAa} from '@phosphor-icons/vue'
-import {type Component, computed, onMounted, reactive, ref} from 'vue'
+import {type Component, computed, onMounted, reactive, ref, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 
 import AttachmentList from '@/components/course/AttachmentList.vue'
@@ -28,6 +28,7 @@ import {useCurrentUser} from '@/composables/useCurrentUser'
 import {ApiError, api, errorMessage, type Schema} from '@/lib/api'
 import {partTypeOf, partTypes} from '@/lib/content'
 import {
+  defaultRepoNamePattern,
   emptyForm,
   isAssignment,
   isGraded,
@@ -38,6 +39,14 @@ import {
   validate,
 } from '@/lib/createContent'
 import {toDateTimeLocal} from '@/lib/form'
+import {
+  fetchGitHubTemplateCommit,
+  fetchGitHubTemplates,
+  fetchUnlinkedGitHubStudents,
+  type GitHubTemplateCommit,
+  type GitHubTemplateRepo,
+  type UnlinkedGitHubStudent,
+} from '@/lib/integrations'
 import NotFoundView from '@/views/NotFoundView.vue'
 
 const submissionModes: {value: Schema<'SubmissionMode'>, label: string, description: string, icon: Component}[] = [
@@ -59,8 +68,24 @@ const route = useRoute()
 const router = useRouter()
 const courseId = String(route.params.courseId)
 const moduleId = String(route.params.moduleId)
-const {can} = useCurrentUser()
+const {can, me} = useCurrentUser()
 const canManageAttachments = computed(() => can('manageAttachments', courseId))
+const githubEnabled = computed(() => me.value?.gitHubEnabled === true)
+const availableSubmissionModes = computed(() => submissionModes.filter((mode) =>
+  mode.value !== 'Repo' || githubEnabled.value))
+const templates = ref<GitHubTemplateRepo[]>([])
+const templatesLoading = ref(false)
+const templatesError = ref('')
+const templateCommit = ref<GitHubTemplateCommit | null>(null)
+const templateCommitLoading = ref(false)
+const templateCommitError = ref('')
+const repoNamePreview = ref<{name: string, pattern: string} | null>(null)
+const repoNamePreviewLoading = ref(false)
+const repoNamePreviewError = ref('')
+const unlinkedStudents = ref<UnlinkedGitHubStudent[]>([])
+const unlinkedStudentsLoading = ref(false)
+const unlinkedStudentsError = ref('')
+const showUnlinkedStudents = ref(false)
 const linkId = computed(() => route.params.linkId
   ? String(route.params.linkId)
   : null)
@@ -85,6 +110,132 @@ const currentPartType = computed(() =>
   partTypes.find((candidate) => candidate.value === form.partType) ?? partTypes[0])
 
 const backToCourse = {name: 'course-content', params: {courseId}}
+
+const templateOptions = computed(() => {
+  const options = templates.value.map((template) => ({
+    value: template.fullName,
+    label: template.fullName,
+  }))
+  if (form.templateRepo && !options.some((option) => option.value === form.templateRepo)) {
+    options.unshift({
+      value: form.templateRepo,
+      label: `${form.templateRepo} (inte markerat som template)`,
+    })
+  }
+
+  return options
+})
+
+const selectedTemplate = computed(() =>
+  templates.value.find((template) => template.fullName === form.templateRepo) ?? null)
+
+const templateNotMarked = computed(() =>
+  Boolean(form.templateRepo)
+  && !templatesLoading.value
+  && !templatesError.value
+  && templates.value.length > 0
+  && selectedTemplate.value === null)
+
+async function loadTemplates(force = false) {
+  if (!githubEnabled.value || (!force && templates.value.length > 0)) {
+    return
+  }
+
+  templatesLoading.value = true
+  templatesError.value = ''
+  try {
+    templates.value = await fetchGitHubTemplates()
+    if (form.templateRepo) {
+      await loadTemplateCommit(form.templateRepo)
+    }
+  } catch (exception) {
+    templatesError.value = errorMessage(exception)
+  } finally {
+    templatesLoading.value = false
+  }
+}
+
+async function loadTemplateCommit(fullName: string) {
+  templateCommit.value = null
+  templateCommitError.value = ''
+  if (!fullName.includes('/')) {
+    return
+  }
+
+  templateCommitLoading.value = true
+  try {
+    templateCommit.value = await fetchGitHubTemplateCommit(fullName)
+  } catch (exception) {
+    templateCommitError.value = errorMessage(exception)
+  } finally {
+    templateCommitLoading.value = false
+  }
+}
+
+async function loadRepoNamePreview() {
+  repoNamePreviewError.value = ''
+  if (!form.repoNamePattern.trim()) {
+    repoNamePreview.value = null
+    return
+  }
+
+  repoNamePreviewLoading.value = true
+  try {
+    const {data} = await api.POST('/api/content/github/repo-name-preview', {
+      body: {
+        pattern: form.repoNamePattern.trim(),
+        assignmentTitle: form.title.trim() || 'Uppgift',
+        gitHubLogin: me.value?.gitHubLogin ?? 'elev',
+        studentName: me.value?.name ?? 'Elev',
+      },
+    })
+    repoNamePreview.value = data ?? null
+  } catch (exception) {
+    repoNamePreview.value = null
+    repoNamePreviewError.value = errorMessage(exception)
+  } finally {
+    repoNamePreviewLoading.value = false
+  }
+}
+
+async function loadUnlinkedStudents() {
+  unlinkedStudentsError.value = ''
+  if (!githubEnabled.value) {
+    unlinkedStudents.value = []
+    return
+  }
+
+  unlinkedStudentsLoading.value = true
+  try {
+    unlinkedStudents.value = await fetchUnlinkedGitHubStudents(courseId)
+  } catch (exception) {
+    unlinkedStudentsError.value = errorMessage(exception)
+  } finally {
+    unlinkedStudentsLoading.value = false
+  }
+}
+
+watch(() => form.templateRepo, (fullName) => {
+  void loadTemplateCommit(fullName)
+})
+
+watch([() => form.repoNamePattern, () => form.title], () => {
+  if (usesRepo(form)) {
+    void loadRepoNamePreview()
+  }
+})
+
+watch(() => usesRepo(form), (repoMode) => {
+  if (repoMode) {
+    void loadUnlinkedStudents()
+  }
+})
+
+watch(() => usesRepo(form), (repoMode) => {
+  if (repoMode) {
+    void loadTemplates()
+  }
+})
 
 async function load() {
   loading.value = true
@@ -126,6 +277,7 @@ async function load() {
     form.gradeScale = content.assignment?.gradeScale ?? 'PassFail'
     form.submissionModes = content.assignment?.submissionModes ?? []
     form.templateRepo = content.assignment?.templateRepo ?? ''
+    form.repoNamePattern = content.assignment?.repoNamePattern ?? defaultRepoNamePattern
     form.isPinned = foundPart.isPinned
   } catch (exception) {
     if (exception instanceof ApiError && exception.status === 404) {
@@ -138,7 +290,15 @@ async function load() {
   }
 }
 
-onMounted(load)
+onMounted(async () => {
+  await load()
+  if (usesRepo(form)) {
+    await loadTemplates()
+    await loadTemplateCommit(form.templateRepo)
+    await loadRepoNamePreview()
+    await loadUnlinkedStudents()
+  }
+})
 
 function toggleMode(mode: Schema<'SubmissionMode'>, checked: boolean) {
   form.submissionModes = checked
@@ -149,6 +309,11 @@ function toggleMode(mode: Schema<'SubmissionMode'>, checked: boolean) {
 async function save(status: Schema<'ContentStatus'> = 'Published') {
   triedToSave.value = true
   if (Object.keys(validate(form)).length > 0) {
+    return
+  }
+
+  if (templateNotMarked.value) {
+    serverError.value = 'Mallrepot är inte markerat som template i GitHub. Markera det som Template repository och uppdatera listan.'
     return
   }
 
@@ -304,7 +469,7 @@ async function save(status: Schema<'ContentStatus'> = 'Published') {
         </div>
         <div class="grid grid-cols-[repeat(auto-fit,minmax(min(190px,100%),1fr))] gap-2.5">
           <FieldLabel
-            v-for="mode in submissionModes"
+            v-for="mode in availableSubmissionModes"
             :key="mode.value"
             :for="`mode-${mode.value}`"
             :class="choiceCard"
@@ -327,7 +492,7 @@ async function save(status: Schema<'ContentStatus'> = 'Published') {
         </div>
       </section>
 
-      <!-- Resten av GitHub-inställningarna (reponamn, arbetssätt, regler) kommer i #69. -->
+      <!-- Reponamn, arbetssätt, regler och krav kommer i följande GitHub-issues. -->
       <section v-if="usesRepo(form)" class="bg-card flex flex-col gap-4 rounded-[11px] border p-5">
         <div class="flex items-center gap-3">
           <PhGithubLogo class="size-5"/>
@@ -338,15 +503,152 @@ async function save(status: Schema<'ContentStatus'> = 'Published') {
         </div>
         <Field :data-invalid="!!errors.templateRepo">
           <FieldLabel for="template-repo">Mallrepo</FieldLabel>
-          <Input
+          <p v-if="templatesLoading" class="text-muted-foreground text-[13px]" data-test="template-loading">
+            Laddar mallrepon…
+          </p>
+          <NativeSelect
             id="template-repo"
             v-model="form.templateRepo"
-            class="font-mono text-[13px]"
-            placeholder="edugrade-net25/mall-lab2-release-pipeline"
+            class="w-full font-mono text-[13px]"
             :aria-invalid="!!errors.templateRepo"
-          />
+            :disabled="templatesLoading || templateOptions.length === 0"
+            data-test="template-select"
+          >
+            <NativeSelectOption value="">
+              {{ templatesLoading
+                ? 'Laddar mallrepon…'
+                : templateOptions.length === 0
+                  ? 'Inga mallrepon hittades'
+                  : 'Välj mallrepo…' }}
+            </NativeSelectOption>
+            <NativeSelectOption
+              v-for="option in templateOptions"
+              :key="option.value"
+              :value="option.value"
+            >
+              {{ option.label }}
+            </NativeSelectOption>
+          </NativeSelect>
           <FieldError v-if="errors.templateRepo">{{ errors.templateRepo }}</FieldError>
+          <p v-if="templatesError" class="text-destructive text-xs" data-test="template-error">
+            {{ templatesError }}
+          </p>
+          <p
+            v-if="!templatesLoading && !templatesError && templates.length === 0"
+            class="text-muted-foreground text-xs"
+            data-test="template-empty"
+          >
+            Inga mallrepon hittades. Markera ett repo som
+            <strong>Template repository</strong> i GitHub och uppdatera listan.
+          </p>
+          <p
+            v-if="templateNotMarked"
+            class="text-destructive text-xs"
+            data-test="template-not-marked"
+          >
+            Det valda repot är inte markerat som template i GitHub.
+          </p>
+          <Button
+            v-if="templatesError || (!templatesLoading && templates.length === 0)"
+            type="button"
+            variant="outline"
+            size="sm"
+            class="mt-1 w-fit"
+            :disabled="templatesLoading"
+            @click="loadTemplates(true)"
+          >
+            Uppdatera mallrepon
+          </Button>
+          <div v-if="templateCommit" class="text-muted-foreground text-xs" data-test="template-commit">
+            <span class="text-foreground font-medium">Senaste commit:</span>
+            {{ templateCommit.message }}
+            <code class="font-mono">{{ templateCommit.sha.slice(0, 7) }}</code>
+            <a
+              v-if="selectedTemplate"
+              :href="selectedTemplate.htmlUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-primary ml-1 underline underline-offset-3"
+            >Öppna</a>
+          </div>
+          <p v-else-if="templateCommitLoading" class="text-muted-foreground text-xs">
+            Hämtar senaste commit…
+          </p>
+          <p v-else-if="templateCommitError" class="text-destructive text-xs">
+            {{ templateCommitError }}
+          </p>
         </Field>
+        <Field :data-invalid="!!errors.repoNamePattern">
+          <FieldLabel for="repo-name-pattern">Namn på elevernas repon</FieldLabel>
+          <Input
+            id="repo-name-pattern"
+            v-model="form.repoNamePattern"
+            class="font-mono text-[13px]"
+            placeholder="{assignmentSlug}-{githubLogin}"
+            :aria-invalid="!!errors.repoNamePattern"
+          />
+          <p class="text-muted-foreground text-xs">
+            Använd platshållarna
+            <code class="font-mono">{assignmentSlug}</code>,
+            <code class="font-mono">{githubLogin}</code>,
+            <code class="font-mono">{studentEmail}</code> eller
+            <code class="font-mono">{studentId}</code>.
+          </p>
+          <FieldError v-if="errors.repoNamePattern">{{ errors.repoNamePattern }}</FieldError>
+          <p
+            v-if="repoNamePreview"
+            class="text-muted-foreground text-xs"
+            data-test="repo-name-preview"
+          >
+            Blir t.ex. <code class="font-mono text-foreground">{{ repoNamePreview.name }}</code>
+          </p>
+          <p v-else-if="repoNamePreviewLoading" class="text-muted-foreground text-xs">
+            Skapar exempel…
+          </p>
+          <p v-else-if="repoNamePreviewError" class="text-destructive text-xs" data-test="repo-name-preview-error">
+            {{ repoNamePreviewError }}
+          </p>
+        </Field>
+
+        <div
+          v-if="unlinkedStudents.length > 0"
+          class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+          data-test="unlinked-students"
+        >
+          <p class="font-medium">
+            {{ unlinkedStudents.length }}
+            {{ unlinkedStudents.length === 1
+              ? 'elev har'
+              : 'elever har' }}
+            inte kopplat GitHub
+          </p>
+          <p class="mt-0.5 text-xs">
+            De får ett repo men kan inte bjudas in förrän de kopplar sitt konto.
+          </p>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            class="mt-2 h-7 px-2 text-amber-900 hover:bg-amber-100 dark:text-amber-200 dark:hover:bg-amber-900/40"
+            data-test="unlinked-students-toggle"
+            @click="showUnlinkedStudents = !showUnlinkedStudents"
+          >
+            {{ showUnlinkedStudents
+              ? 'Dölj'
+              : 'Visa vilka' }}
+          </Button>
+          <ul v-if="showUnlinkedStudents" class="mt-2 flex flex-col gap-1 text-xs" data-test="unlinked-students-list">
+            <li v-for="student in unlinkedStudents" :key="student.id">
+              {{ student.name }} · {{ student.email }}
+            </li>
+          </ul>
+        </div>
+        <p v-if="unlinkedStudentsLoading" class="text-muted-foreground text-xs">
+          Kontrollerar GitHub-kopplingar…
+        </p>
+        <p v-if="unlinkedStudentsError" class="text-destructive text-xs" data-test="unlinked-students-error">
+          {{ unlinkedStudentsError }}
+        </p>
       </section>
 
       <AttachmentList v-if="part" :content-id="part.contentId" :can-manage="canManageAttachments"/>

@@ -22,6 +22,11 @@ public static class ContentEndpoints
             (await service.CreateWithLinkAsync(dto, ct)).ToHttp(created =>
                 TypedResults.Created($"/api/content/{created.Content.Id}", created)));
 
+        // Läraren ser samma reponamn här som provisioning skapar senare.
+        contentGroup.MapPost("/github/repo-name-preview", async (
+            RepoNamePreviewRequest dto, ContentService service, CancellationToken ct) =>
+            (await service.PreviewRepoNameAsync(dto, ct)).ToHttp(TypedResults.Ok));
+
         contentGroup.MapGet("/{id:guid}", async Task<Results<Ok<ContentDto>, NotFound>> (
             Guid id, ContentService service, CancellationToken ct) =>
         {

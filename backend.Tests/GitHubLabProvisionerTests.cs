@@ -32,6 +32,7 @@ public class GitHubLabProvisionerTests
         var repos = await provisioner.ProvisionAsync(
             "EduEdugrade-Sandbox/Template",
             "Labb 1",
+            null,
             [new RepoRequest(submissionId, student)],
             CancellationToken.None);
 
@@ -73,6 +74,7 @@ public class GitHubLabProvisionerTests
             provisioner.ProvisionAsync(
                 "EduEdugrade-Sandbox/Template",
                 "Labb 1",
+                null,
                 [new RepoRequest(Guid.NewGuid(), student)],
                 CancellationToken.None));
 
@@ -96,6 +98,7 @@ public class GitHubLabProvisionerTests
         var repos = await provisioner.ProvisionAsync(
             "EduEdugrade-Sandbox/Template",
             "Labb 2",
+            null,
             [new RepoRequest(Guid.NewGuid(), student)],
             CancellationToken.None);
 
@@ -132,6 +135,7 @@ public class GitHubLabProvisionerTests
         var repos = await provisioner.ProvisionAsync(
             "EduEdugrade-Sandbox/Template",
             "Labb 1",
+            null,
             [new RepoRequest(Guid.NewGuid(), student)],
             CancellationToken.None);
 
@@ -190,6 +194,40 @@ public class GitHubLabProvisionerTests
         Assert.Equal("EduEdugrade-Sandbox", collaborator.Owner);
         Assert.Equal("labb-1-alice", collaborator.Name);
         Assert.Equal("alice", collaborator.Username);
+    }
+
+    [Fact]
+    public async Task RevokeAccessAsync_RemovesCollaboratorFromExistingRepos()
+    {
+        var github = new FakeGitHubAppService();
+        var submissions = new FakeSubmissionRepository
+        {
+            Repos =
+            [
+                new StudentRepo
+                {
+                    SubmissionId = Guid.NewGuid(),
+                    RepoFullName = "EduEdugrade-Sandbox/labb-1-alice"
+                }
+            ]
+        };
+        var provisioner = CreateProvisioner(github, submissions: submissions);
+        var student = new User
+        {
+            Id = Guid.NewGuid(),
+            SchoolId = _schoolId,
+            Name = "Alice",
+            Email = "alice@example.com",
+            GitHubLogin = "alice"
+        };
+
+        await provisioner.RevokeAccessAsync(student, CancellationToken.None);
+
+        var removed = Assert.Single(github.RemovedCollaborators);
+        Assert.Equal(2, removed.InstallationId);
+        Assert.Equal("EduEdugrade-Sandbox", removed.Owner);
+        Assert.Equal("labb-1-alice", removed.Name);
+        Assert.Equal("alice", removed.Username);
     }
 
     private static GitHubLabProvisioner CreateProvisioner(
@@ -296,6 +334,17 @@ public class GitHubLabProvisionerTests
 
         public Task<List<StudentRepoContext>> GetAllReposAsync(CancellationToken ct) =>
             throw new NotSupportedException();
+
+        public Task<int> CountReposForSchoolAsync(Guid schoolId, CancellationToken ct) =>
+            throw new NotSupportedException();
+
+        public Task<List<RepoProvisioningContext>> GetPendingReposAsync(
+            DateTimeOffset now, int take, int maxAttempts, CancellationToken ct) =>
+            throw new NotSupportedException();
+
+        public Task<List<RepoLockContext>> GetReposToLockAsync(
+            DateTimeOffset now, int take, CancellationToken ct) =>
+            throw new NotSupportedException();
     }
 
     private sealed class FakeGitHubAppService : IGitHubAppService
@@ -305,6 +354,9 @@ public class GitHubLabProvisionerTests
         { get; } = [];
 
         public List<(long InstallationId, string Owner, string Name, string Username)> Collaborators { get; } = [];
+
+        public List<(long InstallationId, string Owner, string Name, string Username)> RemovedCollaborators
+        { get; } = [];
 
         public GitHubCommit? LatestCommit { get; init; }
 
@@ -346,8 +398,19 @@ public class GitHubLabProvisionerTests
             return Task.CompletedTask;
         }
 
+        public Task RemoveCollaboratorAsync(
+            long installationId, string owner, string name, string username, CancellationToken ct)
+        {
+            RemovedCollaborators.Add((installationId, owner, name, username));
+            return Task.CompletedTask;
+        }
+
         public Task<GitHubCommit?> GetLatestCommitAsync(
-            long installationId, string owner, string name, CancellationToken ct) =>
+            long installationId,
+            string owner,
+            string name,
+            CancellationToken ct,
+            DateTimeOffset? until = null) =>
             Task.FromResult(LatestCommit);
 
         public Task<CheckStatus> GetCheckStatusAsync(

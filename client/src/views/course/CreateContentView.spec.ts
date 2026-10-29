@@ -45,19 +45,54 @@ const content = {
   },
 }
 
+const template = {
+  fullName: 'edugrade-net25/mall-lab2',
+  htmlUrl: 'https://github.com/edugrade-net25/mall-lab2',
+  defaultBranch: 'main',
+  isPrivate: true,
+  isArchived: false,
+}
+
+const templateCommit = {
+  sha: 'abc123456789',
+  message: 'Template update',
+  authoredAt: '2026-10-28T09:30:00Z',
+}
+
+function preview(body: Record<string, unknown>) {
+  return {
+    status: 200,
+    body: {name: 'labb-2-elev', pattern: (body.pattern as string | undefined) ?? ''},
+  }
+}
+
 function backend(onPost: Handler = () => ({status: 201, body: {content, link: {id: 'l1'}}})) {
   mockApi((method, path, body) => {
     if (method !== 'GET') {
-      return onPost(method, path, body)
+      return path === '/api/content/github/repo-name-preview'
+        ? preview(body as Record<string, unknown>)
+        : onPost(method, path, body)
     }
     if (path === '/api/me') {
-      return {status: 200, body: meAs('Teacher', ['c1'])}
+      return {status: 200, body: meAs('Teacher', ['c1'], 'Anna', null, true)}
     }
     if (path === '/api/courses') {
       return {status: 200, body: [course]}
     }
     if (path === '/api/courses/c1/modules') {
       return {status: 200, body: [week]}
+    }
+    if (path === '/api/integrations/github/templates') {
+      return {status: 200, body: [template]}
+    }
+    if (path === '/api/integrations/github/templates/edugrade-net25/mall-lab2/latest-commit') {
+      return {status: 200, body: templateCommit}
+    }
+    if (path === '/api/courses/c1/students/unlinked-github') {
+      return {
+        status: 200,
+        body: [{id: 'u-unlinked', name: 'Lina Ahmed', email: 'lina@example.com'}],
+      }
     }
     return {status: 200, body: []}
   })
@@ -69,10 +104,12 @@ function editBackend(
 ) {
   mockApi((method, path, body) => {
     if (method !== 'GET') {
-      return onWrite(method, path, body)
+      return path === '/api/content/github/repo-name-preview'
+        ? preview(body as Record<string, unknown>)
+        : onWrite(method, path, body)
     }
     if (path === '/api/me') {
-      return {status: 200, body: meAs('Teacher', ['c1'])}
+      return {status: 200, body: meAs('Teacher', ['c1'], 'Anna', null, true)}
     }
     if (path === '/api/courses') {
       return {status: 200, body: [course]}
@@ -85,6 +122,18 @@ function editBackend(
     }
     if (path === '/api/content/x1/attachments') {
       return {status: 200, body: attachments}
+    }
+    if (path === '/api/integrations/github/templates') {
+      return {status: 200, body: [template]}
+    }
+    if (path === '/api/integrations/github/templates/edugrade-net25/mall-lab2/latest-commit') {
+      return {status: 200, body: templateCommit}
+    }
+    if (path === '/api/courses/c1/students/unlinked-github') {
+      return {
+        status: 200,
+        body: [{id: 'u-unlinked', name: 'Lina Ahmed', email: 'lina@example.com'}],
+      }
     }
     return {status: 200, body: []}
   })
@@ -127,6 +176,42 @@ describe('CreateContentView', () => {
 
     expect(wrapper.findAll('#grade-scale option').map((option) => option.text())).toEqual(['IG – G', 'IG – G – VG'])
     expect(wrapper.text()).toContain('Hur lämnar eleven in?')
+  })
+
+  it('väljer mallrepo från GitHub och visar senaste commit', async () => {
+    backend()
+    const {wrapper} = await renderApp('/courses/c1/modules/m1/new')
+
+    await wrapper.find('#part-Submission').trigger('click')
+    await wrapper.find('#mode-Repo').trigger('click')
+    await flushPromises()
+
+    const select = wrapper.find('[data-test="template-select"]')
+    expect(select.exists()).toBe(true)
+    expect(select.findAll('option').map((option) => option.text())).toContain(
+      'edugrade-net25/mall-lab2',
+    )
+
+    await select.setValue('edugrade-net25/mall-lab2')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="template-commit"]').text()).toContain('Template update')
+    expect(wrapper.find('[data-test="template-commit"]').text()).toContain('abc1234')
+
+    await wrapper.find('#title').setValue('Labb 2')
+    await wrapper.find('#repo-name-pattern').setValue('lab2-{githubLogin}')
+    await flushPromises()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="repo-name-preview"]').text()).toContain('labb-2-elev')
+    expect(requests.some((request) =>
+      request.method === 'POST' && request.path === '/api/content/github/repo-name-preview')).toBe(true)
+
+    expect(wrapper.find('[data-test="unlinked-students"]').text()).toContain('1 elev har')
+    await wrapper.find('[data-test="unlinked-students-toggle"]').trigger('click')
+    expect(wrapper.find('[data-test="unlinked-students-list"]').text()).toContain('Lina Ahmed')
+    expect(requests.filter((request) =>
+      request.method === 'POST' && request.path === '/api/content/with-link')).toHaveLength(0)
   })
 
   it('teori har varken deadline, betygsskala eller inlämning', async () => {

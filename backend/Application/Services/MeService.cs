@@ -10,6 +10,7 @@ public class MeService(
     ISchoolRepository schools,
     ICourseRepository courses,
     IGroupRepository groups,
+    ISchoolGitHubInstallationRepository installations,
     IUnitOfWork unitOfWork,
     ICurrentUser currentUser)
 {
@@ -36,6 +37,7 @@ public class MeService(
                 .Select(courseRole => new CourseRoleDto(courseRole.CourseId, courseRole.Role))
                 .ToList();
 
+        var github = await installations.GetForSchoolAsync(user.SchoolId, ct);
         return new MeDto(
             user.Id,
             user.Name,
@@ -46,7 +48,8 @@ public class MeService(
             (await groups.GetMemberGroupsAsync(user.Id, ct))
                 .Select(group => new GroupRefDto(group.Id, group.Name))
                 .ToList(),
-            user.GitHubLogin);
+            user.GitHubLogin,
+            github?.Connected == true && github.Enabled);
     }
 
     /// <summary>Slagen av notiser användaren stängt av. Null om användaren inte finns.</summary>
