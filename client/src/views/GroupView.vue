@@ -3,21 +3,24 @@ import {computed, ref, watch} from 'vue'
 import {useRoute} from 'vue-router'
 
 import {Alert, AlertDescription} from '@/components/ui/alert'
+import AddMemberDialog from '@/components/groups/AddMemberDialog.vue'
+import LinkCourseDialog from '@/components/groups/LinkCourseDialog.vue'
+import RemoveMemberDialog from '@/components/groups/RemoveMemberDialog.vue'
+import UnlinkCourseDialog from '@/components/groups/UnlinkCourseDialog.vue'
 import {Avatar, AvatarFallback} from '@/components/ui/avatar'
+import {Button} from '@/components/ui/button'
+import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
 import {Skeleton} from '@/components/ui/skeleton'
-import {ApiError, api, unwrap, type Schema} from '@/lib/api'
+import {useCurrentUser} from '@/composables/useCurrentUser'
+import {ApiError, api, errorMessage, unwrap, type Schema} from '@/lib/api'
+import {groupRoles as roles} from '@/lib/groupRoles'
 import {groupTypeLabels} from '@/lib/groups'
 import {initials} from '@/lib/news'
 import NotFoundView from '@/views/NotFoundView.vue'
 
-// Lärare först, sedan mentorer och elever.
-const roles: {value: Schema<'GroupRole'>, label: string}[] = [
-  {value: 'Teacher', label: 'Lärare'},
-  {value: 'Mentor', label: 'Mentor'},
-  {value: 'Student', label: 'Elev'},
-]
-
 const route = useRoute()
+const {can} = useCurrentUser()
+const isAdmin = computed(() => can('admin'))
 const groupId = computed(() => String(route.params.groupId))
 
 const group = ref<Schema<'GroupDto'> | null>(null)
@@ -26,6 +29,15 @@ const members = ref<Schema<'GroupMemberDto'>[]>([])
 const loading = ref(true)
 const loadFailed = ref(false)
 const notFound = ref(false)
+
+const addingMember = ref(false)
+const memberToRemove = ref<Schema<'GroupMemberDto'> | null>(null)
+const linkingCourse = ref(false)
+const courseToUnlink = ref<Schema<'CourseDto'> | null>(null)
+const changingRole = ref('')
+const memberError = ref('')
+// Byts vid fel, så att listan ritas om med den gamla rollen.
+const roleRevision = ref(0)
 
 const subtitle = computed(() => {
   if (!group.value) {
@@ -78,6 +90,45 @@ async function load() {
   }
 }
 
+function addMember(member: Schema<'GroupMemberDto'>) {
+  members.value = [...members.value, member]
+}
+
+function removeMember(userId: string) {
+  members.value = members.value.filter((member) => member.userId !== userId)
+}
+
+async function changeRole(member: Schema<'GroupMemberDto'>, role: Schema<'GroupRole'>) {
+  if (role === member.role) {
+    return
+  }
+
+  changingRole.value = member.userId
+  memberError.value = ''
+  try {
+    await api.PUT('/api/groups/{id}/members/{userId}', {
+      params: {path: {id: groupId.value, userId: member.userId}},
+      body: {role},
+    })
+    members.value = members.value.map((found) => found.userId === member.userId
+      ? {...found, role}
+      : found)
+  } catch (exception) {
+    roleRevision.value++
+    memberError.value = `Kunde inte ändra rollen för ${member.name}. ${errorMessage(exception)}`
+  } finally {
+    changingRole.value = ''
+  }
+}
+
+function addCourse(course: Schema<'CourseDto'>) {
+  courses.value = [...courses.value, course]
+}
+
+function removeCourse(courseId: string) {
+  courses.value = courses.value.filter((course) => course.id !== courseId)
+}
+
 watch(groupId, load, {immediate: true})
 </script>
 
@@ -100,7 +151,22 @@ watch(groupId, load, {immediate: true})
     </div>
 
     <section aria-labelledby="members-heading" class="flex flex-col gap-4">
-      <h2 id="members-heading" class="text-lg font-semibold">Medlemmar</h2>
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h2 id="members-heading" class="text-lg font-semibold">Medlemmar</h2>
+        <Button
+          v-if="isAdmin"
+          variant="outline"
+          class="h-8"
+          data-test="add-member"
+          @click="addingMember = true"
+        >
+          Lägg till medlem
+        </Button>
+      </div>
+
+      <Alert v-if="memberError" variant="destructive">
+        <AlertDescription>{{ memberError }}</AlertDescription>
+      </Alert>
 
       <section
         v-for="role in membersByRole"
@@ -121,6 +187,30 @@ watch(groupId, load, {immediate: true})
               <AvatarFallback class="text-[13px] font-semibold">{{ initials(member.name) }}</AvatarFallback>
             </Avatar>
             <span class="font-medium" data-test="member-name">{{ member.name }}</span>
+            <div v-if="isAdmin" class="ml-auto flex items-center gap-2">
+              <NativeSelect
+                :key="`${member.userId}-${member.role}-${roleRevision}`"
+                :model-value="member.role"
+                :aria-label="`Roll för ${member.name}`"
+                :disabled="changingRole === member.userId"
+                class="w-32"
+                data-test="member-role-select"
+                @change="(event: Event) => changeRole(member, (event.target as HTMLSelectElement).value as Schema<'GroupRole'>)"
+              >
+                <NativeSelectOption v-for="option in roles" :key="option.value" :value="option.value">
+                  {{ option.label }}
+                </NativeSelectOption>
+              </NativeSelect>
+              <Button
+                variant="outline"
+                class="h-8"
+                :disabled="changingRole === member.userId"
+                data-test="remove-member"
+                @click="memberToRemove = member"
+              >
+                Ta bort
+              </Button>
+            </div>
           </div>
         </div>
       </section>
@@ -128,9 +218,25 @@ watch(groupId, load, {immediate: true})
       <p v-if="members.length === 0" class="text-muted-foreground text-sm">Gruppen har inga medlemmar ännu.</p>
     </section>
 
-    <section v-if="courses.length > 0" aria-labelledby="courses-heading" class="flex flex-col gap-2.5">
-      <h2 id="courses-heading" class="text-lg font-semibold">Kurser</h2>
-      <div class="overflow-hidden rounded-[11px] border">
+    <section
+      v-if="courses.length > 0 || isAdmin"
+      aria-labelledby="courses-heading"
+      class="flex flex-col gap-2.5"
+    >
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h2 id="courses-heading" class="text-lg font-semibold">Kurser</h2>
+        <Button
+          v-if="isAdmin"
+          variant="outline"
+          class="h-8"
+          data-test="link-course-button"
+          @click="linkingCourse = true"
+        >
+          Koppla kurs
+        </Button>
+      </div>
+      <p v-if="courses.length === 0" class="text-muted-foreground text-sm">Gruppen har inga kurser ännu.</p>
+      <div v-else class="overflow-hidden rounded-[11px] border">
         <div
           v-for="course in courses"
           :key="course.id"
@@ -143,9 +249,53 @@ watch(groupId, load, {immediate: true})
           >
             {{ course.title }}
           </RouterLink>
-          <span class="font-mono text-[13px]">{{ course.code }}</span>
+          <div class="flex items-center gap-3">
+            <span class="font-mono text-[13px]">{{ course.code }}</span>
+            <Button
+              v-if="isAdmin"
+              variant="outline"
+              class="h-8"
+              data-test="unlink-course"
+              @click="courseToUnlink = course"
+            >
+              Koppla bort
+            </Button>
+          </div>
         </div>
       </div>
     </section>
+
+    <template v-if="isAdmin">
+      <AddMemberDialog
+        v-model:open="addingMember"
+        :group-id="group.id"
+        :group-name="group.name"
+        :member-ids="members.map((member) => member.userId)"
+        @added="addMember"
+      />
+      <RemoveMemberDialog
+        :open="memberToRemove !== null"
+        :group-id="group.id"
+        :group-name="group.name"
+        :member="memberToRemove"
+        @update:open="(value) => { if (!value) memberToRemove = null }"
+        @removed="removeMember"
+      />
+      <LinkCourseDialog
+        v-model:open="linkingCourse"
+        :group-id="group.id"
+        :group-name="group.name"
+        :linked-ids="courses.map((course) => course.id)"
+        @linked="addCourse"
+      />
+      <UnlinkCourseDialog
+        :open="courseToUnlink !== null"
+        :group-id="group.id"
+        :group-name="group.name"
+        :course="courseToUnlink"
+        @update:open="(value) => { if (!value) courseToUnlink = null }"
+        @unlinked="removeCourse"
+      />
+    </template>
   </div>
 </template>

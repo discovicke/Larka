@@ -12,8 +12,8 @@ afterEach(() => {
 
 const devops: Schema<'CourseDto'> = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps', description: '', points: null, startsOn: null, endsOn: null}
 const databases: Schema<'CourseDto'> = {id: 'c2', schoolId: 's1', code: 'DB', title: 'Databaser', description: '', points: null, startsOn: null, endsOn: null}
-const group1: Schema<'GroupDto'> = {id: 'g1', schoolId: 's1', type: 'Class', name: 'Lag 1', term: 'HT26'}
-const group2: Schema<'GroupDto'> = {id: 'g2', schoolId: 's1', type: 'Committee', name: 'Lag 2', term: 'HT26'}
+const group1: Schema<'GroupDto'> = {id: 'g1', schoolId: 's1', type: 'Class', name: 'Lag 1', term: 'HT26', memberCount: 0}
+const group2: Schema<'GroupDto'> = {id: 'g2', schoolId: 's1', type: 'Committee', name: 'Lag 2', term: 'HT26', memberCount: 0}
 const teacher: Schema<'UserDto'> = {id: 'u1', schoolId: 's1', name: 'Anna Lärare', email: 'anna@example.com', role: 'Teacher'}
 
 function news(

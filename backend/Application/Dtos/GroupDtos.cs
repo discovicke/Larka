@@ -3,10 +3,11 @@ using Backend.Domain.Enums;
 
 namespace Backend.Application.Dtos;
 
-public record GroupDto(Guid Id, Guid SchoolId, GroupType Type, string Name, string Term)
+/// <summary>Gruppen med antal medlemmar (alla roller), så att listan slipper hämta medlemmarna en och en.</summary>
+public record GroupDto(Guid Id, Guid SchoolId, GroupType Type, string Name, string Term, int MemberCount)
 {
-    public static GroupDto From(Group group) =>
-        new(group.Id, group.SchoolId, group.Type, group.Name, group.Term);
+    public static GroupDto From(Group group, int memberCount) =>
+        new(group.Id, group.SchoolId, group.Type, group.Name, group.Term, memberCount);
 }
 
 public record CourseDto(

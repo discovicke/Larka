@@ -23,7 +23,10 @@ public class GroupService(
         }
 
         var schoolGroups = await groups.GetForSchoolAsync(schoolId.Value, ct);
-        return schoolGroups.Select(GroupDto.From).ToList();
+        var counts = await groups.GetMemberCountsAsync(schoolId.Value, ct);
+        return schoolGroups
+            .Select(group => GroupDto.From(group, counts.GetValueOrDefault(group.Id)))
+            .ToList();
     }
 
     public async Task<GroupDto?> GetAsync(Guid id, CancellationToken ct)
@@ -31,7 +34,7 @@ public class GroupService(
         var group = await GetOwnAsync(id, ct);
         return group is null
             ? null
-            : GroupDto.From(group);
+            : GroupDto.From(group, await groups.CountMembersAsync(id, ct));
     }
 
     // Typen är en enum i DTO:n, så okända typer stoppas redan när JSON läses in (400).
@@ -63,7 +66,7 @@ public class GroupService(
         var group = new Group { SchoolId = dto.SchoolId, Type = dto.Type, Name = name, Term = term };
         groups.Add(group);
         await unitOfWork.SaveChangesAsync(ct);
-        return ServiceResult<GroupDto>.Ok(GroupDto.From(group));
+        return ServiceResult<GroupDto>.Ok(GroupDto.From(group, 0));
     }
 
     public async Task<ServiceResult<GroupDto>> UpdateAsync(Guid id, UpdateGroupDto dto, CancellationToken ct)
@@ -102,7 +105,7 @@ public class GroupService(
         group.Name = name;
         group.Term = term;
         await unitOfWork.SaveChangesAsync(ct);
-        return ServiceResult<GroupDto>.Ok(GroupDto.From(group));
+        return ServiceResult<GroupDto>.Ok(GroupDto.From(group, await groups.CountMembersAsync(id, ct)));
     }
 
     // Medlemskap och kurskopplingar tas bort med gruppen. Innehåll publicerat till gruppen

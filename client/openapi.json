@@ -4785,7 +4785,8 @@
           "schoolId",
           "type",
           "name",
-          "term"
+          "term",
+          "memberCount"
         ],
         "type": "object",
         "properties": {
@@ -4805,8 +4806,13 @@
           },
           "term": {
             "type": "string"
+          },
+          "memberCount": {
+            "type": "integer",
+            "format": "int32"
           }
-        }
+        },
+        "description": "Gruppen med antal medlemmar (alla roller), så att listan slipper hämta medlemmarna en och en."
       },
       "GroupMemberDto": {
         "required": [

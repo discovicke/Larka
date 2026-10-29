@@ -81,6 +81,7 @@ async function mountSettings(path = '/settings') {
     history: createMemoryHistory(),
     routes: [
       {path: '/settings', name: 'settings', component: SettingsView},
+      {path: '/settings/groups', name: 'admin-groups', component: {template: '<div />'}},
       {path: '/', component: {template: '<div />'}},
     ],
   })
@@ -366,5 +367,20 @@ describe('SettingsView', () => {
     await flushPromises()
     await flushPromises()
     expect(admin.find('nav[aria-label="Inställningar"]').text()).toContain('Integrationer')
+  })
+
+  it('länkar till Program och klasser bara för admin', async () => {
+    const {wrapper: student} = await mountSettings()
+    await flushPromises()
+    expect(student.find('[data-test="admin-groups-entry"]').exists()).toBe(false)
+
+    useCurrentUser().resetCurrentUser()
+    settingsBackend('Admin')
+    const {wrapper: admin} = await mountSettings()
+    await flushPromises()
+    await flushPromises()
+    const entry = admin.find('[data-test="admin-groups-entry"] a')
+    expect(entry.text()).toContain('Program och klasser')
+    expect(entry.attributes('href')).toBe('/settings/groups')
   })
 })

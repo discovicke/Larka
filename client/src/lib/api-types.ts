@@ -4202,6 +4202,7 @@ export interface components {
             /** @default false */
             needsWork: boolean;
         };
+        /** @description Gruppen med antal medlemmar (alla roller), så att listan slipper hämta medlemmarna en och en. */
         GroupDto: {
             /** Format: uuid */
             id: string;
@@ -4210,6 +4211,8 @@ export interface components {
             type: components["schemas"]["GroupType"];
             name: string;
             term: string;
+            /** Format: int32 */
+            memberCount: number;
         };
         /** @description En medlem i en grupp, med namn och rollen i just den gruppen. */
         GroupMemberDto: {

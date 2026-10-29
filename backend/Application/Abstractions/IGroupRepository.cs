@@ -59,6 +59,11 @@ public interface IGroupRepository
     /// <summary>Medlemmarna i gruppen, med namn och roll.</summary>
     Task<List<GroupMemberDto>> GetMembersAsync(Guid groupId, CancellationToken ct);
 
+    /// <summary>Antal medlemmar per grupp i skolan, i en fråga. Grupper utan medlemmar saknas i svaret.</summary>
+    Task<Dictionary<Guid, int>> GetMemberCountsAsync(Guid schoolId, CancellationToken ct);
+
+    Task<int> CountMembersAsync(Guid groupId, CancellationToken ct);
+
     Task<Enrollment?> GetMemberAsync(Guid groupId, Guid userId, CancellationToken ct);
 
     /// <summary>Innehåll är publicerat till gruppen. Är courseId satt räknas bara länkar till den kursen.</summary>

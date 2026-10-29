@@ -12,7 +12,7 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
 {
     private readonly HttpClient _client = factory.CreateClient();
 
-    private record GroupResponse(Guid Id, Guid SchoolId, string Type, string Name, string Term);
+    private record GroupResponse(Guid Id, Guid SchoolId, string Type, string Name, string Term, int MemberCount);
 
     private record CourseResponse(Guid Id, string Code);
 
@@ -164,6 +164,25 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
         var studentRow = members.Single(member => member.UserId == student.Id);
         Assert.Equal("Student", studentRow.Role);
         Assert.Equal(student.Name, studentRow.Name);
+    }
+
+    [Fact]
+    public async Task Groups_ReportMemberCount_InListAndOnSingleGroup()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
+        var empty = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
+        await TestData.AddMemberAsync(db, group, GroupRole.Teacher, UserRole.Teacher);
+        await TestData.AddMemberAsync(db, group);
+        await TestData.AddMemberAsync(db, group);
+
+        var list = await _client.GetFromJsonAsync<List<GroupResponse>>("/api/groups");
+        var single = await _client.GetFromJsonAsync<GroupResponse>($"/api/groups/{group.Id}");
+
+        Assert.Equal(3, list!.Single(item => item.Id == group.Id).MemberCount);
+        Assert.Equal(0, list!.Single(item => item.Id == empty.Id).MemberCount);
+        Assert.Equal(3, single!.MemberCount);
     }
 
     [Fact]

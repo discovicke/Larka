@@ -11,6 +11,16 @@ public class GroupRepository(AppDb db) : IGroupRepository
     public Task<List<Group>> GetForSchoolAsync(Guid schoolId, CancellationToken ct) =>
         db.Groups.Where(group => group.SchoolId == schoolId).ToListAsync(ct);
 
+    public Task<Dictionary<Guid, int>> GetMemberCountsAsync(Guid schoolId, CancellationToken ct) =>
+        db.Enrollments
+            .Where(enrollment => db.Groups.Any(group => group.Id == enrollment.GroupId && group.SchoolId == schoolId))
+            .GroupBy(enrollment => enrollment.GroupId)
+            .Select(grouped => new { GroupId = grouped.Key, Count = grouped.Count() })
+            .ToDictionaryAsync(row => row.GroupId, row => row.Count, ct);
+
+    public Task<int> CountMembersAsync(Guid groupId, CancellationToken ct) =>
+        db.Enrollments.CountAsync(enrollment => enrollment.GroupId == groupId, ct);
+
     public Task<Group?> GetAsync(Guid groupId, CancellationToken ct) =>
         db.Groups.FirstOrDefaultAsync(group => group.Id == groupId, ct);
 
