@@ -118,9 +118,11 @@ describe('AppLayout', () => {
     const page = await render('/')
 
     const sidebar = page.find('[data-slot="sidebar"]').text()
-    for (const label of ['Idag', 'Kalender', 'Inkorg', 'Att bedöma', 'Inställningar', 'Mina kurser', 'DevOps']) {
+    for (const label of ['Idag', 'Kalender', 'Inkorg', 'Att bedöma', 'Mina kurser', 'DevOps']) {
       expect(sidebar).toContain(label)
     }
+    // Inställningar ligger i användarmenyn, inte bland sidorna.
+    expect(sidebar).not.toContain('Inställningar')
   })
 
   it('markerar sidan man är på i sidomenyn', async () => {
@@ -222,6 +224,17 @@ describe('AppLayout', () => {
     await flushPromises()
 
     expect(document.querySelector('[data-test="sign-out"]')).not.toBeNull()
+  })
+
+  it('Inställningar i användarmenyn går till inställningarna', async () => {
+    const {wrapper, router} = await renderApp('/')
+    await wrapper.find('[data-test="user-menu"]').trigger('click')
+    await flushPromises()
+
+    ;(document.querySelector('[data-test="settings-link"]') as HTMLElement).click()
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('settings')
   })
 
   it('Logga ut loggar ut och går till inloggningen', async () => {

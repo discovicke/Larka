@@ -25,6 +25,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
@@ -72,7 +73,6 @@ const mainNav: NavItem[] = [
   {label: 'Material', routeName: 'material', icon: PhFolder},
   {label: 'Studieplan', routeName: 'grades', icon: PhGraduationCap, studentOnly: true},
   {label: 'Att bedöma', routeName: 'grading', icon: PhListChecks, toGrade: true, requires: 'grade'},
-  {label: 'Inställningar', routeName: 'settings', icon: PhGearSix},
 ]
 
 const roleLabels: Record<string, string> = {Admin: 'Admin', Teacher: 'Lärare', Student: 'Elev'}
@@ -165,7 +165,7 @@ function courseLabel(course: SidebarCourse): string {
                 size="lg"
                 tooltip="Byt skola"
                 data-test="school-switcher"
-                class="group-data-[collapsible=icon]:justify-center"
+                class="group-data-[collapsible=icon]:p-2!"
               >
                 <AppLogo/>
                 <span class="flex flex-1 flex-col leading-tight group-data-[collapsible=icon]:hidden">
@@ -291,11 +291,12 @@ function courseLabel(course: SidebarCourse): string {
         <SidebarMenuItem>
           <DropdownMenu>
             <DropdownMenuTrigger as-child>
-              <SidebarMenuButton size="lg" data-test="user-menu" class="group-data-[collapsible=icon]:justify-center">
+              <!-- Samma vänsterkant öppen och ihopfälld, så att avataren inte hoppar när menyn animeras. -->
+              <SidebarMenuButton size="lg" data-test="user-menu" class="pl-0">
                 <Avatar class="size-8">
                   <AvatarFallback class="text-xs font-semibold">{{ userInitials }}</AvatarFallback>
                 </Avatar>
-                <span class="flex min-w-0 flex-col leading-tight group-data-[collapsible=icon]:hidden">
+                <span class="flex min-w-0 flex-1 flex-col leading-tight group-data-[collapsible=icon]:hidden">
                   <span class="truncate font-medium">{{ userName }}</span>
                   <span class="text-sidebar-foreground/70 truncate text-xs">{{ userRole }} · {{ schoolName }}</span>
                 </span>
@@ -303,6 +304,11 @@ function courseLabel(course: SidebarCourse): string {
               </SidebarMenuButton>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" class="w-(--reka-dropdown-menu-trigger-width) min-w-56">
+              <DropdownMenuItem data-test="settings-link" @select="router.push({name: 'settings'})">
+                <PhGearSix/>
+                Inställningar
+              </DropdownMenuItem>
+              <DropdownMenuSeparator/>
               <DropdownMenuItem data-test="sign-out" @select="signOut">
                 <PhSignOut/>
                 Logga ut
