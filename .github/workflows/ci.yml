@@ -77,8 +77,28 @@ jobs:
         working-directory: .
         run: git diff --exit-code client/openapi.json
 
+      # Täckningen samlas med coverlet.runsettings (Cobertura, undantag förklarade i docs/testing.md).
       - name: Test
-        run: dotnet test RebornLMS.sln --no-build
+        run: >
+          dotnet test RebornLMS.sln --no-build
+          --settings coverlet.runsettings
+          --collect:"XPlat Code Coverage"
+          --results-directory coverage/backend
+
+      - name: Coverage summary
+        if: success() && needs.changes.outputs.code == 'true'
+        working-directory: .
+        run: |
+          rate=$(grep -ho '<coverage [^>]*line-rate="[0-9.]*"' coverage/backend/*/coverage.cobertura.xml | head -1 | grep -o 'line-rate="[0-9.]*"' | cut -d'"' -f2)
+          echo "Backend: $(awk -v r="$rate" 'BEGIN { printf "%.1f", r * 100 }') % radtäckning" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload backend coverage
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-backend
+          path: coverage/backend/**/coverage.cobertura.xml
+          retention-days: 7
 
   frontend:
     name: frontend
@@ -125,9 +145,26 @@ jobs:
         if: needs.changes.outputs.code == 'true'
         run: npm run build
 
+      # Kör testerna som vanligt och samlar täckning (Cobertura i client/coverage). Ett fallerande test
+      # fäller steget precis som npm run test.
       - name: Test
         if: needs.changes.outputs.code == 'true'
-        run: npm run test
+        run: npm run test:coverage
+
+      - name: Coverage summary
+        if: success() && needs.changes.outputs.code == 'true'
+        working-directory: .
+        run: |
+          rate=$(grep -o '<coverage [^>]*line-rate="[0-9.]*"' client/coverage/cobertura-coverage.xml | head -1 | grep -o 'line-rate="[0-9.]*"' | cut -d'"' -f2)
+          echo "Frontend: $(awk -v r="$rate" 'BEGIN { printf "%.1f", r * 100 }') % radtäckning" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload frontend coverage
+        if: success() && needs.changes.outputs.code == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-frontend
+          path: client/coverage/cobertura-coverage.xml
+          retention-days: 7
 
       # Layoutkontroller i en riktig webbläsare mot det byggda paketet, med API:et mockat. Hör till jobbet
       # `frontend` (ett nytt jobbnamn vore inte ett obligatoriskt statuskrav).
@@ -148,3 +185,53 @@ jobs:
             client/layout/playwright-report
             client/layout/test-results
           retention-days: 7
+
+  # Slår ihop backendens och frontendens täckning till en rapport. Inget obligatoriskt statuskrav och ingen
+  # tröskel som fäller bygget. Hoppas över när backend eller frontend hoppas över (bara dokumentation).
+  coverage:
+    name: coverage
+    needs: [backend, frontend]
+    if: needs.backend.result == 'success' && needs.frontend.result == 'success'
+    # cd.yml väntar på hela det här workflowet före release. Ett fel i rapporten får inte stoppa en release.
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    steps:
+      # Källfilerna behövs för att rapporten ska visa koden rad för rad.
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage-backend
+          path: coverage/backend
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage-frontend
+          path: client/coverage
+
+      - name: Install ReportGenerator
+        run: dotnet tool restore
+
+      # Sökvägarna i frontendens Cobertura är relativa till client/, därför -sourcedirs.
+      - name: Merge reports
+        run: >
+          dotnet reportgenerator
+          "-reports:coverage/backend/**/coverage.cobertura.xml;client/coverage/cobertura-coverage.xml"
+          "-targetdir:coverage/report"
+          "-sourcedirs:.;client"
+          "-reporttypes:Html;MarkdownSummaryGithub;Badges;TextSummary"
+
+      - name: Job summary
+        run: |
+          echo "## Kodtäckning" >> "$GITHUB_STEP_SUMMARY"
+          cat coverage/report/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/report
+          retention-days: 14

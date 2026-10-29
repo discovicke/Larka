@@ -10,7 +10,8 @@ export default mergeConfig(
       include: ['src/**/*.{test,spec}.{ts,tsx}'],
       coverage: {
         provider: 'v8',
-        reporter: ['text', 'lcov'],
+        reporter: ['text', 'lcov', 'cobertura', 'html'],
+        reportsDirectory: 'coverage',
         include: ['src/**/*.{ts,vue}'],
         exclude: [
           'src/main.ts',

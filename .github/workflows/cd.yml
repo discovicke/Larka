@@ -30,6 +30,44 @@ jobs:
     name: checks
     uses: ./.github/workflows/ci.yml
 
+  # Lägger den sammanslagna täckningsbadgen på den föräldralösa grenen badges (rulesetet för main gäller inte
+  # den). Inget annat jobb väntar på det här, så release, image och deploy påverkas inte.
+  coverage-badge:
+    name: coverage-badge
+    needs: checks
+    # Saknas rapporten (jobbet coverage får fallera utan att stoppa checks) ska CD-körningen ändå bli grön.
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage-report
+
+      - name: Commit badge to the badges branch
+        run: |
+          repo="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          git init -q badge-repo
+          cd badge-repo
+          git remote add origin "$repo"
+          if git fetch -q --depth=1 origin badges; then
+            git checkout -q -b badges FETCH_HEAD
+          else
+            git checkout -q --orphan badges
+          fi
+          cp ../coverage-report/badge_linecoverage.svg coverage.svg
+          git add coverage.svg
+          if git diff --cached --quiet; then
+            echo "Badgen är oförändrad."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -q -m "chore: update coverage badge [skip ci]"
+          git push origin badges
+
   release:
     name: release
     needs: checks

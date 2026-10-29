@@ -36,6 +36,23 @@ Vi testar det som är kärnan i produkten, inte varje rad kod. 100 % täckning �
 
 `npm run test:coverage` räknar bara produktionskod. Genererade UI-komponenter och dev-verktyg är undantagna i `vitest.config.ts`.
 
+## Kodtäckning
+
+Täckning är en signal, inte ett mål: den visar vilka delar som saknar tester, inte om testerna är bra. Ingen tröskel fäller bygget.
+
+```bash
+npm run coverage
+```
+
+Kommandot kör backendtesterna (Docker måste vara igång) och frontendtesterna med täckning och slår ihop dem med ReportGenerator (ett lokalt dotnet-verktyg i `dotnet-tools.json`). Rapporten hamnar i `coverage/report/index.html`, med en sammanfattning i `coverage/report/Summary.txt`. Mapparna `coverage/` och `client/coverage/` är ignorerade av git.
+
+Undantaget från täckningen:
+
+- Backend (`coverlet.runsettings`): EF-migreringar (genererade), `Program.cs` (uppstartskod), `DevSeed.cs` (dev-data), kod märkt `[GeneratedCode]` eller `[CompilerGenerated]` samt testprojekten och analyzern.
+- Frontend (`client/vitest.config.ts`): genererade UI-komponenter, dev-verktyg, `main.ts`, `utils.ts` och genererade API-typer.
+
+I CI samlar jobben `backend` och `frontend` varsin täckning och skriver sitt tal i jobbsammanfattningen. Jobbet `coverage` slår ihop dem. Sammanfattningen finns i jobbet `coverage` och hela HTML-rapporten i artefakten `coverage-report`. Jobbet är inget obligatoriskt krav. README:ns badge visar radtäckningen för hela repot och uppdateras av CD vid varje körning på `main`.
+
 ## Testnivåer och hur de körs
 
 | Nivå                 | Var                                       | Körs                                               | Kräver              |

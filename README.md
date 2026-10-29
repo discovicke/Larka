@@ -1,6 +1,7 @@
 # RebornLMS
 
 [![CD](https://github.com/EduEdugrade/net25-devops-grupp-4/actions/workflows/cd.yml/badge.svg)](https://github.com/EduEdugrade/net25-devops-grupp-4/actions/workflows/cd.yml)
+![Coverage](https://github.com/EduEdugrade/net25-devops-grupp-4/raw/badges/coverage.svg)
 
 Ett lärplattformssystem (LMS) för skolor. Lärare skapar innehåll (nyheter, teori och uppgifter) och publicerar det till grupper. Studenter lämnar in uppgifter och får betyg, kommentarer och notiser. Admin hanterar skolor, användare, kurser och grupper.
 
@@ -38,7 +39,7 @@ Innan du pushar: `npm run format`, `dotnet test RebornLMS.sln` och `npm --prefix
 | [Inloggning och behörigheter](docs/auth-och-behorigheter.md) | JWT, konton, roller och vad de får göra                     |
 | [Fillagring](docs/fillagring.md)                             | Bilagor och inlämningar i Supabase Storage                  |
 | [Deploy och releaser](docs/deploy.md)                        | CD-flödet, Render, hemligheter och semantic versioning      |
-| [Testning](docs/testing.md)                                  | Teststrategi, layouttester och E2E                          |
+| [Testning](docs/testing.md)                                  | Teststrategi, kodtäckning, layouttester och E2E             |
 | [Bidra](docs/bidra.md)                                       | Arbetsflöde, commit-format, PR-kontroller och kodstil       |
 | [Kodstil i C#](docs/code-style-csharp.md)                    | Våra egna analyzer-regler                                   |
 | [ER-modell](docs/er-diagram.md)                              | Datamodellen                                                |
