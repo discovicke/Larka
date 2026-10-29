@@ -138,7 +138,7 @@ function courseLabel(course: {title: string, code: string}): string {
               <SidebarMenuButton size="lg" tooltip="Byt skola" data-test="school-switcher">
                 <AppLogo/>
                 <span class="flex flex-1 flex-col leading-tight">
-                  <span class="font-semibold">RebornLMS</span>
+                  <span class="font-semibold">Lärka</span>
                   <span class="text-sidebar-foreground/70 text-xs">{{ exampleSchool.name }}</span>
                 </span>
                 <PhCaretUpDown class="text-sidebar-foreground/70"/>

@@ -1,9 +1,9 @@
-# RebornLMS
+# Lärka
 
 [![CD](https://github.com/EduEdugrade/net25-devops-grupp-4/actions/workflows/cd.yml/badge.svg)](https://github.com/EduEdugrade/net25-devops-grupp-4/actions/workflows/cd.yml)
 ![Coverage](https://github.com/EduEdugrade/net25-devops-grupp-4/raw/badges/coverage.svg)
 
-Ett lärplattformssystem (LMS) för skolor. Lärare skapar innehåll (nyheter, teori och uppgifter) och publicerar det till grupper. Studenter lämnar in uppgifter och får betyg, kommentarer och notiser. Admin hanterar skolor, användare, kurser och grupper.
+Ett lärplattformssystem (LMS) för skolor. Arbetsnamnet var RebornLMS, som lösningen och namnrymderna fortfarande heter. Lärare skapar innehåll (nyheter, teori och uppgifter) och publicerar det till grupper. Studenter lämnar in uppgifter och får betyg, kommentarer och notiser. Admin hanterar skolor, användare, kurser och grupper.
 
 **Live:** https://net25-devops-grupp-4.onrender.com. Logga in som `elev`/`elev`, `larare`/`larare` eller `admin`/`admin`. Gratisinstansen somnar efter 15 minuter utan trafik, så första anropet kan ta en minut.
 

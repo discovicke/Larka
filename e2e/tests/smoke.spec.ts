@@ -46,7 +46,7 @@ test('hälsa och version svarar', async ({request}) => {
 test('startsidan laddar med sidomenyn', async ({page}) => {
   await page.goto('/')
 
-  await expect(page).toHaveTitle(/· RebornLMS$/)
+  await expect(page).toHaveTitle(/· Lärka$/)
   await openSidebar(page)
 
   for (const name of ['Idag', 'Kalender', 'Inkorg']) {
@@ -75,7 +75,7 @@ test('en kurs går att öppna och nyhetsfliken fungerar', async ({page, request}
 
   await page.getByRole('link', {name: 'Nyheter'}).click()
   await expect(page).toHaveURL(/\/news$/)
-  await expect(page).toHaveTitle(/Nyheter · RebornLMS$/)
+  await expect(page).toHaveTitle(/Nyheter · Lärka$/)
 })
 
 test('alla grupper visar en tabell utan sidledes scroll', async ({page}) => {

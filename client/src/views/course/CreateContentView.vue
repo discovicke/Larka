@@ -42,7 +42,7 @@ import NotFoundView from '@/views/NotFoundView.vue'
 
 const submissionModes: {value: Schema<'SubmissionMode'>, label: string, description: string, icon: Component}[] = [
   {value: 'File', label: 'Filer och foton', description: 'Dokument, bilder, mätprotokoll. Funkar från mobilen.', icon: PhFiles},
-  {value: 'Text', label: 'Text', description: 'Eleven skriver svaret direkt i RebornLMS.', icon: PhTextAa},
+  {value: 'Text', label: 'Text', description: 'Eleven skriver svaret direkt i Lärka.', icon: PhTextAa},
   {value: 'OnSite', label: 'Bedöms på plats', description: 'Du bockar av moment på lektionen, ingen inlämning.', icon: PhChalkboardTeacher},
   {value: 'Repo', label: 'GitHub-repo', description: 'Varje elev får ett eget repo från din mall.', icon: PhGithubLogo},
 ]

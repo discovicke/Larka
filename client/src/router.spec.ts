@@ -57,7 +57,7 @@ describe('router', () => {
   it('sätter titeln i webbläsarfliken', async () => {
     await open('/calendar')
 
-    expect(document.title).toBe('Kalender · RebornLMS')
+    expect(document.title).toBe('Kalender · Lärka')
   })
 
   it.each([

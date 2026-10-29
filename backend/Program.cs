@@ -53,7 +53,7 @@ app.UseExceptionHandler();
 
 // OpenAPI-dokumentet finns på /openapi/v1.json och Swagger UI på /swagger.
 app.MapOpenApi();
-app.UseSwaggerUI(options => options.SwaggerEndpoint("/openapi/v1.json", "RebornLMS API"));
+app.UseSwaggerUI(options => options.SwaggerEndpoint("/openapi/v1.json", "Lärka API"));
 
 // Användaren läses från token (ClaimsCurrentUser) innan endpoints prövar behörigheten.
 app.UseAuthentication();

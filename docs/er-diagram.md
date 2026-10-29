@@ -1,4 +1,4 @@
-# RebornLMS – ER-modell
+# Lärka – ER-modell
 
 Datamodellen bakom API:et. Content (nyheter, teori och uppgifter) är kärnan: det lever fristående, skrivs alltid av en användare och publiceras till grupper och kurser via `ContentLink`.
 

@@ -65,8 +65,8 @@ const previousModules = modules.map((module) => ({
 
 // Klasser i skolan som en ny kursomgång kan skapas för.
 const groups: Schema<'GroupDto'>[] = [
-  {id: 'g1', schoolId: 's1', type: 'Class', name: 'NET25', term: 'HT25'},
-  {id: 'g2', schoolId: 's1', type: 'Class', name: 'NET26 med ett långt klassnamn som får plats', term: 'HT26'},
+  {id: 'g1', schoolId: 's1', type: 'Class', name: 'NET25', term: 'HT25', memberCount: 24},
+  {id: 'g2', schoolId: 's1', type: 'Class', name: 'NET26 med ett långt klassnamn som får plats', term: 'HT26', memberCount: 18},
 ]
 
 function studentPart(linkId: string, title: string, overrides: Record<string, unknown> = {}) {

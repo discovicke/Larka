@@ -53,7 +53,7 @@ async function submit() {
     >
       <div class="flex items-center gap-2.5">
         <AppLogo class="size-9"/>
-        <span class="text-lg font-semibold">RebornLMS</span>
+        <span class="text-lg font-semibold">Lärka</span>
       </div>
 
       <div class="flex max-w-[440px] flex-col gap-4">
