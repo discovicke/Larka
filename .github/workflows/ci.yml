@@ -20,7 +20,7 @@ jobs:
   # Prettier. Ett jobb som hoppas över med if: räknas som godkänt, så de obligatoriska kontrollerna går igenom.
   # paths-ignore på hela workflowen fungerar inte: då rapporterar kontrollerna aldrig och PR:en kan inte mergas.
   changes:
-    name: changes
+    name: 'Detect changes'
     runs-on: ubuntu-latest
     outputs:
       code: ${{ steps.diff.outputs.code }}
@@ -42,7 +42,7 @@ jobs:
           fi
 
   backend:
-    name: backend
+    name: 'Backend: build, format, tests'
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
@@ -101,7 +101,7 @@ jobs:
           retention-days: 7
 
   frontend:
-    name: frontend
+    name: 'Frontend: format, lint, build, tests'
     needs: changes
     runs-on: ubuntu-latest
     defaults:
@@ -189,7 +189,7 @@ jobs:
   # Slår ihop backendens och frontendens täckning till en rapport. Inget obligatoriskt statuskrav och ingen
   # tröskel som fäller bygget. Hoppas över när backend eller frontend hoppas över (bara dokumentation).
   coverage:
-    name: coverage
+    name: 'Coverage report'
     needs: [backend, frontend]
     if: needs.backend.result == 'success' && needs.frontend.result == 'success'
     # cd.yml väntar på hela det här workflowet före release. Ett fel i rapporten får inte stoppa en release.

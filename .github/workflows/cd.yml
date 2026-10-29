@@ -27,13 +27,13 @@ env:
 
 jobs:
   checks:
-    name: checks
+    name: Tests
     uses: ./.github/workflows/ci.yml
 
   # Lägger den sammanslagna täckningsbadgen på den föräldralösa grenen badges (rulesetet för main gäller inte
   # den). Inget annat jobb väntar på det här, så release, image och deploy påverkas inte.
   coverage-badge:
-    name: coverage-badge
+    name: 'Update coverage badge'
     needs: checks
     # Saknas rapporten (jobbet coverage får fallera utan att stoppa checks) ska CD-körningen ändå bli grön.
     continue-on-error: true
@@ -69,7 +69,7 @@ jobs:
           git push origin badges
 
   release:
-    name: release
+    name: 'Release: version and tag'
     needs: checks
     runs-on: ubuntu-latest
     permissions:
@@ -103,7 +103,7 @@ jobs:
         run: echo "version=$(git describe --tags --always)" >> "$GITHUB_OUTPUT"
 
   image:
-    name: image
+    name: 'Docker image'
     needs: release
     runs-on: ubuntu-latest
     permissions:
@@ -143,7 +143,7 @@ jobs:
         run: echo "image=$IMAGE:$GITHUB_SHA" >> "$GITHUB_OUTPUT"
 
   deploy:
-    name: deploy
+    name: 'Deploy to Render'
     needs: [release, image]
     runs-on: ubuntu-latest
     environment:

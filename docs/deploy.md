@@ -4,10 +4,29 @@
 
 Allt som når `main` deployas automatiskt av [`cd.yml`](../.github/workflows/cd.yml):
 
-1. **checks**: samma kontroller som på PR:er ([ci.yml](../.github/workflows/ci.yml))
-2. **release**: semantic-release sätter versionstagg (se [Versioner](#versioner))
-3. **image**: bygger Docker-imagen och pushar den till `ghcr.io/eduedugrade/net25-devops-grupp-4`, taggad med commit, version och `latest`
-4. **deploy**: [`render-deploy.sh`](../.github/scripts/render-deploy.sh) sätter hemligheterna på Render, säger åt Render att köra imagen, väntar tills den är live och kontrollerar att `/version` svarar med rätt commit
+1. **Tests**: samma kontroller som på PR:er ([ci.yml](../.github/workflows/ci.yml))
+2. **Release: version and tag**: semantic-release sätter versionstagg (se [Versioner](#versioner))
+3. **Docker image**: bygger Docker-imagen och pushar den till `ghcr.io/eduedugrade/net25-devops-grupp-4`, taggad med commit, version och `latest`
+4. **Deploy to Render**: [`render-deploy.sh`](../.github/scripts/render-deploy.sh) sätter hemligheterna på Render, säger åt Render att köra imagen, väntar tills den är live och kontrollerar att `/version` svarar med rätt commit
+
+## Kontrollerna på GitHub
+
+Samma kontroller syns på PR:er och på `main`. På `main` kör CD först hela CI (därför heter de där `CD / Tests / …`) och skickar sedan ut versionen.
+
+| Kontroll                                    | Var             | Vad den gör                                                                                          | Obligatorisk på PR |
+| ------------------------------------------- | --------------- | ---------------------------------------------------------------------------------------------------- | ------------------ |
+| `CI / Detect changes`                       | PR, `main`      | Ser om bara dokumentation ändrats, då hoppas backend över och frontend kör bara Prettier             | nej                |
+| `CI / Backend: build, format, tests`        | PR, `main`      | Bygger utan varningar, kör `dotnet format` och alla backendtester                                    | ja                 |
+| `CI / Frontend: format, lint, build, tests` | PR, `main`      | Prettier, ESLint, att API-typerna är aktuella, bygger med typkontroll, enhetstester och layouttester | ja                 |
+| `CI / Coverage report`                      | PR, `main`      | Slår ihop täckningen från backend och frontend (se [testing.md](testing.md))                         | nej                |
+| `PR title / Conventional commit title`      | PR              | PR-titeln ska följa Conventional Commits, eftersom den blir commiten som styr versionen              | ja                 |
+| `CD / Update coverage badge`                | `main`          | Uppdaterar täckningsbadgen i README                                                                  | –                  |
+| `CD / Release: version and tag`             | `main`          | Räknar fram nästa version, taggar och skapar en GitHub-release                                       | –                  |
+| `CD / Docker image`                         | `main`          | Bygger och pushar imagen                                                                             | –                  |
+| `CD / Deploy to Render`                     | `main`          | Deployar imagen och kontrollerar `/version`                                                          | –                  |
+| `E2E / Smoke tests against prod`            | schema, manuell | Playwright mot den deployade appen varje morgon (se [testing.md](testing.md))                        | –                  |
+
+De obligatoriska kontrollerna står i rulesetet `main` under _Settings › Rules_ med samma namn. Byter ett jobb namn måste rulesetet uppdateras samtidigt, annars väntar PR:er på en kontroll som aldrig rapporterar.
 
 Render kör imagen i Frankfurt och databasen är Supabase Postgres i samma region. Misslyckas en deploy behåller Render den gamla versionen live. `GET /version` visar vilken version och commit som körs.
 
