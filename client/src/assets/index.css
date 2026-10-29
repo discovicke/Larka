@@ -105,7 +105,7 @@
   --primary-foreground: #1e3a32;
   --secondary: #262b29;
   --secondary-foreground: #ecefec;
-  --muted: #1c1f1e;
+  --muted: #252a28;
   --muted-foreground: #a3aba7;
   --accent: #262b29;
   --accent-foreground: #ecefec;
@@ -122,13 +122,14 @@
   --chart-3: #9dbcf0;
   --chart-4: #f28b7e;
   --chart-5: #ecefec;
-  --sidebar: #0d0f0e;
-  --sidebar-foreground: #ecefec;
+  /* Samma tavelgröna sidomeny som i ljust läge, fast mörkare, så att mörkt läge inte blir helt svart. */
+  --sidebar: #142822;
+  --sidebar-foreground: #e6ece6;
   --sidebar-primary: #f5c33b;
   --sidebar-primary-foreground: #1e3a32;
-  --sidebar-accent: #1f2321;
+  --sidebar-accent: #1e3a32;
   --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: rgb(236 239 236 / 8%);
+  --sidebar-border: #21403a;
   --sidebar-ring: #f5c33b;
 }
 

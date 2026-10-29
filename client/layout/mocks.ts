@@ -156,6 +156,8 @@ export async function signInAndMockApi(page: Page, role: 'Teacher' | 'Student' =
     switch (pathname) {
       case '/api/me':
         return json(meAs(role, ['c1', 'c2']))
+      case '/api/me/notification-settings':
+        return json({muted: []})
       case '/api/courses':
         return json([course, previousCourse])
       case '/api/groups':
