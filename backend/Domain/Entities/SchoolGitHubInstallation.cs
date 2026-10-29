@@ -13,4 +13,7 @@ public class SchoolGitHubInstallation
     public bool Connected { get; set; }
     public DateTimeOffset ConnectedAt { get; set; }
     public DateTimeOffset? DisconnectedAt { get; set; }
+
+    /// <summary>Senaste gången installationen verifierades mot GitHub.</summary>
+    public DateTimeOffset? LastVerifiedAt { get; set; }
 }

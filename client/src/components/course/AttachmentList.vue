@@ -106,7 +106,7 @@ watch(() => props.contentId, load, {immediate: true})
 </script>
 
 <template>
-  <section class="flex flex-col gap-4 rounded-[11px] border p-5" data-test="attachments">
+  <section class="bg-card flex flex-col gap-4 rounded-[11px] border p-5" data-test="attachments">
     <h2 class="text-base">Bifogade filer</h2>
 
     <Alert v-if="uploadFailed" variant="destructive">

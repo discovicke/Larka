@@ -15,8 +15,16 @@ public record GitHubRepository(
 /// <summary>Senaste commit på repots default branch.</summary>
 public record GitHubCommit(string Sha, string Message, DateTimeOffset? AuthoredAt);
 
-/// <summary>Installationen som appen är installerad på. AccountLogin är org eller användare.</summary>
-public record GitHubInstallation(long Id, string AccountLogin, long AppId);
+/// <summary>
+/// Installationen som appen är installerad på. AccountLogin är org eller användare, AccountType är
+/// "Organization" eller "User". Permissions är GitHubs behörighetskarta, t.ex. contents=write.
+/// </summary>
+public record GitHubInstallation(
+    long Id,
+    string AccountLogin,
+    string AccountType,
+    long AppId,
+    IReadOnlyDictionary<string, string> Permissions);
 
 /// <summary>
 /// En kortlivad token för en installation. Token är en hemlighet och ska aldrig loggas.

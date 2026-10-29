@@ -629,11 +629,82 @@
         }
       }
     },
+    "/api/integrations/github/install": {
+      "get": {
+        "tags": [
+          "Integrations"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitHubInstallLinkDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/github/setup": {
+      "get": {
+        "tags": [
+          "Integrations"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/integrations/github/connect": {
       "post": {
         "tags": [
           "Integrations"
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GitHubConnectRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "OK",
@@ -1386,6 +1457,69 @@
           },
           "404": {
             "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/courses/{id}/students/unlinked-github": {
+      "get": {
+        "tags": [
+          "Courses"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UnlinkedGitHubStudentDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -4147,7 +4281,8 @@
           "accountLogin",
           "lastVerifiedAt",
           "error",
-          "missingSettings"
+          "missingSettings",
+          "usingLegacyInstallation"
         ],
         "type": "object",
         "properties": {
@@ -4195,9 +4330,51 @@
             "items": {
               "type": "string"
             }
+          },
+          "usingLegacyInstallation": {
+            "type": "boolean"
           }
         },
         "description": "GitHub-anslutningen som admin kan se i klienten. Inga hemligheter."
+      },
+      "GitHubConnectRequest": {
+        "required": [
+          "installationId",
+          "state"
+        ],
+        "type": "object",
+        "properties": {
+          "installationId": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int64"
+          },
+          "state": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "description": "installationId sätts efter GitHubs setup-redirect. Utan id verifierar servern om skolans sparade\ninstallation fortfarande fungerar (återanslut)."
+      },
+      "GitHubInstallLinkDto": {
+        "required": [
+          "url",
+          "state"
+        ],
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          }
+        },
+        "description": "Installationslänk och den signerade state som klienten skickar tillbaka efter setup."
       },
       "GitHubLinkDto": {
         "required": [
@@ -5015,7 +5192,9 @@
           "canMarkDone",
           "blockedBy",
           "submissionStatus",
-          "gradeLevel"
+          "gradeLevel",
+          "hasRepoMode",
+          "repo"
         ],
         "type": "object",
         "properties": {
@@ -5095,6 +5274,19 @@
               },
               {
                 "$ref": "#/components/schemas/GradeLevel"
+              }
+            ]
+          },
+          "hasRepoMode": {
+            "type": "boolean"
+          },
+          "repo": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/StudentRepoDto"
               }
             ]
           }
@@ -5947,6 +6139,27 @@
           }
         },
         "description": "En uppgift som väntar: publicerad, med deadline från nu och inte inlämnad."
+      },
+      "UnlinkedGitHubStudentDto": {
+        "required": [
+          "id",
+          "name",
+          "email"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          }
+        },
+        "description": "Elev i kursen som ännu inte har kopplat ett GitHub-konto."
       },
       "UnreadCountDto": {
         "required": [

@@ -12,14 +12,17 @@ import {
   PhPaperPlaneTilt,
 } from '@phosphor-icons/vue'
 import type {Component} from 'vue'
-import {computed, ref, watch} from 'vue'
+import {computed, onMounted, ref, watch} from 'vue'
+import {useRoute} from 'vue-router'
 
+import GitHubAssignmentBlock from '@/components/GitHubAssignmentBlock.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Badge} from '@/components/ui/badge'
 import {Button} from '@/components/ui/button'
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '@/components/ui/collapsible'
 import {Item, ItemMedia} from '@/components/ui/item'
 import {Skeleton} from '@/components/ui/skeleton'
+import {useCurrentUser} from '@/composables/useCurrentUser'
 import {api, errorMessage, type Schema} from '@/lib/api'
 import {countLabel, formatDate, partOf} from '@/lib/content'
 
@@ -29,6 +32,8 @@ import {countLabel, formatDate, partOf} from '@/lib/content'
 
 const props = defineProps<{courseId: string}>()
 
+const route = useRoute()
+const {me, loadMe} = useCurrentUser()
 const modules = ref<Schema<'StudentModuleWithContentDto'>[]>([])
 const loading = ref(true)
 const error = ref('')
@@ -74,6 +79,8 @@ watch(() => props.courseId, async () => {
   await load()
 }, {immediate: true})
 
+onMounted(loadMe)
+
 async function load() {
   loading.value = true
   error.value = ''
@@ -117,6 +124,12 @@ async function setCompleted(linkId: string, completed: boolean) {
 
 function openPart(item: Schema<'StudentContentItem'>) {
   selectedLinkId.value = item.linkId
+}
+
+function repoUrlFor(item: Schema<'StudentContentItem'>): string | null {
+  return item.repo
+    ? `https://github.com/${item.repo.repoFullName}`
+    : null
 }
 
 function closePart() {
@@ -426,6 +439,15 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
                 <p v-else class="text-muted-foreground text-sm">Inget innehåll än.</p>
               </section>
             </template>
+
+            <GitHubAssignmentBlock
+              v-if="selectedItem.hasRepoMode && !selectedItem.isLocked"
+              :git-hub-login="me?.gitHubLogin"
+              :repo-url="repoUrlFor(selectedItem)"
+              :latest-commit="selectedItem.repo?.lastSha"
+              :check-status="selectedItem.repo?.checkStatus"
+              :redirect-to="route.fullPath"
+            />
 
             <section
               v-if="selectedItem.type !== 'News' && !selectedItem.isLocked"

@@ -1,19 +1,16 @@
 using Backend.Application.Abstractions;
 using Backend.Application.Dtos;
 using Backend.Application.Results;
-using Backend.Domain.Entities;
 
 namespace Backend.Application.Services;
 
 // Hanterar GitHub-anslutningen för skolans admin. Behörigheten prövas här, inte i klienten.
 public class IntegrationService(
     IPermissions permissions,
-    IGitHubConnectionStatusProvider githubStatus,
-    ISchoolGitHubInstallationRepository installations,
+    IGitHubConnectionService github,
+    IGitHubInstallStateProtector stateProtector,
     IUserRepository users,
-    ICurrentUser currentUser,
-    IUnitOfWork unitOfWork,
-    TimeProvider time)
+    ICurrentUser currentUser)
 {
     public async Task<ServiceResult<GitHubConnectionDto>> GetGitHubStatusAsync(CancellationToken ct)
     {
@@ -22,49 +19,60 @@ public class IntegrationService(
             return ServiceResult<GitHubConnectionDto>.Forbidden();
         }
 
-        var status = await githubStatus.GetStatusAsync(ct);
         var user = await users.GetAsync(currentUser.UserId, ct);
-        var connected = status.Connected;
-
-        if (user is not null)
+        if (user is null)
         {
-            var installation = await installations.GetForSchoolAsync(user.SchoolId, ct);
-            if (installation is not null && !installation.Connected)
-            {
-                connected = false;
-            }
+            return ServiceResult<GitHubConnectionDto>.NotFound("Användaren hittades inte.");
         }
 
-        return ServiceResult<GitHubConnectionDto>.Ok(new GitHubConnectionDto(
-            status.Configured,
-            status.AppId,
-            status.InstallationId,
-            status.Org,
-            status.ApiBaseUrl,
-            connected,
-            status.AccountLogin,
-            status.LastVerifiedAt,
-            status.Error,
-            status.MissingSettings.ToList()));
+        var status = await github.GetStatusAsync(user.SchoolId, ct);
+        return ServiceResult<GitHubConnectionDto>.Ok(ToDto(status));
     }
 
-    public async Task<ServiceResult<GitHubConnectionDto>> ConnectAsync(CancellationToken ct)
+    /// <summary>
+    /// Klienten öppnar GitHub-installationen i webbläsaren. State binder flödet till admin och skola.
+    /// </summary>
+    public async Task<ServiceResult<GitHubInstallLinkDto>> CreateInstallLinkAsync(CancellationToken ct)
+    {
+        if (!await permissions.IsAdminAsync(ct))
+        {
+            return ServiceResult<GitHubInstallLinkDto>.Forbidden();
+        }
+
+        if (!github.IsConfigured)
+        {
+            return ServiceResult<GitHubInstallLinkDto>.Invalid(
+                "GitHub är inte konfigurerat. Saknas: " + string.Join(", ", github.MissingSettings) + ".");
+        }
+
+        var user = await users.GetAsync(currentUser.UserId, ct);
+        if (user is null)
+        {
+            return ServiceResult<GitHubInstallLinkDto>.NotFound("Användaren hittades inte.");
+        }
+
+        var state = stateProtector.Create(user.Id, user.SchoolId);
+        try
+        {
+            return ServiceResult<GitHubInstallLinkDto>.Ok(
+                new GitHubInstallLinkDto(github.BuildInstallUrl(state), state));
+        }
+        catch (InvalidOperationException exception)
+        {
+            return ServiceResult<GitHubInstallLinkDto>.Invalid(exception.Message);
+        }
+    }
+
+    /// <summary>
+    /// Efter GitHubs setup-redirect skickar klienten installation-id och state. Utan installation-id
+    /// verifieras skolans sparade installation i stället, så att en lokal frånkoppling kan återställas.
+    /// </summary>
+    public async Task<ServiceResult<GitHubConnectionDto>> ConnectAsync(
+        GitHubConnectRequest request, CancellationToken ct)
     {
         if (!await permissions.IsAdminAsync(ct))
         {
             return ServiceResult<GitHubConnectionDto>.Forbidden();
-        }
-
-        var status = await githubStatus.GetStatusAsync(ct);
-        if (!status.Configured)
-        {
-            return ServiceResult<GitHubConnectionDto>.Invalid("GitHub-integrationen är inte konfigurerad.");
-        }
-
-        if (!status.Connected)
-        {
-            return ServiceResult<GitHubConnectionDto>.Invalid(
-                status.Error ?? "Kunde inte ansluta till GitHub-organisationen.");
         }
 
         var user = await users.GetAsync(currentUser.UserId, ct);
@@ -73,43 +81,28 @@ public class IntegrationService(
             return ServiceResult<GitHubConnectionDto>.NotFound("Användaren hittades inte.");
         }
 
-        var installation = await installations.GetForSchoolAsync(user.SchoolId, ct);
-        var now = time.GetUtcNow();
-        if (installation is null)
+        if (request.InstallationId is null or <= 0)
         {
-            installation = new SchoolGitHubInstallation
-            {
-                SchoolId = user.SchoolId,
-                InstallationId = status.InstallationId,
-                Org = status.Org,
-                Connected = true,
-                ConnectedAt = now,
-                DisconnectedAt = null
-            };
-            installations.Add(installation);
-        }
-        else
-        {
-            installation.Connected = true;
-            installation.InstallationId = status.InstallationId;
-            installation.Org = status.Org;
-            installation.ConnectedAt = now;
-            installation.DisconnectedAt = null;
+            var reconnected = await github.ReconnectAsync(user.SchoolId, ct);
+            return reconnected.Connected
+                ? ServiceResult<GitHubConnectionDto>.Ok(ToDto(reconnected))
+                : ServiceResult<GitHubConnectionDto>.Invalid(
+                    reconnected.Error ?? "Kunde inte återansluta GitHub.");
         }
 
-        await unitOfWork.SaveChangesAsync(ct);
+        if (string.IsNullOrWhiteSpace(request.State)
+            || !stateProtector.TryValidate(request.State, user.Id, out var stateSchoolId)
+            || stateSchoolId != user.SchoolId)
+        {
+            return ServiceResult<GitHubConnectionDto>.Invalid(
+                "GitHub-anslutningen kunde inte verifieras. Försök igen från Inställningar.");
+        }
 
-        return ServiceResult<GitHubConnectionDto>.Ok(new GitHubConnectionDto(
-            status.Configured,
-            status.AppId,
-            status.InstallationId,
-            status.Org,
-            status.ApiBaseUrl,
-            true,
-            status.AccountLogin,
-            status.LastVerifiedAt,
-            status.Error,
-            status.MissingSettings.ToList()));
+        var status = await github.ConnectAsync(user.SchoolId, request.InstallationId.Value, ct);
+        return status.Connected
+            ? ServiceResult<GitHubConnectionDto>.Ok(ToDto(status))
+            : ServiceResult<GitHubConnectionDto>.Invalid(
+                status.Error ?? "Kunde inte ansluta GitHub-installationen.");
     }
 
     public async Task<ServiceResult<bool>> DisconnectAsync(CancellationToken ct)
@@ -125,29 +118,21 @@ public class IntegrationService(
             return ServiceResult<bool>.NotFound("Användaren hittades inte.");
         }
 
-        var status = await githubStatus.GetStatusAsync(ct);
-        var installation = await installations.GetForSchoolAsync(user.SchoolId, ct);
-        var now = time.GetUtcNow();
-        if (installation is null)
-        {
-            installation = new SchoolGitHubInstallation
-            {
-                SchoolId = user.SchoolId,
-                InstallationId = status.InstallationId,
-                Org = status.Org,
-                Connected = false,
-                ConnectedAt = now,
-                DisconnectedAt = now
-            };
-            installations.Add(installation);
-        }
-        else
-        {
-            installation.Connected = false;
-            installation.DisconnectedAt = now;
-        }
-
-        await unitOfWork.SaveChangesAsync(ct);
+        await github.DisconnectAsync(user.SchoolId, ct);
         return ServiceResult<bool>.Ok(true);
     }
+
+    private static GitHubConnectionDto ToDto(GitHubConnectionStatus status) =>
+        new(
+            status.Configured,
+            status.AppId,
+            status.InstallationId,
+            status.Org,
+            status.ApiBaseUrl,
+            status.Connected,
+            status.AccountLogin,
+            status.LastVerifiedAt,
+            status.Error,
+            status.MissingSettings.ToList(),
+            status.UsingLegacyInstallation);
 }

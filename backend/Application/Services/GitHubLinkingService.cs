@@ -7,7 +7,9 @@ public class GitHubLinkingService(
     IGitHubOAuthService oauth,
     IUserRepository users,
     ICurrentUser currentUser,
-    IUnitOfWork unitOfWork)
+    ILabProvisioner provisioner,
+    IUnitOfWork unitOfWork,
+    ILogger<GitHubLinkingService> logger)
 {
     public bool IsOAuthConfigured => oauth.IsConfigured;
 
@@ -51,6 +53,21 @@ public class GitHubLinkingService(
 
         user.GitHubLogin = login;
         await unitOfWork.SaveChangesAsync(ct);
+
+        // Repon kan ha skapats innan eleven kopplade kontot. Bjud in till dem nu, men låt en
+        // GitHub-tillfällighet inte göra själva kontokopplingen misslyckad.
+        try
+        {
+            await provisioner.InviteToExistingReposAsync(user, ct);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogWarning(
+                exception,
+                "Could not invite {GitHubLogin} to existing repositories",
+                login);
+        }
+
         return ServiceResult<string>.Ok(login);
     }
 

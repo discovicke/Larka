@@ -31,6 +31,11 @@ public static class CourseEndpoints
                 : TypedResults.Ok(staff);
         });
 
+        // Lärarna ser vilka elever i kursen som ännu inte har kopplat GitHub.
+        courses.MapGet("/{id:guid}/students/unlinked-github", async (
+            Guid id, CourseService service, CancellationToken ct) =>
+            (await service.GetUnlinkedGitHubStudentsAsync(id, ct)).ToHttp(TypedResults.Ok));
+
         courses.MapPost("", async (CreateCourseDto courseDto, CourseService service, CancellationToken ct) =>
             (await service.CreateAsync(courseDto, ct)).ToHttp(course =>
                 TypedResults.Created($"/api/courses/{course.Id}", course)));

@@ -22,6 +22,7 @@ const props = withDefaults(
     latestCommit?: string | null
     checkStatus?: 'Pending' | 'Green' | 'Red' | null
     authorizeUrl?: string | null
+    redirectTo?: string | null
   }>(),
   {
     hasRepoMode: true,
@@ -30,6 +31,7 @@ const props = withDefaults(
     latestCommit: null,
     checkStatus: null,
     authorizeUrl: null,
+    redirectTo: null,
   },
 )
 
@@ -64,7 +66,7 @@ async function handleConnect() {
   connecting.value = true
   connectError.value = ''
   try {
-    const url = await fetchGitHubAuthorizeUrl()
+    const url = await fetchGitHubAuthorizeUrl(props.redirectTo ?? undefined)
     window.location.href = url
   } catch (exception) {
     connectError.value = errorMessage(exception)

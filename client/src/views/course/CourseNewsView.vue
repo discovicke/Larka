@@ -108,7 +108,7 @@ watch(courseId, () => {
         <NewsPostDialog :course-id="courseId" @created="created"/>
       </div>
 
-      <div class="flex flex-wrap overflow-hidden rounded-[11px] border">
+      <div class="bg-card flex flex-wrap overflow-hidden rounded-[11px] border">
         <div class="flex-[1_1_360px] min-w-0 border-r max-md:border-r-0 max-md:border-b">
           <button
             v-for="post in sortedPosts"

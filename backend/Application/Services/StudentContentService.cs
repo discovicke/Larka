@@ -215,7 +215,11 @@ public class StudentContentService(
                 : submission?.Status,
             link.Content.Assignment is null
                 ? null
-                : submission?.Grade?.Level);
+                : submission?.Grade?.Level,
+            link.Content.Assignment?.SubmissionModes.Contains(SubmissionMode.Repo) == true,
+            submission?.Repo is null
+                ? null
+                : StudentRepoDto.From(submission.Repo));
     }
 
     // Titeln visas bara om förutsättningen är publicerad och har passerat PublishAt.

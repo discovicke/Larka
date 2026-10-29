@@ -39,7 +39,9 @@ public record StudentContentItem(
     bool CanMarkDone,
     List<StudentBlockerDto> BlockedBy,
     SubmissionStatus? SubmissionStatus,
-    GradeLevel? GradeLevel);
+    GradeLevel? GradeLevel,
+    bool HasRepoMode,
+    StudentRepoDto? Repo);
 
 /// <summary>
 /// En förutsättning som eleven saknar. Title är null när förutsättningen inte är publicerad än,

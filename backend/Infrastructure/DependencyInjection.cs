@@ -125,18 +125,19 @@ public static class DependencyInjection
             http.BaseAddress = new Uri($"{baseUrl.TrimEnd('/')}/");
         });
         services.AddSingleton<IGitHubAppService, GitHubAppService>();
-        services.AddSingleton<IGitHubConnectionStatusProvider, GitHubConnectionStatusProvider>();
+        services.AddSingleton<IGitHubInstallStateProtector, GitHubInstallStateProtector>();
+        services.AddScoped<IGitHubConnectionService, GitHubConnectionService>();
         services.AddScoped<IGitHubOAuthService, GitHubOAuthService>();
 
         // Utan app-credentials ska lokal utveckling och tester fortsätta med fake-repon.
         var githubOptions = config.GetSection(GitHubOptions.SectionName).Get<GitHubOptions>();
-        if (githubOptions?.IsConfigured == true)
+        if (githubOptions?.IsAppConfigured == true)
         {
-            services.AddSingleton<ILabProvisioner, GitHubLabProvisioner>();
+            services.AddScoped<ILabProvisioner, GitHubLabProvisioner>();
         }
         else
         {
-            services.AddSingleton<ILabProvisioner, FakeLabProvisioner>();
+            services.AddScoped<ILabProvisioner, FakeLabProvisioner>();
         }
     }
 
@@ -199,7 +200,6 @@ public static class DependencyInjection
         services.AddScoped<IGroupRepository, GroupRepository>();
         services.AddScoped<IContentRepository, ContentRepository>();
         services.AddScoped<IPartCompletionRepository, PartCompletionRepository>();
-        services.AddScoped<ISubmissionRepository, SubmissionRepository>();
         services.AddScoped<ISubmissionRepository, SubmissionRepository>();
         services.AddScoped<INotificationRepository, NotificationRepository>();
         services.AddScoped<ISchoolGitHubInstallationRepository, SchoolGitHubInstallationRepository>();

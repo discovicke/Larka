@@ -24,6 +24,12 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
 
     private record BlockerResponse(Guid LinkId, string? Title, bool IsSatisfied);
 
+    private record RepoResponse(
+        string RepoFullName,
+        string? LastSha,
+        string CheckStatus,
+        DateTimeOffset UpdatedAt);
+
     private record ItemResponse(
         Guid LinkId,
         Guid ContentId,
@@ -36,7 +42,11 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
         bool CanMarkDone,
         List<BlockerResponse> BlockedBy,
         string? SubmissionStatus,
-        string? GradeLevel);
+        string? GradeLevel,
+        bool HasRepoMode,
+        RepoResponse? Repo);
+
+    private record UnlinkedStudentResponse(Guid Id, string Name, string Email);
 
     private record ModuleWithContent(
         Guid Id,
@@ -428,6 +438,48 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
 
         Assert.Equal(HttpStatusCode.Conflict, deleted.StatusCode);
         Assert.Single((await GetStudentModulesAsync(setup, setup.StudentIds[0])).Single().Content);
+    }
+
+    [Fact]
+    public async Task RepoAssignment_IncludesRepoAndRepoModeForStudent()
+    {
+        var setup = await AddCourseWithGroupAsync();
+        var week = await CreateModuleAsync(setup.CourseId);
+        await LinkContentAsync(setup.CourseId, week.Id, new
+        {
+            type = "assignment",
+            title = "Repo-uppgift",
+            bodyMd = "",
+            submissionModes = new[] { "repo" },
+            templateRepo = "skol-org/template"
+        });
+
+        var item = Assert.Single(
+            (await GetStudentModulesAsync(setup, setup.StudentIds[0])).Single().Content);
+
+        Assert.True(item.HasRepoMode);
+        Assert.NotNull(item.Repo);
+        Assert.StartsWith("skol-org/", item.Repo.RepoFullName);
+        Assert.Equal("Pending", item.Repo.CheckStatus);
+    }
+
+    [Fact]
+    public async Task UnlinkedGitHubStudents_ReturnsOnlyStudentsWithoutLogin()
+    {
+        var setup = await AddCourseWithGroupAsync();
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            var linked = await db.Users.FindAsync(setup.StudentIds[0]);
+            linked!.GitHubLogin = "alice";
+            await db.SaveChangesAsync();
+        }
+
+        var students = await _client.GetFromJsonAsync<List<UnlinkedStudentResponse>>(
+            $"/api/courses/{setup.CourseId}/students/unlinked-github");
+
+        var student = Assert.Single(students!);
+        Assert.Equal(setup.StudentIds[1], student.Id);
     }
 
     private async Task<List<ModuleWithContent>> GetStudentModulesAsync(Setup setup, Guid studentId)

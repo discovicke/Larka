@@ -26,6 +26,10 @@ public class FakeLabProvisioner(IConfiguration cfg) : ILabProvisioner
         return Task.FromResult<IReadOnlyList<StudentRepo>>(repos);
     }
 
-    public Task RefreshCheckStatusAsync(IReadOnlyList<StudentRepo> repos, CancellationToken ct) =>
+    public Task RefreshCheckStatusAsync(
+        IReadOnlyList<StudentRepoContext> repos, CancellationToken ct) =>
+        Task.CompletedTask;
+
+    public Task InviteToExistingReposAsync(User student, CancellationToken ct) =>
         Task.CompletedTask;
 }

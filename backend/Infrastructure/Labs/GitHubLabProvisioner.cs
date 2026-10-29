@@ -10,35 +10,38 @@ namespace Backend.Infrastructure.Labs;
 
 /// <summary>
 /// Riktig GitHub-provisionering: skapar ett privat repo per elev från assignmentens template, bjuder in
-/// eleven som collaborator och uppdaterar senaste SHA + check-status. Används när GitHub är konfigurerat;
-/// annars används FakeLabProvisioner.
+/// eleven som collaborator och uppdaterar senaste SHA + check-status. Används när appens credentials är
+/// konfigurerade; annars används FakeLabProvisioner. Installationen hämtas per skola.
 /// </summary>
 public sealed class GitHubLabProvisioner(
     IGitHubAppService github,
+    ISchoolGitHubInstallationRepository installations,
+    ISubmissionRepository submissions,
     IOptions<GitHubOptions> options,
     TimeProvider time,
     ILogger<GitHubLabProvisioner> logger) : ILabProvisioner
 {
     private readonly GitHubOptions _options = options.Value;
 
+    private sealed record SchoolConnection(long InstallationId, string Org);
+
     public async Task<IReadOnlyList<StudentRepo>> ProvisionAsync(
         string templateRepo, string assignmentTitle, IReadOnlyList<RepoRequest> requests, CancellationToken ct)
     {
-        EnsureConfigured();
+        EnsureAppConfigured();
         var (templateOwner, templateName) = ParseRepo(templateRepo, nameof(templateRepo));
-        var owner = string.IsNullOrWhiteSpace(_options.Org)
-            ? templateOwner
-            : _options.Org;
         var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var connections = new Dictionary<Guid, SchoolConnection>();
         var repos = new List<StudentRepo>(requests.Count);
 
         foreach (var request in requests)
         {
+            var connection = await GetConnectionAsync(request.Student.SchoolId, connections, ct);
             var repoName = BuildRepoName(assignmentTitle, request.Student, usedNames);
             var repository = await CreateOrGetRepositoryAsync(
+                connection,
                 templateOwner,
                 templateName,
-                owner,
                 repoName,
                 assignmentTitle,
                 ct);
@@ -47,7 +50,7 @@ public sealed class GitHubLabProvisioner(
             if (!string.IsNullOrWhiteSpace(request.Student.GitHubLogin))
             {
                 await AddCollaboratorAsync(
-                    repoOwner, repoNameFromResponse, request.Student.GitHubLogin, ct);
+                    connection, repoOwner, repoNameFromResponse, request.Student.GitHubLogin, ct);
             }
             else
             {
@@ -69,16 +72,21 @@ public sealed class GitHubLabProvisioner(
         return repos;
     }
 
-    public async Task RefreshCheckStatusAsync(IReadOnlyList<StudentRepo> repos, CancellationToken ct)
+    public async Task RefreshCheckStatusAsync(
+        IReadOnlyList<StudentRepoContext> repos, CancellationToken ct)
     {
-        EnsureConfigured();
+        EnsureAppConfigured();
+        var connections = new Dictionary<Guid, SchoolConnection>();
 
-        foreach (var repo in repos)
+        foreach (var context in repos)
         {
+            var repo = context.Repo;
             try
             {
+                var connection = await GetConnectionAsync(context.SchoolId, connections, ct);
                 var (owner, name) = ParseRepo(repo.RepoFullName, nameof(repo.RepoFullName));
-                var latest = await github.GetLatestCommitAsync(_options.InstallationId, owner, name, ct);
+                var latest = await github.GetLatestCommitAsync(
+                    connection.InstallationId, owner, name, ct);
                 if (latest is null)
                 {
                     continue;
@@ -86,7 +94,7 @@ public sealed class GitHubLabProvisioner(
 
                 repo.LastSha = latest.Sha;
                 repo.CheckStatus = await github.GetCheckStatusAsync(
-                    _options.InstallationId, owner, name, latest.Sha, ct);
+                    connection.InstallationId, owner, name, latest.Sha, ct);
                 repo.UpdatedAt = time.GetUtcNow();
             }
             catch (GitHubApiException exception)
@@ -95,15 +103,94 @@ public sealed class GitHubLabProvisioner(
             }
             catch (InvalidOperationException exception)
             {
-                logger.LogWarning(exception, "Could not parse GitHub repo name {Repo}", repo.RepoFullName);
+                logger.LogWarning(exception, "Could not refresh GitHub checks for {Repo}", repo.RepoFullName);
             }
         }
     }
 
+    public async Task InviteToExistingReposAsync(User student, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(student.GitHubLogin) || !_options.IsAppConfigured)
+        {
+            return;
+        }
+
+        var repos = await submissions.GetReposForStudentAsync(student.Id, ct);
+        if (repos.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            var connection = await GetConnectionAsync(
+                student.SchoolId, new Dictionary<Guid, SchoolConnection>(), ct);
+            foreach (var repo in repos)
+            {
+                var (owner, name) = ParseRepo(repo.RepoFullName, nameof(repo.RepoFullName));
+                await AddCollaboratorAsync(
+                    connection, owner, name, student.GitHubLogin, ct);
+            }
+        }
+        catch (InvalidOperationException exception)
+        {
+            // Kopplingen ska lyckas även om skolan saknar installation. Repona kan bjudas in senare.
+            logger.LogWarning(
+                exception,
+                "Could not invite {GitHubLogin} to existing repositories",
+                student.GitHubLogin);
+        }
+    }
+
+    private async Task<SchoolConnection> GetConnectionAsync(
+        Guid schoolId,
+        Dictionary<Guid, SchoolConnection> cache,
+        CancellationToken ct)
+    {
+        if (cache.TryGetValue(schoolId, out var cached))
+        {
+            return cached;
+        }
+
+        var saved = await installations.GetForSchoolAsync(schoolId, ct);
+        if (saved is not null)
+        {
+            if (!saved.Connected)
+            {
+                throw new InvalidOperationException(
+                    "Skolans GitHub-anslutning är frånkopplad. Anslut GitHub i Inställningar.");
+            }
+
+            if (string.IsNullOrWhiteSpace(saved.Org))
+            {
+                throw new InvalidOperationException(
+                    "Skolans GitHub-anslutning saknar organisation. Anslut GitHub igen i Inställningar.");
+            }
+
+            var connection = new SchoolConnection(saved.InstallationId, saved.Org);
+            cache[schoolId] = connection;
+            return connection;
+        }
+
+        // Dev-fallback tills skolan har kopplat via Inställningar. Kan tas bort senare.
+        if (_options.HasLegacyInstallation)
+        {
+            logger.LogWarning(
+                "School {SchoolId} has no GitHub connection; using the legacy GitHub:InstallationId/Org settings",
+                schoolId);
+            var connection = new SchoolConnection(_options.InstallationId, _options.Org);
+            cache[schoolId] = connection;
+            return connection;
+        }
+
+        throw new InvalidOperationException(
+            "Skolan har ingen GitHub-anslutning. Anslut GitHub i Inställningar.");
+    }
+
     private async Task<GitHubRepository> CreateOrGetRepositoryAsync(
+        SchoolConnection connection,
         string templateOwner,
         string templateName,
-        string owner,
         string repoName,
         string assignmentTitle,
         CancellationToken ct)
@@ -111,10 +198,10 @@ public sealed class GitHubLabProvisioner(
         try
         {
             return await github.CreateRepositoryFromTemplateAsync(
-                _options.InstallationId,
+                connection.InstallationId,
                 templateOwner,
                 templateName,
-                owner,
+                connection.Org,
                 repoName,
                 true,
                 $"Labb: {assignmentTitle}",
@@ -123,17 +210,27 @@ public sealed class GitHubLabProvisioner(
         catch (GitHubApiException exception) when (exception.StatusCode == HttpStatusCode.UnprocessableEntity)
         {
             // GitHub svarar 422 om namnet redan finns. En omkörning ska återanvända repot i stället för att fallera.
-            logger.LogWarning(exception, "GitHub repo {Owner}/{Repo} already exists; reusing it", owner, repoName);
-            return await github.GetRepositoryAsync(_options.InstallationId, owner, repoName, ct);
+            logger.LogWarning(
+                exception,
+                "GitHub repo {Owner}/{Repo} already exists; reusing it",
+                connection.Org,
+                repoName);
+            return await github.GetRepositoryAsync(
+                connection.InstallationId, connection.Org, repoName, ct);
         }
     }
 
     private async Task AddCollaboratorAsync(
-        string owner, string name, string githubLogin, CancellationToken ct)
+        SchoolConnection connection,
+        string owner,
+        string name,
+        string githubLogin,
+        CancellationToken ct)
     {
         try
         {
-            await github.AddCollaboratorAsync(_options.InstallationId, owner, name, githubLogin, ct);
+            await github.AddCollaboratorAsync(
+                connection.InstallationId, owner, name, githubLogin, ct);
         }
         catch (GitHubApiException exception)
         {
@@ -206,12 +303,12 @@ public sealed class GitHubLabProvisioner(
         return (parts[0], parts[1]);
     }
 
-    private void EnsureConfigured()
+    private void EnsureAppConfigured()
     {
-        if (!_options.IsConfigured)
+        if (!_options.IsAppConfigured)
         {
             throw new InvalidOperationException(
-                "GitHub is not configured. Set GitHub:AppId, GitHub:InstallationId, GitHub:Org and a private key.");
+                "GitHub is not configured. Set GitHub:AppId, GitHub:AppSlug and a private key.");
         }
     }
 }

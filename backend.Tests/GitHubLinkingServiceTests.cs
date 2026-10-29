@@ -1,9 +1,11 @@
 using Backend.Application.Abstractions;
 using Backend.Application.Results;
 using Backend.Application.Services;
+using Backend.Domain.Entities;
 using Backend.Domain.Enums;
 using Backend.Infrastructure.Persistence;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace backend.Tests;
 
@@ -28,6 +30,23 @@ public class GitHubLinkingServiceTests(TestWebApplicationFactory factory)
         var updated = await db.Users.FindAsync(user.Id);
         Assert.NotNull(updated);
         Assert.Equal("github-test-code-1", updated.GitHubLogin);
+    }
+
+    [Fact]
+    public async Task LinkAsync_InvitesToExistingReposAfterSavingLogin()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var user = await TestData.AddUserAsync(db, role: UserRole.Student);
+        var provisioner = new RecordingLabProvisioner();
+        var service = CreateService(scope, new StubCurrentUser(user.Id), provisioner);
+
+        var result = await service.LinkAsync("invite-code", CancellationToken.None);
+
+        Assert.Equal(ResultStatus.Ok, result.Status);
+        Assert.NotNull(provisioner.Invited);
+        Assert.Equal(user.Id, provisioner.Invited.Id);
+        Assert.Equal("github-invite-code", provisioner.Invited.GitHubLogin);
     }
 
     [Fact]
@@ -69,16 +88,46 @@ public class GitHubLinkingServiceTests(TestWebApplicationFactory factory)
         Assert.Null(updated.GitHubLogin);
     }
 
-    private static GitHubLinkingService CreateService(IServiceScope scope, ICurrentUser currentUser)
+    private static GitHubLinkingService CreateService(
+        IServiceScope scope,
+        ICurrentUser currentUser,
+        ILabProvisioner? provisioner = null)
     {
         var oauth = scope.ServiceProvider.GetRequiredService<IGitHubOAuthService>();
         var users = scope.ServiceProvider.GetRequiredService<IUserRepository>();
         var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-        return new GitHubLinkingService(oauth, users, currentUser, unitOfWork);
+        return new GitHubLinkingService(
+            oauth,
+            users,
+            currentUser,
+            provisioner ?? scope.ServiceProvider.GetRequiredService<ILabProvisioner>(),
+            unitOfWork,
+            NullLogger<GitHubLinkingService>.Instance);
     }
 
     private sealed class StubCurrentUser(Guid userId) : ICurrentUser
     {
         public Guid UserId => userId;
+    }
+
+    private sealed class RecordingLabProvisioner : ILabProvisioner
+    {
+        public User? Invited { get; private set; }
+
+        public Task<IReadOnlyList<StudentRepo>> ProvisionAsync(
+            string templateRepo,
+            string assignmentTitle,
+            IReadOnlyList<RepoRequest> requests,
+            CancellationToken ct) => throw new NotSupportedException();
+
+        public Task RefreshCheckStatusAsync(
+            IReadOnlyList<StudentRepoContext> repos, CancellationToken ct) =>
+            Task.CompletedTask;
+
+        public Task InviteToExistingReposAsync(User student, CancellationToken ct)
+        {
+            Invited = student;
+            return Task.CompletedTask;
+        }
     }
 }

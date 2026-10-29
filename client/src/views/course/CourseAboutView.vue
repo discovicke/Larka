@@ -180,7 +180,7 @@ watch(() => route.name, scrollToStaff)
           <Alert v-else-if="loadFailed" variant="destructive">
             <AlertDescription>Kunde inte hämta personalen.</AlertDescription>
           </Alert>
-          <div v-else-if="staff.length > 0" class="overflow-hidden rounded-[11px] border">
+          <div v-else-if="staff.length > 0" class="bg-card overflow-hidden rounded-[11px] border">
             <div
               v-for="member in staff"
               :key="member.userId"
@@ -209,7 +209,7 @@ watch(() => route.name, scrollToStaff)
       <aside class="flex min-w-0 flex-[1_1_300px] flex-col gap-4">
         <section
           aria-labelledby="facts-heading"
-          class="flex flex-col gap-2 rounded-[11px] border p-4 text-[13px]"
+          class="bg-card flex flex-col gap-2 rounded-[11px] border p-4 text-[13px]"
         >
           <h2 id="facts-heading" class="text-sm font-semibold">Fakta</h2>
           <dl class="flex flex-col gap-2">

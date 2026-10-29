@@ -173,7 +173,7 @@ load()
       <Skeleton v-for="i in 4" :key="i" class="h-12 w-full"/>
     </div>
 
-    <section v-else aria-label="Grupper" class="overflow-hidden rounded-[11px] border">
+    <section v-else aria-label="Grupper" class="bg-card overflow-hidden rounded-[11px] border">
       <div class="overflow-x-auto">
         <table class="w-full min-w-[680px] border-collapse">
           <thead>

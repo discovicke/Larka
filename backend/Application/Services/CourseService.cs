@@ -10,6 +10,7 @@ namespace Backend.Application.Services;
 public class CourseService(
     ICourseRepository courses,
     IGroupRepository groups,
+    IUserRepository users,
     IPermissions permissions,
     ICurrentSchool currentSchool,
     IUnitOfWork unitOfWork)
@@ -131,6 +132,34 @@ public class CourseService(
                 group.Select(teacher => teacher.GroupName).OrderBy(name => name).ToList()))
             .OrderBy(member => member.Name)
             .ToList();
+    }
+
+    /// <summary>
+    /// Elever som läser kursen men saknar GitHubLogin. Lärarna använder listan för att påminna dem
+    /// innan en repo-uppgift delas ut.
+    /// </summary>
+    public async Task<ServiceResult<List<UnlinkedGitHubStudentDto>>> GetUnlinkedGitHubStudentsAsync(
+        Guid courseId, CancellationToken ct)
+    {
+        if (!await groups.CourseExistsAsync(courseId, ct))
+        {
+            return ServiceResult<List<UnlinkedGitHubStudentDto>>.NotFound("course not found");
+        }
+
+        if (!await permissions.CanTeachCourseAsync(courseId, ct))
+        {
+            return ServiceResult<List<UnlinkedGitHubStudentDto>>.Forbidden();
+        }
+
+        var groupIds = await groups.GetGroupIdsReadingCourseAsync(courseId, ct);
+        var students = await users.GetStudentsInGroupsAsync(groupIds, ct);
+        return ServiceResult<List<UnlinkedGitHubStudentDto>>.Ok(
+            students
+                .Where(student => string.IsNullOrWhiteSpace(student.GitHubLogin))
+                .Select(student => new UnlinkedGitHubStudentDto(
+                    student.Id, student.Name, student.Email))
+                .OrderBy(student => student.Name)
+                .ToList());
     }
 
     // En kurs i en annan skola räknas som att den inte finns.

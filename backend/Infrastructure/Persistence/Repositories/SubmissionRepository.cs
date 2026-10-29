@@ -107,7 +107,25 @@ public class SubmissionRepository(AppDb db) : ISubmissionRepository
 
     public void AddGrade(Grade grade) => db.Grades.Add(grade);
 
-    public Task<List<StudentRepo>> GetAllReposAsync(CancellationToken ct) => db.StudentRepos.ToListAsync(ct);
+    public Task<List<StudentRepoContext>> GetAllReposAsync(CancellationToken ct) =>
+        db.StudentRepos
+            .Join(
+                db.Submissions,
+                repo => repo.SubmissionId,
+                submission => submission.Id,
+                (repo, submission) => new { Repo = repo, submission.StudentId })
+            .Join(
+                db.Users,
+                item => item.StudentId,
+                user => user.Id,
+                (item, user) => new StudentRepoContext(item.Repo, user.SchoolId))
+            .ToListAsync(ct);
+
+    public Task<List<StudentRepo>> GetReposForStudentAsync(Guid studentId, CancellationToken ct) =>
+        (from repo in db.StudentRepos
+         join submission in db.Submissions on repo.SubmissionId equals submission.Id
+         where submission.StudentId == studentId
+         select repo).ToListAsync(ct);
 
     private IQueryable<Submission> WithDetails() =>
         db.Submissions

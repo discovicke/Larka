@@ -185,7 +185,7 @@ watch(status, (value) => {
         </button>
       </div>
 
-      <section aria-label="Filer" class="overflow-hidden rounded-[11px] border">
+      <section aria-label="Filer" class="bg-card overflow-hidden rounded-[11px] border">
         <div class="overflow-x-auto">
           <table class="w-full min-w-[640px] border-collapse text-sm">
             <thead>

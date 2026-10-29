@@ -786,6 +786,101 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/integrations/github/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GitHubInstallLinkDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/github/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/integrations/github/connect": {
         parameters: {
             query?: never;
@@ -802,7 +897,11 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["GitHubConnectRequest"];
+                };
+            };
             responses: {
                 /** @description OK */
                 200: {
@@ -1605,6 +1704,70 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/courses/{id}/students/unlinked-github": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["UnlinkedGitHubStudentDto"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
                 };
             };
         };
@@ -3741,6 +3904,21 @@ export interface components {
             lastVerifiedAt: null | string;
             error: null | string;
             missingSettings: string[];
+            usingLegacyInstallation: boolean;
+        };
+        /**
+         * @description installationId sätts efter GitHubs setup-redirect. Utan id verifierar servern om skolans sparade
+         *     installation fortfarande fungerar (återanslut).
+         */
+        GitHubConnectRequest: {
+            /** Format: int64 */
+            installationId: null | number;
+            state: null | string;
+        };
+        /** @description Installationslänk och den signerade state som klienten skickar tillbaka efter setup. */
+        GitHubInstallLinkDto: {
+            url: string;
+            state: string;
         };
         GitHubLinkDto: {
             login: null | string;
@@ -3993,6 +4171,8 @@ export interface components {
             blockedBy: components["schemas"]["StudentBlockerDto"][];
             submissionStatus: null | components["schemas"]["SubmissionStatus"];
             gradeLevel: null | components["schemas"]["GradeLevel"];
+            hasRepoMode: boolean;
+            repo: null | components["schemas"]["StudentRepoDto"];
         };
         /** @description En vecka som eleven ser den: bara publicerat innehåll, med lås och avklarande. */
         StudentModuleWithContentDto: {
@@ -4230,6 +4410,13 @@ export interface components {
             /** Format: date-time */
             dueAt: string;
             status: components["schemas"]["SubmissionStatus"];
+        };
+        /** @description Elev i kursen som ännu inte har kopplat ett GitHub-konto. */
+        UnlinkedGitHubStudentDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            email: string;
         };
         UnreadCountDto: {
             /** Format: int32 */

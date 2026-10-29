@@ -9,6 +9,11 @@ public class SchoolGitHubInstallationRepository(AppDb db) : ISchoolGitHubInstall
     public Task<SchoolGitHubInstallation?> GetForSchoolAsync(Guid schoolId, CancellationToken ct) =>
         db.SchoolGitHubInstallations.FirstOrDefaultAsync(installation => installation.SchoolId == schoolId, ct);
 
+    public Task<SchoolGitHubInstallation?> GetByInstallationAsync(
+        long installationId, CancellationToken ct) =>
+        db.SchoolGitHubInstallations.FirstOrDefaultAsync(
+            installation => installation.InstallationId == installationId, ct);
+
     public void Add(SchoolGitHubInstallation installation) =>
         db.SchoolGitHubInstallations.Add(installation);
 }

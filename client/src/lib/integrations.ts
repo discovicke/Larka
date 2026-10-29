@@ -8,8 +8,23 @@ export async function fetchGitHubConnection(): Promise<GitHubConnection> {
   return data!
 }
 
-export async function connectGitHub(): Promise<GitHubConnection> {
-  const {data} = await api.POST('/api/integrations/github/connect')
+export type GitHubInstallLink = Schema<'GitHubInstallLinkDto'>
+
+export async function fetchGitHubInstallUrl(): Promise<GitHubInstallLink> {
+  const {data} = await api.GET('/api/integrations/github/install')
+  return data!
+}
+
+export async function connectGitHub(
+  installationId?: number | null,
+  state?: string | null,
+): Promise<GitHubConnection> {
+  const {data} = await api.POST('/api/integrations/github/connect', {
+    body: {
+      installationId: installationId ?? null,
+      state: state ?? null,
+    },
+  })
   return data!
 }
 

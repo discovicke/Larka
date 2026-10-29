@@ -7,6 +7,7 @@ import {
   PhSun,
 } from '@phosphor-icons/vue'
 import {computed, onMounted, ref, type Component} from 'vue'
+import {useRoute, useRouter} from 'vue-router'
 
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Badge} from '@/components/ui/badge'
@@ -24,6 +25,7 @@ import {
   disconnectGitHub,
   fetchGitHubAuthorizeUrl,
   fetchGitHubConnection,
+  fetchGitHubInstallUrl,
   unlinkGitHub,
   type GitHubConnection,
 } from '@/lib/integrations'
@@ -32,8 +34,12 @@ import {fetchNotificationSettings, saveNotificationSettings} from '@/lib/notific
 import type {Schema} from '@/lib/api'
 import type {ThemePreference} from '@/lib/theme'
 
+const route = useRoute()
+const router = useRouter()
 const {preference, resolvedTheme} = useTheme()
 const {me, loadMe, reloadMe, can} = useCurrentUser()
+
+const githubInstallStateKey = 'github_install_state'
 
 const isAdmin = computed(() => can('admin'))
 const github = ref<GitHubConnection | null>(null)
@@ -62,8 +68,7 @@ const githubBadge = computed<{
 const missingSettings = computed(() => {
   const labels: Record<string, string> = {
     AppId: 'App ID',
-    InstallationId: 'Installations-ID',
-    Org: 'Organisation',
+    AppSlug: 'App-slug',
     PrivateKey: 'Privat nyckel',
   }
   return (github.value?.missingSettings ?? []).map((setting) => labels[setting] ?? setting)
@@ -90,14 +95,61 @@ async function loadGitHubStatus() {
 }
 
 async function handleConnectGitHub() {
+  if (!github.value) {
+    return
+  }
+
   githubLoading.value = true
   githubError.value = ''
   try {
-    github.value = await connectGitHub()
+    // En sparad men lokalt frånkopplad installation kan verifieras igen utan en ny installation.
+    // Legacy-installationen från miljövariablerna räknas inte: den ska kopplas till skolan i databasen.
+    if (github.value.installationId > 0 && !github.value.usingLegacyInstallation) {
+      github.value = await connectGitHub()
+      return
+    }
+
+    const link = await fetchGitHubInstallUrl()
+    sessionStorage.setItem(githubInstallStateKey, link.state)
+    window.location.href = link.url
   } catch (exception) {
     githubError.value = errorMessage(exception)
   } finally {
     githubLoading.value = false
+  }
+}
+
+async function handleGitHubSetup(installationId: number) {
+  const queryState = typeof route.query.state === 'string'
+    ? route.query.state
+    : null
+  const state = queryState ?? sessionStorage.getItem(githubInstallStateKey)
+  if (!state) {
+    githubError.value = 'GitHub-anslutningen kunde inte verifieras. Försök igen från Inställningar.'
+    await clearGitHubSetupQuery()
+    return
+  }
+
+  githubLoading.value = true
+  githubError.value = ''
+  try {
+    github.value = await connectGitHub(installationId, state)
+    sessionStorage.removeItem(githubInstallStateKey)
+  } catch (exception) {
+    githubError.value = errorMessage(exception)
+  } finally {
+    githubLoading.value = false
+    await clearGitHubSetupQuery()
+  }
+}
+
+async function clearGitHubSetupQuery() {
+  if (route.query.installation_id
+    || route.query.setup_action
+    || route.query.state
+    || route.query.github
+    || route.query.github_error) {
+    await router.replace({path: '/settings'})
   }
 }
 
@@ -197,8 +249,27 @@ async function loadNotificationSettings() {
 onMounted(async () => {
   void loadNotificationSettings()
   await loadMe()
-  if (isAdmin.value) {
+  if (!isAdmin.value) {
+    return
+  }
+
+  const setupError = route.query.github_error
+  if (typeof setupError === 'string') {
     await loadGitHubStatus()
+    githubError.value = setupError
+    await clearGitHubSetupQuery()
+    return
+  }
+
+  const installationId = Number(route.query.installation_id)
+  if (Number.isInteger(installationId) && installationId > 0) {
+    await handleGitHubSetup(installationId)
+    return
+  }
+
+  await loadGitHubStatus()
+  if (route.query.github === 'connected') {
+    await clearGitHubSetupQuery()
   }
 })
 
@@ -259,7 +330,7 @@ const options: {
       </nav>
 
       <div class="flex min-w-0 flex-[999_1_560px] flex-col gap-6">
-        <section id="profil" class="flex scroll-mt-6 flex-col gap-4 rounded-[11px] border p-5" data-test="profile">
+        <section id="profil" class="bg-card flex scroll-mt-6 flex-col gap-4 rounded-[11px] border p-5" data-test="profile">
           <header class="flex flex-col gap-0.5">
             <h2 class="text-base font-semibold">Profil</h2>
             <p class="text-muted-foreground text-[13px]">Namn och e-post kommer från skolans register</p>
@@ -292,7 +363,7 @@ const options: {
 
         <section id="konton" class="flex scroll-mt-6 flex-col gap-6">
           <!-- Elevens/användarens eget GitHub-konto -->
-          <section class="rounded-xl border p-5" data-test="user-github">
+          <section class="bg-card rounded-xl border p-5" data-test="user-github">
             <header class="flex flex-wrap items-start justify-between gap-3">
               <div class="flex items-center gap-2.5">
                 <PhGithubLogo class="size-5 shrink-0"/>
@@ -353,7 +424,7 @@ const options: {
 
         <section
           id="aviseringar"
-          class="scroll-mt-6 overflow-hidden rounded-[11px] border"
+          class="bg-card scroll-mt-6 overflow-hidden rounded-[11px] border"
           data-test="notifications"
         >
           <header class="flex flex-col gap-0.5 px-5 pt-5 pb-3">
@@ -394,7 +465,7 @@ const options: {
           </table>
         </section>
 
-        <section id="utseende" class="scroll-mt-6 rounded-xl border p-5">
+        <section id="utseende" class="bg-card scroll-mt-6 rounded-xl border p-5">
           <FieldSet>
             <FieldLegend>Utseende</FieldLegend>
             <FieldDescription>
@@ -449,7 +520,7 @@ const options: {
             </p>
           </header>
 
-          <div class="rounded-xl border p-5" data-test="github-integration">
+          <div class="bg-card rounded-xl border p-5" data-test="github-integration">
             <header class="flex flex-wrap items-start justify-between gap-3">
               <div class="flex items-center gap-2.5">
                 <PhGithubLogo class="size-5 shrink-0"/>
@@ -505,16 +576,28 @@ const options: {
               <p v-if="github.error" class="text-destructive mt-2 text-sm" data-test="github-error">
                 {{ github.error }}
               </p>
+              <p
+                v-if="github.usingLegacyInstallation"
+                class="text-muted-foreground mt-2 text-sm"
+                data-test="github-legacy"
+              >
+                Skolan använder serverns gamla GitHub-inställning. Koppla skolan för att spara installationen
+                i databasen i stället.
+              </p>
 
               <div class="mt-4 flex flex-wrap items-center gap-3">
                 <Button
-                  v-if="github.configured && !github.connected"
+                  v-if="github.configured && (!github.connected || github.usingLegacyInstallation)"
                   size="sm"
-                  :disabled="githubLoading"
+                  :disabled="githubLoading || missingSettings.length > 0"
                   data-test="github-connect"
                   @click="handleConnectGitHub"
                 >
-                  Anslut
+                  {{ github.usingLegacyInstallation
+                    ? 'Koppla skolan till GitHub'
+                    : github.installationId > 0
+                      ? 'Återanslut'
+                      : 'Anslut GitHub' }}
                 </Button>
                 <Button
                   v-if="github.connected"
@@ -541,6 +624,9 @@ const options: {
                   Senast verifierad {{ lastVerified }}
                 </span>
               </div>
+              <p class="text-muted-foreground mt-3 text-xs">
+                Frånkoppling tar bara bort kopplingen här. GitHub-appen och elevrepon påverkas inte.
+              </p>
             </template>
 
             <Button

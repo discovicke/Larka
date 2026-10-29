@@ -57,5 +57,8 @@ public interface ISubmissionRepository
     void AddFiles(IEnumerable<SubmissionFile> files);
     void RemoveFiles(IEnumerable<SubmissionFile> files);
     void AddGrade(Grade grade);
-    Task<List<StudentRepo>> GetAllReposAsync(CancellationToken ct);
+    Task<List<StudentRepoContext>> GetAllReposAsync(CancellationToken ct);
+
+    /// <summary>Elevens redan skapade repon. Används när eleven kopplar GitHub efter utdelningen.</summary>
+    Task<List<StudentRepo>> GetReposForStudentAsync(Guid studentId, CancellationToken ct);
 }

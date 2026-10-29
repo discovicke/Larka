@@ -168,7 +168,7 @@ load()
         </Card>
       </div>
 
-      <section aria-label="Kurser" class="overflow-hidden rounded-[11px] border">
+      <section aria-label="Kurser" class="bg-card overflow-hidden rounded-[11px] border">
         <ul class="divide-muted divide-y sm:hidden" data-test="study-plan-course-list">
           <li
             v-for="course in courses"
@@ -252,12 +252,12 @@ load()
         <div
           v-for="course in assignmentCourses"
           :key="course.courseId"
-          class="overflow-hidden rounded-[11px] border"
+          class="bg-card overflow-hidden rounded-[11px] border"
         >
           <div class="bg-muted/50 text-muted-foreground border-b px-3 py-2 text-[13px] font-medium">
             {{ course.title }} · {{ course.submittedCount }} av {{ course.assignmentCount }} inlämnade
           </div>
-          <div class="bg-background text-[13px]">
+          <div class="bg-card text-[13px]">
             <div
               v-for="assignment in course.assignments"
               :key="assignment.linkId"

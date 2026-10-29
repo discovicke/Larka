@@ -39,18 +39,20 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
         builder.UseSetting("Notifications:Job:Enabled", "false");
         builder.UseSetting("Auth:Jwt:Key", "test-only-key-0123456789abcdef0123456789");
         // User-secrets kan peka på sandbox-org:en. Testerna ska vara oberoende av lokal GitHub-konfiguration.
+        // FakeLabProvisioner använder Org för reponamn. InstallationId=0 gör att det inte räknas som legacy.
         builder.UseSetting("GitHub:Org", "skol-org");
-        builder.UseSetting("GitHub:AppId", "0");
+        builder.UseSetting("GitHub:AppId", "1234");
+        builder.UseSetting("GitHub:AppSlug", "test-app");
         builder.UseSetting("GitHub:InstallationId", "0");
-        builder.UseSetting("GitHub:PrivateKey", "");
+        builder.UseSetting("GitHub:PrivateKey", "test-key");
         builder.UseSetting("GitHub:PrivateKeyPath", "");
         builder.ConfigureTestServices(services =>
         {
             // Lokala user-secrets kan peka på sandbox-GitHub. Testerna ska alltid använda fake-repon.
             services.RemoveAll<ILabProvisioner>();
             services.AddSingleton<ILabProvisioner, FakeLabProvisioner>();
-            services.RemoveAll<IGitHubConnectionStatusProvider>();
-            services.AddSingleton<IGitHubConnectionStatusProvider, TestGitHubConnectionStatusProvider>();
+            services.RemoveAll<IGitHubAppService>();
+            services.AddSingleton<IGitHubAppService, TestGitHubAppService>();
             services.RemoveAll<IGitHubOAuthService>();
             services.AddSingleton<IGitHubOAuthService, TestGitHubOAuthService>();
 

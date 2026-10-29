@@ -34,6 +34,9 @@ public record CourseDto(
 /// <summary>En lärare i kursen, med namnen på grupperna som läser den där hen är lärare.</summary>
 public record CourseStaffDto(Guid UserId, string Name, string Email, List<string> Groups);
 
+/// <summary>Elev i kursen som ännu inte har kopplat ett GitHub-konto.</summary>
+public record UnlinkedGitHubStudentDto(Guid Id, string Name, string Email);
+
 // Kursomgången ligger i samma skola som källkursen. Klassen är den som ska läsa den.
 public record CreateCourseRunDto(string? Code, Guid GroupId, DateOnly? StartsOn, DateOnly? EndsOn, bool CopyContent);
 

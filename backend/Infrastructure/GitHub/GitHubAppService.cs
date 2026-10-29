@@ -33,9 +33,13 @@ public sealed class GitHubAppService(
 
     private sealed record TokenResponse(string Token, string ExpiresAt);
 
-    private sealed record InstallationResponse(long Id, InstallationAccount Account, long AppId);
+    private sealed record InstallationResponse(
+        long Id,
+        InstallationAccount Account,
+        long AppId,
+        Dictionary<string, string>? Permissions);
 
-    private sealed record InstallationAccount(string Login);
+    private sealed record InstallationAccount(string Login, string? Type);
 
     private sealed record InstallationRepositoriesResponse(List<RepositoryResponse> Repositories);
 
@@ -98,7 +102,12 @@ public sealed class GitHubAppService(
             ct);
         var payload = await ReadAsync<InstallationResponse>(response, ct)
             ?? throw new InvalidOperationException("GitHub returned no installation.");
-        return new GitHubInstallation(payload.Id, payload.Account.Login, payload.AppId);
+        return new GitHubInstallation(
+            payload.Id,
+            payload.Account.Login,
+            payload.Account.Type ?? "",
+            payload.AppId,
+            payload.Permissions ?? []);
     }
 
     public async Task<IReadOnlyList<GitHubRepository>> ListRepositoriesAsync(

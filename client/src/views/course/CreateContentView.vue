@@ -259,7 +259,7 @@ async function save(status: Schema<'ContentStatus'> = 'Published') {
         </RadioGroup>
       </FieldSet>
 
-      <section class="flex flex-col gap-4 rounded-[11px] border p-5">
+      <section class="bg-card flex flex-col gap-4 rounded-[11px] border p-5">
         <h2 class="text-base">Grundinfo</h2>
         <Field :data-invalid="!!errors.title">
           <FieldLabel for="title">Titel</FieldLabel>
@@ -297,7 +297,7 @@ async function save(status: Schema<'ContentStatus'> = 'Published') {
         </div>
       </section>
 
-      <section v-if="isAssignment(form)" class="flex flex-col gap-3.5 rounded-[11px] border p-5">
+      <section v-if="isAssignment(form)" class="bg-card flex flex-col gap-3.5 rounded-[11px] border p-5">
         <div class="flex flex-col">
           <h2 class="text-base">Hur lämnar eleven in?</h2>
           <span class="text-muted-foreground text-[13px]">Välj ett eller flera sätt, eller inget</span>
@@ -328,7 +328,7 @@ async function save(status: Schema<'ContentStatus'> = 'Published') {
       </section>
 
       <!-- Resten av GitHub-inställningarna (reponamn, arbetssätt, regler) kommer i #69. -->
-      <section v-if="usesRepo(form)" class="flex flex-col gap-4 rounded-[11px] border p-5">
+      <section v-if="usesRepo(form)" class="bg-card flex flex-col gap-4 rounded-[11px] border p-5">
         <div class="flex items-center gap-3">
           <PhGithubLogo class="size-5"/>
           <div class="flex flex-col">

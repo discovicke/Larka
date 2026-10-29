@@ -496,6 +496,9 @@ namespace Backend.Infrastructure.Persistence.Migrations
                     b.Property<long>("InstallationId")
                         .HasColumnType("bigint");
 
+                    b.Property<DateTimeOffset?>("LastVerifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Org")
                         .IsRequired()
                         .HasColumnType("text");

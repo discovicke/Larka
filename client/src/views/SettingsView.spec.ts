@@ -1,5 +1,6 @@
 import {flushPromises, mount} from '@vue/test-utils'
 import {beforeEach, describe, expect, it} from 'vitest'
+import {createMemoryHistory, createRouter} from 'vue-router'
 
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {useTheme} from '@/composables/useTheme'
@@ -20,6 +21,7 @@ const connectedGitHub: GitHubConnection = {
   lastVerifiedAt: '2026-10-28T10:00:00Z',
   error: null,
   missingSettings: [],
+  usingLegacyInstallation: false,
 }
 
 function settingsBackend(
@@ -40,8 +42,26 @@ function settingsBackend(
     if (path === '/api/integrations/github') {
       return {status: 200, body: github}
     }
+    if (method === 'GET' && path === '/api/integrations/github/install') {
+      return {
+        status: 200,
+        body: {
+          url: 'https://github.com/apps/test-app/installations/new?state=state-1',
+          state: 'state-1',
+        },
+      }
+    }
     if (method === 'POST' && path === '/api/integrations/github/connect') {
-      return {status: 200, body: {...github, connected: true}}
+      return {
+        status: 200,
+        body: {
+          ...github,
+          connected: true,
+          installationId: 5678,
+          org: 'skol-org',
+          accountLogin: 'skol-org',
+        },
+      }
     }
     if (method === 'DELETE' && path === '/api/integrations/github') {
       return {status: 204}
@@ -56,17 +76,34 @@ function settingsBackend(
   })
 }
 
+async function mountSettings(path = '/settings') {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      {path: '/settings', name: 'settings', component: SettingsView},
+      {path: '/', component: {template: '<div />'}},
+    ],
+  })
+  await router.push(path)
+  await router.isReady()
+  return {
+    router,
+    wrapper: mount(SettingsView, {global: {plugins: [router]}}),
+  }
+}
+
 describe('SettingsView', () => {
   beforeEach(() => {
     useCurrentUser().resetCurrentUser()
     useTheme().preference.value = 'auto'
     localStorage.removeItem(THEME_STORAGE_KEY)
+    sessionStorage.clear()
     document.documentElement.classList.remove('dark')
     settingsBackend('Student')
   })
 
   it('byter tema direkt och sparar valet', async () => {
-    const wrapper = mount(SettingsView)
+    const {wrapper} = await mountSettings()
 
     expect(wrapper.findAll('[role="radio"]')).toHaveLength(3)
 
@@ -88,7 +125,7 @@ describe('SettingsView', () => {
   it('visar GitHub-anslutningen för admin', async () => {
     settingsBackend('Admin')
 
-    const wrapper = mount(SettingsView)
+    const {wrapper} = await mountSettings()
     await flushPromises()
     await flushPromises()
 
@@ -109,7 +146,7 @@ describe('SettingsView', () => {
       connected: false,
     })
 
-    const wrapper = mount(SettingsView)
+    const {wrapper} = await mountSettings()
     await flushPromises()
     await flushPromises()
 
@@ -126,7 +163,7 @@ describe('SettingsView', () => {
   it('kopplar från GitHub för admin', async () => {
     settingsBackend('Admin')
 
-    const wrapper = mount(SettingsView)
+    const {wrapper} = await mountSettings()
     await flushPromises()
     await flushPromises()
 
@@ -147,10 +184,10 @@ describe('SettingsView', () => {
       connected: false,
       accountLogin: null,
       lastVerifiedAt: null,
-      missingSettings: ['AppId', 'InstallationId', 'Org', 'PrivateKey'],
+      missingSettings: ['AppId', 'AppSlug', 'PrivateKey'],
     })
 
-    const wrapper = mount(SettingsView)
+    const {wrapper} = await mountSettings()
     await flushPromises()
     await flushPromises()
 
@@ -159,8 +196,70 @@ describe('SettingsView', () => {
     expect(wrapper.find('[data-test="github-missing"]').text()).toContain('Privat nyckel')
   })
 
+  it('hämtar en installationslänk när skolan inte har någon installation', async () => {
+    settingsBackend('Admin', {
+      ...connectedGitHub,
+      installationId: 0,
+      org: '',
+      connected: false,
+      accountLogin: null,
+      lastVerifiedAt: null,
+    })
+
+    const {wrapper} = await mountSettings()
+    await flushPromises()
+    await flushPromises()
+
+    await wrapper.find('[data-test="github-connect"]').trigger('click')
+    await flushPromises()
+
+    expect(requests.some((request) =>
+      request.method === 'GET' && request.path === '/api/integrations/github/install')).toBe(true)
+    expect(sessionStorage.getItem('github_install_state')).toBe('state-1')
+  })
+
+  it('erbjuder koppling när skolan bara använder legacy-installationen', async () => {
+    settingsBackend('Admin', {
+      ...connectedGitHub,
+      usingLegacyInstallation: true,
+    })
+
+    const {wrapper} = await mountSettings()
+    await flushPromises()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="github-legacy"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="github-connect"]').text()).toContain('Koppla skolan')
+
+    await wrapper.find('[data-test="github-connect"]').trigger('click')
+    await flushPromises()
+
+    expect(requests.some((request) =>
+      request.method === 'GET' && request.path === '/api/integrations/github/install')).toBe(true)
+  })
+
+  it('slutför GitHub-setup från query-parametrarna', async () => {
+    settingsBackend('Admin', {
+      ...connectedGitHub,
+      connected: false,
+    })
+    sessionStorage.setItem('github_install_state', 'state-1')
+
+    const {wrapper} = await mountSettings('/settings?installation_id=5678')
+    await flushPromises()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="github-status"]').text()).toBe('Ansluten')
+    expect(sessionStorage.getItem('github_install_state')).toBeNull()
+    expect(requests).toContainEqual({
+      method: 'POST',
+      path: '/api/integrations/github/connect',
+      body: {installationId: 5678, state: 'state-1'},
+    })
+  })
+
   it('visar användarens GitHub-konto som inte kopplad för elev', async () => {
-    const wrapper = mount(SettingsView)
+    const {wrapper} = await mountSettings()
     await flushPromises()
 
     expect(wrapper.find('[data-test="integrations"]').exists()).toBe(false)
@@ -172,7 +271,7 @@ describe('SettingsView', () => {
   it('visar användarens GitHub-konto som kopplad med frånkopplingsknapp', async () => {
     settingsBackend('Student', connectedGitHub, 'elev-kalle')
 
-    const wrapper = mount(SettingsView)
+    const {wrapper} = await mountSettings()
     await flushPromises()
 
     expect(wrapper.find('[data-test="user-github-status"]').text()).toBe('Kopplad')
@@ -189,7 +288,7 @@ describe('SettingsView', () => {
       groups: [{id: 'g1', name: 'NET25'}, {id: 'g2', name: 'Lag 1'}],
     })
 
-    const wrapper = mount(SettingsView)
+    const {wrapper} = await mountSettings()
     await flushPromises()
 
     expect(wrapper.find('[data-test="profile-name"]').text()).toBe('Anna')
@@ -199,7 +298,7 @@ describe('SettingsView', () => {
   })
 
   it('säger att användaren saknar grupper', async () => {
-    const wrapper = mount(SettingsView)
+    const {wrapper} = await mountSettings()
     await flushPromises()
 
     expect(wrapper.find('[data-test="profile-no-groups"]').text()).toBe('Inga grupper')
@@ -208,7 +307,7 @@ describe('SettingsView', () => {
   it('visar aviseringarna som valts bort som avbockade', async () => {
     settingsBackend('Student', connectedGitHub, null, {muted: ['NewsPublished', 'SubmissionGraded']})
 
-    const wrapper = mount(SettingsView)
+    const {wrapper} = await mountSettings()
     await flushPromises()
 
     const state = (id: string) => wrapper.find(`[data-test="notify-${id}"]`).attributes('aria-checked')
@@ -220,7 +319,7 @@ describe('SettingsView', () => {
   })
 
   it('sparar direkt när Nyheter bockas av', async () => {
-    const wrapper = mount(SettingsView)
+    const {wrapper} = await mountSettings()
     await flushPromises()
 
     await wrapper.find('[data-test="notify-news"]').trigger('click')
@@ -233,7 +332,7 @@ describe('SettingsView', () => {
   })
 
   it('stänger av båda slagen för betyg och återkoppling med en ruta', async () => {
-    const wrapper = mount(SettingsView)
+    const {wrapper} = await mountSettings()
     await flushPromises()
 
     await wrapper.find('[data-test="notify-feedback"]').trigger('click')
@@ -246,7 +345,7 @@ describe('SettingsView', () => {
   it('återställer rutan och visar felet när sparandet misslyckas', async () => {
     settingsBackend('Student', connectedGitHub, null, {saveStatus: 500})
 
-    const wrapper = mount(SettingsView)
+    const {wrapper} = await mountSettings()
     await flushPromises()
     await wrapper.find('[data-test="notify-news"]').trigger('click')
     await flushPromises()
@@ -256,14 +355,14 @@ describe('SettingsView', () => {
   })
 
   it('visar Integrationer i menyn bara för admin', async () => {
-    const student = mount(SettingsView)
+    const {wrapper: student} = await mountSettings()
     await flushPromises()
     expect(student.find('nav[aria-label="Inställningar"]').text()).not.toContain('Integrationer')
     expect(student.find('nav[aria-label="Inställningar"]').text()).toContain('Kopplade konton')
 
     useCurrentUser().resetCurrentUser()
     settingsBackend('Admin')
-    const admin = mount(SettingsView)
+    const {wrapper: admin} = await mountSettings()
     await flushPromises()
     await flushPromises()
     expect(admin.find('nav[aria-label="Inställningar"]').text()).toContain('Integrationer')

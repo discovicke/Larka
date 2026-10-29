@@ -64,19 +64,19 @@ const stats = computed<Stat[]>(() => [
     label: 'Inlämnade',
     value: countOf('Submitted') + countOf('Graded') + countOf('NeedsWork'),
     suffix: `av ${submissions.value.length}`,
-    class: '',
+    class: 'bg-card',
   },
   {
     label: 'Att bedöma',
     value: countOf('Submitted'),
     suffix: '',
-    class: '',
+    class: 'bg-card',
   },
   {
     label: 'Bedömda',
     value: countOf('Graded'),
     suffix: '',
-    class: '',
+    class: 'bg-card',
   },
   {
     label: 'Komplettering',
@@ -337,7 +337,7 @@ watch([courseId, linkId], () => {
         </EmptyHeader>
       </Empty>
 
-      <section v-else aria-label="Elever" class="overflow-hidden rounded-[11px] border">
+      <section v-else aria-label="Elever" class="bg-card overflow-hidden rounded-[11px] border">
         <div class="flex flex-wrap items-center gap-2.5 border-b px-4 py-3">
           <div class="relative flex-[0_1_240px]">
             <label for="submission-search" class="sr-only">Sök elev</label>

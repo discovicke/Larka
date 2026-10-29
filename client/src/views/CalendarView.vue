@@ -239,7 +239,7 @@ watch([view, anchor], load, {immediate: true})
       </EmptyHeader>
     </Empty>
 
-    <section v-else aria-label="Kalender" class="overflow-hidden rounded-[11px] border">
+    <section v-else aria-label="Kalender" class="bg-card overflow-hidden rounded-[11px] border">
       <div
         v-if="view === 'month'"
         class="bg-muted/50 text-muted-foreground hidden grid-cols-7 border-b text-[13px] md:grid"

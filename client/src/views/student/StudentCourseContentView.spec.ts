@@ -29,6 +29,13 @@ interface StudentItem {
   blockedBy: Blocker[]
   submissionStatus: string | null
   gradeLevel: string | null
+  hasRepoMode?: boolean
+  repo?: {
+    repoFullName: string
+    lastSha: string | null
+    checkStatus: string
+    updatedAt: string
+  } | null
 }
 
 const theory: StudentItem = {
@@ -82,6 +89,22 @@ const graded: StudentItem = {
   gradeLevel: 'Pass',
 }
 
+const repoAssignment: StudentItem = {
+  ...submitted,
+  linkId: 'l7',
+  contentId: 'x7',
+  title: 'Repo-uppgift',
+  isCompleted: false,
+  submissionStatus: null,
+  hasRepoMode: true,
+  repo: {
+    repoFullName: 'skol-org/repo-alice',
+    lastSha: 'abcdef1234567890',
+    checkStatus: 'Green',
+    updatedAt: '2026-10-29T09:00:00Z',
+  },
+}
+
 const hiddenBlocker: StudentItem = {
   ...locked,
   linkId: 'l5',
@@ -112,10 +135,10 @@ function week(content: StudentItem[], overrides: Record<string, unknown> = {}) {
   }
 }
 
-function backend(content: StudentItem[]) {
+function backend(content: StudentItem[], gitHubLogin: string | null = null) {
   mockApi((method, path) => {
     if (path === '/api/me') {
-      return {status: 200, body: meAs('Student', ['c1'])}
+      return {status: 200, body: meAs('Student', ['c1'], 'Anna Elev', gitHubLogin)}
     }
     if (path === '/api/courses') {
       return {status: 200, body: [course]}
@@ -303,6 +326,31 @@ describe('StudentCourseContentView', () => {
     expect(wrapper.text()).toContain('Godkänd (G)')
     expect(wrapper.find('[data-test="complete-l3"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="complete-l4"]').exists()).toBe(false)
+  })
+
+  it('visar repo, senaste commit och teststatus för en kopplad elev', async () => {
+    backend([repoAssignment], 'alice')
+    const {wrapper} = await renderApp('/courses/c1/content')
+
+    await wrapper.find('[data-test="student-open-l7"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="github-assignment-block"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="student-repo-link"]').attributes('href'))
+      .toBe('https://github.com/skol-org/repo-alice')
+    expect(wrapper.find('[data-test="student-repo-commit"]').text()).toContain('abcdef1')
+    expect(wrapper.find('[data-test="student-repo-status"]').text()).toContain('Tester godkända')
+  })
+
+  it('visar koppla GitHub-CTA i stället för repolänk för en okopplad elev', async () => {
+    backend([repoAssignment])
+    const {wrapper} = await renderApp('/courses/c1/content')
+
+    await wrapper.find('[data-test="student-open-l7"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="github-unlinked"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="student-repo-link"]').exists()).toBe(false)
   })
 
   it('visar en framtida vecka som ett låst skal utan innehåll', async () => {
