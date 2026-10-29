@@ -4,6 +4,7 @@ using Backend.Domain.Entities;
 using Backend.Domain.Enums;
 using Backend.Infrastructure.Persistence;
 using Backend.Infrastructure.Persistence.Configurations;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace backend.Tests;
@@ -142,6 +143,181 @@ public class CourseEndpointTests(TestWebApplicationFactory factory) : IClassFixt
             });
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateCourse_WithPointsAndDates_StoresThem()
+    {
+        var response = await _client.PostAsJsonAsync("/api/courses", new
+        {
+            schoolId = PlaceholderIds.SchoolId,
+            title = "DevOps",
+            code = $"K{Guid.NewGuid():N}"[..10],
+            points = 30,
+            startsOn = "2027-01-11",
+            endsOn = "2027-03-26"
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("\"points\":30", body);
+        Assert.Contains("2027-01-11", body);
+    }
+
+    [Theory]
+    [InlineData(0, "2027-01-11", "2027-03-26", "points must be between 1 and 400")]
+    [InlineData(30, "2027-03-26", "2027-01-11", "endsOn must be on or after startsOn")]
+    public async Task CreateCourse_WithInvalidPointsOrDates_ReturnsBadRequest(
+        int points, string startsOn, string endsOn, string error)
+    {
+        var response = await _client.PostAsJsonAsync("/api/courses", new
+        {
+            schoolId = PlaceholderIds.SchoolId,
+            title = "DevOps",
+            code = "X1",
+            points,
+            startsOn,
+            endsOn
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(error, await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task CreateCourse_AsTeacher_ReturnsForbidden()
+    {
+        var teacher = await AddTeacherAsync();
+
+        var response = await SendAsync(
+            HttpMethod.Post, "/api/courses", teacher.Id,
+            new { schoolId = PlaceholderIds.SchoolId, title = "DevOps", code = "NOPE" });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteCourse_RemovesCourseWeeksContentAndGroupLinks_ButKeepsSharedContent()
+    {
+        var setup = await AddCourseWithContentAsync();
+
+        var response = await _client.DeleteAsync($"/api/courses/{setup.CourseId}");
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await _client.GetAsync($"/api/courses/{setup.CourseId}")).StatusCode);
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        Assert.False(await db.Modules.AnyAsync(module => module.CourseId == setup.CourseId));
+        Assert.False(await db.GroupCourses.AnyAsync(groupCourse => groupCourse.CourseId == setup.CourseId));
+        Assert.False(await db.ContentLinks.AnyAsync(link => link.CourseId == setup.CourseId));
+        Assert.False(await db.Content.AnyAsync(content => content.Id == setup.OnlyHereContentId));
+        Assert.True(await db.Content.AnyAsync(content => content.Id == setup.SharedContentId));
+        Assert.True(await db.Groups.AnyAsync(group => group.Id == setup.GroupId));
+    }
+
+    [Fact]
+    public async Task DeleteCourse_WithStudentWork_ReturnsConflict_AndKeepsEverything()
+    {
+        var setup = await AddCourseWithContentAsync(withSubmission: true);
+
+        var response = await _client.DeleteAsync($"/api/courses/{setup.CourseId}");
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Contains("student work", await response.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.OK, (await _client.GetAsync($"/api/courses/{setup.CourseId}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteCourse_AsTeacherOfTheCourse_ReturnsForbidden()
+    {
+        var setup = await AddCourseWithContentAsync();
+        var teacher = await AddTeacherAsync(setup.GroupId);
+
+        var response = await SendAsync(HttpMethod.Delete, $"/api/courses/{setup.CourseId}", teacher.Id);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await _client.GetAsync($"/api/courses/{setup.CourseId}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteCourse_ThatDoesNotExist_ReturnsNotFound()
+    {
+        var response = await _client.DeleteAsync($"/api/courses/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteCourse_AtAnotherSchool_ReturnsNotFound_EvenForAdmin()
+    {
+        var (_, other, _) = await AddCoursesInTwoSchoolsAsync();
+
+        var response = await _client.DeleteAsync($"/api/courses/{other.Id}");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    private record CourseWithContent(Guid CourseId, Guid GroupId, Guid SharedContentId, Guid OnlyHereContentId);
+
+    // En kurs i adminens skola som en grupp läser, med en vecka och två delar: en bara här och en delad med gruppen.
+    private async Task<CourseWithContent> AddCourseWithContentAsync(bool withSubmission = false)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
+        var course = await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId, group.Id);
+        var student = await TestData.AddMemberAsync(db, group, GroupRole.Student, UserRole.Student);
+        var week = new Module { CourseId = course.Id, Title = "Vecka 1", Position = 1 };
+        var onlyHere = new Content { AuthorId = PlaceholderIds.UserId, Type = ContentType.Theory, Title = "Bara här" };
+        var shared = new Content { AuthorId = PlaceholderIds.UserId, Type = ContentType.Theory, Title = "Delad" };
+        var onlyHereLink = new ContentLink
+        {
+            ContentId = onlyHere.Id,
+            CourseId = course.Id,
+            ModuleId = week.Id,
+            Position = 1
+        };
+        db.Modules.Add(week);
+        db.Content.AddRange(onlyHere, shared);
+        db.ContentLinks.AddRange(
+            onlyHereLink,
+            new ContentLink { ContentId = shared.Id, CourseId = course.Id, ModuleId = week.Id, Position = 2 },
+            new ContentLink { ContentId = shared.Id, GroupId = group.Id });
+        if (withSubmission)
+        {
+            db.Submissions.Add(new Submission
+            {
+                ContentLinkId = onlyHereLink.Id,
+                StudentId = student.Id,
+                Status = SubmissionStatus.Submitted,
+                SubmittedAt = DateTimeOffset.UtcNow
+            });
+        }
+
+        await db.SaveChangesAsync();
+        return new CourseWithContent(course.Id, group.Id, shared.Id, onlyHere.Id);
+    }
+
+    private async Task<User> AddTeacherAsync(Guid? groupId = null)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var group = groupId is null
+            ? await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId)
+            : await db.Groups.SingleAsync(found => found.Id == groupId);
+        return await TestData.AddMemberAsync(db, group, GroupRole.Teacher, UserRole.Teacher);
+    }
+
+    private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, Guid userId, object? body = null)
+    {
+        var request = new HttpRequestMessage(method, path);
+        if (body is not null)
+        {
+            request.Content = JsonContent.Create(body);
+        }
+
+        request.Headers.Add(TestAuthHandler.Header, userId.ToString());
+        return await _client.SendAsync(request);
     }
 
     private async Task<HttpResponseMessage> GetAsync(string path, Guid userId)

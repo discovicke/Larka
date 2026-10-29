@@ -47,18 +47,20 @@ Seeden körs bara när databasen är tom. Saknar en äldre dev-databas de här a
 
 ### Produktion
 
-Prod seedar inga lösenord utöver demokontona. Användare som skapas senare saknar lösenord tills det finns ett admin-UI. Sätt det med ett engångskommando eller SQL: hasha det med ASP.NET Core `PasswordHasher<User>` och skriv hashen i `Users.PasswordHash`.
+Prod seedar inga lösenord utöver demokontona. Admin kan ge en ny användare ett tillfälligt lösenord (minst 8 tecken) när hen skapas från _Lägg till medlem_ på en grupp, eller med `password` i `POST /api/users`. Utan lösenord kan användaren inte logga in. För äldre användare utan lösenord: hasha det med ASP.NET Core `PasswordHasher<User>` och skriv hashen i `Users.PasswordHash`.
 
 ## Roller och behörigheter
 
 API:et avgör vad en användare får göra. Klienten hämtar rollerna från `GET /api/me` och kan dölja knappar och sidor, men det är bara för att göra gränssnittet tydligare: den som anropar API:et direkt möts av samma regler.
 
-| Roll                         | Får                                                                                                                                                                                |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Admin (`User.Role`)          | Allt, i hela skolan. Skapa och ändra skolor, användare och kurser. Skapa, ändra och ta bort grupper, medlemskap och gruppens kurser (inte om innehåll är publicerat till gruppen). |
-| Lärare                       | Skapa innehåll. Ändra, publicera och ta bort eget innehåll, och innehåll som är länkat till en kurs hen undervisar: moduler, länkar, bilagor och betyg på inlämningar.             |
-| Elev                         | Läsa flöden, moduler och innehåll, lämna in, kommentera och klarmarkera delar.                                                                                                     |
-| Lärare i en annan kurs/grupp | Får 403 på det som hör till kursen eller gruppen hen inte undervisar.                                                                                                              |
+| Roll                         | Får                                                                                                                                                                                                                                        |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Admin (`User.Role`)          | Allt, i hela skolan. Skapa och ändra skolor, användare och kurser. Ta bort kurser (inte om det finns elevarbete i kursen). Skapa, ändra och ta bort grupper, medlemskap och gruppens kurser (inte om innehåll är publicerat till gruppen). |
+| Lärare                       | Skapa innehåll. Ändra, publicera och ta bort eget innehåll, och innehåll som är länkat till en kurs hen undervisar: moduler, länkar, bilagor och betyg på inlämningar.                                                                     |
+| Elev                         | Läsa flöden, moduler och innehåll, lämna in, kommentera och klarmarkera delar.                                                                                                                                                             |
+| Lärare i en annan kurs/grupp | Får 403 på det som hör till kursen eller gruppen hen inte undervisar.                                                                                                                                                                      |
+
+Admin hanterar klasser, grupper och kurser direkt på _Alla grupper_: knappen _Ny_ uppe till höger skapar en klass, grupp eller kurs, och menyn `⋯` på varje rad har _Redigera_ och _Ta bort_. Borttagningen frågar alltid först och namnger det som tas bort. Nya användare skapas från _Lägg till medlem_ på gruppens sida ("Finns inte i listan? Skapa användare"). Den gamla sidan _Program och klasser_ under Inställningar finns inte kvar, och `/settings/groups` skickar vidare till _Alla grupper_.
 
 En lärare är den som har `GroupRole.Teacher` i en grupp som läser kursen (`GroupCourse`), oavsett om `User.Role` är Teacher eller Admin. Admin räknas som lärare på alla skolans kurser.
 

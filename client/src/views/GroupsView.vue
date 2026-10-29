@@ -1,15 +1,31 @@
 <script setup lang="ts">
-import {PhMagnifyingGlass} from '@phosphor-icons/vue'
+import {PhDotsThree, PhMagnifyingGlass, PhPencilSimple, PhPlus, PhTrash} from '@phosphor-icons/vue'
 import {computed, ref} from 'vue'
 import type {RouteLocationRaw} from 'vue-router'
 
+import DeleteCourseDialog from '@/components/courses/DeleteCourseDialog.vue'
+import CourseFormDialog from '@/components/courses/CourseFormDialog.vue'
+import DeleteGroupDialog from '@/components/groups/DeleteGroupDialog.vue'
+import GroupFormDialog from '@/components/groups/GroupFormDialog.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
+import {Button} from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {Empty, EmptyDescription, EmptyHeader, EmptyTitle} from '@/components/ui/empty'
 import {Input} from '@/components/ui/input'
 import {Skeleton} from '@/components/ui/skeleton'
 import {useCourses} from '@/composables/useCourses'
+import {useCurrentUser} from '@/composables/useCurrentUser'
 import {api, type Schema} from '@/lib/api'
 import {groupTypeLabels} from '@/lib/groups'
 import {fetchMe} from '@/lib/me'
+
+type Group = Schema<'GroupDto'>
+type Course = Schema<'CourseDto'>
 
 interface GroupRow {
   key: string
@@ -19,6 +35,8 @@ interface GroupRow {
   type: string
   period: string
   to?: RouteLocationRaw
+  group?: Group
+  course?: Course
 }
 
 type Filter = 'all' | 'groups' | 'courses'
@@ -29,11 +47,14 @@ const filters: {value: Filter, label: string}[] = [
   {value: 'courses', label: 'Kurser'},
 ]
 
-const {courses, status} = useCourses()
+const {courses, status, addCourse, updateCourse, removeCourse} = useCourses()
+const {can} = useCurrentUser()
+// Bara admin skapar, ändrar och tar bort. Övriga ser sidan som en vanlig lista.
+const isAdmin = computed(() => can('admin'))
 
 // Användarens egen skola, från /api/me. Grupper och kurser är redan avgränsade till den av API:et.
 const school = ref<Schema<'SchoolRefDto'> | null>(null)
-const groups = ref<Schema<'GroupDto'>[]>([])
+const groups = ref<Group[]>([])
 const loading = ref(true)
 const error = ref('')
 const filter = ref<Filter>('all')
@@ -64,6 +85,7 @@ const rows = computed<GroupRow[]>(() => {
       type: groupTypeLabels[group.type],
       period: group.term || '–',
       to: {name: 'group', params: {groupId: group.id}},
+      group,
     }))
 
   const courseRows: GroupRow[] = [...courses.value]
@@ -76,6 +98,7 @@ const rows = computed<GroupRow[]>(() => {
       type: 'Kurs',
       period: '–',
       to: {name: 'course-content', params: {courseId: course.id}},
+      course,
     }))
 
   return [...schoolRows, ...groupRows, ...courseRows]
@@ -95,6 +118,83 @@ const visibleRows = computed(() => {
       || row.code.toLowerCase().includes(text)
   })
 })
+
+// Tomt läge med skapa-knappen, för den lista som filtret visar.
+const emptyKind = computed<'group' | 'course' | null>(() => {
+  if (!isAdmin.value) {
+    return null
+  }
+  if (filter.value === 'courses') {
+    return courses.value.length === 0
+      ? 'course'
+      : null
+  }
+  return groups.value.length === 0
+    ? 'group'
+    : null
+})
+
+const showTable = computed(() => !(emptyKind.value && visibleRows.value.length === 0))
+
+const groupFormOpen = ref(false)
+const editingGroup = ref<Group>()
+const deleteGroupOpen = ref(false)
+const deletingGroup = ref<Group>()
+const courseFormOpen = ref(false)
+const editingCourse = ref<Course>()
+const deleteCourseOpen = ref(false)
+const deletingCourse = ref<Course>()
+
+function openCreateGroup() {
+  editingGroup.value = undefined
+  groupFormOpen.value = true
+}
+
+function openCreateCourse() {
+  editingCourse.value = undefined
+  courseFormOpen.value = true
+}
+
+function openEdit(row: GroupRow) {
+  if (row.group) {
+    editingGroup.value = row.group
+    groupFormOpen.value = true
+  } else if (row.course) {
+    editingCourse.value = row.course
+    courseFormOpen.value = true
+  }
+}
+
+function openDelete(row: GroupRow) {
+  if (row.group) {
+    deletingGroup.value = row.group
+    deleteGroupOpen.value = true
+  } else if (row.course) {
+    deletingCourse.value = row.course
+    deleteCourseOpen.value = true
+  }
+}
+
+// Listorna uppdateras direkt med svaret, utan att hämtas om.
+function onGroupSaved(saved: Group) {
+  groups.value = groups.value.some((group) => group.id === saved.id)
+    ? groups.value.map((group) => group.id === saved.id
+        ? saved
+        : group)
+    : [...groups.value, saved]
+}
+
+function onGroupDeleted(removed: Group) {
+  groups.value = groups.value.filter((group) => group.id !== removed.id)
+}
+
+function onCourseSaved(saved: Course) {
+  if (courses.value.some((course) => course.id === saved.id)) {
+    updateCourse(saved)
+  } else {
+    addCourse(saved)
+  }
+}
 
 function tabClass(value: Filter) {
   return filter.value === value
@@ -162,6 +262,23 @@ load()
             placeholder="Sök…"
           />
         </div>
+
+        <DropdownMenu v-if="isAdmin">
+          <DropdownMenuTrigger as-child>
+            <Button :disabled="!school" data-test="new-menu">
+              <PhPlus/>
+              Ny
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" class="min-w-48">
+            <DropdownMenuItem data-test="new-group" @select="openCreateGroup">
+              Ny klass eller grupp
+            </DropdownMenuItem>
+            <DropdownMenuItem data-test="new-course" @select="openCreateCourse">
+              Ny kurs
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
 
@@ -173,7 +290,34 @@ load()
       <Skeleton v-for="i in 4" :key="i" class="h-12 w-full"/>
     </div>
 
-    <section v-else aria-label="Grupper" class="bg-card overflow-hidden rounded-[11px] border">
+    <Empty v-else-if="emptyKind" class="border border-dashed" data-test="groups-empty">
+      <EmptyHeader>
+        <EmptyTitle>
+          {{ emptyKind === 'group'
+            ? 'Inga klasser eller grupper ännu'
+            : 'Inga kurser ännu' }}
+        </EmptyTitle>
+        <EmptyDescription>
+          {{ emptyKind === 'group'
+            ? 'Skapa en klass eller grupp, sedan kan du lägga till medlemmar och koppla kurser.'
+            : 'Skapa en kurs, sedan kan du koppla den till grupper.' }}
+        </EmptyDescription>
+      </EmptyHeader>
+      <Button
+        v-if="emptyKind === 'group'"
+        data-test="empty-new-group"
+        @click="openCreateGroup"
+      >
+        <PhPlus/>
+        Skapa skolans första klass
+      </Button>
+      <Button v-else data-test="empty-new-course" @click="openCreateCourse">
+        <PhPlus/>
+        Skapa skolans första kurs
+      </Button>
+    </Empty>
+
+    <section v-if="!error && !isLoading && showTable" aria-label="Grupper" class="bg-card overflow-hidden rounded-[11px] border">
       <div class="overflow-x-auto">
         <table class="w-full min-w-[680px] border-collapse">
           <thead>
@@ -182,6 +326,9 @@ load()
               <th scope="col" class="border-b px-3 py-2.5 font-medium">Kod</th>
               <th scope="col" class="border-b px-3 py-2.5 font-medium">Typ</th>
               <th scope="col" class="border-b px-4 py-2.5 font-medium">Period</th>
+              <th v-if="isAdmin" scope="col" class="border-b px-4 py-2.5 text-right font-medium">
+                <span class="sr-only">Åtgärder</span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -204,9 +351,38 @@ load()
               </td>
               <td class="px-3 py-3" :class="rowBorder(index)">{{ row.type }}</td>
               <td class="text-muted-foreground px-4 py-3" :class="rowBorder(index)">{{ row.period }}</td>
+              <td v-if="isAdmin" class="w-12 px-3 py-1.5 text-right" :class="rowBorder(index)">
+                <DropdownMenu v-if="row.group || row.course">
+                  <DropdownMenuTrigger as-child>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      :aria-label="`Åtgärder för ${row.name}`"
+                      data-test="row-actions"
+                    >
+                      <PhDotsThree/>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" class="min-w-40">
+                    <DropdownMenuItem data-test="row-edit" @select="openEdit(row)">
+                      <PhPencilSimple/>
+                      Redigera
+                    </DropdownMenuItem>
+                    <DropdownMenuItem variant="destructive" data-test="row-delete" @select="openDelete(row)">
+                      <PhTrash/>
+                      Ta bort
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </td>
             </tr>
             <tr v-if="visibleRows.length === 0">
-              <td colspan="4" class="text-muted-foreground px-4 py-6 text-center">
+              <td
+                :colspan="isAdmin
+                  ? 5
+                  : 4"
+                class="text-muted-foreground px-4 py-6 text-center"
+              >
                 Inga grupper matchar sökningen.
               </td>
             </tr>
@@ -214,5 +390,32 @@ load()
         </table>
       </div>
     </section>
+
+    <template v-if="isAdmin">
+      <GroupFormDialog
+        v-model:open="groupFormOpen"
+        :school-id="school?.id ?? ''"
+        :group="editingGroup"
+        @saved="onGroupSaved"
+      />
+      <DeleteGroupDialog
+        v-if="deletingGroup"
+        v-model:open="deleteGroupOpen"
+        :group="deletingGroup"
+        @deleted="onGroupDeleted"
+      />
+      <CourseFormDialog
+        v-model:open="courseFormOpen"
+        :school-id="school?.id ?? ''"
+        :course="editingCourse"
+        @saved="onCourseSaved"
+      />
+      <DeleteCourseDialog
+        v-if="deletingCourse"
+        v-model:open="deleteCourseOpen"
+        :course="deletingCourse"
+        @deleted="(removed) => removeCourse(removed.id)"
+      />
+    </template>
   </div>
 </template>

@@ -2,7 +2,6 @@
 import {
   PhArrowClockwise,
   PhArrowSquareOut,
-  PhCaretRight,
   PhCircleHalf,
   PhGithubLogo,
   PhMoon,
@@ -735,19 +734,6 @@ const options: {
               Försök igen
             </Button>
           </div>
-        </section>
-
-        <section v-if="isAdmin" class="flex flex-col gap-3" data-test="admin-groups-entry">
-          <RouterLink
-            :to="{name: 'admin-groups'}"
-            class="bg-card hover:bg-muted/40 flex items-center justify-between gap-3 rounded-xl border p-5"
-          >
-            <div class="flex flex-col gap-0.5">
-              <h2 class="text-base font-semibold">Program och klasser</h2>
-              <p class="text-muted-foreground text-sm">Skapa, ändra och ta bort skolans klasser och grupper.</p>
-            </div>
-            <PhCaretRight class="text-muted-foreground size-4 shrink-0"/>
-          </RouterLink>
         </section>
       </div>
     </div>

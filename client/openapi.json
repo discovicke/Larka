@@ -1919,6 +1919,57 @@
             }
           }
         }
+      },
+      "delete": {
+        "tags": [
+          "Courses"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/courses/{id}/staff": {
@@ -4729,8 +4780,30 @@
           },
           "code": {
             "type": "string"
+          },
+          "points": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "startsOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "endsOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
           }
-        }
+        },
+        "description": "Poäng och datum är valfria och kan ändras senare med PUT."
       },
       "CreateCourseRunDto": {
         "required": [
@@ -4868,8 +4941,15 @@
           },
           "role": {
             "$ref": "#/components/schemas/UserRole"
+          },
+          "password": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
-        }
+        },
+        "description": "Password är valfritt. Utan lösenord kan användaren inte logga in med e-post och lösenord."
       },
       "GitHubAuthorizeDto": {
         "required": [

@@ -2119,7 +2119,53 @@ export interface paths {
             };
         };
         post?: never;
-        delete?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -4373,11 +4419,18 @@ export interface components {
             content: components["schemas"]["CreateContentDto"];
             link: components["schemas"]["CreateContentLinkDto"];
         };
+        /** @description Poäng och datum är valfria och kan ändras senare med PUT. */
         CreateCourseDto: {
             /** Format: uuid */
             schoolId: string;
             title: string;
             code: string;
+            /** Format: int32 */
+            points?: null | number;
+            /** Format: date */
+            startsOn?: null | string;
+            /** Format: date */
+            endsOn?: null | string;
         };
         CreateCourseRunDto: {
             code: null | string;
@@ -4409,12 +4462,14 @@ export interface components {
         CreateSchoolDto: {
             name: string;
         };
+        /** @description Password är valfritt. Utan lösenord kan användaren inte logga in med e-post och lösenord. */
         CreateUserDto: {
             /** Format: uuid */
             schoolId: string;
             name: string;
             email: string;
             role: components["schemas"]["UserRole"];
+            password?: null | string;
         };
         GitHubAuthorizeDto: {
             url: string;

@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import DatePicker from '@/components/DatePicker.vue'
-import {PhEnvelopeSimple, PhPencilSimple} from '@phosphor-icons/vue'
+import {PhEnvelopeSimple, PhPencilSimple, PhTrash} from '@phosphor-icons/vue'
 import {computed, nextTick, reactive, ref, watch} from 'vue'
-import {useRoute} from 'vue-router'
+import {useRoute, useRouter} from 'vue-router'
 
+import DeleteCourseDialog from '@/components/courses/DeleteCourseDialog.vue'
 import MarkdownEditor from '@/components/editor/MarkdownEditor.vue'
 import MarkdownView from '@/components/editor/MarkdownView.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
@@ -27,12 +28,21 @@ import {initials} from '@/lib/news'
 import NotFoundView from '@/views/NotFoundView.vue'
 
 const route = useRoute()
+const router = useRouter()
 const courseId = computed(() => String(route.params.courseId))
-const {findCourse, updateCourse} = useCourses()
+const {findCourse, updateCourse, removeCourse} = useCourses()
 const {can} = useCurrentUser()
 
 const course = computed(() => findCourse(courseId.value))
 const canEdit = computed(() => can('editCourse', courseId.value))
+const canDelete = computed(() => can('admin'))
+const deleteOpen = ref(false)
+
+// Kursen finns inte längre, så sidan lämnas för listan där den skapades.
+async function onDeleted(removed: Schema<'CourseDto'>) {
+  await router.push({name: 'groups'})
+  removeCourse(removed.id)
+}
 
 const staff = ref<Schema<'CourseStaffDto'>[]>([])
 const loading = ref(true)
@@ -159,15 +169,25 @@ watch(() => route.name, scrollToStaff)
         <section aria-labelledby="description-heading" class="flex max-w-[68ch] flex-col gap-2.5">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <h2 id="description-heading" class="text-lg font-semibold">Beskrivning</h2>
-            <Button
-              v-if="canEdit"
-              variant="outline"
-              data-test="edit-course"
-              @click="openEdit"
-            >
-              <PhPencilSimple/>
-              Redigera
-            </Button>
+            <div v-if="canEdit" class="flex items-center gap-2">
+              <Button
+                variant="outline"
+                data-test="edit-course"
+                @click="openEdit"
+              >
+                <PhPencilSimple/>
+                Redigera
+              </Button>
+              <Button
+                v-if="canDelete"
+                variant="outline"
+                data-test="delete-course"
+                @click="deleteOpen = true"
+              >
+                <PhTrash/>
+                Ta bort kursen
+              </Button>
+            </div>
           </div>
           <MarkdownView v-if="hasDescription" :markdown="course.description"/>
           <p v-else class="text-muted-foreground">Ingen kursbeskrivning ännu.</p>
@@ -233,6 +253,13 @@ watch(() => route.name, scrollToStaff)
         </section>
       </aside>
     </div>
+
+    <DeleteCourseDialog
+      v-if="canDelete"
+      v-model:open="deleteOpen"
+      :course="course"
+      @deleted="onDeleted"
+    />
 
     <Dialog v-model:open="editOpen">
       <DialogContent class="sm:max-w-lg">

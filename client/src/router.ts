@@ -12,7 +12,6 @@ import {useCurrentUser} from '@/composables/useCurrentUser'
 import AppLayout from '@/layouts/AppLayout.vue'
 import {auth} from '@/lib/auth'
 import type {Action} from '@/lib/permissions'
-import AdminGroupsView from '@/views/AdminGroupsView.vue'
 import CalendarView from '@/views/CalendarView.vue'
 import GradesView from '@/views/GradesView.vue'
 import GradingView from '@/views/GradingView.vue'
@@ -73,12 +72,8 @@ export const routes: RouteRecordRaw[] = [
       {path: 'groups', name: 'groups', component: GroupsView, meta: {title: 'Alla grupper'}},
       {path: 'groups/:groupId', name: 'group', component: GroupView, meta: {title: 'Grupp'}},
       {path: 'settings', name: 'settings', component: SettingsView, meta: {title: 'Inställningar'}},
-      {
-        path: 'settings/groups',
-        name: 'admin-groups',
-        component: AdminGroupsView,
-        meta: {title: 'Program och klasser', requires: 'admin'},
-      },
+      // Program och klasser finns inte längre: admin hanterar klasser och grupper på Alla grupper.
+      {path: 'settings/groups', redirect: {name: 'groups'}},
       {
         path: 'courses/:courseId',
         component: CourseLayout,

@@ -1,7 +1,7 @@
 import {flushPromises} from '@vue/test-utils'
 import {describe, expect, it} from 'vitest'
 
-import {mockApi, sent} from '@/test/mockApi'
+import {mockApi, requests, sent} from '@/test/mockApi'
 import {meAs} from '@/test/me'
 import {pickDate} from '@/test/datePicker'
 import {renderApp} from '@/test/renderApp'
@@ -50,6 +50,12 @@ function backend(options: Backend = {}) {
       return options.failStaff
         ? {status: 500, body: 'Server error'}
         : {status: 200, body: options.staff ?? [anna, bo]}
+    }
+    if (path === '/api/courses/c1' && method === 'DELETE') {
+      return {status: 204}
+    }
+    if (path === '/api/groups') {
+      return {status: 200, body: []}
     }
     if (path === '/api/courses/c1' && method === 'PUT') {
       return {status: 200, body: {...currentCourse, ...(body as object)}}
@@ -198,5 +204,23 @@ describe('CourseAboutView', () => {
 
     expect(wrapper.find('[role="alert"]').text()).toContain('Kunde inte hämta personalen.')
     expect(wrapper.findAll('[data-test="staff-row"]')).toHaveLength(0)
+  })
+
+  it('bara admin kan ta bort kursen, och det går tillbaka till Alla grupper', async () => {
+    backend()
+    const teacher = await renderApp('/courses/c1/about')
+    expect(teacher.wrapper.find('[data-test="delete-course"]').exists()).toBe(false)
+
+    backend({me: meAs('Admin')})
+    const {wrapper, router} = await renderApp('/courses/c1/about')
+    await wrapper.find('[data-test="delete-course"]').trigger('click')
+    await flushPromises()
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Ta bort DevOps?')
+    ;(document.querySelector('[data-test="confirm-delete-course"]') as HTMLElement).click()
+    await flushPromises()
+    await flushPromises()
+
+    expect(requests.some((request) => request.method === 'DELETE' && request.path === '/api/courses/c1')).toBe(true)
+    expect(router.currentRoute.value.name).toBe('groups')
   })
 })

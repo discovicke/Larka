@@ -270,6 +270,7 @@ watch(groupId, load, {immediate: true})
         v-model:open="addingMember"
         :group-id="group.id"
         :group-name="group.name"
+        :school-id="group.schoolId"
         :member-ids="members.map((member) => member.userId)"
         @added="addMember"
       />
@@ -277,6 +278,7 @@ watch(groupId, load, {immediate: true})
         :open="memberToRemove !== null"
         :group-id="group.id"
         :group-name="group.name"
+        :school-id="group.schoolId"
         :member="memberToRemove"
         @update:open="(value) => { if (!value) memberToRemove = null }"
         @removed="removeMember"
@@ -285,6 +287,7 @@ watch(groupId, load, {immediate: true})
         v-model:open="linkingCourse"
         :group-id="group.id"
         :group-name="group.name"
+        :school-id="group.schoolId"
         :linked-ids="courses.map((course) => course.id)"
         @linked="addCourse"
       />
@@ -292,6 +295,7 @@ watch(groupId, load, {immediate: true})
         :open="courseToUnlink !== null"
         :group-id="group.id"
         :group-name="group.name"
+        :school-id="group.schoolId"
         :course="courseToUnlink"
         @update:open="(value) => { if (!value) courseToUnlink = null }"
         @unlinked="removeCourse"

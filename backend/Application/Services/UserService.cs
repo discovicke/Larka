@@ -3,6 +3,7 @@ using Backend.Application.Abstractions;
 using Backend.Application.Dtos;
 using Backend.Application.Results;
 using Backend.Domain.Entities;
+using Microsoft.AspNetCore.Identity;
 
 namespace Backend.Application.Services;
 
@@ -10,8 +11,11 @@ public class UserService(
     IUserRepository users,
     ISchoolRepository schools,
     IPermissions permissions,
+    IPasswordHasher<User> passwordHasher,
     IUnitOfWork unitOfWork)
 {
+    private const int _minPasswordLength = 8;
+
     public async Task<List<UserDto>> GetAllAsync(CancellationToken ct)
     {
         var allUsers = await users.GetAllAsync(ct);
@@ -56,7 +60,18 @@ public class UserService(
             return ServiceResult<UserDto>.Invalid("school does not exist");
         }
 
+        // Lösenordet är valfritt. Utan det kan användaren inte logga in med e-post och lösenord.
+        if (dto.Password is not null && dto.Password.Length < _minPasswordLength)
+        {
+            return ServiceResult<UserDto>.Invalid($"password must be at least {_minPasswordLength} characters");
+        }
+
         var user = new User { SchoolId = dto.SchoolId, Name = dto.Name.Trim(), Email = email, Role = dto.Role };
+        if (dto.Password is not null)
+        {
+            user.PasswordHash = passwordHasher.HashPassword(user, dto.Password);
+        }
+
         users.Add(user);
         await unitOfWork.SaveChangesAsync(ct);
         return ServiceResult<UserDto>.Ok(UserDto.From(user));

@@ -19,4 +19,6 @@ public class CourseRepository(AppDb db) : ICourseRepository
         db.Courses.AnyAsync(course => course.SchoolId == schoolId && course.Code == code, ct);
 
     public void Add(Course course) => db.Courses.Add(course);
+
+    public void Remove(Course course) => db.Courses.Remove(course);
 }

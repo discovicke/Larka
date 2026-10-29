@@ -51,6 +51,9 @@ public interface IContentRepository
     Task<List<LinkedContent>> GetLinksWithContentForGroupCourseAsync(
         Guid groupId, Guid courseId, CancellationToken ct);
 
+    /// <summary>Alla länkar som pekar på kursen (gemensamma och gruppens egna), med innehåll.</summary>
+    Task<List<LinkedContent>> GetLinksWithContentForCourseAsync(Guid courseId, CancellationToken ct);
+
     /// <summary>Alla beroenden mellan delar i modulen.</summary>
     Task<List<ContentLinkDependency>> GetDependenciesForModuleAsync(Guid moduleId, CancellationToken ct);
 

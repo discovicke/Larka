@@ -44,6 +44,10 @@ public static class CourseEndpoints
             Guid id, UpdateCourseDto courseDto, CourseService service, CancellationToken ct) =>
             (await service.UpdateAsync(id, courseDto, ct)).ToHttp(TypedResults.Ok));
 
+        // Bara admin. 409 om det finns elevarbete i kursen.
+        courses.MapDelete("/{id:guid}", async (Guid id, CourseService service, CancellationToken ct) =>
+            (await service.DeleteAsync(id, ct)).ToHttp(_ => TypedResults.NoContent()));
+
         // En ny omgång av kursen för en annan klass. Svarar med den nya kursens id och vad som följde med.
         courses.MapPost("/{id:guid}/runs", async (
             Guid id, CreateCourseRunDto runDto, CourseRunService service, CancellationToken ct) =>

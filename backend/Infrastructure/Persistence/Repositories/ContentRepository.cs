@@ -96,6 +96,16 @@ public class ContentRepository(AppDb db) : IContentRepository
         return await WithContentAsync(links, ct);
     }
 
+    public async Task<List<LinkedContent>> GetLinksWithContentForCourseAsync(
+        Guid courseId, CancellationToken ct)
+    {
+        var links = await db.ContentLinks
+            .Where(link => link.CourseId == courseId)
+            .OrderBy(link => link.Id)
+            .ToListAsync(ct);
+        return await WithContentAsync(links, ct);
+    }
+
     public async Task<List<LinkedContent>> GetLinksWithContentForGroupCourseAsync(
         Guid groupId, Guid courseId, CancellationToken ct)
     {

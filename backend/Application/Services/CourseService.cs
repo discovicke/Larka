@@ -11,9 +11,15 @@ public class CourseService(
     ICourseRepository courses,
     IGroupRepository groups,
     IUserRepository users,
+    IModuleRepository modules,
+    IContentRepository contents,
+    ISubmissionRepository submissions,
+    IPartCompletionRepository completions,
     IPermissions permissions,
     ICurrentSchool currentSchool,
-    IUnitOfWork unitOfWork)
+    IFileStorage storage,
+    IUnitOfWork unitOfWork,
+    ILogger<CourseService> logger)
 {
     public async Task<List<CourseDto>> GetAllAsync(CancellationToken ct)
     {
@@ -52,6 +58,12 @@ public class CourseService(
             return ServiceResult<CourseDto>.Invalid("code is required");
         }
 
+        var rangeError = PointsAndDatesError(dto.Points, dto.StartsOn, dto.EndsOn);
+        if (rangeError is not null)
+        {
+            return ServiceResult<CourseDto>.Invalid(rangeError);
+        }
+
         // Bara i den egna skolan, annars skulle admin skapa rader som den sedan inte ser.
         if (!await currentSchool.OwnsAsync(dto.SchoolId, ct))
         {
@@ -64,7 +76,15 @@ public class CourseService(
             return ServiceResult<CourseDto>.Invalid("the school already has a course with this code");
         }
 
-        var course = new Course { SchoolId = dto.SchoolId, Title = dto.Title.Trim(), Code = code };
+        var course = new Course
+        {
+            SchoolId = dto.SchoolId,
+            Title = dto.Title.Trim(),
+            Code = code,
+            Points = dto.Points,
+            StartsOn = dto.StartsOn,
+            EndsOn = dto.EndsOn,
+        };
         courses.Add(course);
         await unitOfWork.SaveChangesAsync(ct);
         return ServiceResult<CourseDto>.Ok(CourseDto.From(course));
@@ -94,14 +114,10 @@ public class CourseService(
             return ServiceResult<CourseDto>.Invalid("description can be at most 20000 characters");
         }
 
-        if (dto.Points is not null && (dto.Points < 1 || dto.Points > 400))
+        var rangeError = PointsAndDatesError(dto.Points, dto.StartsOn, dto.EndsOn);
+        if (rangeError is not null)
         {
-            return ServiceResult<CourseDto>.Invalid("points must be between 1 and 400");
-        }
-
-        if (dto.StartsOn is not null && dto.EndsOn is not null && dto.EndsOn.Value < dto.StartsOn.Value)
-        {
-            return ServiceResult<CourseDto>.Invalid("endsOn must be on or after startsOn");
+            return ServiceResult<CourseDto>.Invalid(rangeError);
         }
 
         course.Title = dto.Title.Trim();
@@ -111,6 +127,86 @@ public class CourseService(
         course.EndsOn = dto.EndsOn;
         await unitOfWork.SaveChangesAsync(ct);
         return ServiceResult<CourseDto>.Ok(CourseDto.From(course));
+    }
+
+    /// <summary>
+    /// Tar bort kursen med veckorna, innehållet som bara hör till den och kopplingarna till grupperna.
+    /// Elevarbete stoppar borttagningen (409), så att inget försvinner av misstag. Utdelningar utan
+    /// elevaktivitet följer med.
+    /// </summary>
+    public async Task<ServiceResult<bool>> DeleteAsync(Guid id, CancellationToken ct)
+    {
+        if (!await permissions.IsAdminAsync(ct))
+        {
+            return ServiceResult<bool>.Forbidden();
+        }
+
+        var course = await GetOwnAsync(id, ct);
+        if (course is null)
+        {
+            return ServiceResult<bool>.NotFound("course not found");
+        }
+
+        var parts = await contents.GetLinksWithContentForCourseAsync(id, ct);
+        foreach (var part in parts)
+        {
+            var linkSubmissions = await submissions.GetByLinkAsync(part.Link.Id, ct);
+            if (linkSubmissions.Any(StudentWorkPolicy.HasStudentActivity)
+                || await completions.AnyForLinkAsync(part.Link.Id, ct))
+            {
+                return ServiceResult<bool>.Conflict(
+                    $"the course has student work in \"{part.Content.Title}\" and cannot be deleted");
+            }
+        }
+
+        // Innehåll som också är publicerat någon annanstans lever vidare, resten följer med kursen.
+        var contentToDelete = new List<Content>();
+        var attachments = new List<Attachment>();
+        foreach (var group in parts.GroupBy(part => part.Content.Id))
+        {
+            if (await contents.CountLinksAsync(group.Key, ct) != group.Count())
+            {
+                continue;
+            }
+
+            contentToDelete.Add(group.First().Content);
+            attachments.AddRange(await contents.GetAttachmentsAsync(group.Key, ct));
+        }
+
+        foreach (var part in parts)
+        {
+            // Aktivitet har redan stoppat borttagningen, så det som är kvar är tomma utdelningsrader.
+            foreach (var submission in await submissions.GetByLinkAsync(part.Link.Id, ct))
+            {
+                submissions.Remove(submission);
+            }
+
+            contents.RemoveLink(part.Link);
+        }
+
+        foreach (var content in contentToDelete)
+        {
+            contents.RemoveContent(content);
+        }
+
+        foreach (var module in await modules.GetForCourseAsync(id, ct))
+        {
+            modules.Remove(module);
+        }
+
+        foreach (var groupId in await groups.GetGroupIdsReadingCourseAsync(id, ct))
+        {
+            await groups.RemoveCourseAsync(groupId, id, ct);
+        }
+
+        courses.Remove(course);
+        await unitOfWork.SaveChangesAsync(ct);
+        foreach (var attachment in attachments)
+        {
+            await DeleteStorageFileQuietlyAsync(attachment.StorageKey);
+        }
+
+        return ServiceResult<bool>.Ok(true);
     }
 
     /// <summary>Lärarna i grupperna som läser kursen. Null om kursen inte finns.</summary>
@@ -169,5 +265,29 @@ public class CourseService(
         return course is not null && await currentSchool.OwnsAsync(course.SchoolId, ct)
             ? course
             : null;
+    }
+
+    private static string? PointsAndDatesError(int? points, DateOnly? startsOn, DateOnly? endsOn)
+    {
+        if (points is not null && (points < 1 || points > 400))
+        {
+            return "points must be between 1 and 400";
+        }
+
+        return startsOn is not null && endsOn is not null && endsOn.Value < startsOn.Value
+            ? "endsOn must be on or after startsOn"
+            : null;
+    }
+
+    private async Task DeleteStorageFileQuietlyAsync(string key)
+    {
+        try
+        {
+            await storage.DeleteAsync(key, CancellationToken.None);
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "Could not delete {StorageKey} from file storage", key);
+        }
     }
 }

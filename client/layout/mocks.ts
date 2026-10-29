@@ -138,7 +138,7 @@ export const routes = {
  * Loggar in en låtsasanvändare (lärare eller elev i kursen c1) och svarar på /api/** med fasta data, så att
  * sidorna renderas som i verkligheten utan backend. Okända anrop får en tom lista.
  */
-export async function signInAndMockApi(page: Page, role: 'Teacher' | 'Student' = 'Teacher'): Promise<void> {
+export async function signInAndMockApi(page: Page, role: 'Admin' | 'Teacher' | 'Student' = 'Teacher'): Promise<void> {
   await page.addInitScript(
     ([tokenKey, expiryKey, expiry]) => {
       sessionStorage.setItem(tokenKey, 'test-token')

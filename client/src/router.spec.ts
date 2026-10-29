@@ -3,10 +3,7 @@ import {createMemoryHistory} from 'vue-router'
 
 import {createAppRouter} from './router'
 
-import {useCurrentUser} from '@/composables/useCurrentUser'
 import {signInForTests, signOutForTests} from '@/test/auth'
-import {mockApi} from '@/test/mockApi'
-import {meAs} from '@/test/me'
 
 async function open(path: string) {
   const router = createAppRouter(createMemoryHistory())
@@ -60,17 +57,11 @@ describe('router', () => {
     expect(document.title).toBe('Kalender · Lärka')
   })
 
-  it.each([
-    ['Admin', 'admin-groups'],
-    ['Teacher', 'today'],
-    ['Student', 'today'],
-  ] as const)('program och klasser: %s hamnar på %s', async (role, routeName) => {
-    useCurrentUser().resetCurrentUser()
-    mockApi(() => ({status: 200, body: meAs(role)}))
-
+  it('den gamla sidan Program och klasser skickar vidare till Alla grupper', async () => {
     const route = await open('/settings/groups')
 
-    expect(route.name).toBe(routeName)
+    expect(route.name).toBe('groups')
+    expect(route.path).toBe('/groups')
   })
 })
 

@@ -24,14 +24,22 @@ public record GroupMemberDto(Guid UserId, string Name, GroupRole Role);
 
 public record CreateSchoolDto(string Name);
 
-public record CreateUserDto(Guid SchoolId, string Name, string Email, UserRole Role);
+/// <summary>Password är valfritt. Utan lösenord kan användaren inte logga in med e-post och lösenord.</summary>
+public record CreateUserDto(Guid SchoolId, string Name, string Email, UserRole Role, string? Password = null);
 
 public record CreateGroupDto(Guid SchoolId, GroupType Type, string Name, string? Term = null);
 
 /// <summary>Ändrar gruppens namn, typ och termin. Skolan går inte att byta.</summary>
 public record UpdateGroupDto(GroupType Type, string Name, string? Term = null);
 
-public record CreateCourseDto(Guid SchoolId, string Title, string Code);
+/// <summary>Poäng och datum är valfria och kan ändras senare med PUT.</summary>
+public record CreateCourseDto(
+    Guid SchoolId,
+    string Title,
+    string Code,
+    int? Points = null,
+    DateOnly? StartsOn = null,
+    DateOnly? EndsOn = null);
 
 /// <summary>Ändrar kursens uppgifter. Koden är låst, eftersom den är unik per skola.</summary>
 public record UpdateCourseDto(

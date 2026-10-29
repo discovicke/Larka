@@ -76,6 +76,50 @@ public class UserEndpointTests(TestWebApplicationFactory factory) : IClassFixtur
     }
 
     [Fact]
+    public async Task CreateUser_WithPassword_CanSignIn()
+    {
+        var schoolId = await AddSchoolAsync();
+        var email = $"{Guid.NewGuid():N}@example.com";
+
+        var created = await _client.PostAsJsonAsync(
+            "/api/users", new { schoolId, name = "Ny Elev", email, role = "student", password = "hemligt123" });
+        var login = await _client.PostAsJsonAsync("/api/auth/login", new { username = email, password = "hemligt123" });
+        var wrong = await _client.PostAsJsonAsync("/api/auth/login", new { username = email, password = "fel-losen1" });
+
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        Assert.DoesNotContain("hemligt123", await created.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, wrong.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateUser_WithoutPassword_CannotSignIn()
+    {
+        var schoolId = await AddSchoolAsync();
+        var email = $"{Guid.NewGuid():N}@example.com";
+        await _client.PostAsJsonAsync("/api/users", new { schoolId, name = "Ny Elev", email, role = "student" });
+
+        var login = await _client.PostAsJsonAsync("/api/auth/login", new { username = email, password = "hemligt123" });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, login.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateUser_WithTooShortPassword_ReturnsBadRequest()
+    {
+        var schoolId = await AddSchoolAsync();
+        var email = $"{Guid.NewGuid():N}@example.com";
+
+        var response = await _client.PostAsJsonAsync(
+            "/api/users", new { schoolId, name = "Ny Elev", email, role = "student", password = "kort" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("password must be at least 8 characters", await response.Content.ReadAsStringAsync());
+        Assert.Null((await _client.GetFromJsonAsync<List<UserResponse>>("/api/users"))!
+            .FirstOrDefault(user => user.Email == email));
+    }
+
+    [Fact]
     public async Task GetUser_ThatDoesNotExist_Returns404()
     {
         var response = await _client.GetAsync($"/api/users/{Guid.NewGuid()}");
