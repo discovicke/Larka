@@ -53,12 +53,12 @@ Prod seedar inga lösenord utöver demokontona. Användare som skapas senare sak
 
 API:et avgör vad en användare får göra. Klienten hämtar rollerna från `GET /api/me` och kan dölja knappar och sidor, men det är bara för att göra gränssnittet tydligare: den som anropar API:et direkt möts av samma regler.
 
-| Roll                         | Får                                                                                                                                                                    |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Admin (`User.Role`)          | Allt, i hela skolan. Skapa och ändra skolor, användare, grupper, medlemskap, kurser och gruppens kurser.                                                               |
-| Lärare                       | Skapa innehåll. Ändra, publicera och ta bort eget innehåll, och innehåll som är länkat till en kurs hen undervisar: moduler, länkar, bilagor och betyg på inlämningar. |
-| Elev                         | Läsa flöden, moduler och innehåll, lämna in, kommentera och klarmarkera delar.                                                                                         |
-| Lärare i en annan kurs/grupp | Får 403 på det som hör till kursen eller gruppen hen inte undervisar.                                                                                                  |
+| Roll                         | Får                                                                                                                                                                                |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Admin (`User.Role`)          | Allt, i hela skolan. Skapa och ändra skolor, användare och kurser. Skapa, ändra och ta bort grupper, medlemskap och gruppens kurser (inte om innehåll är publicerat till gruppen). |
+| Lärare                       | Skapa innehåll. Ändra, publicera och ta bort eget innehåll, och innehåll som är länkat till en kurs hen undervisar: moduler, länkar, bilagor och betyg på inlämningar.             |
+| Elev                         | Läsa flöden, moduler och innehåll, lämna in, kommentera och klarmarkera delar.                                                                                                     |
+| Lärare i en annan kurs/grupp | Får 403 på det som hör till kursen eller gruppen hen inte undervisar.                                                                                                              |
 
 En lärare är den som har `GroupRole.Teacher` i en grupp som läser kursen (`GroupCourse`), oavsett om `User.Role` är Teacher eller Admin. Admin räknas som lärare på alla skolans kurser.
 

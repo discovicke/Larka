@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Backend.Domain.Entities;
 using Backend.Domain.Enums;
 using Backend.Infrastructure.Persistence;
 using Backend.Infrastructure.Persistence.Configurations;
@@ -274,6 +275,199 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
             $"/api/groups/{other.GroupId}/members", new { userId = other.UserId });
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateGroup_ChangesNameTypeAndTerm()
+    {
+        var group = await CreateGroupAsync();
+
+        var response = await _client.PutAsJsonAsync(
+            $"/api/groups/{group.Id}", new { type = "other", name = " Nytt namn ", term = "VT27" });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var found = await _client.GetFromJsonAsync<GroupResponse>($"/api/groups/{group.Id}");
+        Assert.Equal(("Other", "Nytt namn", "VT27"), (found!.Type, found.Name, found.Term));
+    }
+
+    [Fact]
+    public async Task UpdateGroup_ToNameOfAnotherGroup_ReturnsBadRequest_SameNameIsFine()
+    {
+        var first = await CreateGroupAsync();
+        var second = await CreateGroupAsync();
+
+        var taken = await _client.PutAsJsonAsync(
+            $"/api/groups/{second.Id}", new { type = "class", name = first.Name, term = first.Term });
+        var unchanged = await _client.PutAsJsonAsync(
+            $"/api/groups/{second.Id}", new { type = "class", name = second.Name, term = second.Term });
+        var empty = await _client.PutAsJsonAsync($"/api/groups/{second.Id}", new { type = "class", name = " " });
+
+        Assert.Equal(HttpStatusCode.BadRequest, taken.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, unchanged.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, empty.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateGroup_ToCommitteeWithCourses_ReturnsBadRequest()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
+        await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId, group.Id);
+
+        var response = await _client.PutAsJsonAsync(
+            $"/api/groups/{group.Id}", new { type = "committee", name = group.Name });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteGroup_RemovesItWithMembersAndCourseLinks()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
+        await TestData.AddMemberAsync(db, group);
+        var course = await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId, group.Id);
+
+        var response = await _client.DeleteAsync($"/api/groups/{group.Id}");
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await _client.GetAsync($"/api/groups/{group.Id}")).StatusCode);
+        var courseResponse = await _client.GetAsync($"/api/courses/{course.Id}");
+        Assert.Equal(HttpStatusCode.OK, courseResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteGroup_WithPublishedContent_ReturnsConflict()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
+        await AddContentLinkAsync(db, group.Id, null);
+
+        var response = await _client.DeleteAsync($"/api/groups/{group.Id}");
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteGroup_AtAnotherSchool_Returns404()
+    {
+        var other = await AddOtherSchoolAsync();
+
+        var response = await _client.DeleteAsync($"/api/groups/{other.GroupId}");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task RemoveCourse_UnlinksIt_ThenReturns404()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
+        var course = await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId, group.Id);
+
+        var first = await _client.DeleteAsync($"/api/groups/{group.Id}/courses/{course.Id}");
+        var second = await _client.DeleteAsync($"/api/groups/{group.Id}/courses/{course.Id}");
+
+        Assert.Equal(HttpStatusCode.NoContent, first.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, second.StatusCode);
+        var courses = await _client.GetFromJsonAsync<List<CourseResponse>>($"/api/groups/{group.Id}/courses");
+        Assert.Empty(courses!);
+    }
+
+    [Fact]
+    public async Task RemoveCourse_WithContentPublishedToTheGroup_ReturnsConflict()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
+        var course = await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId, group.Id);
+        await AddContentLinkAsync(db, group.Id, course.Id);
+
+        var response = await _client.DeleteAsync($"/api/groups/{group.Id}/courses/{course.Id}");
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateMember_ChangesTheRole()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
+        var student = await TestData.AddMemberAsync(db, group);
+
+        var response = await _client.PutAsJsonAsync(
+            $"/api/groups/{group.Id}/members/{student.Id}", new { role = "mentor" });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var members = await _client.GetFromJsonAsync<List<GroupMemberResponse>>($"/api/groups/{group.Id}/members");
+        Assert.Equal("Mentor", members!.Single().Role);
+    }
+
+    [Fact]
+    public async Task RemoveMember_RemovesIt_ThenReturns404()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
+        var student = await TestData.AddMemberAsync(db, group);
+
+        var first = await _client.DeleteAsync($"/api/groups/{group.Id}/members/{student.Id}");
+        var second = await _client.DeleteAsync($"/api/groups/{group.Id}/members/{student.Id}");
+        var unknownRole = await _client.PutAsJsonAsync(
+            $"/api/groups/{group.Id}/members/{student.Id}", new { role = "teacher" });
+
+        Assert.Equal(HttpStatusCode.NoContent, first.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, second.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, unknownRole.StatusCode);
+    }
+
+    [Fact]
+    public async Task ManagingGroups_AsTeacher_IsForbidden()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
+        var teacher = await TestData.AddMemberAsync(db, group, GroupRole.Teacher, UserRole.Teacher);
+        var course = await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId, group.Id);
+
+        var responses = new[]
+        {
+            await SendAsync(HttpMethod.Put, $"/api/groups/{group.Id}", teacher.Id, new { type = "class", name = "X" }),
+            await SendAsync(HttpMethod.Delete, $"/api/groups/{group.Id}", teacher.Id),
+            await SendAsync(HttpMethod.Delete, $"/api/groups/{group.Id}/courses/{course.Id}", teacher.Id),
+            await SendAsync(
+                HttpMethod.Put, $"/api/groups/{group.Id}/members/{teacher.Id}", teacher.Id, new { role = "student" }),
+            await SendAsync(HttpMethod.Delete, $"/api/groups/{group.Id}/members/{teacher.Id}", teacher.Id),
+        };
+
+        Assert.All(responses, response => Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode));
+    }
+
+    // Innehåll publicerat till gruppen, och till kursen om courseId är satt.
+    private static async Task AddContentLinkAsync(AppDb db, Guid groupId, Guid? courseId)
+    {
+        var author = await TestData.AddUserAsync(db, PlaceholderIds.SchoolId, UserRole.Teacher);
+        var content = new Content { AuthorId = author.Id, Type = ContentType.News, Title = "Nyhet" };
+        db.Content.Add(content);
+        db.ContentLinks.Add(new ContentLink { ContentId = content.Id, GroupId = groupId, CourseId = courseId });
+        await db.SaveChangesAsync();
+    }
+
+    private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, Guid userId, object? body = null)
+    {
+        var request = new HttpRequestMessage(method, path)
+        {
+            Content = body is null
+                ? null
+                : JsonContent.Create(body)
+        };
+        request.Headers.Add(TestAuthHandler.Header, userId.ToString());
+        return await _client.SendAsync(request);
     }
 
     private async Task<HttpResponseMessage> GetAsync(string path, Guid userId)

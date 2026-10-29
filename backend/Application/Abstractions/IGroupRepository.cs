@@ -59,7 +59,17 @@ public interface IGroupRepository
     /// <summary>Medlemmarna i gruppen, med namn och roll.</summary>
     Task<List<GroupMemberDto>> GetMembersAsync(Guid groupId, CancellationToken ct);
 
+    Task<Enrollment?> GetMemberAsync(Guid groupId, Guid userId, CancellationToken ct);
+
+    /// <summary>Innehåll är publicerat till gruppen. Är courseId satt räknas bara länkar till den kursen.</summary>
+    Task<bool> HasContentAsync(Guid groupId, Guid? courseId, CancellationToken ct);
+
     void Add(Group group);
     void AddCourse(GroupCourse groupCourse);
     void AddMember(Enrollment enrollment);
+    void RemoveMember(Enrollment enrollment);
+    Task RemoveCourseAsync(Guid groupId, Guid courseId, CancellationToken ct);
+
+    /// <summary>Tar bort gruppen med dess medlemskap och kurskopplingar.</summary>
+    Task RemoveAsync(Group group, CancellationToken ct);
 }

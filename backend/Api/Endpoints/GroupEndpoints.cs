@@ -66,6 +66,28 @@ public static class GroupEndpoints
                 (await service.AddMemberAsync(id, memberDto, ct)).ToHttp(member =>
                     TypedResults.Created($"/api/groups/{id}/members", member)));
 
+        groups.MapPut("/{id:guid}",
+            async (Guid id, UpdateGroupDto groupDto, GroupService service, CancellationToken ct) =>
+                (await service.UpdateAsync(id, groupDto, ct)).ToHttp(group => TypedResults.Ok(group)));
+
+        // 409 om innehåll är publicerat till gruppen.
+        groups.MapDelete("/{id:guid}", async (Guid id, GroupService service, CancellationToken ct) =>
+            (await service.DeleteAsync(id, ct)).ToHttp(_ => TypedResults.NoContent()));
+
+        // 409 om innehåll i kursen är publicerat till just gruppen.
+        groups.MapDelete("/{id:guid}/courses/{courseId:guid}",
+            async (Guid id, Guid courseId, GroupService service, CancellationToken ct) =>
+                (await service.RemoveCourseAsync(id, courseId, ct)).ToHttp(_ => TypedResults.NoContent()));
+
+        groups.MapPut("/{id:guid}/members/{userId:guid}",
+            async (Guid id, Guid userId, UpdateMemberDto memberDto, GroupService service, CancellationToken ct) =>
+                (await service.UpdateMemberAsync(id, userId, memberDto, ct))
+                    .ToHttp(member => TypedResults.Ok(member)));
+
+        groups.MapDelete("/{id:guid}/members/{userId:guid}",
+            async (Guid id, Guid userId, GroupService service, CancellationToken ct) =>
+                (await service.RemoveMemberAsync(id, userId, ct)).ToHttp(_ => TypedResults.NoContent()));
+
         return app;
     }
 }

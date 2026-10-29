@@ -169,4 +169,28 @@ public class GroupRepository(AppDb db) : IGroupRepository
     public void AddCourse(GroupCourse groupCourse) => db.GroupCourses.Add(groupCourse);
 
     public void AddMember(Enrollment enrollment) => db.Enrollments.Add(enrollment);
+
+    public Task<Enrollment?> GetMemberAsync(Guid groupId, Guid userId, CancellationToken ct) =>
+        db.Enrollments.FirstOrDefaultAsync(
+            enrollment => enrollment.GroupId == groupId && enrollment.UserId == userId, ct);
+
+    public Task<bool> HasContentAsync(Guid groupId, Guid? courseId, CancellationToken ct) =>
+        db.ContentLinks.AnyAsync(
+            link => link.GroupId == groupId && (courseId == null || link.CourseId == courseId), ct);
+
+    public void RemoveMember(Enrollment enrollment) => db.Enrollments.Remove(enrollment);
+
+    public async Task RemoveCourseAsync(Guid groupId, Guid courseId, CancellationToken ct) =>
+        db.GroupCourses.RemoveRange(await db.GroupCourses
+            .Where(groupCourse => groupCourse.GroupId == groupId && groupCourse.CourseId == courseId)
+            .ToListAsync(ct));
+
+    public async Task RemoveAsync(Group group, CancellationToken ct)
+    {
+        db.Enrollments.RemoveRange(
+            await db.Enrollments.Where(enrollment => enrollment.GroupId == group.Id).ToListAsync(ct));
+        db.GroupCourses.RemoveRange(
+            await db.GroupCourses.Where(groupCourse => groupCourse.GroupId == group.Id).ToListAsync(ct));
+        db.Groups.Remove(group);
+    }
 }

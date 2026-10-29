@@ -28,6 +28,9 @@ public record CreateUserDto(Guid SchoolId, string Name, string Email, UserRole R
 
 public record CreateGroupDto(Guid SchoolId, GroupType Type, string Name, string? Term = null);
 
+/// <summary>Ändrar gruppens namn, typ och termin. Skolan går inte att byta.</summary>
+public record UpdateGroupDto(GroupType Type, string Name, string? Term = null);
+
 public record CreateCourseDto(Guid SchoolId, string Title, string Code);
 
 /// <summary>Ändrar kursens uppgifter. Koden är låst, eftersom den är unik per skola.</summary>
@@ -39,3 +42,5 @@ public record UpdateCourseDto(
     DateOnly? EndsOn);
 
 public record AddMemberDto(Guid UserId, GroupRole Role = GroupRole.Student);
+
+public record UpdateMemberDto(GroupRole Role);
