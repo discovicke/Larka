@@ -24,6 +24,16 @@ export function gradeLabel(level: Schema<'GradeLevel'>): string {
   return gradeLabels[level]
 }
 
+/** Badge-varianten för betygsstämpeln: G och VG i grönt, IG i rött. */
+export function gradeBadgeVariant(level: Schema<'GradeLevel'>): 'gradePass' | 'gradeDistinction' | 'gradeFail' {
+  if (level === 'Distinction') {
+    return 'gradeDistinction'
+  }
+  return level === 'Pass'
+    ? 'gradePass'
+    : 'gradeFail'
+}
+
 /** Betygets namn i bedömningspanelen, t.ex. "Väl godkänt". */
 export function gradeName(level: Schema<'GradeLevel'>): string {
   return gradeNames[level]

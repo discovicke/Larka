@@ -1,12 +1,20 @@
 import {describe, expect, it} from 'vitest'
 
-import {checkClass, checkLabel, formatSize, gradeLabel, gradeName, levelsFor, statusLabel} from './submissions'
+import {checkClass, checkLabel, formatSize, gradeBadgeVariant, gradeLabel, gradeName, levelsFor, statusLabel} from './submissions'
 
 describe('gradeLabel', () => {
   it('förkortar betygsstegen som i listan', () => {
     expect(gradeLabel('Fail')).toBe('IG')
     expect(gradeLabel('Pass')).toBe('G')
     expect(gradeLabel('Distinction')).toBe('VG')
+  })
+})
+
+describe('gradeBadgeVariant', () => {
+  it('väljer stämpelns utseende per betygssteg', () => {
+    expect(gradeBadgeVariant('Fail')).toBe('gradeFail')
+    expect(gradeBadgeVariant('Pass')).toBe('gradePass')
+    expect(gradeBadgeVariant('Distinction')).toBe('gradeDistinction')
   })
 })
 

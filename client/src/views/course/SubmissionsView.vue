@@ -17,7 +17,7 @@ import {Skeleton} from '@/components/ui/skeleton'
 import {useCrumbLabels} from '@/composables/useCrumbLabels'
 import {api, type Schema} from '@/lib/api'
 import {formatDate, partOf} from '@/lib/content'
-import {checkClass, checkLabel, gradeLabel, statusLabel} from '@/lib/submissions'
+import {checkClass, checkLabel, gradeBadgeVariant, gradeLabel, statusLabel} from '@/lib/submissions'
 
 type Filter = 'all' | 'due' | 'needsWork' | 'notStarted'
 
@@ -182,15 +182,6 @@ function statusText(submission: Schema<'SubmissionDto'>): string {
   return submission.status === 'Submitted'
     ? 'Inlämnad'
     : statusLabel(submission)
-}
-
-function gradeTileClass(level: Schema<'GradeLevel'> | null): string {
-  if (level === null) {
-    return 'bg-muted text-muted-foreground'
-  }
-  return level === 'Fail'
-    ? 'bg-destructive/10 text-destructive dark:bg-destructive/20'
-    : 'bg-success/10 text-success dark:bg-success/20'
 }
 
 function reviewRoute(submission: Schema<'SubmissionDto'>) {
@@ -427,11 +418,13 @@ watch([courseId, linkId], () => {
                     <RouterLink
                       v-else-if="submission.status === 'Graded'"
                       :to="reviewRoute(submission)"
-                      class="size-7 rounded-[7px] font-bold flex items-center justify-center"
-                      :class="gradeTileClass(submission.grade?.level ?? null)"
                     >
-                      <PhCheck v-if="!submission.grade?.level" class="size-3.5"/>
-                      <template v-else>{{ gradeLabel(submission.grade.level) }}</template>
+                      <Badge v-if="submission.grade?.level" :variant="gradeBadgeVariant(submission.grade.level)">
+                        {{ gradeLabel(submission.grade.level) }}
+                      </Badge>
+                      <span v-else class="bg-muted text-muted-foreground flex size-7 items-center justify-center rounded-full">
+                        <PhCheck class="size-3.5"/>
+                      </span>
                     </RouterLink>
                     <span v-else class="text-muted-foreground">–</span>
                   </div>

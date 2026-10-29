@@ -4,11 +4,13 @@ import {computed, ref} from 'vue'
 
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import CourseStatusBadge from '@/components/course/CourseStatusBadge.vue'
+import {Badge} from '@/components/ui/badge'
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card'
 import {Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty'
 import {Skeleton} from '@/components/ui/skeleton'
 import {api} from '@/lib/api'
 import {type CourseStatus, courseStatus} from '@/lib/courseStatus'
+import {gradeBadgeVariant} from '@/lib/submissions'
 import {
   assignmentStatus,
   coursePeriod,
@@ -183,12 +185,10 @@ load()
             </p>
             <div class="flex items-center justify-between gap-2">
               <CourseStatusBadge :status="badgeStatus(course)"/>
-              <span
-                class="text-sm"
-                :class="course.grade
-                  ? 'font-semibold'
-                  : 'text-muted-foreground'"
-              >{{ gradeText(course.grade) }}</span>
+              <Badge v-if="course.grade" :variant="gradeBadgeVariant(course.grade)">
+                {{ gradeText(course.grade) }}
+              </Badge>
+              <span v-else class="text-muted-foreground text-sm">{{ gradeText(course.grade) }}</span>
             </div>
           </li>
         </ul>
@@ -221,11 +221,10 @@ load()
                   <CourseStatusBadge :status="badgeStatus(course)"/>
                 </td>
                 <td class="border-b border-muted px-4 py-2.5 text-right">
-                  <span
-                    :class="course.grade
-                      ? 'font-semibold'
-                      : 'text-muted-foreground'"
-                  >{{ gradeText(course.grade) }}</span>
+                  <Badge v-if="course.grade" :variant="gradeBadgeVariant(course.grade)">
+                    {{ gradeText(course.grade) }}
+                  </Badge>
+                  <span v-else class="text-muted-foreground">{{ gradeText(course.grade) }}</span>
                 </td>
               </tr>
             </tbody>

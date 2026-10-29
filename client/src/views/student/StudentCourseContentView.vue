@@ -26,6 +26,7 @@ import {Skeleton} from '@/components/ui/skeleton'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {api, errorMessage, type Schema} from '@/lib/api'
 import {countLabel, formatDate, partOf} from '@/lib/content'
+import {gradeBadgeVariant, gradeLabel as gradeShort} from '@/lib/submissions'
 
 // Elevens vy av en kurs: veckor, låsta delar och klarmarkering. Den visas i stället för redigeraren
 // på kursens innehållssida för den som inte kan redigera. Servern vet vilka grupper eleven går i,
@@ -543,8 +544,8 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
                 >
                   Behöver kompletteras
                 </Badge>
-                <Badge v-else-if="feedback.level" variant="outline">
-                  {{ gradeLabel(feedback.level) }}
+                <Badge v-else-if="feedback.level" :variant="gradeBadgeVariant(feedback.level)" data-test="grade-stamp">
+                  {{ gradeShort(feedback.level) }}
                 </Badge>
               </div>
               <p v-if="feedback.feedback" class="text-sm leading-relaxed whitespace-pre-wrap">

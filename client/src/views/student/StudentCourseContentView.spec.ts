@@ -525,7 +525,7 @@ describe('StudentCourseContentView', () => {
 
     const feedback = wrapper.find('[data-test="student-feedback"]')
     expect(feedback.text()).toContain('Snyggt arbete med pipelinen')
-    expect(feedback.text()).toContain('Godkänd (G)')
+    expect(feedback.find('[data-test="grade-stamp"]').text()).toBe('G')
   })
 
   it('visar ingen kommentar på en uppgift som inte är bedömd', async () => {
