@@ -22,6 +22,8 @@ public record GroupRef(Guid Id, string Name);
 public interface IGroupRepository
 {
     Task<List<Group>> GetForSchoolAsync(Guid schoolId, CancellationToken ct);
+    /// <summary>Grupperna användaren är medlem i, med vilken roll som helst, i skolan.</summary>
+    Task<List<Group>> GetForMemberAsync(Guid schoolId, Guid userId, CancellationToken ct);
     Task<Group?> GetAsync(Guid groupId, CancellationToken ct);
     Task<bool> ExistsAsync(Guid groupId, CancellationToken ct);
     Task<bool> NameExistsAsync(Guid schoolId, string name, string term, CancellationToken ct);

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import {PhDotsThree, PhMagnifyingGlass, PhPencilSimple, PhPlus, PhTrash} from '@phosphor-icons/vue'
 import {computed, ref} from 'vue'
-import type {RouteLocationRaw} from 'vue-router'
+import {type RouteLocationRaw, useRoute, useRouter} from 'vue-router'
 
+import CourseStatusBadge from '@/components/course/CourseStatusBadge.vue'
 import DeleteCourseDialog from '@/components/courses/DeleteCourseDialog.vue'
 import CourseFormDialog from '@/components/courses/CourseFormDialog.vue'
 import DeleteGroupDialog from '@/components/groups/DeleteGroupDialog.vue'
@@ -21,6 +22,8 @@ import {Skeleton} from '@/components/ui/skeleton'
 import {useCourses} from '@/composables/useCourses'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {api, type Schema} from '@/lib/api'
+import {periodLabel} from '@/lib/coursePeriod'
+import {type CourseStatus, courseStatus} from '@/lib/courseStatus'
 import {groupTypeLabels} from '@/lib/groups'
 import {fetchMe} from '@/lib/me'
 
@@ -34,6 +37,7 @@ interface GroupRow {
   code: string
   type: string
   period: string
+  status: CourseStatus | null
   to?: RouteLocationRaw
   group?: Group
   course?: Course
@@ -47,6 +51,8 @@ const filters: {value: Filter, label: string}[] = [
   {value: 'courses', label: 'Kurser'},
 ]
 
+const route = useRoute()
+const router = useRouter()
 const {courses, status, addCourse, updateCourse, removeCourse} = useCourses()
 const {can} = useCurrentUser()
 // Bara admin skapar, ändrar och tar bort. Övriga ser sidan som en vanlig lista.
@@ -57,7 +63,13 @@ const school = ref<Schema<'SchoolRefDto'> | null>(null)
 const groups = ref<Group[]>([])
 const loading = ref(true)
 const error = ref('')
-const filter = ref<Filter>('all')
+// Filtret ligger i adressen (?filter=courses) så att andra sidor kan länka till en viss lista.
+const filter = computed<Filter>(() => {
+  const value = route.query.filter
+  return value === 'groups' || value === 'courses'
+    ? value
+    : 'all'
+})
 const search = ref('')
 
 const isLoading = computed(() => loading.value || status.value === 'loading')
@@ -72,6 +84,7 @@ const rows = computed<GroupRow[]>(() => {
       code: '–',
       type: 'Skola',
       period: '–',
+      status: null,
     })
   }
 
@@ -83,20 +96,31 @@ const rows = computed<GroupRow[]>(() => {
       name: group.name,
       code: '–',
       type: groupTypeLabels[group.type],
-      period: group.term || '–',
+      period: group.term
+        ? group.type === 'Class'
+          ? `Startade ${group.term}`
+          : group.term
+        : '–',
+      status: null,
       to: {name: 'group', params: {groupId: group.id}},
       group,
     }))
 
+  // Pågående kurser först, sedan kommande och sist avslutade. Kurser utan datum hamnar bland de pågående.
+  const statusOrder: Record<CourseStatus, number> = {running: 0, upcoming: 1, finished: 2}
   const courseRows: GroupRow[] = [...courses.value]
-    .sort((left, right) => left.title.localeCompare(right.title, 'sv'))
-    .map((course) => ({
+    .map((course) => ({course, status: courseStatus(course)}))
+    .sort((left, right) => (statusOrder[left.status ?? 'running'] - statusOrder[right.status ?? 'running'])
+      || left.course.title.localeCompare(right.course.title, 'sv'))
+    .map(({course, status}) => ({
       key: `course-${course.id}`,
       kind: 'course',
       name: course.title,
       code: course.code,
       type: 'Kurs',
-      period: '–',
+      // Mockupen skriver "från 16 nov 2026" med litet f.
+      period: periodLabel(course.startsOn, course.endsOn).replace(/^(Från|Till)/, (word) => word.toLowerCase()) || '–',
+      status,
       to: {name: 'course-content', params: {courseId: course.id}},
       course,
     }))
@@ -196,6 +220,12 @@ function onCourseSaved(saved: Course) {
   }
 }
 
+function setFilter(value: Filter) {
+  void router.replace({query: {...route.query, filter: value === 'all'
+    ? undefined
+    : value}})
+}
+
 function tabClass(value: Filter) {
   return filter.value === value
     ? 'bg-background shadow-sm font-medium'
@@ -246,7 +276,7 @@ load()
             :aria-selected="filter === tab.value"
             class="rounded-[5px] px-2.5 py-1 text-[13px]"
             :class="tabClass(tab.value)"
-            @click="filter = tab.value"
+            @click="setFilter(tab.value)"
           >
             {{ tab.label }}
           </button>
@@ -325,6 +355,7 @@ load()
               <th scope="col" class="border-b px-4 py-2.5 font-medium">Grupp</th>
               <th scope="col" class="border-b px-3 py-2.5 font-medium">Kod</th>
               <th scope="col" class="border-b px-3 py-2.5 font-medium">Typ</th>
+              <th scope="col" class="border-b px-3 py-2.5 font-medium">Status</th>
               <th scope="col" class="border-b px-4 py-2.5 font-medium">Period</th>
               <th v-if="isAdmin" scope="col" class="border-b px-4 py-2.5 text-right font-medium">
                 <span class="sr-only">Åtgärder</span>
@@ -350,6 +381,10 @@ load()
                 {{ row.code }}
               </td>
               <td class="px-3 py-3" :class="rowBorder(index)">{{ row.type }}</td>
+              <td class="px-3 py-3" :class="rowBorder(index)">
+                <CourseStatusBadge v-if="row.status" :status="row.status"/>
+                <span v-else class="text-muted-foreground">–</span>
+              </td>
               <td class="text-muted-foreground px-4 py-3" :class="rowBorder(index)">{{ row.period }}</td>
               <td v-if="isAdmin" class="w-12 px-3 py-1.5 text-right" :class="rowBorder(index)">
                 <DropdownMenu v-if="row.group || row.course">
@@ -379,8 +414,8 @@ load()
             <tr v-if="visibleRows.length === 0">
               <td
                 :colspan="isAdmin
-                  ? 5
-                  : 4"
+                  ? 6
+                  : 5"
                 class="text-muted-foreground px-4 py-6 text-center"
               >
                 Inga grupper matchar sökningen.
@@ -390,6 +425,10 @@ load()
         </table>
       </div>
     </section>
+
+    <p v-if="!error && !isLoading && showTable && filter !== 'groups'" class="text-muted-foreground text-[13px]">
+      Avslutade kurser finns kvar här med material, betyg och återkoppling.
+    </p>
 
     <template v-if="isAdmin">
       <GroupFormDialog

@@ -207,6 +207,30 @@ public class NotificationEndpointTests(TestWebApplicationFactory factory) : ICla
     }
 
     [Fact]
+    public async Task GradeNotification_InACourseWeek_CarriesCourseAndLink()
+    {
+        var setup = await AddSetupAsync();
+        var module = await AddModuleAsync(setup.CourseId, DateTimeOffset.UtcNow.AddDays(-1));
+        var created = await CreateAsync(
+            new
+            {
+                type = "assignment",
+                title = "Kursuppgift",
+                bodyMd = "",
+                submissionModes = new[] { "text" },
+                gradeScale = "passFail"
+            },
+            new { courseId = setup.CourseId, moduleId = module });
+        var submission = await SubmissionOfAsync(created.Link.Id, setup.StudentId);
+
+        await _client.PostAsJsonAsync($"/api/submissions/{submission}/grade",
+            new { feedback = "Bra", level = "pass" });
+
+        var graded = (await ListForAsync(setup.StudentId)).Items.First(item => item.Kind == "SubmissionGraded");
+        Assert.Equal((setup.CourseId, created.Link.Id), (graded.CourseId, graded.LinkId));
+    }
+
+    [Fact]
     public async Task DeadlineReminder_GoesToStudentsWhoHaveNotSubmitted_AndIsIdempotent()
     {
         var setup = await AddSetupAsync();

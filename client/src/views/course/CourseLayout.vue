@@ -4,12 +4,15 @@ import {computed, ref, watch} from 'vue'
 import {useRoute} from 'vue-router'
 
 import {Alert, AlertDescription} from '@/components/ui/alert'
+import CourseStatusBadge from '@/components/course/CourseStatusBadge.vue'
 import NewCourseRunDialog from '@/components/course/NewCourseRunDialog.vue'
 import {Button} from '@/components/ui/button'
 import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from '@/components/ui/dropdown-menu'
 import {Skeleton} from '@/components/ui/skeleton'
 import {useCourses} from '@/composables/useCourses'
 import {useCurrentUser} from '@/composables/useCurrentUser'
+import {periodLabel} from '@/lib/coursePeriod'
+import {courseStatus} from '@/lib/courseStatus'
 import NotFoundView from '@/views/NotFoundView.vue'
 
 const tabs = [
@@ -30,29 +33,6 @@ const runOpen = ref(false)
 watch(() => route.params.courseId, () => {
   runOpen.value = false
 })
-
-const monthNames = ['jan', 'feb', 'mar', 'apr', 'maj', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec']
-
-function shortDate(value: string): string {
-  const date = new Date(`${value}T00:00:00`)
-  return `${date.getDate()} ${monthNames[date.getMonth()]}`
-}
-
-function periodLabel(startsOn: string | null, endsOn: string | null): string {
-  if (startsOn && endsOn) {
-    const sameYear = startsOn.slice(0, 4) === endsOn.slice(0, 4)
-    return sameYear
-      ? `${shortDate(startsOn)} – ${shortDate(endsOn)} ${endsOn.slice(0, 4)}`
-      : `${shortDate(startsOn)} ${startsOn.slice(0, 4)} – ${shortDate(endsOn)} ${endsOn.slice(0, 4)}`
-  }
-  if (startsOn) {
-    return `Från ${shortDate(startsOn)} ${startsOn.slice(0, 4)}`
-  }
-  if (endsOn) {
-    return `Till ${shortDate(endsOn)} ${endsOn.slice(0, 4)}`
-  }
-  return ''
-}
 
 // Period och omfattning under rubriken, som i mockupen. Delar som saknar data lämnas borta.
 const subtitle = computed(() => {
@@ -82,7 +62,10 @@ const subtitle = computed(() => {
       <div class="flex items-start justify-between gap-3">
         <div class="flex min-w-0 flex-col gap-1">
           <span class="text-muted-foreground font-mono text-xs">KURS · {{ course.code }}</span>
-          <h1 class="text-3xl leading-tight break-words">{{ course.title }}</h1>
+          <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <h1 class="text-3xl leading-tight break-words">{{ course.title }}</h1>
+            <CourseStatusBadge :status="courseStatus(course)"/>
+          </div>
           <p v-if="subtitle" class="text-muted-foreground">{{ subtitle }}</p>
         </div>
         <DropdownMenu v-if="canCreateRun">

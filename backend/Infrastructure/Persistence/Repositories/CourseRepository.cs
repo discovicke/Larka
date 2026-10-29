@@ -12,6 +12,15 @@ public class CourseRepository(AppDb db) : ICourseRepository
     public Task<List<Course>> GetForSchoolAsync(Guid schoolId, CancellationToken ct) =>
         db.Courses.Where(course => course.SchoolId == schoolId).OrderBy(course => course.Code).ToListAsync(ct);
 
+    public Task<List<Course>> GetForMemberAsync(Guid schoolId, Guid userId, CancellationToken ct) =>
+        db.Courses
+            .Where(course => course.SchoolId == schoolId
+                && db.GroupCourses.Any(groupCourse => groupCourse.CourseId == course.Id
+                    && db.Enrollments.Any(enrollment =>
+                        enrollment.GroupId == groupCourse.GroupId && enrollment.UserId == userId)))
+            .OrderBy(course => course.Code)
+            .ToListAsync(ct);
+
     public Task<List<Course>> GetByIdsAsync(IReadOnlyCollection<Guid> courseIds, CancellationToken ct) =>
         db.Courses.Where(course => courseIds.Contains(course.Id)).ToListAsync(ct);
 

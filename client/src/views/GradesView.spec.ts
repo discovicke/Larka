@@ -106,7 +106,7 @@ describe('GradesView', () => {
     const rows = wrapper.findAll('[data-test="study-plan-course"]')
     expect(rows).toHaveLength(2)
     expect(rows[0].findAll('td').map((cell) => cell.text()))
-      .toEqual(['Objektorienterad programmering', 'sep – nov 2025', '60', 'Klar', 'VG'])
+      .toEqual(['Objektorienterad programmering', 'sep – nov 2025', '60', 'Avslutad', 'VG'])
     expect(rows[1].text()).toContain('Pågår')
     expect(rows[1].text()).toContain('Ej satt')
     // Samma kurser som staplade kort för små skärmar: titel, period · poäng, status och betyg.
@@ -114,7 +114,7 @@ describe('GradesView', () => {
     expect(cards).toHaveLength(2)
     expect(cards[0].text()).toContain('Objektorienterad programmering')
     expect(cards[0].text()).toContain('sep – nov 2025 · 60 p')
-    expect(cards[0].text()).toContain('Klar')
+    expect(cards[0].text()).toContain('Avslutad')
     expect(cards[0].text()).toContain('VG')
     expect(cards[1].text()).toContain('Ej satt')
     expect(wrapper.text()).toContain('60 p')
@@ -168,6 +168,8 @@ describe('GradesView', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-test="study-plan-feedback"]').text()).toBe('Bra jobbat')
+    expect(rows[0].find('[data-test="study-plan-open"]').attributes('href'))
+      .toBe('/courses/c1/content?del=l1')
   })
 
   it('visar tomvyn när eleven inte har några kurser', async () => {

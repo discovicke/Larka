@@ -1,7 +1,10 @@
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {createMemoryHistory} from 'vue-router'
 
-import {createAppRouter} from './router'
+import {createAppRouter, type Breadcrumb} from './router'
+
+import {useCourses} from '@/composables/useCourses'
+import {useCrumbLabels} from '@/composables/useCrumbLabels'
 
 import {signInForTests, signOutForTests} from '@/test/auth'
 
@@ -62,6 +65,63 @@ describe('router', () => {
 
     expect(route.name).toBe('groups')
     expect(route.path).toBe('/groups')
+  })
+})
+
+function trail(route: Awaited<ReturnType<typeof open>>): Breadcrumb[] {
+  return route.meta.breadcrumbs?.(route) ?? []
+}
+
+const kurser = {label: 'Kurser', to: {name: 'groups', query: {filter: 'courses'}}}
+const devops = {label: 'DevOps', to: {name: 'course-content', params: {courseId: 'c1'}}}
+const uppgift = {label: 'Uppgift', to: {name: 'course-content', params: {courseId: 'c1'}, query: {del: 'l1'}}}
+const inlamningar = {label: 'Inlämningar', to: {name: 'assignment-submissions', params: {courseId: 'c1', linkId: 'l1'}}}
+const innehall = {label: 'Innehåll', to: {name: 'course-content', params: {courseId: 'c1'}}}
+
+describe('brödsmulor', () => {
+  beforeEach(() => {
+    signInForTests()
+    useCourses().courses.value = [{id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps', description: '', points: null, startsOn: null, endsOn: null}]
+  })
+
+  afterEach(() => {
+    useCourses().courses.value = []
+  })
+
+  it.each([
+    ['kursens innehåll', '/courses/c1/content', [kurser, devops]],
+    ['kursens nyheter', '/courses/c1/news', [kurser, devops, {label: 'Nyheter'}]],
+    ['kursens personal', '/courses/c1/staff', [kurser, devops, {label: 'Personal'}]],
+    ['om kursen', '/courses/c1/about', [kurser, devops, {label: 'Om'}]],
+    ['ny del', '/courses/c1/modules/m1/new', [kurser, devops, innehall, {label: 'Ny del'}]],
+    ['redigera del', '/courses/c1/modules/m1/content/l1/edit', [kurser, devops, innehall, {label: 'Redigera del'}]],
+    ['inlämningar', '/courses/c1/assignments/l1', [kurser, devops, uppgift, {label: 'Inlämningar'}]],
+    ['en inlämning', '/courses/c1/assignments/l1/submissions/s1', [kurser, devops, uppgift, inlamningar, {label: 'Inlämning'}]],
+    ['en grupp', '/groups/g1', [{label: 'Alla grupper', to: {name: 'groups'}}, {label: 'Grupp'}]],
+  ])('%s: spåret leder tillbaka till listan', async (_name, path, expected) => {
+    expect(trail(await open(path))).toEqual(expected)
+  })
+
+  it('Kurser länkar till Alla grupper filtrerat på kurser', async () => {
+    const [first] = trail(await open('/courses/c1/news'))
+    const router = createAppRouter(createMemoryHistory())
+
+    expect(router.resolve(first.to!).fullPath).toBe('/groups?filter=courses')
+  })
+
+  it('visar namnen sidorna har satt', async () => {
+    const {setCrumbLabel} = useCrumbLabels()
+    setCrumbLabel('group:g7', 'NET25')
+    setCrumbLabel('assignment:l9', 'Release-pipeline')
+    setCrumbLabel('student:s9', 'Bo Elev')
+
+    expect(trail(await open('/groups/g7')).map((crumb) => crumb.label)).toEqual(['Alla grupper', 'NET25'])
+    expect(trail(await open('/courses/c1/assignments/l9/submissions/s9')).map((crumb) => crumb.label))
+      .toEqual(['Kurser', 'DevOps', 'Release-pipeline', 'Inlämningar', 'Bo Elev'])
+  })
+
+  it('sidor utan eget spår behåller sitt namn', async () => {
+    expect(trail(await open('/grading'))).toEqual([])
   })
 })
 

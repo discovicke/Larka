@@ -8,6 +8,7 @@ import {
 } from 'vue-router'
 
 import {useCourses} from '@/composables/useCourses'
+import {useCrumbLabels} from '@/composables/useCrumbLabels'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import AppLayout from '@/layouts/AppLayout.vue'
 import {auth} from '@/lib/auth'
@@ -54,7 +55,20 @@ function courseBreadcrumbs(route: RouteLocationNormalizedLoaded, ...rest: Breadc
     label: useCourses().findCourse(courseId)?.title ?? 'Kurs',
     to: {name: 'course-content', params: {courseId}},
   }
-  return [{label: 'Kurser'}, course, ...rest]
+  return [{label: 'Kurser', to: {name: 'groups', query: {filter: 'courses'}}}, course, ...rest]
+}
+
+// Uppgiften och inlämningarna ligger under kursen: uppgiften öppnar den på kursens innehåll.
+function assignmentBreadcrumbs(route: RouteLocationNormalizedLoaded, ...rest: Breadcrumb[]): Breadcrumb[] {
+  const {courseId, linkId} = route.params
+  return courseBreadcrumbs(
+    route,
+    {
+      label: useCrumbLabels().crumbLabel(`assignment:${linkId}`, 'Uppgift'),
+      to: {name: 'course-content', params: {courseId}, query: {del: String(linkId)}},
+    },
+    ...rest,
+  )
 }
 
 export const routes: RouteRecordRaw[] = [
@@ -70,7 +84,18 @@ export const routes: RouteRecordRaw[] = [
       {path: 'grades', name: 'grades', component: GradesView, meta: {title: 'Studieplan och betyg'}},
       {path: 'grading', name: 'grading', component: GradingView, meta: {title: 'Att bedöma', requires: 'grade'}},
       {path: 'groups', name: 'groups', component: GroupsView, meta: {title: 'Alla grupper'}},
-      {path: 'groups/:groupId', name: 'group', component: GroupView, meta: {title: 'Grupp'}},
+      {
+        path: 'groups/:groupId',
+        name: 'group',
+        component: GroupView,
+        meta: {
+          title: 'Grupp',
+          breadcrumbs: (route) => [
+            {label: 'Alla grupper', to: {name: 'groups'}},
+            {label: useCrumbLabels().crumbLabel(`group:${route.params.groupId}`, 'Grupp')},
+          ],
+        },
+      },
       {path: 'settings', name: 'settings', component: SettingsView, meta: {title: 'Inställningar'}},
       // Program och klasser finns inte längre: admin hanterar klasser och grupper på Alla grupper.
       {path: 'settings/groups', redirect: {name: 'groups'}},
@@ -142,11 +167,7 @@ export const routes: RouteRecordRaw[] = [
         meta: {
           title: 'Inlämningar',
           requires: 'grade',
-          breadcrumbs: (route) => courseBreadcrumbs(
-            route,
-            {label: 'Innehåll', to: {name: 'course-content', params: {courseId: route.params.courseId}}},
-            {label: 'Inlämningar'},
-          ),
+          breadcrumbs: (route) => assignmentBreadcrumbs(route, {label: 'Inlämningar'}),
         },
       },
       {
@@ -158,9 +179,8 @@ export const routes: RouteRecordRaw[] = [
           title: 'Bedöm',
           fullBleed: true,
           requires: 'grade',
-          breadcrumbs: (route) => courseBreadcrumbs(
+          breadcrumbs: (route) => assignmentBreadcrumbs(
             route,
-            {label: 'Innehåll', to: {name: 'course-content', params: {courseId: route.params.courseId}}},
             {
               label: 'Inlämningar',
               to: {
@@ -168,7 +188,7 @@ export const routes: RouteRecordRaw[] = [
                 params: {courseId: route.params.courseId, linkId: route.params.linkId},
               },
             },
-            {label: 'Bedöm'},
+            {label: useCrumbLabels().crumbLabel(`student:${route.params.submissionId}`, 'Inlämning')},
           ),
         },
       },

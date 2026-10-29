@@ -3,15 +3,15 @@ import {PhCaretRight, PhGraduationCap} from '@phosphor-icons/vue'
 import {computed, ref} from 'vue'
 
 import {Alert, AlertDescription} from '@/components/ui/alert'
-import {Badge} from '@/components/ui/badge'
+import CourseStatusBadge from '@/components/course/CourseStatusBadge.vue'
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card'
 import {Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty'
 import {Skeleton} from '@/components/ui/skeleton'
 import {api} from '@/lib/api'
+import {type CourseStatus, courseStatus} from '@/lib/courseStatus'
 import {
   assignmentStatus,
   coursePeriod,
-  courseStatusLabel,
   gradeText,
   shortDate,
   type StudyPlan,
@@ -44,15 +44,9 @@ function titleWithPoints(course: StudyPlanCourse): string {
     : `${course.title} · ${course.points} p`
 }
 
-function statusClass(status: StudyPlanCourse['status']): string {
-  switch (status) {
-    case 'Completed':
-      return 'border-success/20 bg-success/10 text-success'
-    case 'Ongoing':
-      return 'border-primary bg-primary text-primary-foreground'
-    default:
-      return 'text-muted-foreground'
-  }
+// Datumen styr märket, som på kurssidan. Saknas de gäller studieplanens egen status.
+function badgeStatus(course: StudyPlanCourse): CourseStatus {
+  return courseStatus(course) ?? {Completed: 'finished', Ongoing: 'running', Upcoming: 'upcoming'}[course.status] as CourseStatus
 }
 
 function assignmentStatusClass(assignment: StudyPlanAssignment): string {
@@ -188,9 +182,7 @@ load()
                 : `${course.points} p` }}
             </p>
             <div class="flex items-center justify-between gap-2">
-              <Badge variant="outline" :class="statusClass(course.status)">
-                {{ courseStatusLabel(course.status) }}
-              </Badge>
+              <CourseStatusBadge :status="badgeStatus(course)"/>
               <span
                 class="text-sm"
                 :class="course.grade
@@ -226,9 +218,7 @@ load()
                 </td>
                 <td class="border-b border-muted px-3 py-2.5 text-right">{{ course.points ?? '–' }}</td>
                 <td class="border-b border-muted px-3 py-2.5">
-                  <Badge variant="outline" :class="statusClass(course.status)">
-                    {{ courseStatusLabel(course.status) }}
-                  </Badge>
+                  <CourseStatusBadge :status="badgeStatus(course)"/>
                 </td>
                 <td class="border-b border-muted px-4 py-2.5 text-right">
                   <span
@@ -264,30 +254,39 @@ load()
               class="border-b border-muted last:border-b-0"
               data-test="study-plan-assignment"
             >
-              <button
-                type="button"
-                class="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-2 disabled:cursor-default disabled:hover:bg-transparent"
-                :class="assignment.feedback
-                  ? 'hover:bg-muted/50'
-                  : ''"
-                :disabled="!assignment.feedback"
-                :aria-expanded="isFeedbackOpen(assignment)
-                  ? 'true'
-                  : 'false'"
-                @click="toggleFeedback(assignment)"
-              >
-                <span class="flex min-w-0 items-center gap-1.5">
-                  <PhCaretRight
-                    v-if="assignment.feedback"
-                    class="text-muted-foreground size-3 transition-transform"
-                    :class="{'rotate-90': isFeedbackOpen(assignment)}"
-                  />
-                  {{ assignment.title }}
-                </span>
-                <span class="sm:shrink-0" :class="assignmentStatusClass(assignment)">
-                  {{ assignmentStatus(assignment) }}
-                </span>
-              </button>
+              <div class="flex items-center">
+                <button
+                  type="button"
+                  class="flex min-w-0 flex-1 flex-col items-start gap-0.5 px-3 py-2 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-2 disabled:cursor-default disabled:hover:bg-transparent"
+                  :class="assignment.feedback
+                    ? 'hover:bg-muted/50'
+                    : ''"
+                  :disabled="!assignment.feedback"
+                  :aria-expanded="isFeedbackOpen(assignment)
+                    ? 'true'
+                    : 'false'"
+                  @click="toggleFeedback(assignment)"
+                >
+                  <span class="flex min-w-0 items-center gap-1.5">
+                    <PhCaretRight
+                      v-if="assignment.feedback"
+                      class="text-muted-foreground size-3 transition-transform"
+                      :class="{'rotate-90': isFeedbackOpen(assignment)}"
+                    />
+                    {{ assignment.title }}
+                  </span>
+                  <span class="sm:shrink-0" :class="assignmentStatusClass(assignment)">
+                    {{ assignmentStatus(assignment) }}
+                  </span>
+                </button>
+                <RouterLink
+                  :to="{name: 'course-content', params: {courseId: course.courseId}, query: {del: assignment.linkId}}"
+                  class="text-muted-foreground shrink-0 px-3 py-2 hover:underline"
+                  data-test="study-plan-open"
+                >
+                  Öppna
+                </RouterLink>
+              </div>
               <p
                 v-if="isFeedbackOpen(assignment) && assignment.feedback"
                 class="text-muted-foreground px-3 pb-2.5"

@@ -89,6 +89,13 @@ function courseLink(courseId: string | null | undefined): RouteLocationRaw | und
     : undefined
 }
 
+// Uppgifter och återkoppling öppnar delen själv på kurssidan.
+function partLink(item: {courseId?: string | null, linkId: string}): RouteLocationRaw | undefined {
+  return item.courseId
+    ? {name: 'course-content', params: {courseId: item.courseId}, query: {del: item.linkId}}
+    : undefined
+}
+
 function newsLink(item: News): RouteLocationRaw {
   return {name: 'inbox', query: {post: item.contentId}}
 }
@@ -238,12 +245,12 @@ load()
                 {{ group.heading }}
               </h3>
               <component
-                :is="courseLink(item.courseId)
+                :is="partLink(item)
                   ? RouterLink
                   : 'div'"
                 v-for="item in group.items"
                 :key="item.linkId"
-                :to="courseLink(item.courseId)"
+                :to="partLink(item)"
                 data-test="todo-item"
                 class="hover:bg-muted/40 flex items-center gap-3 border-b px-5 py-3.5 last:border-b-0"
               >
@@ -274,12 +281,12 @@ load()
               Du har inte lämnat in något än
             </p>
             <component
-              :is="courseLink(item.courseId)
+              :is="partLink(item)
                 ? RouterLink
                 : 'div'"
               v-for="item in today.submitted"
               :key="item.linkId"
-              :to="courseLink(item.courseId)"
+              :to="partLink(item)"
               data-test="submitted-item"
               class="hover:bg-muted/40 flex items-center gap-3 border-t px-5 py-3.5"
             >
@@ -306,12 +313,12 @@ load()
               Ingen återkoppling än
             </p>
             <component
-              :is="courseLink(item.courseId)
+              :is="partLink(item)
                 ? RouterLink
                 : 'div'"
               v-for="item in today.feedback"
               :key="item.linkId"
-              :to="courseLink(item.courseId)"
+              :to="partLink(item)"
               data-test="feedback-item"
               class="flex items-center gap-3"
             >
@@ -406,11 +413,11 @@ load()
       </div>
 
       <component
-        :is="courseLink(nextUp.courseId)
+        :is="partLink(nextUp)
           ? RouterLink
           : 'div'"
         v-if="nextUp"
-        :to="courseLink(nextUp.courseId)"
+        :to="partLink(nextUp)"
         data-test="next-up"
         class="flex flex-col gap-2.5 rounded-[11px] bg-sidebar p-4 text-sidebar-foreground"
       >
@@ -431,12 +438,12 @@ load()
         </p>
         <div v-else class="bg-card overflow-hidden rounded-[11px] border">
           <component
-            :is="courseLink(item.courseId)
+            :is="partLink(item)
               ? RouterLink
               : 'div'"
             v-for="item in moreTodo"
             :key="item.linkId"
-            :to="courseLink(item.courseId)"
+            :to="partLink(item)"
             data-test="mobile-todo-item"
             class="flex min-h-[60px] items-center gap-3 border-b px-3.5 py-2 last:border-b-0"
           >
@@ -459,7 +466,7 @@ load()
             :key="entry.key"
             :to="entry.news
               ? newsLink(entry.news)
-              : {name: 'grades'}"
+              : (partLink(entry.feedback!) ?? {name: 'grades'})"
             data-test="mobile-recent-item"
             class="flex min-h-[60px] items-center gap-3 border-b px-3.5 py-2 last:border-b-0"
           >

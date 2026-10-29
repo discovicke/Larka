@@ -5,7 +5,7 @@ import {api, type Schema} from '@/lib/api'
 type Course = Schema<'CourseDto'>
 
 // Kurserna i sidomenyn, på kurssidan och i brödsmulorna. AppLayout hämtar dem och alla delar samma lista.
-// Visar alla kurser tills inloggning finns, sedan bara användarens (#80).
+// Servern ger admin hela skolan och alla andra bara kurserna deras grupper läser (#247).
 const courses = ref<Course[]>([])
 const status = ref<'loading' | 'loaded' | 'failed'>('loading')
 

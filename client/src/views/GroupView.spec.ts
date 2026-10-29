@@ -1,5 +1,5 @@
 import {flushPromises} from '@vue/test-utils'
-import {describe, expect, it} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 
 import {mockApi, requests, sent} from '@/test/mockApi'
 import {meAs} from '@/test/me'
@@ -75,13 +75,13 @@ function backend(options: Backend = {}) {
 }
 
 describe('GroupView', () => {
-  it('visar namn, typ och termin i rubriken', async () => {
+  it('visar namn, typ och starttermin i rubriken', async () => {
     backend()
 
     const {wrapper} = await renderApp('/groups/g1')
 
     expect(wrapper.find('h1').text()).toBe('TE22A')
-    expect(wrapper.find('[data-test="group-subtitle"]').text()).toBe('Klass · HT25')
+    expect(wrapper.find('[data-test="group-subtitle"]').text()).toBe('Klass · startade HT25')
   })
 
   it('grupperar medlemmarna efter roll med lärare först', async () => {
@@ -111,6 +111,45 @@ describe('GroupView', () => {
 
     const link = wrapper.find('[data-test="course-row"] a[href="/courses/c1/content"]')
     expect(link.text()).toBe('DevOps')
+  })
+
+  it('ordnar kurserna som en tidslinje med datum och läge', async () => {
+    vi.useFakeTimers({toFake: ['Date']})
+    vi.setSystemTime(new Date(2026, 9, 29))
+    try {
+      backend({courses: [
+        {...java, startsOn: '2026-12-01', endsOn: '2027-01-15'},
+        {id: 'c3', schoolId: 's1', code: 'CS', title: 'C#', startsOn: '2025-08-25', endsOn: '2025-10-10'},
+        devops,
+        {id: 'c4', schoolId: 's1', code: 'DB', title: 'Databaser', startsOn: '2025-10-13', endsOn: '2025-12-19'},
+        {...devops, id: 'c5', code: 'DEV2', title: 'DevOps 2', startsOn: '2026-10-12', endsOn: '2026-11-13'},
+      ]})
+
+      const {wrapper} = await renderApp('/groups/g1')
+
+      const parts = wrapper.findAll('[data-test="course-group"]')
+      expect(parts.map((part) => part.find('h3').text())).toEqual(['Pågår', 'Kommande', 'Avslutade'])
+      expect(parts[0].findAll('[data-test="course-row"] a').map((link) => link.text())).toEqual(['DevOps', 'DevOps 2'])
+      expect(parts[2].findAll('[data-test="course-row"] a').map((link) => link.text())).toEqual(['Databaser', 'C#'])
+      const running = parts[0].findAll('[data-test="course-row"]')[1]
+      expect(running.find('[data-test="course-dates"]').text()).toBe('12 okt – 13 nov 2026')
+      expect(running.find('[data-test="course-status"]').text()).toBe('Pågår')
+      expect(parts[1].find('[data-test="course-status"]').text()).toBe('Kommande')
+      expect(parts[2].find('[data-test="course-dates"]').text()).toBe('13 okt – 19 dec 2025')
+      expect(parts[2].find('[data-test="course-status"]').text()).toBe('Avslutad')
+      // Utan datum finns varken datum eller läge, men kursen syns under Pågår.
+      expect(parts[0].findAll('[data-test="course-row"]')[0].find('[data-test="course-status"]').exists()).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('en kommitté använder samma kurslayout', async () => {
+    backend({group: committee, courses: [devops]})
+
+    const {wrapper} = await renderApp('/groups/g2')
+
+    expect(wrapper.find('[data-test="course-group"] h3').text()).toBe('Pågår')
   })
 
   it('döljer kurserna för en grupp utan kurser', async () => {

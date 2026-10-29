@@ -11,6 +11,7 @@ public class GroupService(
     ICourseRepository courses,
     IUserRepository users,
     IPermissions permissions,
+    ICurrentUser currentUser,
     ICurrentSchool currentSchool,
     IUnitOfWork unitOfWork)
 {
@@ -22,7 +23,10 @@ public class GroupService(
             return [];
         }
 
-        var schoolGroups = await groups.GetForSchoolAsync(schoolId.Value, ct);
+        // Admin ser hela skolan, alla andra bara grupperna de är medlemmar i.
+        var schoolGroups = await permissions.IsAdminAsync(ct)
+            ? await groups.GetForSchoolAsync(schoolId.Value, ct)
+            : await groups.GetForMemberAsync(schoolId.Value, currentUser.UserId, ct);
         var counts = await groups.GetMemberCountsAsync(schoolId.Value, ct);
         return schoolGroups
             .Select(group => GroupDto.From(group, counts.GetValueOrDefault(group.Id)))

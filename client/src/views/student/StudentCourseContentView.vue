@@ -13,7 +13,7 @@ import {
 } from '@phosphor-icons/vue'
 import type {Component} from 'vue'
 import {computed, onMounted, ref, watch} from 'vue'
-import {useRoute} from 'vue-router'
+import {useRoute, useRouter} from 'vue-router'
 
 import GitHubAssignmentBlock from '@/components/GitHubAssignmentBlock.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
@@ -33,6 +33,7 @@ import {countLabel, formatDate, partOf} from '@/lib/content'
 const props = defineProps<{courseId: string}>()
 
 const route = useRoute()
+const router = useRouter()
 const {me, loadMe} = useCurrentUser()
 const modules = ref<Schema<'StudentModuleWithContentDto'>[]>([])
 const loading = ref(true)
@@ -89,9 +90,6 @@ async function load() {
       params: {path: {courseId: props.courseId}},
     })
     modules.value = data ?? []
-    if (selectedLinkId.value && !allItems.value.some((item) => item.linkId === selectedLinkId.value)) {
-      selectedLinkId.value = ''
-    }
   } catch (exception) {
     error.value = errorMessage(exception)
     modules.value = []
@@ -99,6 +97,7 @@ async function load() {
   } finally {
     loading.value = false
   }
+  syncFromQuery()
 }
 
 async function setCompleted(linkId: string, completed: boolean) {
@@ -122,8 +121,68 @@ async function setCompleted(linkId: string, completed: boolean) {
   }
 }
 
+// Den öppna delen bor i adressen (?del=<linkId>), så att notiser och länkar kan peka på den och
+// bakåtknappen fungerar. Okända och låsta delar, eller delar i en vecka som inte öppnat, ignoreras
+// och eleven hamnar i översikten.
+const wantedLinkId = computed(() => typeof route.query.del === 'string'
+  ? route.query.del
+  : '')
+
+watch(wantedLinkId, syncFromQuery)
+
+// Lärarens kommentar och betyg hör till inlämningen, så de hämtas när en bedömd uppgift öppnas.
+const feedback = ref<Schema<'GradeDto'> | null>(null)
+
+watch(() => {
+  const item = selectedItem.value
+  return item?.type === 'Assignment' && (item.submissionStatus === 'Graded' || item.submissionStatus === 'NeedsWork')
+    ? item.linkId
+    : ''
+}, async (linkId) => {
+  feedback.value = null
+  if (!linkId) {
+    return
+  }
+  try {
+    const {data} = await api.GET('/api/links/{id}/submissions', {params: {path: {id: linkId}}})
+    if (selectedItem.value?.linkId === linkId) {
+      feedback.value = data?.[0]?.grade ?? null
+    }
+  } catch {
+    // Kommentaren är ett tillägg; statusen i sidopanelen visas ändå.
+  }
+}, {immediate: true})
+
+function syncFromQuery() {
+  if (loading.value) {
+    return
+  }
+  const wanted = wantedLinkId.value
+  const item = allItems.value.find((candidate) => candidate.linkId === wanted)
+  if (item && !item.isLocked) {
+    selectedLinkId.value = wanted
+    return
+  }
+  selectedLinkId.value = ''
+  if (wanted && modules.value.length > 0) {
+    setQuery('')
+  }
+}
+
+function setQuery(linkId: string) {
+  const query = {...route.query}
+  delete query.del
+  router.replace({query: linkId
+    ? {...query, del: linkId}
+    : query})
+}
+
 function openPart(item: Schema<'StudentContentItem'>) {
   selectedLinkId.value = item.linkId
+  // En låst del visar bara förklaringen och går inte att länka till.
+  setQuery(item.isLocked
+    ? ''
+    : item.linkId)
 }
 
 function repoUrlFor(item: Schema<'StudentContentItem'>): string | null {
@@ -134,6 +193,7 @@ function repoUrlFor(item: Schema<'StudentContentItem'>): string | null {
 
 function closePart() {
   selectedLinkId.value = ''
+  setQuery('')
 }
 
 interface PartSection {
@@ -450,6 +510,35 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
               :repo-provisioning-error="selectedItem.repo?.provisioningError"
               :redirect-to="route.fullPath"
             />
+
+            <section
+              v-if="feedback"
+              class="bg-card flex flex-col gap-2 rounded-xl border p-4"
+              aria-labelledby="feedback-h"
+              data-test="student-feedback"
+            >
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <h2 id="feedback-h" class="text-sm font-semibold">
+                  {{ selectedItem.submissionStatus === 'NeedsWork'
+                    ? 'Läraren vill att du kompletterar'
+                    : 'Lärarens kommentar' }}
+                </h2>
+                <Badge
+                  v-if="selectedItem.submissionStatus === 'NeedsWork'"
+                  variant="outline"
+                  class="border-warning/20 bg-warning/10 text-warning dark:border-warning/30 dark:bg-warning/20"
+                >
+                  Behöver kompletteras
+                </Badge>
+                <Badge v-else-if="feedback.level" variant="outline">
+                  {{ gradeLabel(feedback.level) }}
+                </Badge>
+              </div>
+              <p v-if="feedback.feedback" class="text-sm leading-relaxed whitespace-pre-wrap">
+                {{ feedback.feedback }}
+              </p>
+              <p class="text-muted-foreground text-xs">Bedömd {{ formatDate(feedback.gradedAt, true) }}</p>
+            </section>
 
             <section
               v-if="selectedItem.type !== 'News' && !selectedItem.isLocked"

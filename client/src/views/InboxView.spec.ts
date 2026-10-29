@@ -384,6 +384,25 @@ describe('InboxView', () => {
     expect(router.currentRoute.value.path).toBe('/courses/c1/content')
   })
 
+  it.each([
+    ['SubmissionGraded', 'Betygsatt'],
+    ['SubmissionNeedsWork', 'Komplettera'],
+    ['AssignmentPublished', 'Ny labb'],
+    ['DeadlineSoon', 'Snart labb'],
+  ] as const)('öppnar delen på kurssidan när %s har kurs och del', async (kind, title) => {
+    backend({
+      notifications: [notification('n-part', kind, {title, courseId: 'c1', courseTitle: 'DevOps', linkId: 'l9'})],
+    })
+
+    const {wrapper, router} = await renderApp('/inbox')
+
+    await wrapper.find('[data-test="notification-item"]').trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.path).toBe('/courses/c1/content')
+    expect(router.currentRoute.value.query.del).toBe('l9')
+  })
+
   it('Markera alla som lästa skickar ett anrop och nollställer olästa', async () => {
     backend({
       courses: {

@@ -37,7 +37,7 @@ describe('GroupsView', () => {
     const {wrapper} = await renderApp('/groups')
 
     expect(wrapper.findAll('thead th').map((cell) => cell.text()))
-      .toEqual(['Grupp', 'Kod', 'Typ', 'Period'])
+      .toEqual(['Grupp', 'Kod', 'Typ', 'Status', 'Period'])
     const rows = wrapper.findAll('[data-test="group-row"]')
     expect(rows.map((row) => row.find('td').text()))
       .toEqual(['Edugrade', 'Elevrådet', 'TE22A', 'DevOps', 'Java'])
@@ -45,7 +45,7 @@ describe('GroupsView', () => {
     expect(rows[0].text()).toContain('Skola')
     const classRow = rows.find((row) => row.text().includes('TE22A'))
     expect(classRow?.text()).toContain('Klass')
-    expect(classRow?.text()).toContain('HT25')
+    expect(classRow?.text()).toContain('Startade HT25')
     const courseRow = rows.find((row) => row.text().includes('DEVOPS'))
     expect(courseRow?.text()).toContain('Kurs')
   })
@@ -102,6 +102,57 @@ describe('GroupsView', () => {
     await flushPromises()
 
     expect(rowNames(wrapper)).toEqual(['Edugrade', 'Elevrådet', 'TE22A'])
+  })
+
+  it('Kurser-fliken skrivs till adressen och öppnas direkt med ?filter=courses', async () => {
+    backend()
+    const {wrapper, router} = await renderApp('/groups')
+
+    const kurser = wrapper.findAll('[role="tab"]').find((tab) => tab.text() === 'Kurser')
+    await kurser?.trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.query.filter).toBe('courses')
+
+    const alla = wrapper.findAll('[role="tab"]').find((tab) => tab.text() === 'Alla')
+    await alla?.trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.query.filter).toBeUndefined()
+
+    const direct = await renderApp('/groups?filter=courses')
+    expect(rowNames(direct.wrapper)).toEqual(['DevOps', 'Java'])
+    expect(direct.wrapper.find('[role="tab"][aria-selected="true"]').text()).toBe('Kurser')
+  })
+
+  it('kurser visar datum och märke, pågående först och avslutade sist', async () => {
+    const day = (offset: number) => {
+      const date = new Date()
+      date.setDate(date.getDate() + offset)
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+    }
+    mockApi((_method, path) => {
+      if (path === '/api/me') {
+        return {status: 200, body: meAs('Teacher', ['c1', 'c2', 'c3'])}
+      }
+      if (path === '/api/courses') {
+        return {
+          status: 200,
+          body: [
+            {...devops, title: 'A klar', startsOn: day(-60), endsOn: day(-30)},
+            {...devops, id: 'c2', title: 'B kommande', startsOn: day(30), endsOn: null},
+            {...devops, id: 'c3', title: 'C pågår', startsOn: day(-5), endsOn: day(5)},
+          ],
+        }
+      }
+      return {status: 200, body: []}
+    })
+
+    const {wrapper} = await renderApp('/groups?filter=courses')
+
+    expect(rowNames(wrapper)).toEqual(['C pågår', 'B kommande', 'A klar'])
+    const badges = wrapper.findAll('[data-test="course-status"]').map((badge) => badge.text())
+    expect(badges).toEqual(['Pågår', 'Kommande', 'Avslutad'])
+    expect(wrapper.findAll('[data-test="group-row"]')[1].text()).toContain('från ')
+    expect(wrapper.text()).toContain('Avslutade kurser finns kvar här')
   })
 
   it('visar ett fel när grupperna inte kan hämtas', async () => {
@@ -233,7 +284,7 @@ describe('GroupsView som admin', () => {
 
     expect(wrapper.find('[data-test="new-menu"]').text()).toBe('Ny')
     expect(wrapper.findAll('thead th').map((cell) => cell.text()))
-      .toEqual(['Grupp', 'Kod', 'Typ', 'Period', 'Åtgärder'])
+      .toEqual(['Grupp', 'Kod', 'Typ', 'Status', 'Period', 'Åtgärder'])
     expect(wrapper.find('[aria-label="Åtgärder för NET25"]').exists()).toBe(true)
     expect(wrapper.find('[aria-label="Åtgärder för DevOps"]').exists()).toBe(true)
     expect(wrapper.find('[aria-label="Åtgärder för Edugrade"]').exists()).toBe(false)
@@ -246,7 +297,7 @@ describe('GroupsView som admin', () => {
 
     expect(wrapper.find('[data-test="new-menu"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="row-actions"]').exists()).toBe(false)
-    expect(wrapper.findAll('thead th')).toHaveLength(4)
+    expect(wrapper.findAll('thead th')).toHaveLength(5)
   })
 
   it('Ny klass eller grupp skapar en grupp som hamnar i listan utan omladdning', async () => {

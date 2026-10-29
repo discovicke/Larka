@@ -255,7 +255,8 @@ public class DemoSeedTests(DemoSeedTests.DemoFixture fixture) : IClassFixture<De
         Assert.Contains(teaching.Scheduled, item => item.Kind == "Week" && item.Title.StartsWith("Vecka 46"));
         Assert.Equal(".NET25_DEVOPS", teaching.Courses.Single(course => course.ToGrade > 0).Code);
         Assert.Contains(groups, group => group.Name == ".NET25" && group.Type == "Class" && group.MemberCount >= 25);
-        Assert.Contains(groups, group => group.Name == "FIB25");
+        // Läraren ser bara sina egna grupper, inte andra klasser i skolan.
+        Assert.DoesNotContain(groups, group => group.Name == "FIB25");
         Assert.Contains(groups, group => group.Type == "Committee");
     }
 

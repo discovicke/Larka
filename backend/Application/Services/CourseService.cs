@@ -16,6 +16,7 @@ public class CourseService(
     ISubmissionRepository submissions,
     IPartCompletionRepository completions,
     IPermissions permissions,
+    ICurrentUser currentUser,
     ICurrentSchool currentSchool,
     IFileStorage storage,
     IUnitOfWork unitOfWork,
@@ -29,7 +30,10 @@ public class CourseService(
             return [];
         }
 
-        var schoolCourses = await courses.GetForSchoolAsync(schoolId.Value, ct);
+        // Admin ser hela skolan. Andra ser kurserna som deras grupper läser, som elev eller lärare.
+        var schoolCourses = await permissions.IsAdminAsync(ct)
+            ? await courses.GetForSchoolAsync(schoolId.Value, ct)
+            : await courses.GetForMemberAsync(schoolId.Value, currentUser.UserId, ct);
         return schoolCourses.Select(CourseDto.From).ToList();
     }
 

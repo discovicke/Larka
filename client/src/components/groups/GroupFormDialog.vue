@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {Field, FieldError, FieldGroup, FieldLabel} from '@/components/ui/field'
+import {Field, FieldDescription, FieldError, FieldGroup, FieldLabel} from '@/components/ui/field'
 import {Input} from '@/components/ui/input'
 import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
 import {api, errorMessage, unwrap, type Schema} from '@/lib/api'
@@ -87,7 +87,7 @@ async function save() {
           </DialogTitle>
           <DialogDescription>
             {{ isEdit
-              ? 'Ändra namn, typ eller period. Medlemmarna påverkas inte.'
+              ? 'Ändra namn, typ eller termin. Medlemmarna påverkas inte.'
               : 'Skapa en klass eller grupp i skolan. Medlemmar läggs till efteråt.' }}
           </DialogDescription>
         </DialogHeader>
@@ -125,7 +125,11 @@ async function save() {
             </NativeSelect>
           </Field>
           <Field>
-            <FieldLabel for="group-term">Period</FieldLabel>
+            <FieldLabel for="group-term">
+              {{ form.type === 'Class'
+                ? 'Startade (termin)'
+                : 'Period/termin' }}
+            </FieldLabel>
             <Input
               id="group-term"
               v-model="form.term"
@@ -133,6 +137,9 @@ async function save() {
               autocomplete="off"
               data-test="group-term"
             />
+            <FieldDescription v-if="form.type === 'Class'" data-test="group-term-help">
+              En klass är hela årskullen genom programmet, t.ex. HT25. Kurserna kopplas på gruppens sida.
+            </FieldDescription>
           </Field>
         </FieldGroup>
 

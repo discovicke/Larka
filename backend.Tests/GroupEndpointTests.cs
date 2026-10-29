@@ -240,6 +240,24 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
     }
 
     [Fact]
+    public async Task ListGroups_ShowsStudentsAndTeachersOnlyTheirOwnGroups()
+    {
+        var scenario = await AddTwoClassesAsync();
+
+        var admin = await _client.GetFromJsonAsync<List<GroupResponse>>("/api/groups");
+        var student = await ListGroupsAsync(scenario.StudentId);
+        var teacher = await ListGroupsAsync(scenario.TeacherId);
+        var nobody = await ListGroupsAsync(scenario.OutsiderId);
+
+        Assert.Contains(admin!, item => item.Id == scenario.Own.Id);
+        Assert.Contains(admin!, item => item.Id == scenario.Other.Id);
+        Assert.Equal([scenario.Own.Id], student.Select(item => item.Id));
+        Assert.Equal(3, student.Single().MemberCount);
+        Assert.Equal([scenario.Own.Id], teacher.Select(item => item.Id));
+        Assert.Empty(nobody);
+    }
+
+    [Fact]
     public async Task CreateGroup_AtAnotherSchool_ReturnsBadRequest_EvenForAdmin()
     {
         var other = await AddOtherSchoolAsync();
@@ -496,13 +514,35 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
         return await _client.SendAsync(request);
     }
 
+    private async Task<List<GroupResponse>> ListGroupsAsync(Guid userId)
+    {
+        var response = await GetAsync("/api/groups", userId);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<List<GroupResponse>>())!;
+    }
+
+    // Två klasser i adminens skola: elev och lärare i den ena, och en användare utan grupp.
+    private async Task<(Group Own, Group Other, Guid StudentId, Guid TeacherId, Guid OutsiderId)> AddTwoClassesAsync()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var own = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
+        var other = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
+        var student = await TestData.AddMemberAsync(db, own);
+        await TestData.AddMemberAsync(db, own);
+        var teacher = await TestData.AddMemberAsync(db, own, GroupRole.Teacher, UserRole.Teacher);
+        await TestData.AddMemberAsync(db, other);
+        var outsider = await TestData.AddUserAsync(db, PlaceholderIds.SchoolId);
+        return (own, other, student.Id, teacher.Id, outsider.Id);
+    }
+
     // En annan skola med en användare, en grupp och en kurs.
     private async Task<(Guid UserId, Guid GroupId, Guid CourseId)> AddOtherSchoolAsync()
     {
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
         var school = await TestData.AddSchoolAsync(db);
-        var user = await TestData.AddUserAsync(db, school.Id);
+        var user = await TestData.AddUserAsync(db, school.Id, UserRole.Admin);
         var group = await TestData.AddGroupAsync(db, school.Id);
         var course = await TestData.AddCourseAsync(db, school.Id);
         return (user.Id, group.Id, course.Id);

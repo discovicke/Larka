@@ -114,6 +114,16 @@ describe('CourseAboutView', () => {
     expect(wrapper.text()).toContain('IG – G – VG')
   })
 
+  it('rubriken har ett märke för kursens läge, och inget utan datum', async () => {
+    backend({course: {...course, startsOn: '2020-01-01', endsOn: '2020-02-01'}})
+    const finished = await renderApp('/courses/c1/about')
+    expect(finished.wrapper.find('h1').element.parentElement?.textContent).toContain('Avslutad')
+
+    backend({course: {...course, startsOn: null, endsOn: null} as unknown as typeof course})
+    const undated = await renderApp('/courses/c1/about')
+    expect(undated.wrapper.find('[data-test="course-status"]').exists()).toBe(false)
+  })
+
   it('personalfilen visar samma sida med personalen', async () => {
     backend()
 

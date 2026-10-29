@@ -14,6 +14,7 @@ import {Button} from '@/components/ui/button'
 import {Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty'
 import {Input} from '@/components/ui/input'
 import {Skeleton} from '@/components/ui/skeleton'
+import {useCrumbLabels} from '@/composables/useCrumbLabels'
 import {api, type Schema} from '@/lib/api'
 import {formatDate, partOf} from '@/lib/content'
 import {checkClass, checkLabel, gradeLabel, statusLabel} from '@/lib/submissions'
@@ -30,6 +31,7 @@ interface Stat {
 }
 
 const route = useRoute()
+const {setCrumbLabel} = useCrumbLabels()
 const router = useRouter()
 const courseId = computed(() => String(route.params.courseId))
 const linkId = computed(() => String(route.params.linkId))
@@ -225,6 +227,7 @@ async function load() {
     }
     weekTitle.value = week.title
     assignment.value = item
+    setCrumbLabel(`assignment:${linkId.value}`, item.title)
     const contentResult = await api.GET('/api/content/{id}', {params: {path: {id: item.contentId}}})
     content.value = contentResult.data ?? null
   } catch {

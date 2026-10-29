@@ -69,6 +69,51 @@ describe('AppLayout', () => {
     expect(sidebar).not.toContain('Java ·')
   })
 
+  it('sidomenyn listar pågående före kommande kurser och viker undan avslutade', async () => {
+    const day = (offset: number) => {
+      const date = new Date()
+      date.setDate(date.getDate() + offset)
+      return date.toLocaleDateString('sv-SE')
+    }
+    const course = (id: string, title: string, startsOn: string | null, endsOn: string | null) =>
+      ({...devOps, id, code: id.toUpperCase(), title, startsOn, endsOn})
+    mockApi((_method, path) => {
+      if (path === '/api/me') {
+        return {status: 200, body: meAs('Student', ['c1'])}
+      }
+      if (path === '/api/courses') {
+        return {status: 200, body: [
+          course('ai', 'AI', day(30), day(60)),
+          course('old', 'Gammal', day(-90), day(-30)),
+          course('cs', 'C#', day(-10), day(10)),
+          course('lia', 'LIA', day(10), day(40)),
+          course('free', 'Utan datum', null, null),
+        ]}
+      }
+      return {status: 404}
+    })
+
+    const page = await render('/')
+
+    const menu = page.find('[data-slot="sidebar-content"]').text()
+    expect(menu.indexOf('C#')).toBeLessThan(menu.indexOf('Utan datum'))
+    expect(menu.indexOf('Utan datum')).toBeLessThan(menu.indexOf('LIA'))
+    expect(menu.indexOf('LIA')).toBeLessThan(menu.indexOf('AI'))
+    expect(menu).toContain('Avslutade')
+    // Gruppen är hopfälld från start, så den avslutade kursen syns inte.
+    expect(menu).not.toContain('Gammal')
+
+    await page.find('[data-test="finished-courses"] button').trigger('click')
+
+    expect(page.find('[data-test="finished-courses"]').text()).toContain('Gammal')
+  })
+
+  it('sidomenyn visar ingen Avslutade-grupp när alla kurser pågår', async () => {
+    const page = await render('/')
+
+    expect(page.find('[data-slot="sidebar"]').text()).not.toContain('Avslutade')
+  })
+
   it('sidomenyn visar huvudmenyn och kurserna', async () => {
     const page = await render('/')
 

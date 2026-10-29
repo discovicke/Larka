@@ -101,7 +101,8 @@ function linkFor(item: Item): RouteLocationRaw | null {
   if (item.contentType === 'Assignment' && can('grade', item.courseId)) {
     return {name: 'assignment-submissions', params: {courseId: item.courseId, linkId: item.linkId}}
   }
-  return {name: 'course-content', params: {courseId: item.courseId}}
+  // Eleven (och läraren, som ignorerar ?del=) landar på delen själv.
+  return {name: 'course-content', params: {courseId: item.courseId}, query: {del: item.linkId}}
 }
 
 function chipClass(item: Item): string {

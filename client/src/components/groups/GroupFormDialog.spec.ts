@@ -38,6 +38,20 @@ async function submit() {
 }
 
 describe('GroupFormDialog', () => {
+  it('frågar efter starttermin för en klass och period för andra typer', async () => {
+    await render()
+    const label = () => document.querySelector('label[for="group-term"]')?.textContent?.trim()
+
+    expect(label()).toBe('Startade (termin)')
+    expect(document.querySelector('[data-test="group-term-help"]')?.textContent)
+      .toContain('En klass är hela årskullen genom programmet, t.ex. HT25.')
+
+    await type('group-type', 'Committee', 'change')
+
+    expect(label()).toBe('Period/termin')
+    expect(document.querySelector('[data-test="group-term-help"]')).toBeNull()
+  })
+
   it('kräver ett namn och skickar inget förrän det finns', async () => {
     mockApi(() => ({status: 201, body: existing}))
     await render()

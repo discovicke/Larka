@@ -119,6 +119,15 @@ describe('TodayView', () => {
     expect(thisWeek.find('[data-test="todo-due"]').text()).toBe('Fre 23 okt 23:59')
   })
 
+  it('länkar uppgifter och återkoppling till delen på kurssidan', async () => {
+    backend()
+
+    const {wrapper} = await renderApp('/')
+
+    expect(wrapper.find('[data-test="todo-item"]').attributes('href')).toBe('/courses/c1/content?del=l1')
+    expect(wrapper.find('[data-test="feedback-item"]').attributes('href')).toBe('/courses/c1/content?del=s1')
+  })
+
   it('byter till Inlämnat', async () => {
     backend()
     const {wrapper} = await renderApp('/')

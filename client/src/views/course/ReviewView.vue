@@ -12,12 +12,14 @@ import {Avatar, AvatarFallback} from '@/components/ui/avatar'
 import {Button} from '@/components/ui/button'
 import {Skeleton} from '@/components/ui/skeleton'
 import {Textarea} from '@/components/ui/textarea'
+import {useCrumbLabels} from '@/composables/useCrumbLabels'
 import {api, type Schema} from '@/lib/api'
 import {formatDate} from '@/lib/content'
 import {initials} from '@/lib/news'
 import {checkClass, checkLabel, formatSize, gradeLabel, gradeName, levelsFor} from '@/lib/submissions'
 
 const route = useRoute()
+const {setCrumbLabel} = useCrumbLabels()
 const router = useRouter()
 const courseId = computed(() => String(route.params.courseId))
 const linkId = computed(() => String(route.params.linkId))
@@ -66,6 +68,8 @@ async function load() {
     const week = (moduleResult.data ?? [])
       .find((candidate) => candidate.content.some((item) => item.linkId === linkId.value))
     assignment.value = week?.content.find((item) => item.linkId === linkId.value) ?? null
+    setCrumbLabel(`assignment:${linkId.value}`, assignment.value?.title)
+    setCrumbLabel(`student:${submissionId.value}`, studentName.value)
     if (found?.grade) {
       level.value = found.grade.level
       feedback.value = found.grade.feedback

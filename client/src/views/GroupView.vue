@@ -8,11 +8,15 @@ import LinkCourseDialog from '@/components/groups/LinkCourseDialog.vue'
 import RemoveMemberDialog from '@/components/groups/RemoveMemberDialog.vue'
 import UnlinkCourseDialog from '@/components/groups/UnlinkCourseDialog.vue'
 import {Avatar, AvatarFallback} from '@/components/ui/avatar'
+import CourseStatusBadge from '@/components/course/CourseStatusBadge.vue'
 import {Button} from '@/components/ui/button'
 import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
 import {Skeleton} from '@/components/ui/skeleton'
+import {useCrumbLabels} from '@/composables/useCrumbLabels'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {ApiError, api, errorMessage, unwrap, type Schema} from '@/lib/api'
+import {periodLabel} from '@/lib/coursePeriod'
+import {courseStatus} from '@/lib/courseStatus'
 import {groupRoles as roles} from '@/lib/groupRoles'
 import {groupTypeLabels} from '@/lib/groups'
 import {initials} from '@/lib/news'
@@ -20,6 +24,7 @@ import NotFoundView from '@/views/NotFoundView.vue'
 
 const route = useRoute()
 const {can} = useCurrentUser()
+const {setCrumbLabel} = useCrumbLabels()
 const isAdmin = computed(() => can('admin'))
 const groupId = computed(() => String(route.params.groupId))
 
@@ -43,9 +48,30 @@ const subtitle = computed(() => {
   if (!group.value) {
     return ''
   }
-  return [groupTypeLabels[group.value.type], group.value.term]
+  // En klass är en årskull: terminen är när den startade, inte en period.
+  const term = group.value.term && group.value.type === 'Class'
+    ? `startade ${group.value.term}`
+    : group.value.term
+  return [groupTypeLabels[group.value.type], term]
     .filter((part) => part !== '')
     .join(' · ')
+})
+
+// Kurser utan datum räknas som pågående, så de syns överst i stället för att gömmas.
+const courseGroups = computed(() => {
+  const groups: {key: string, label: string, courses: Schema<'CourseDto'>[]}[] = [
+    {key: 'running', label: 'Pågår', courses: []},
+    {key: 'upcoming', label: 'Kommande', courses: []},
+    {key: 'finished', label: 'Avslutade', courses: []},
+  ]
+  const byStart = (first: Schema<'CourseDto'>, second: Schema<'CourseDto'>) =>
+    (first.startsOn ?? first.endsOn ?? '').localeCompare(second.startsOn ?? second.endsOn ?? '')
+  for (const course of [...courses.value].sort(byStart)) {
+    const status = courseStatus(course) ?? 'running'
+    groups.find((found) => found.key === status)?.courses.push(course)
+  }
+  groups[2].courses.reverse()
+  return groups.filter((found) => found.courses.length > 0)
 })
 
 const membersByRole = computed(() => roles
@@ -72,6 +98,7 @@ async function load() {
       return
     }
     group.value = unwrap(groupResult)
+    setCrumbLabel(`group:${id}`, group.value.name)
     courses.value = courseResult.data ?? []
     members.value = memberResult.data ?? []
   } catch (exception) {
@@ -236,33 +263,44 @@ watch(groupId, load, {immediate: true})
         </Button>
       </div>
       <p v-if="courses.length === 0" class="text-muted-foreground text-sm">Gruppen har inga kurser ännu.</p>
-      <div v-else class="overflow-hidden rounded-[11px] border">
-        <div
-          v-for="course in courses"
-          :key="course.id"
-          class="flex items-center justify-between gap-3 border-b px-4 py-3 last:border-b-0"
-          data-test="course-row"
-        >
-          <RouterLink
-            :to="{name: 'course-content', params: {courseId: course.id}}"
-            class="font-medium underline underline-offset-3 decoration-border hover:decoration-foreground"
+      <section
+        v-for="part in courseGroups"
+        :key="part.key"
+        :aria-label="part.label"
+        class="flex flex-col gap-2.5"
+        data-test="course-group"
+      >
+        <h3 class="text-muted-foreground text-sm font-medium">{{ part.label }}</h3>
+        <div class="overflow-hidden rounded-[11px] border">
+          <div
+            v-for="course in part.courses"
+            :key="course.id"
+            class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b px-4 py-3 last:border-b-0"
+            data-test="course-row"
           >
-            {{ course.title }}
-          </RouterLink>
-          <div class="flex items-center gap-3">
-            <span class="font-mono text-[13px]">{{ course.code }}</span>
-            <Button
-              v-if="isAdmin"
-              variant="outline"
-              class="h-8"
-              data-test="unlink-course"
-              @click="courseToUnlink = course"
+            <RouterLink
+              :to="{name: 'course-content', params: {courseId: course.id}}"
+              class="font-medium underline underline-offset-3 decoration-border hover:decoration-foreground"
             >
-              Koppla bort
-            </Button>
+              {{ course.title }}
+            </RouterLink>
+            <div class="flex items-center gap-3">
+              <span class="font-mono text-[13px]">{{ course.code }}</span>
+              <span class="text-muted-foreground text-sm" data-test="course-dates">{{ periodLabel(course.startsOn, course.endsOn) }}</span>
+              <CourseStatusBadge :status="courseStatus(course)"/>
+              <Button
+                v-if="isAdmin"
+                variant="outline"
+                class="h-8"
+                data-test="unlink-course"
+                @click="courseToUnlink = course"
+              >
+                Koppla bort
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
+      </section>
     </section>
 
     <template v-if="isAdmin">

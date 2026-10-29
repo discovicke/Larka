@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   PhCalendarBlank,
+  PhCaretDown,
   PhCaretUpDown,
   PhCheck,
   PhFolder,
@@ -13,11 +14,12 @@ import {
   PhTray,
   PhUsersThree,
 } from '@phosphor-icons/vue'
-import {type Component, computed, watch} from 'vue'
+import {type Component, computed, ref, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 
 import AppLogo from '@/components/layout/AppLogo.vue'
 import {Avatar, AvatarFallback} from '@/components/ui/avatar'
+import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '@/components/ui/collapsible'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,6 +46,7 @@ import {useGradingCount} from '@/composables/useGradingCount'
 import {useNotifications} from '@/composables/useNotifications'
 import {exampleSchool, exampleUser} from '@/data/exampleData'
 import {auth} from '@/lib/auth'
+import {courseStatus} from '@/lib/courseStatus'
 import {initials} from '@/lib/news'
 import type {Action} from '@/lib/permissions'
 
@@ -116,12 +119,35 @@ async function signOut() {
   await router.push({name: 'login'})
 }
 
+type SidebarCourse = (typeof courses.value)[number]
+
+// Pågående kurser (och kurser utan datum) först, sedan kommande efter startdatum.
+// Avslutade hamnar i en hopfälld grupp, de nyast avslutade först.
+const currentCourses = computed(() => {
+  const running = courses.value.filter((course) => !['upcoming', 'finished'].includes(courseStatus(course) ?? ''))
+  const upcoming = courses.value
+    .filter((course) => courseStatus(course) === 'upcoming')
+    .sort((first, second) => (first.startsOn ?? '').localeCompare(second.startsOn ?? ''))
+  return [...running, ...upcoming]
+})
+const finishedCourses = computed(() => courses.value
+  .filter((course) => courseStatus(course) === 'finished')
+  .sort((first, second) => (second.endsOn ?? '').localeCompare(first.endsOn ?? '')))
+
+// Gruppen är hopfälld, men fälls ut när man står på en avslutad kurs så att den syns i menyn.
+const finishedOpen = ref(false)
+watch(() => [route.params.courseId, finishedCourses.value] as const, ([courseId]) => {
+  if (finishedCourses.value.some((course) => course.id === courseId)) {
+    finishedOpen.value = true
+  }
+}, {immediate: true})
+
 function isCourseActive(courseId: string) {
   return route.params.courseId === courseId
 }
 
 // Två kurser med samma titel (omgångar för olika klasser) skiljs åt med kurskoden.
-function courseLabel(course: {title: string, code: string}): string {
+function courseLabel(course: SidebarCourse): string {
   return courses.value.filter((other) => other.title === course.title).length > 1
     ? `${course.title} · ${course.code}`
     : course.title
@@ -135,13 +161,18 @@ function courseLabel(course: {title: string, code: string}): string {
         <SidebarMenuItem>
           <DropdownMenu>
             <DropdownMenuTrigger as-child>
-              <SidebarMenuButton size="lg" tooltip="Byt skola" data-test="school-switcher">
+              <SidebarMenuButton
+                size="lg"
+                tooltip="Byt skola"
+                data-test="school-switcher"
+                class="group-data-[collapsible=icon]:justify-center"
+              >
                 <AppLogo/>
-                <span class="flex flex-1 flex-col leading-tight">
+                <span class="flex flex-1 flex-col leading-tight group-data-[collapsible=icon]:hidden">
                   <span class="font-semibold">Lärka</span>
                   <span class="text-sidebar-foreground/70 text-xs">{{ exampleSchool.name }}</span>
                 </span>
-                <PhCaretUpDown class="text-sidebar-foreground/70"/>
+                <PhCaretUpDown class="text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden"/>
               </SidebarMenuButton>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" class="w-(--reka-dropdown-menu-trigger-width) min-w-56">
@@ -158,8 +189,8 @@ function courseLabel(course: {title: string, code: string}): string {
         <SidebarMenuItem>
           <SidebarMenuButton tooltip="Sök" class="bg-sidebar-accent text-sidebar-foreground/70 border-sidebar-border border">
             <PhMagnifyingGlass/>
-            <span class="flex-1">Sök…</span>
-            <kbd class="bg-sidebar border-sidebar-border rounded border px-1 font-mono text-[11px]">⌘K</kbd>
+            <span class="flex-1 group-data-[collapsible=icon]:hidden">Sök…</span>
+            <kbd class="group-data-[collapsible=icon]:hidden bg-sidebar border-sidebar-border rounded border px-1 font-mono text-[11px]">⌘K</kbd>
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>
@@ -192,20 +223,49 @@ function courseLabel(course: {title: string, code: string}): string {
       <SidebarGroup>
         <SidebarGroupLabel>Mina kurser</SidebarGroupLabel>
         <SidebarMenu>
-          <SidebarMenuItem v-for="course in courses" :key="course.id">
+          <SidebarMenuItem v-for="course in currentCourses" :key="course.id">
             <SidebarMenuButton
               as-child
               :tooltip="courseLabel(course)"
               :is-active="isCourseActive(course.id)"
+              class="group-data-[collapsible=icon]:justify-center"
             >
               <RouterLink :to="{name: 'course-content', params: {courseId: course.id}}">
                 <span class="bg-primary size-2 shrink-0 rounded-[2px]"/>
-                <span class="min-w-0 truncate">{{ courseLabel(course) }}</span>
+                <span class="min-w-0 truncate group-data-[collapsible=icon]:hidden">{{ courseLabel(course) }}</span>
               </RouterLink>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarGroup>
+
+      <Collapsible v-if="finishedCourses.length" v-model:open="finishedOpen" as-child>
+        <SidebarGroup data-test="finished-courses">
+          <CollapsibleTrigger as-child>
+            <SidebarGroupLabel as="button" class="hover:bg-sidebar-accent w-full cursor-pointer gap-1.5 group-data-[collapsible=icon]:justify-center">
+              <span class="flex-1 text-left">Avslutade</span>
+              <PhCaretDown class="transition-transform" :class="{'-rotate-90': !finishedOpen}"/>
+            </SidebarGroupLabel>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <SidebarMenu>
+              <SidebarMenuItem v-for="course in finishedCourses" :key="course.id">
+                <SidebarMenuButton
+                  as-child
+                  :tooltip="courseLabel(course)"
+                  :is-active="isCourseActive(course.id)"
+                  class="group-data-[collapsible=icon]:justify-center"
+                >
+                  <RouterLink :to="{name: 'course-content', params: {courseId: course.id}}">
+                    <span class="bg-primary size-2 shrink-0 rounded-[2px]"/>
+                    <span class="min-w-0 truncate group-data-[collapsible=icon]:hidden">{{ courseLabel(course) }}</span>
+                  </RouterLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </CollapsibleContent>
+        </SidebarGroup>
+      </Collapsible>
 
       <SidebarGroup>
         <SidebarGroupLabel>Skola</SidebarGroupLabel>
@@ -231,15 +291,15 @@ function courseLabel(course: {title: string, code: string}): string {
         <SidebarMenuItem>
           <DropdownMenu>
             <DropdownMenuTrigger as-child>
-              <SidebarMenuButton size="lg" data-test="user-menu">
+              <SidebarMenuButton size="lg" data-test="user-menu" class="group-data-[collapsible=icon]:justify-center">
                 <Avatar class="size-8">
                   <AvatarFallback class="text-xs font-semibold">{{ userInitials }}</AvatarFallback>
                 </Avatar>
-                <span class="flex min-w-0 flex-col leading-tight">
+                <span class="flex min-w-0 flex-col leading-tight group-data-[collapsible=icon]:hidden">
                   <span class="truncate font-medium">{{ userName }}</span>
                   <span class="text-sidebar-foreground/70 truncate text-xs">{{ userRole }} · {{ schoolName }}</span>
                 </span>
-                <PhCaretUpDown class="text-sidebar-foreground/70"/>
+                <PhCaretUpDown class="text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden"/>
               </SidebarMenuButton>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" class="w-(--reka-dropdown-menu-trigger-width) min-w-56">

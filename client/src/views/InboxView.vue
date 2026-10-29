@@ -200,12 +200,17 @@ function select(contentId: string) {
   router.replace({query: {post: contentId}})
 }
 
-// Grader och komplettering leder till studieplanen, uppgifter och deadlines till kursen.
+// Notiser om en del öppnar delen på kurssidan (?del=). Saknas kursen eller delen, som när innehållet
+// är borttaget, faller grader och komplettering tillbaka på studieplanen och resten på kursen eller Idag.
 function notificationLink(row: InboxRow): RouteLocationRaw {
+  const courseId = row.notification?.courseId
+  const linkId = row.notification?.linkId
+  if (courseId && linkId) {
+    return {name: 'course-content', params: {courseId}, query: {del: linkId}}
+  }
   if (row.kind === 'grade' || row.kind === 'needsWork') {
     return {name: 'grades'}
   }
-  const courseId = row.notification?.courseId
   return courseId
     ? {name: 'course-content', params: {courseId}}
     : {name: 'today'}

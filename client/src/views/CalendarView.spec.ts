@@ -180,12 +180,12 @@ describe('CalendarView', () => {
     expect(teacherPage.wrapper.find('[data-test="day-2026-10-23"] a').attributes('href'))
       .toBe('/courses/c1/assignments/l1')
     expect(teacherPage.wrapper.find('[data-test="day-2026-10-22"] a').attributes('href'))
-      .toBe('/courses/c1/content')
+      .toMatch(/^\/courses\/c1\/content/)
 
     backend({calendar: thisWeek, role: 'Student'})
     const studentPage = await renderApp('/calendar')
     expect(studentPage.wrapper.find('[data-test="day-2026-10-23"] a').attributes('href'))
-      .toBe('/courses/c1/content')
+      .toMatch(/^\/courses\/c1\/content\?del=[\w-]+$/)
   })
 
   it('visar tomt-läge när inget finns', async () => {

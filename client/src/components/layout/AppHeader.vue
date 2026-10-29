@@ -32,20 +32,26 @@ const breadcrumbs = computed<Crumb[]>(() => {
     <SidebarTrigger aria-label="Visa/dölj sidomeny" class="size-7"/>
     <Separator orientation="vertical" class="data-[orientation=vertical]:h-4 data-[orientation=vertical]:self-center"/>
 
-    <Breadcrumb class="min-w-0 pl-1">
+    <Breadcrumb class="min-w-0 flex-1 basis-0 pl-1">
       <BreadcrumbList class="flex-nowrap">
-        <template v-for="(crumb, index) in breadcrumbs" :key="crumb.label">
-          <BreadcrumbSeparator v-if="index > 0"/>
+        <template v-for="(crumb, index) in breadcrumbs" :key="index">
+          <!-- Under sm visas bara de två sista, så att långa spår inte spricker headern. -->
+          <BreadcrumbSeparator v-if="index > 0" :class="index < breadcrumbs.length - 1 && 'max-sm:hidden'"/>
           <BreadcrumbItem
-            :class="index === breadcrumbs.length - 1
-              ? 'min-w-0'
-              : 'shrink-0'"
+            :class="[
+              index === 0 && breadcrumbs.length > 1
+                ? 'shrink-0'
+                : index === breadcrumbs.length - 1 && index > 0
+                  ? 'max-w-[60%] shrink-0'
+                  : 'min-w-0',
+              index < breadcrumbs.length - 2 && 'max-sm:hidden',
+            ]"
           >
             <BreadcrumbPage v-if="index === breadcrumbs.length - 1" class="truncate font-medium">
               {{ crumb.label }}
             </BreadcrumbPage>
             <BreadcrumbLink v-else-if="crumb.to" as-child>
-              <RouterLink :to="crumb.to">{{ crumb.label }}</RouterLink>
+              <RouterLink :to="crumb.to" class="truncate">{{ crumb.label }}</RouterLink>
             </BreadcrumbLink>
             <span v-else>{{ crumb.label }}</span>
           </BreadcrumbItem>

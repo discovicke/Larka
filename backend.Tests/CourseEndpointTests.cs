@@ -113,6 +113,31 @@ public class CourseEndpointTests(TestWebApplicationFactory factory) : IClassFixt
     }
 
     [Fact]
+    public async Task ListCourses_ShowsStudentsAndTeachersOnlyTheCoursesTheirGroupsRead()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var ownGroup = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
+        var otherGroup = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
+        var own = await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId, ownGroup.Id);
+        var other = await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId, otherGroup.Id);
+        var unlinked = await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId);
+        var student = await TestData.AddMemberAsync(db, ownGroup);
+        var teacher = await TestData.AddMemberAsync(db, ownGroup, GroupRole.Teacher, UserRole.Teacher);
+        var outsider = await TestData.AddUserAsync(db, PlaceholderIds.SchoolId);
+
+        var admin = await _client.GetFromJsonAsync<List<CourseResponse>>("/api/courses");
+        var asStudent = await ListCoursesAsync(student.Id);
+        var asTeacher = await ListCoursesAsync(teacher.Id);
+        var asOutsider = await ListCoursesAsync(outsider.Id);
+
+        Assert.All([own, other, unlinked], course => Assert.Contains(admin!, item => item.Id == course.Id));
+        Assert.Equal([own.Id], asStudent.Select(item => item.Id));
+        Assert.Equal([own.Id], asTeacher.Select(item => item.Id));
+        Assert.Empty(asOutsider);
+    }
+
+    [Fact]
     public async Task GetCourse_AtAnotherSchool_Returns404()
     {
         var (own, other, _) = await AddCoursesInTwoSchoolsAsync();
@@ -320,6 +345,13 @@ public class CourseEndpointTests(TestWebApplicationFactory factory) : IClassFixt
         return await _client.SendAsync(request);
     }
 
+    private async Task<List<CourseResponse>> ListCoursesAsync(Guid userId)
+    {
+        var response = await GetAsync("/api/courses", userId);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<List<CourseResponse>>())!;
+    }
+
     private async Task<HttpResponseMessage> GetAsync(string path, Guid userId)
     {
         var request = new HttpRequestMessage(HttpMethod.Get, path);
@@ -335,7 +367,7 @@ public class CourseEndpointTests(TestWebApplicationFactory factory) : IClassFixt
         var otherSchool = await TestData.AddSchoolAsync(db);
         var own = await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId);
         var other = await TestData.AddCourseAsync(db, otherSchool.Id);
-        var otherUser = await TestData.AddUserAsync(db, otherSchool.Id, UserRole.Student);
+        var otherUser = await TestData.AddUserAsync(db, otherSchool.Id, UserRole.Admin);
         return (own, other, otherUser.Id);
     }
 
