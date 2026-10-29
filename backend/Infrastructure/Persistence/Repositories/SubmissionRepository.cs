@@ -32,6 +32,54 @@ public class SubmissionRepository(AppDb db) : ISubmissionRepository
     public Task<List<Submission>> GetByLinkAsync(Guid linkId, CancellationToken ct) =>
         WithDetails().Where(submission => submission.ContentLinkId == linkId).ToListAsync(ct);
 
+    public Task<List<SubmissionToGrade>> GetToGradeAsync(
+        IReadOnlyCollection<Guid> courseIds, int take, CancellationToken ct) =>
+        (from submission in db.Submissions
+         join link in db.ContentLinks on submission.ContentLinkId equals link.Id
+         join content in db.Content on link.ContentId equals content.Id
+         join student in db.Users on submission.StudentId equals student.Id
+         where link.CourseId != null
+             && courseIds.Contains(link.CourseId.Value)
+             && submission.Status == SubmissionStatus.Submitted
+         orderby submission.SubmittedAt, content.Title, student.Name
+         select new SubmissionToGrade(
+             submission.Id,
+             link.Id,
+             content.Title,
+             link.CourseId!.Value,
+             student.Id,
+             student.Name,
+             submission.SubmittedAt ?? DateTimeOffset.MinValue))
+        .Take(take)
+        .ToListAsync(ct);
+
+    public Task<List<CourseToGradeCount>> GetToGradeCountsAsync(
+        IReadOnlyCollection<Guid> courseIds, CancellationToken ct) =>
+        (from submission in db.Submissions
+         join link in db.ContentLinks on submission.ContentLinkId equals link.Id
+         where link.CourseId != null
+             && courseIds.Contains(link.CourseId.Value)
+             && submission.Status == SubmissionStatus.Submitted
+         group link by link.CourseId!.Value into courseGroup
+         select new CourseToGradeCount(courseGroup.Key, courseGroup.Count()))
+        .ToListAsync(ct);
+
+    public async Task<List<ActiveSubmission>> GetActiveForLinksAsync(
+        IReadOnlyCollection<Guid> linkIds, CancellationToken ct)
+    {
+        if (linkIds.Count == 0)
+        {
+            return [];
+        }
+
+        return await db.Submissions
+            .Where(submission => linkIds.Contains(submission.ContentLinkId)
+                && submission.Status != SubmissionStatus.NotStarted)
+            .Select(submission => new ActiveSubmission(submission.ContentLinkId, submission.StudentId))
+            .Distinct()
+            .ToListAsync(ct);
+    }
+
     public Task<bool> IsTeacherOfLinkAsync(Guid linkId, Guid userId, CancellationToken ct)
     {
         var teacherGroupIds = db.Enrollments

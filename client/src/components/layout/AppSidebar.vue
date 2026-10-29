@@ -13,7 +13,7 @@ import {
   PhTray,
   PhUsersThree,
 } from '@phosphor-icons/vue'
-import {type Component, computed} from 'vue'
+import {type Component, computed, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 
 import {Avatar, AvatarFallback} from '@/components/ui/avatar'
@@ -39,8 +39,9 @@ import {
 } from '@/components/ui/sidebar'
 import {useCourses} from '@/composables/useCourses'
 import {useCurrentUser} from '@/composables/useCurrentUser'
+import {useGradingCount} from '@/composables/useGradingCount'
 import {useNotifications} from '@/composables/useNotifications'
-import {exampleCounts, exampleSchool, exampleUser} from '@/data/exampleData'
+import {exampleSchool, exampleUser} from '@/data/exampleData'
 import {auth} from '@/lib/auth'
 import {initials} from '@/lib/news'
 import type {Action} from '@/lib/permissions'
@@ -52,6 +53,8 @@ interface NavItem {
   count?: number
   // Märket följer antalet olästa notiser i stället för exempelsiffran.
   unread?: boolean
+  // Märket visar antalet inlämningar som väntar på bedömning i lärarens kurser.
+  toGrade?: boolean
   // Åtgärden som krävs för att länken ska visas.
   requires?: Action
   // Bara elever i någon kurs ser länken.
@@ -64,7 +67,7 @@ const mainNav: NavItem[] = [
   {label: 'Inkorg', routeName: 'inbox', icon: PhTray, unread: true},
   {label: 'Material', routeName: 'material', icon: PhFolder},
   {label: 'Studieplan', routeName: 'grades', icon: PhGraduationCap, studentOnly: true},
-  {label: 'Att bedöma', routeName: 'grading', icon: PhListChecks, count: exampleCounts.grading, requires: 'grade'},
+  {label: 'Att bedöma', routeName: 'grading', icon: PhListChecks, toGrade: true, requires: 'grade'},
   {label: 'Inställningar', routeName: 'settings', icon: PhGearSix},
 ]
 
@@ -75,6 +78,13 @@ const router = useRouter()
 const {courses} = useCourses()
 const {me, can, resetCurrentUser} = useCurrentUser()
 const {unreadCount} = useNotifications()
+const {gradingCount, loadGradingCount} = useGradingCount()
+
+watch(() => can('grade'), (canGrade) => {
+  if (canGrade) {
+    loadGradingCount()
+  }
+}, {immediate: true})
 
 const isStudent = computed(() => (me.value?.courses ?? []).some((course) => course.role === 'Student'))
 const navItems = computed(() => mainNav
@@ -85,7 +95,9 @@ const navItems = computed(() => mainNav
     ...item,
     count: item.unread
       ? unreadCount.value
-      : item.count,
+      : item.toGrade
+        ? gradingCount.value
+        : item.count,
   })))
 
 const userName = computed(() => me.value?.name ?? exampleUser.name)

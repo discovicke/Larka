@@ -122,6 +122,15 @@ public class GroupRepository(AppDb db) : IGroupRepository
             .ToList();
     }
 
+    public async Task<List<CourseStudent>> GetStudentsByCourseAsync(
+        IReadOnlyCollection<Guid> courseIds, CancellationToken ct) =>
+        await (from groupCourse in db.GroupCourses
+               join enrollment in db.Enrollments on groupCourse.GroupId equals enrollment.GroupId
+               where courseIds.Contains(groupCourse.CourseId) && enrollment.Role == GroupRole.Student
+               select new CourseStudent(groupCourse.CourseId, enrollment.UserId))
+            .Distinct()
+            .ToListAsync(ct);
+
     // Lärare går före mentor, som går före elev.
     private static GroupRole Strongest(IEnumerable<GroupRole> roles) =>
         roles.OrderByDescending(Rank).First();

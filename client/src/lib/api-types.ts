@@ -448,6 +448,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/teaching": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TeachingDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/calendar": {
         parameters: {
             query?: never;
@@ -3912,6 +3947,74 @@ export interface components {
         SubmitForm: {
             bodyMd?: null | string;
             files?: null | components["schemas"]["IFormFileCollection"];
+        };
+        /** @description En kurs användaren undervisar i, med antal elever och inlämningar att bedöma. */
+        TeachingCourseDto: {
+            /** Format: uuid */
+            courseId: string;
+            code: string;
+            title: string;
+            /** Format: int32 */
+            students: number;
+            /** Format: int32 */
+            toGrade: number;
+        };
+        /** @description En publicerad uppgift med deadline de närmaste två veckorna. */
+        TeachingDeadlineDto: {
+            /** Format: uuid */
+            linkId: string;
+            title: string;
+            /** Format: uuid */
+            courseId: string;
+            courseTitle: string;
+            /** Format: date-time */
+            dueAt: string;
+            /** Format: int32 */
+            submitted: number;
+            /** Format: int32 */
+            students: number;
+        };
+        /**
+         * @description Lärarens Idag-sida: inlämningar att bedöma, deadlines, schemalagda delar och kurserna.
+         *     Tomma listor när användaren inte undervisar i någon kurs.
+         */
+        TeachingDto: {
+            toGrade: components["schemas"]["TeachingToGradeDto"][];
+            /** Format: int32 */
+            toGradeTotal: number;
+            deadlines: components["schemas"]["TeachingDeadlineDto"][];
+            scheduled: components["schemas"]["TeachingScheduledDto"][];
+            courses: components["schemas"]["TeachingCourseDto"][];
+        };
+        /** @description En del eller vecka som publiceras de närmaste sju dagarna. Kind är "Part" eller "Week". */
+        TeachingScheduledDto: {
+            /** Format: uuid */
+            linkId: null | string;
+            /** Format: uuid */
+            moduleId: null | string;
+            title: string;
+            /** Format: uuid */
+            courseId: string;
+            courseTitle: string;
+            /** Format: date-time */
+            publishAt: string;
+            kind: string;
+        };
+        /** @description En inlämning som väntar på bedömning. Äldst först, högst åtta i listan. */
+        TeachingToGradeDto: {
+            /** Format: uuid */
+            submissionId: string;
+            /** Format: uuid */
+            linkId: string;
+            title: string;
+            /** Format: uuid */
+            courseId: string;
+            courseTitle: string;
+            /** Format: uuid */
+            studentId: string;
+            studentName: string;
+            /** Format: date-time */
+            submittedAt: string;
         };
         /** @description En kurs eleven läser, med hur många av delarna som är klara. */
         TodayCourseDto: {

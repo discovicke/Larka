@@ -165,6 +165,67 @@ public class ContentRepository(AppDb db) : IContentRepository
             .ToListAsync(ct);
     }
 
+    public Task<List<CourseDeadline>> GetCourseDeadlinesAsync(
+        IReadOnlyCollection<Guid> courseIds, DateTimeOffset fromAt, DateTimeOffset toAt, CancellationToken ct) =>
+        (from link in db.ContentLinks
+         join content in db.Content on link.ContentId equals content.Id
+         where link.CourseId != null
+             && courseIds.Contains(link.CourseId.Value)
+             && content.Type == ContentType.Assignment
+             && content.Status == ContentStatus.Published
+             && link.DueAt != null
+             && link.DueAt >= fromAt
+             && link.DueAt <= toAt
+         orderby link.DueAt, content.Title
+         select new CourseDeadline(
+             link.Id,
+             content.Title,
+             link.CourseId!.Value,
+             db.Courses
+                 .Where(course => course.Id == link.CourseId.Value)
+                 .Select(course => course.Title)
+                 .First(),
+             link.DueAt!.Value))
+        .ToListAsync(ct);
+
+    public Task<List<ScheduledContentLink>> GetScheduledLinksAsync(
+        IReadOnlyCollection<Guid> courseIds, DateTimeOffset fromAt, DateTimeOffset toAt, CancellationToken ct) =>
+        (from link in db.ContentLinks
+         join content in db.Content on link.ContentId equals content.Id
+         where link.CourseId != null
+             && courseIds.Contains(link.CourseId.Value)
+             && content.Status == ContentStatus.Published
+             && link.PublishAt > fromAt
+             && link.PublishAt <= toAt
+         orderby link.PublishAt, content.Title
+         select new ScheduledContentLink(
+             link.Id,
+             content.Title,
+             link.CourseId!.Value,
+             db.Courses
+                 .Where(course => course.Id == link.CourseId.Value)
+                 .Select(course => course.Title)
+                 .First(),
+             link.PublishAt))
+        .ToListAsync(ct);
+
+    public Task<List<ScheduledCourseModule>> GetScheduledModulesAsync(
+        IReadOnlyCollection<Guid> courseIds, DateTimeOffset fromAt, DateTimeOffset toAt, CancellationToken ct) =>
+        (from module in db.Modules
+         join course in db.Courses on module.CourseId equals course.Id
+         where courseIds.Contains(module.CourseId)
+             && module.PublishAt != null
+             && module.PublishAt > fromAt
+             && module.PublishAt <= toAt
+         orderby module.PublishAt, module.Title
+         select new ScheduledCourseModule(
+             module.Id,
+             module.Title,
+             course.Id,
+             course.Title,
+             module.PublishAt!.Value))
+        .ToListAsync(ct);
+
     public void AddDependency(ContentLinkDependency dependency) => db.ContentLinkDependencies.Add(dependency);
 
     public void RemoveDependencies(IEnumerable<ContentLinkDependency> dependencies) =>

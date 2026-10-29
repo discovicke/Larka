@@ -3,5 +3,3 @@
 export const exampleSchool = {name: 'Edugrade'}
 
 export const exampleUser = {name: 'Placeholder', initials: 'PH', role: 'Lärare'}
-
-export const exampleCounts = {grading: 5}

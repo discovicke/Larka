@@ -11,6 +11,18 @@ public record LinkedContent(ContentLink Link, Content Content);
 public record CalendarLink(
     ContentLink Link, Content Content, string? CourseTitle, DateTimeOffset? ModulePublishAt);
 
+/// <summary>En uppgift med deadline i en kurs.</summary>
+public record CourseDeadline(
+    Guid LinkId, string Title, Guid CourseId, string CourseTitle, DateTimeOffset DueAt);
+
+/// <summary>En del som publiceras i en kurs.</summary>
+public record ScheduledContentLink(
+    Guid LinkId, string Title, Guid CourseId, string CourseTitle, DateTimeOffset PublishAt);
+
+/// <summary>En vecka som publiceras i en kurs.</summary>
+public record ScheduledCourseModule(
+    Guid ModuleId, string Title, Guid CourseId, string CourseTitle, DateTimeOffset PublishAt);
+
 public interface IContentRepository
 {
     Task<Content?> GetAsync(Guid id, CancellationToken ct);
@@ -52,6 +64,18 @@ public interface IContentRepository
     /// </summary>
     Task<List<CalendarLink>> GetCalendarLinksAsync(
         Guid userId, DateTimeOffset from, DateTimeOffset to, CancellationToken ct);
+
+    /// <summary>Publicerade uppgifter med deadline i intervallet [fromAt, toAt] i kurserna.</summary>
+    Task<List<CourseDeadline>> GetCourseDeadlinesAsync(
+        IReadOnlyCollection<Guid> courseIds, DateTimeOffset fromAt, DateTimeOffset toAt, CancellationToken ct);
+
+    /// <summary>Publicerade delar som publiceras i intervallet (fromAt, toAt] i kurserna.</summary>
+    Task<List<ScheduledContentLink>> GetScheduledLinksAsync(
+        IReadOnlyCollection<Guid> courseIds, DateTimeOffset fromAt, DateTimeOffset toAt, CancellationToken ct);
+
+    /// <summary>Veckor som publiceras i intervallet (fromAt, toAt] i kurserna.</summary>
+    Task<List<ScheduledCourseModule>> GetScheduledModulesAsync(
+        IReadOnlyCollection<Guid> courseIds, DateTimeOffset fromAt, DateTimeOffset toAt, CancellationToken ct);
 
     void AddDependency(ContentLinkDependency dependency);
     void RemoveDependencies(IEnumerable<ContentLinkDependency> dependencies);

@@ -12,6 +12,9 @@ public record GroupTeacher(Guid UserId, string Name, string Email, string GroupN
 /// <summary>En kurs användaren läser som elev, och grupperna hen läser den i.</summary>
 public record StudentCourse(Course Course, List<Guid> GroupIds);
 
+/// <summary>En elev i en kurs, via grupperna som läser den.</summary>
+public record CourseStudent(Guid CourseId, Guid UserId);
+
 public interface IGroupRepository
 {
     Task<List<Group>> GetAllAsync(CancellationToken ct);
@@ -41,6 +44,10 @@ public interface IGroupRepository
 
     /// <summary>Kurserna användaren läser som elev i någon grupp, med grupperna per kurs.</summary>
     Task<List<StudentCourse>> GetStudentCoursesAsync(Guid userId, CancellationToken ct);
+
+    /// <summary>Eleverna i grupperna som läser kurserna, en rad per elev och kurs.</summary>
+    Task<List<CourseStudent>> GetStudentsByCourseAsync(
+        IReadOnlyCollection<Guid> courseIds, CancellationToken ct);
     void Add(Group group);
     void AddCourse(GroupCourse groupCourse);
     void AddMember(Enrollment enrollment);

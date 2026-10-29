@@ -28,6 +28,11 @@ public static class MeEndpoints
         app.MapGet("/me/today", async (TodayService service, CancellationToken ct) =>
             TypedResults.Ok(await service.GetAsync(ct))).WithTags("Me");
 
+        // Lärarens Idag-sida: inlämningar att bedöma, deadlines, schemalagda delar och kurserna.
+        // Den som inte undervisar i någon kurs får tomma listor.
+        app.MapGet("/me/teaching", async (TeachingService service, CancellationToken ct) =>
+            TypedResults.Ok(await service.GetAsync(ct))).WithTags("Me");
+
         return app;
     }
 }

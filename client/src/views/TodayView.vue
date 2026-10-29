@@ -4,10 +4,12 @@ import {computed, ref} from 'vue'
 import {RouterLink, type RouteLocationRaw} from 'vue-router'
 
 import {Alert, AlertDescription} from '@/components/ui/alert'
+import TeacherToday from '@/components/today/TeacherToday.vue'
 import {Skeleton} from '@/components/ui/skeleton'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {api, type Schema} from '@/lib/api'
 import {formatDate} from '@/lib/content'
+import {isStudentEverywhere} from '@/lib/permissions'
 import {gradeText} from '@/lib/studyPlan'
 import {
   dateLine,
@@ -33,12 +35,14 @@ type Submission = Schema<'TodaySubmissionDto'>
 type Tab = 'upcoming' | 'submitted'
 
 const now = new Date()
-const {me} = useCurrentUser()
+const {me, loadMe} = useCurrentUser()
 
 const today = ref<Today | null>(null)
 const loading = ref(true)
 const loadFailed = ref(false)
 const tab = ref<Tab>('upcoming')
+// Den som är lärare någonstans, i skolan eller i en kurs, ser lärarens översikt, som hämtar sin egen data.
+const isTeacher = ref(false)
 
 const name = computed(() => firstName(me.value?.name))
 const mobileGreeting = computed(() => name.value
@@ -145,6 +149,12 @@ async function load() {
   loading.value = true
   loadFailed.value = false
   try {
+    await loadMe()
+    if (!isStudentEverywhere(me.value)) {
+      isTeacher.value = true
+      loading.value = false
+      return
+    }
     const result = await api.GET('/api/me/today')
     if (result.error || !result.data) {
       loadFailed.value = true
@@ -162,7 +172,9 @@ load()
 </script>
 
 <template>
-  <Alert v-if="loadFailed" variant="destructive">
+  <TeacherToday v-if="isTeacher"/>
+
+  <Alert v-else-if="loadFailed" variant="destructive">
     <AlertDescription>Kunde inte hämta din översikt.</AlertDescription>
   </Alert>
 

@@ -337,6 +337,25 @@
         }
       }
     },
+    "/api/me/teaching": {
+      "get": {
+        "tags": [
+          "Me"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeachingDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/calendar": {
       "get": {
         "tags": [
@@ -5284,6 +5303,210 @@
             ]
           }
         }
+      },
+      "TeachingCourseDto": {
+        "required": [
+          "courseId",
+          "code",
+          "title",
+          "students",
+          "toGrade"
+        ],
+        "type": "object",
+        "properties": {
+          "courseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "students": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "toGrade": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "description": "En kurs användaren undervisar i, med antal elever och inlämningar att bedöma."
+      },
+      "TeachingDeadlineDto": {
+        "required": [
+          "linkId",
+          "title",
+          "courseId",
+          "courseTitle",
+          "dueAt",
+          "submitted",
+          "students"
+        ],
+        "type": "object",
+        "properties": {
+          "linkId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "courseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "courseTitle": {
+            "type": "string"
+          },
+          "dueAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "submitted": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "students": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "description": "En publicerad uppgift med deadline de närmaste två veckorna."
+      },
+      "TeachingDto": {
+        "required": [
+          "toGrade",
+          "toGradeTotal",
+          "deadlines",
+          "scheduled",
+          "courses"
+        ],
+        "type": "object",
+        "properties": {
+          "toGrade": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeachingToGradeDto"
+            }
+          },
+          "toGradeTotal": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "deadlines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeachingDeadlineDto"
+            }
+          },
+          "scheduled": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeachingScheduledDto"
+            }
+          },
+          "courses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeachingCourseDto"
+            }
+          }
+        },
+        "description": "Lärarens Idag-sida: inlämningar att bedöma, deadlines, schemalagda delar och kurserna.\nTomma listor när användaren inte undervisar i någon kurs."
+      },
+      "TeachingScheduledDto": {
+        "required": [
+          "linkId",
+          "moduleId",
+          "title",
+          "courseId",
+          "courseTitle",
+          "publishAt",
+          "kind"
+        ],
+        "type": "object",
+        "properties": {
+          "linkId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "moduleId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "courseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "courseTitle": {
+            "type": "string"
+          },
+          "publishAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "kind": {
+            "type": "string"
+          }
+        },
+        "description": "En del eller vecka som publiceras de närmaste sju dagarna. Kind är \"Part\" eller \"Week\"."
+      },
+      "TeachingToGradeDto": {
+        "required": [
+          "submissionId",
+          "linkId",
+          "title",
+          "courseId",
+          "courseTitle",
+          "studentId",
+          "studentName",
+          "submittedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "submissionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "linkId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "courseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "courseTitle": {
+            "type": "string"
+          },
+          "studentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "studentName": {
+            "type": "string"
+          },
+          "submittedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "description": "En inlämning som väntar på bedömning. Äldst först, högst åtta i listan."
       },
       "TodayCourseDto": {
         "required": [

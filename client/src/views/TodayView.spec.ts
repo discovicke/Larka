@@ -202,4 +202,53 @@ describe('TodayView', () => {
 
     expect(wrapper.text()).toContain('Kunde inte hämta din översikt.')
   })
+
+  it('visar lärarens översikt för en lärare, utan elevens listor', async () => {
+    mockApi((_method, path) => {
+      if (path === '/api/me') {
+        return {status: 200, body: meAs('Teacher', ['c1'], 'Anna Lärare')}
+      }
+      if (path === '/api/courses') {
+        return {status: 200, body: []}
+      }
+      if (path === '/api/me/teaching') {
+        return {status: 200, body: {toGrade: [], toGradeTotal: 0, deadlines: [], scheduled: [], courses: []}}
+      }
+      return {status: 404}
+    })
+
+    const {wrapper} = await renderApp('/')
+
+    expect(wrapper.find('[data-test="teacher-dashboard"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="today-desktop"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="todo-item"]').exists()).toBe(false)
+  })
+
+  it('visar lärarens översikt för den som bara är lärare i en kurs', async () => {
+    mockApi((_method, path) => {
+      if (path === '/api/me') {
+        return {status: 200, body: {...meAs('Student'), courses: [{courseId: 'c1', role: 'Teacher'}]}}
+      }
+      if (path === '/api/courses') {
+        return {status: 200, body: []}
+      }
+      if (path === '/api/me/teaching') {
+        return {status: 200, body: {toGrade: [], toGradeTotal: 0, deadlines: [], scheduled: [], courses: []}}
+      }
+      return {status: 404}
+    })
+
+    const {wrapper} = await renderApp('/')
+
+    expect(wrapper.find('[data-test="teacher-dashboard"]').exists()).toBe(true)
+  })
+
+  it('visar elevens sida för en elev', async () => {
+    backend()
+
+    const {wrapper} = await renderApp('/')
+
+    expect(wrapper.find('[data-test="today-desktop"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="teacher-dashboard"]').exists()).toBe(false)
+  })
 })
