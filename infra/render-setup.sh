@@ -43,7 +43,6 @@ fi
 env_vars=$(jq -n --arg cs "$CONNECTION_STRING" --arg sbUrl "$SUPABASE_URL" --arg sbKey "$SUPABASE_SERVICE_ROLE_KEY" \
   --arg jwtKey "$AUTH_JWT_KEY" '[
   {key: "ASPNETCORE_ENVIRONMENT", value: "Production"},
-  {key: "Database__Provider", value: "Postgres"},
   {key: "PORT", value: "8080"},
   {key: "ConnectionStrings__Default", value: $cs},
   {key: "Storage__Supabase__Url", value: $sbUrl},
