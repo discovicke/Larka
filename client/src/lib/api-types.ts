@@ -4804,6 +4804,7 @@ export interface components {
             submissionStatus: null | components["schemas"]["SubmissionStatus"];
             gradeLevel: null | components["schemas"]["GradeLevel"];
             hasRepoMode: boolean;
+            submissionModes: components["schemas"]["SubmissionMode"][];
             repo: null | components["schemas"]["StudentRepoDto"];
         };
         /** @description En vecka som eleven ser den: bara publicerat innehåll, med lås och avklarande. */
@@ -4910,6 +4911,7 @@ export interface components {
         SubmitForm: {
             bodyMd?: null | string;
             files?: null | components["schemas"]["IFormFileCollection"];
+            keepFileIds?: null | string[];
         };
         /** @description En kurs användaren undervisar i, med antal elever och inlämningar att bedöma. */
         TeachingCourseDto: {

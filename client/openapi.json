@@ -6050,6 +6050,7 @@
           "submissionStatus",
           "gradeLevel",
           "hasRepoMode",
+          "submissionModes",
           "repo"
         ],
         "type": "object",
@@ -6135,6 +6136,12 @@
           },
           "hasRepoMode": {
             "type": "boolean"
+          },
+          "submissionModes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubmissionMode"
+            }
           },
           "repo": {
             "oneOf": [
@@ -6558,6 +6565,16 @@
                 "$ref": "#/components/schemas/IFormFileCollection"
               }
             ]
+          },
+          "keepFileIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         }
       },

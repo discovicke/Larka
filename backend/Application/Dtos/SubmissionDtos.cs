@@ -5,8 +5,10 @@ namespace Backend.Application.Dtos;
 
 // --- requests ---
 
-// Filerna kommer med uppladdningen (FileUpload) och ersätter tidigare filer vid ny inlämning (t.ex. efter komplettering).
-public record SubmitDto(string? BodyMd = null);
+// Filerna kommer med uppladdningen (FileUpload). Utan KeepFileIds ersätter de tidigare filer vid ny inlämning
+// (t.ex. efter komplettering). Med KeepFileIds behålls de filerna och resten tas bort, så att eleven kan
+// ändra texten eller byta en enda fil utan att skicka om alla.
+public record SubmitDto(string? BodyMd = null, List<Guid>? KeepFileIds = null);
 
 // NeedsWork = begär komplettering: bara feedback, inget betyg.
 public record GradeSubmissionDto(string Feedback, GradeLevel? Level = null, bool NeedsWork = false);

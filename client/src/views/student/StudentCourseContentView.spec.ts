@@ -30,6 +30,7 @@ interface StudentItem {
   submissionStatus: string | null
   gradeLevel: string | null
   hasRepoMode?: boolean
+  submissionModes?: string[]
   repo?: {
     repoFullName: string
     lastSha: string | null
@@ -80,6 +81,7 @@ const submitted: StudentItem = {
   canMarkDone: false,
   isCompleted: true,
   submissionStatus: 'Submitted',
+  submissionModes: ['Text'],
 }
 
 const graded: StudentItem = {
@@ -99,6 +101,7 @@ const repoAssignment: StudentItem = {
   isCompleted: false,
   submissionStatus: null,
   hasRepoMode: true,
+  submissionModes: ['Repo'],
   repo: {
     repoFullName: 'skol-org/repo-alice',
     lastSha: 'abcdef1234567890',
@@ -172,6 +175,9 @@ function backend(content: StudentItem[], gitHubLogin: string | null = null) {
           contentLinkId: 'l4',
           studentId: 'u1',
           status: 'Graded',
+          bodyMd: 'Min lösning',
+          submittedAt: '2026-10-27T10:00:00Z',
+          files: [],
           grade: {gradedById: 't1', level: 'Pass', feedback: 'Snyggt arbete med pipelinen', gradedAt: '2026-10-28T10:00:00Z'},
         }],
       }
@@ -191,6 +197,43 @@ async function openSection(
 }
 
 describe('StudentCourseContentView', () => {
+  it('lämnar in en textuppgift och uppdaterar vyn och statusen på plats', async () => {
+    const open = {...submitted, linkId: 'l8', isCompleted: false, submissionStatus: null}
+    let handedIn = false
+    mockApi((method, path) => {
+      if (path === '/api/me') {
+        return {status: 200, body: meAs('Student', ['c1'], 'Anna Elev')}
+      }
+      if (path === '/api/courses') {
+        return {status: 200, body: [course]}
+      }
+      if (path === '/api/courses/c1/student-modules') {
+        return {status: 200, body: [week([handedIn
+          ? {...open, submissionStatus: 'Submitted'}
+          : open])]}
+      }
+      if (method === 'POST' && path === '/api/links/l8/submissions') {
+        handedIn = true
+        return {status: 200, body: {id: 's8', status: 'Submitted', bodyMd: 'Klart', submittedAt: '2026-10-29T09:00:00Z', files: []}}
+      }
+      return {status: 200, body: []}
+    })
+    const {wrapper} = await renderApp('/courses/c1/content?del=l8')
+
+    expect(wrapper.find('[data-test="student-detail"]').text()).toContain('Inte inlämnad')
+    const markdownTab = wrapper.findAll('button').find((button) => button.text() === 'Markdown')!
+    await markdownTab.trigger('click')
+    await wrapper.find('[data-test="submission-form"] textarea').setValue('Klart')
+    await wrapper.find('[data-test="submission-form"]').trigger('submit')
+    await flushPromises()
+
+    const detail = wrapper.find('[data-test="student-detail"]')
+    expect(detail.find('[data-test="submission-form"]').exists()).toBe(false)
+    expect(detail.find('[data-test="submission-date"]').text()).toContain('Inlämnad')
+    expect(detail.find('aside').text()).toContain('Inlämnad')
+    expect(detail.find('aside').text()).not.toContain('Inte inlämnad')
+  })
+
   it('visar kursens header en gång och ingen val av grupp eller kurs', async () => {
     backend([theory])
     const {wrapper} = await renderApp('/courses/c1/content')

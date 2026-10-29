@@ -158,12 +158,16 @@ public class SubmissionService(
         // Med repo är repot själva inlämningen. Annars måste det finnas något av det uppgiften tar emot.
         var hasText = modes.Contains(SubmissionMode.Text) && !string.IsNullOrWhiteSpace(dto.BodyMd);
         var hasFiles = modes.Contains(SubmissionMode.File) && files.Count > 0;
-        if (!UsesRepo(modes) && !hasText && !hasFiles)
+        var submission = await submissions.GetForStudentAsync(linkId, currentUser.UserId, ct);
+        var keptFiles = submission is null || dto.KeepFileIds is null
+            ? []
+            : submission.Files.Where(file => dto.KeepFileIds.Contains(file.Id)).ToList();
+        if (!UsesRepo(modes) && !hasText && !(modes.Contains(SubmissionMode.File) && keptFiles.Count > 0)
+            && !hasFiles)
         {
             return ServiceResult<SubmissionDto>.Invalid("this assignment needs a text answer or files");
         }
 
-        var submission = await submissions.GetForStudentAsync(linkId, currentUser.UserId, ct);
         if (submission is null)
         {
             // Eleven fanns inte i gruppen när uppgiften delades ut.
@@ -180,7 +184,8 @@ public class SubmissionService(
         submission.BodyMd = dto.BodyMd;
 
         // Nya filer ersätter de gamla, och först när allt är sparat tas de gamla bort ur lagringen.
-        var oldKeys = submission.Files.Select(file => file.StorageKey).ToList();
+        var removedFiles = submission.Files.Where(file => !keptFiles.Contains(file)).ToList();
+        var oldKeys = removedFiles.Select(file => file.StorageKey).ToList();
         var newFiles = new List<SubmissionFile>();
         try
         {
@@ -197,8 +202,8 @@ public class SubmissionService(
                 });
             }
 
-            submissions.RemoveFiles(submission.Files);
-            submission.Files = newFiles;
+            submissions.RemoveFiles(removedFiles);
+            submission.Files = [.. keptFiles, .. newFiles];
             submissions.AddFiles(newFiles);
             await unitOfWork.SaveChangesAsync(ct);
         }

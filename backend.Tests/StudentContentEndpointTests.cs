@@ -50,6 +50,7 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
         string? SubmissionStatus,
         string? GradeLevel,
         bool HasRepoMode,
+        List<string> SubmissionModes,
         RepoResponse? Repo);
 
     private record UnlinkedStudentResponse(Guid Id, string Name, string Email);
@@ -179,6 +180,19 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
         var content = modules.Single().Content;
         Assert.True(content.Single(item => item.LinkId == assignment).IsCompleted);
         Assert.False(content.Single(item => item.LinkId == exercise).IsLocked);
+    }
+
+    [Fact]
+    public async Task AssignmentItem_ListsItsSubmissionModes()
+    {
+        var setup = await AddCourseWithGroupAsync();
+        var week = await CreateModuleAsync(setup.CourseId);
+        var assignment = await LinkAssignmentAsync(setup.CourseId, week.Id, "Inlämning");
+
+        var item = (await GetStudentModulesAsync(setup, setup.StudentIds[0]))
+            .Single().Content.Single(item => item.LinkId == assignment);
+
+        Assert.NotEmpty(item.SubmissionModes);
     }
 
     [Fact]

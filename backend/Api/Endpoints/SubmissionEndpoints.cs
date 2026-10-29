@@ -21,7 +21,7 @@ public static class SubmissionEndpoints
             Guid id, [FromForm] SubmitForm form, SubmissionService service, CancellationToken ct) =>
         {
             var result = await FormFileUploads.WithUploadsAsync(form.Files, uploads =>
-                service.SubmitAsync(id, new SubmitDto(form.BodyMd), uploads, ct));
+                service.SubmitAsync(id, new SubmitDto(form.BodyMd, form.KeepFileIds), uploads, ct));
             return result.ToHttp(submission => TypedResults.Ok(submission));
         })
             .Accepts<SubmitForm>("multipart/form-data")

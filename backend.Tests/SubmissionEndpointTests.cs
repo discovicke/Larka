@@ -19,7 +19,7 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
 
     private record ContentResponse(Guid Id, AssignmentResponse? Assignment);
 
-    private record FileResponse(string FileName);
+    private record FileResponse(Guid Id, string FileName);
 
     private record RepoResponse(
         string RepoFullName,
@@ -167,6 +167,37 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
         var submission = Assert.Single(submissions);
         Assert.Equal("Submitted", submission.Status);
         Assert.Equal(["rapport-v2.pdf"], submission.Files.Select(file => file.FileName));
+    }
+
+    [Fact]
+    public async Task Resubmit_WithKeepFileIds_KeepsThoseFilesAndAddsNew()
+    {
+        var (groupId, _) = await AddGroupAsync(students: 0);
+        var linkId = await LinkAsync(await CreateAssignmentAsync(_fileSpec), new { groupId });
+        var first = await SubmitFilesAsync(linkId, "a.pdf", "b.pdf");
+        var keep = first.Value!.Files.Single(file => file.FileName == "a.pdf").Id;
+
+        var second = await SubmitFilesAsync(linkId, new List<Guid> { keep }, "c.pdf");
+
+        Assert.Equal(ResultStatus.Ok, second.Status);
+        var submission = Assert.Single(await ListAsync(linkId));
+        Assert.Equal(["a.pdf", "c.pdf"], submission.Files.Select(file => file.FileName).Order());
+    }
+
+    [Fact]
+    public async Task Resubmit_KeepingAllFiles_WithoutNewOnes_IsAllowed_ButKeepingNoneIsNot()
+    {
+        var (groupId, _) = await AddGroupAsync(students: 0);
+        var linkId = await LinkAsync(await CreateAssignmentAsync(_fileSpec), new { groupId });
+        var first = await SubmitFilesAsync(linkId, "a.pdf");
+        var keep = first.Value!.Files.Single().Id;
+
+        var kept = await SubmitFilesAsync(linkId, new List<Guid> { keep });
+        var none = await SubmitFilesAsync(linkId, new List<Guid>());
+
+        Assert.Equal(ResultStatus.Ok, kept.Status);
+        Assert.Equal(ResultStatus.Invalid, none.Status);
+        Assert.Single(Assert.Single(await ListAsync(linkId)).Files);
     }
 
     [Fact]
@@ -429,14 +460,18 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     }
 
     // Lämnas in genom servicen, så att testet inte beror på hur formuläret kodas (det täcks i FileUploadTests).
-    private async Task<ServiceResult<SubmissionDto>> SubmitFilesAsync(Guid linkId, params string[] fileNames)
+    private Task<ServiceResult<SubmissionDto>> SubmitFilesAsync(Guid linkId, params string[] fileNames) =>
+        SubmitFilesAsync(linkId, null, fileNames);
+
+    private async Task<ServiceResult<SubmissionDto>> SubmitFilesAsync(
+        Guid linkId, List<Guid>? keepFileIds, params string[] fileNames)
     {
         using var scope = factory.Services.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<SubmissionService>();
         var uploads = fileNames
             .Select(name => new FileUpload(name, 3, new MemoryStream([1, 2, 3])))
             .ToList();
-        return await service.SubmitAsync(linkId, new SubmitDto(), uploads, CancellationToken.None);
+        return await service.SubmitAsync(linkId, new SubmitDto(null, keepFileIds), uploads, CancellationToken.None);
     }
 
     private async Task<(Guid GroupId, Guid SchoolId)> AddGroupAsync(int students, int teachers = 0)

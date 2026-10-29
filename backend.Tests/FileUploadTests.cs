@@ -19,7 +19,7 @@ public class FileUploadTests(TestWebApplicationFactory factory) : IClassFixture<
 
     private record AttachmentResponse(Guid Id, string FileName, string Url, long SizeBytes);
 
-    private record FileResponse(string FileName, string Url);
+    private record FileResponse(Guid Id, string FileName, string Url);
 
     private record SubmissionResponse(Guid Id, Guid StudentId, string Status, List<FileResponse> Files);
 
@@ -79,6 +79,22 @@ public class FileUploadTests(TestWebApplicationFactory factory) : IClassFixture<
         Assert.Equal("Submitted", submission.Status);
         Assert.Equal("rapport.pdf", Assert.Single(submission.Files).FileName);
         Assert.Single(Storage.Keys, key => key.StartsWith($"submissions/{submission.Id}/"));
+    }
+
+    [Fact]
+    public async Task Resubmit_WithKeepFileIdsInTheForm_KeepsThatFile()
+    {
+        var assignment = await CreateFileAssignmentAsync(studentCount: 1);
+        var student = assignment.Students[0];
+        var first = await SubmitFileAsync(assignment.LinkId, student);
+        var form = FileForm("ny.pdf");
+        form.Add(new StringContent(first.Files[0].Id.ToString()), "keepFileIds");
+
+        var response = await SendAsync(HttpMethod.Post, $"/api/links/{assignment.LinkId}/submissions", student, form);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var files = (await response.Content.ReadFromJsonAsync<SubmissionResponse>())!.Files;
+        Assert.Equal(2, files.Count);
     }
 
     [Fact]

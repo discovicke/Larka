@@ -16,6 +16,7 @@ import {computed, onMounted, ref, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 
 import GitHubAssignmentBlock from '@/components/GitHubAssignmentBlock.vue'
+import SubmissionPanel from '@/components/student/SubmissionPanel.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Badge} from '@/components/ui/badge'
 import {Button} from '@/components/ui/button'
@@ -81,6 +82,18 @@ watch(() => props.courseId, async () => {
 }, {immediate: true})
 
 onMounted(loadMe)
+
+// Efter en inlämning hämtas veckorna om utan skelett, så att vyn och statusen uppdateras på plats.
+async function reload() {
+  try {
+    const {data} = await api.GET('/api/courses/{courseId}/student-modules', {
+      params: {path: {courseId: props.courseId}},
+    })
+    modules.value = data ?? []
+  } catch (exception) {
+    error.value = errorMessage(exception)
+  }
+}
 
 async function load() {
   loading.value = true
@@ -539,6 +552,12 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
               </p>
               <p class="text-muted-foreground text-xs">Bedömd {{ formatDate(feedback.gradedAt, true) }}</p>
             </section>
+
+            <SubmissionPanel
+              v-if="selectedItem.type === 'Assignment' && !selectedItem.isLocked"
+              :item="selectedItem"
+              @submitted="reload"
+            />
 
             <section
               v-if="selectedItem.type !== 'News' && !selectedItem.isLocked"
