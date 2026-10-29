@@ -607,6 +607,10 @@ namespace Backend.Infrastructure.Persistence.Migrations
                     b.Property<string>("GitHubLogin")
                         .HasColumnType("text");
 
+                    b.PrimitiveCollection<int[]>("MutedNotificationKinds")
+                        .IsRequired()
+                        .HasColumnType("integer[]");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
@@ -638,6 +642,7 @@ namespace Backend.Infrastructure.Persistence.Migrations
                         {
                             Id = new Guid("00000000-0000-0000-0000-000000000001"),
                             Email = "placeholder@rebornlms.local",
+                            MutedNotificationKinds = new int[0],
                             Name = "Placeholder",
                             Role = "Admin",
                             SchoolId = new Guid("00000000-0000-0000-0000-00000000000a")

@@ -271,12 +271,13 @@ public class SubmissionService(
             ? SubmissionStatus.NeedsWork
             : SubmissionStatus.Graded;
 
-        notifications.NotifySubmission(
+        await notifications.NotifySubmissionAsync(
             submission,
             linked.Content.Id,
             dto.NeedsWork
                 ? NotificationKind.SubmissionNeedsWork
-                : NotificationKind.SubmissionGraded);
+                : NotificationKind.SubmissionGraded,
+            ct);
         await unitOfWork.SaveChangesAsync(ct);
         return ServiceResult<SubmissionDto>.Ok(await ToDtoAsync(submission, ct));
     }

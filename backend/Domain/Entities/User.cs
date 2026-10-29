@@ -15,4 +15,7 @@ public class User
 
     // GitHub-användarnamn, satt via OAuth. Null tills eleven har kopplat sitt GitHub-konto.
     public string? GitHubLogin { get; set; }
+
+    // Notiser av dessa slag vill användaren inte ha i appen.
+    public List<NotificationKind> MutedNotificationKinds { get; set; } = [];
 }

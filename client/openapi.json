@@ -356,6 +356,58 @@
         }
       }
     },
+    "/api/me/notification-settings": {
+      "get": {
+        "tags": [
+          "Me"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettingsDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Me"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationSettingsDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettingsDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/api/calendar": {
       "get": {
         "tags": [
@@ -4197,6 +4249,23 @@
           }
         }
       },
+      "GroupRefDto": {
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "description": "En grupp användaren är medlem i, med vilken roll som helst."
+      },
       "GroupRole": {
         "enum": [
           "Student",
@@ -4274,7 +4343,8 @@
           "email",
           "role",
           "school",
-          "courses"
+          "courses",
+          "groups"
         ],
         "type": "object",
         "properties": {
@@ -4298,6 +4368,12 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CourseRoleDto"
+            }
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupRefDto"
             }
           },
           "gitHubLogin": {
@@ -4681,6 +4757,21 @@
           }
         },
         "description": "De senaste notiserna, och antalet olästa i alla (inte bara de som skickas med)."
+      },
+      "NotificationSettingsDto": {
+        "required": [
+          "muted"
+        ],
+        "type": "object",
+        "properties": {
+          "muted": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationKind"
+            }
+          }
+        },
+        "description": "Slag av notiser användaren har stängt av i appen."
       },
       "ReorderContentDto": {
         "required": [

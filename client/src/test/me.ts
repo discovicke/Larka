@@ -17,6 +17,7 @@ export function meAs(role: MeRole, courses: string[] = [], name = 'Anna Lärare'
         ? 'Student'
         : 'Teacher',
     })),
+    groups: [],
     gitHubLogin,
   }
 }

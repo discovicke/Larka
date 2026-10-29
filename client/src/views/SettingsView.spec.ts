@@ -5,7 +5,7 @@ import {useCurrentUser} from '@/composables/useCurrentUser'
 import {useTheme} from '@/composables/useTheme'
 import type {GitHubConnection} from '@/lib/integrations'
 import {THEME_STORAGE_KEY} from '@/lib/theme'
-import {mockApi} from '@/test/mockApi'
+import {mockApi, requests} from '@/test/mockApi'
 import {meAs} from '@/test/me'
 import SettingsView from './SettingsView.vue'
 
@@ -26,10 +26,16 @@ function settingsBackend(
   role: 'Admin' | 'Student',
   github: GitHubConnection = connectedGitHub,
   gitHubLogin: string | null = null,
+  options: {muted?: string[], saveStatus?: number, groups?: {id: string, name: string}[]} = {},
 ) {
-  mockApi((method, path) => {
+  mockApi((method, path, body) => {
     if (path === '/api/me') {
-      return {status: 200, body: meAs(role, [], 'Anna', gitHubLogin)}
+      return {status: 200, body: {...meAs(role, [], 'Anna', gitHubLogin), groups: options.groups ?? []}}
+    }
+    if (path === '/api/me/notification-settings') {
+      return method === 'PUT'
+        ? {status: options.saveStatus ?? 200, body}
+        : {status: 200, body: {muted: options.muted ?? []}}
     }
     if (path === '/api/integrations/github') {
       return {status: 200, body: github}
@@ -176,5 +182,90 @@ describe('SettingsView', () => {
 
     await unlinkButton.trigger('click')
     await flushPromises()
+  })
+
+  it('visar profilen med roll, skola, e-post och grupper', async () => {
+    settingsBackend('Student', connectedGitHub, null, {
+      groups: [{id: 'g1', name: 'NET25'}, {id: 'g2', name: 'Lag 1'}],
+    })
+
+    const wrapper = mount(SettingsView)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="profile-name"]').text()).toBe('Anna')
+    expect(wrapper.find('[data-test="profile-line"]').text()).toBe('Elev · Edugrade · anna@example.com')
+    expect(wrapper.find('[data-test="profile-groups"]').text()).toContain('NET25')
+    expect(wrapper.find('[data-test="profile-groups"]').text()).toContain('Lag 1')
+  })
+
+  it('säger att användaren saknar grupper', async () => {
+    const wrapper = mount(SettingsView)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="profile-no-groups"]').text()).toBe('Inga grupper')
+  })
+
+  it('visar aviseringarna som valts bort som avbockade', async () => {
+    settingsBackend('Student', connectedGitHub, null, {muted: ['NewsPublished', 'SubmissionGraded']})
+
+    const wrapper = mount(SettingsView)
+    await flushPromises()
+
+    const state = (id: string) => wrapper.find(`[data-test="notify-${id}"]`).attributes('aria-checked')
+    expect(state('news')).toBe('false')
+    expect(state('assignments')).toBe('true')
+    expect(state('deadline')).toBe('true')
+    // Betyg och återkoppling styr två slag: räcker att ett är avstängt för att rutan ska vara tom.
+    expect(state('feedback')).toBe('false')
+  })
+
+  it('sparar direkt när Nyheter bockas av', async () => {
+    const wrapper = mount(SettingsView)
+    await flushPromises()
+
+    await wrapper.find('[data-test="notify-news"]').trigger('click')
+    await flushPromises()
+
+    const put = requests.find((request) => request.method === 'PUT')
+    expect(put?.path).toBe('/api/me/notification-settings')
+    expect(put?.body).toEqual({muted: ['NewsPublished']})
+    expect(wrapper.find('[data-test="notify-news"]').attributes('aria-checked')).toBe('false')
+  })
+
+  it('stänger av båda slagen för betyg och återkoppling med en ruta', async () => {
+    const wrapper = mount(SettingsView)
+    await flushPromises()
+
+    await wrapper.find('[data-test="notify-feedback"]').trigger('click')
+    await flushPromises()
+
+    const put = requests.find((request) => request.method === 'PUT')
+    expect(put?.body).toEqual({muted: ['SubmissionGraded', 'SubmissionNeedsWork']})
+  })
+
+  it('återställer rutan och visar felet när sparandet misslyckas', async () => {
+    settingsBackend('Student', connectedGitHub, null, {saveStatus: 500})
+
+    const wrapper = mount(SettingsView)
+    await flushPromises()
+    await wrapper.find('[data-test="notify-news"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="notify-news"]').attributes('aria-checked')).toBe('true')
+    expect(wrapper.find('[data-test="notifications-error"]').exists()).toBe(true)
+  })
+
+  it('visar Integrationer i menyn bara för admin', async () => {
+    const student = mount(SettingsView)
+    await flushPromises()
+    expect(student.find('nav[aria-label="Inställningar"]').text()).not.toContain('Integrationer')
+    expect(student.find('nav[aria-label="Inställningar"]').text()).toContain('Kopplade konton')
+
+    useCurrentUser().resetCurrentUser()
+    settingsBackend('Admin')
+    const admin = mount(SettingsView)
+    await flushPromises()
+    await flushPromises()
+    expect(admin.find('nav[aria-label="Inställningar"]').text()).toContain('Integrationer')
   })
 })

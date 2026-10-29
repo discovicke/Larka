@@ -10,9 +10,16 @@ public record MeDto(
     UserRole Role,
     SchoolRefDto School,
     List<CourseRoleDto> Courses,
+    List<GroupRefDto> Groups,
     string? GitHubLogin = null);
 
 public record SchoolRefDto(Guid Id, string Name);
+
+/// <summary>En grupp användaren är medlem i, med vilken roll som helst.</summary>
+public record GroupRefDto(Guid Id, string Name);
+
+/// <summary>Slag av notiser användaren har stängt av i appen.</summary>
+public record NotificationSettingsDto(List<NotificationKind> Muted);
 
 /// <summary>Användarens starkaste roll i kursen: Teacher, Mentor eller Student.</summary>
 public record CourseRoleDto(Guid CourseId, GroupRole Role);

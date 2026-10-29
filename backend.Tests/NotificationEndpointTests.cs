@@ -101,6 +101,21 @@ public class NotificationEndpointTests(TestWebApplicationFactory factory) : ICla
     }
 
     [Fact]
+    public async Task UserWhoMutedTheKind_GetsNoNotification_WhileOthersDo()
+    {
+        var setup = await AddSetupAsync();
+        await UpdateDbAsync(db => db.Users
+            .Where(user => user.Id == setup.StudentId)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(
+                user => user.MutedNotificationKinds, [NotificationKind.NewsPublished])));
+
+        await CreateAsync(News("Tyst"), new { groupId = setup.GroupId });
+
+        Assert.Empty((await ListForAsync(setup.StudentId)).Items);
+        Assert.Single((await ListForAsync(setup.OtherStudentId)).Items);
+    }
+
+    [Fact]
     public async Task Draft_NotifiesOnlyOnceItIsPublished_AndNeverTwice()
     {
         var setup = await AddSetupAsync();

@@ -33,6 +33,25 @@ public static class MeEndpoints
         app.MapGet("/me/teaching", async (TeachingService service, CancellationToken ct) =>
             TypedResults.Ok(await service.GetAsync(ct))).WithTags("Me");
 
+        // Vilka notiser användaren inte vill ha i appen.
+        app.MapGet("/me/notification-settings", async Task<Results<Ok<NotificationSettingsDto>, NotFound>> (
+            MeService service, CancellationToken ct) =>
+        {
+            var settings = await service.GetNotificationSettingsAsync(ct);
+            return settings is null
+                ? TypedResults.NotFound()
+                : TypedResults.Ok(settings);
+        }).WithTags("Me");
+
+        app.MapPut("/me/notification-settings", async Task<Results<Ok<NotificationSettingsDto>, NotFound>> (
+            NotificationSettingsDto body, MeService service, CancellationToken ct) =>
+        {
+            var settings = await service.SaveNotificationSettingsAsync(body, ct);
+            return settings is null
+                ? TypedResults.NotFound()
+                : TypedResults.Ok(settings);
+        }).WithTags("Me");
+
         return app;
     }
 }

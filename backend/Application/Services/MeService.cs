@@ -10,6 +10,7 @@ public class MeService(
     ISchoolRepository schools,
     ICourseRepository courses,
     IGroupRepository groups,
+    IUnitOfWork unitOfWork,
     ICurrentUser currentUser)
 {
     /// <summary>Returnerar null om den inloggade användaren inte finns.</summary>
@@ -42,6 +43,33 @@ public class MeService(
             user.Role,
             new SchoolRefDto(school.Id, school.Name),
             courseRoles,
+            (await groups.GetMemberGroupsAsync(user.Id, ct))
+                .Select(group => new GroupRefDto(group.Id, group.Name))
+                .ToList(),
             user.GitHubLogin);
+    }
+
+    /// <summary>Slagen av notiser användaren stängt av. Null om användaren inte finns.</summary>
+    public async Task<NotificationSettingsDto?> GetNotificationSettingsAsync(CancellationToken ct)
+    {
+        var user = await users.GetAsync(currentUser.UserId, ct);
+        return user is null
+            ? null
+            : new NotificationSettingsDto(user.MutedNotificationKinds);
+    }
+
+    /// <summary>Sparar vilka slag som är avstängda. Dubbletter tas bort. Null om användaren inte finns.</summary>
+    public async Task<NotificationSettingsDto?> SaveNotificationSettingsAsync(
+        NotificationSettingsDto settings, CancellationToken ct)
+    {
+        var user = await users.GetAsync(currentUser.UserId, ct);
+        if (user is null)
+        {
+            return null;
+        }
+
+        user.MutedNotificationKinds = settings.Muted.Distinct().Order().ToList();
+        await unitOfWork.SaveChangesAsync(ct);
+        return new NotificationSettingsDto(user.MutedNotificationKinds);
     }
 }

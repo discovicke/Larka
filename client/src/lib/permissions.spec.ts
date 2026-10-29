@@ -13,6 +13,7 @@ function user(role: Me['role'], courses: Me['courses']): Me {
     role,
     school: {id: 's1', name: 'Edugrade'},
     courses,
+    groups: [],
   }
 }
 

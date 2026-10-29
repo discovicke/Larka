@@ -14,6 +14,7 @@ namespace Backend.Application.Services;
 public class NotificationService(
     INotificationRepository notifications,
     IGroupRepository groups,
+    IUserRepository users,
     IModuleRepository modules,
     ISubmissionRepository submissions,
     IUnitOfWork unitOfWork,
@@ -40,7 +41,14 @@ public class NotificationService(
         await NotifyPublishedAsync(content, await notifications.GetLinksAsync(content.Id, ct), ct);
 
     /// <summary>Notis till eleven om att inlämningen bedömts (Graded) eller behöver kompletteras (NeedsWork).</summary>
-    public void NotifySubmission(Submission submission, Guid contentId, NotificationKind kind) =>
+    public async Task NotifySubmissionAsync(
+        Submission submission, Guid contentId, NotificationKind kind, CancellationToken ct)
+    {
+        if (await IsMutedAsync(submission.StudentId, kind, ct))
+        {
+            return;
+        }
+
         notifications.AddRange([
             new Notification
             {
@@ -51,6 +59,7 @@ public class NotificationService(
                 CreatedAt = time.GetUtcNow()
             }
         ]);
+    }
 
     /// <summary>
     /// Det som sker på en klocka: publiceringar vars tid passerat sedan förra gången, och påminnelser till elever
@@ -135,6 +144,7 @@ public class NotificationService(
 
         recipients.Remove(content.AuthorId);
         recipients.ExceptWith(await notifications.GetNotifiedUserIdsAsync(kind.Value, content.Id, ct));
+        recipients.ExceptWith(await MutedAmongAsync(recipients, kind.Value, ct));
         notifications.AddRange(recipients.Select(userId => new Notification
         {
             UserId = userId,
@@ -159,9 +169,16 @@ public class NotificationService(
 
         var reminded = await notifications.GetNotifiedUserIdsAsync(NotificationKind.DeadlineSoon, content.Id, ct);
         var created = new List<Notification>();
+        var studentsByLink = new List<(ContentLink Link, List<Guid> StudentIds)>();
         foreach (var link in linked.Select(item => item.Link))
         {
-            var studentIds = await notifications.GetStudentIdsAsync(await GroupIdsAsync(link, ct), ct);
+            studentsByLink.Add((link, await notifications.GetStudentIdsAsync(await GroupIdsAsync(link, ct), ct)));
+        }
+
+        var muted = await MutedAmongAsync(
+            studentsByLink.SelectMany(item => item.StudentIds).ToHashSet(), NotificationKind.DeadlineSoon, ct);
+        foreach (var (link, studentIds) in studentsByLink)
+        {
             var linkSubmissions = (await submissions.GetByLinkAsync(link.Id, ct))
                 .ToDictionary(submission => submission.StudentId);
             foreach (var studentId in studentIds)
@@ -172,7 +189,7 @@ public class NotificationService(
                     continue;
                 }
 
-                if (reminded.Add(studentId))
+                if (!muted.Contains(studentId) && reminded.Add(studentId))
                 {
                     created.Add(new Notification
                     {
@@ -195,6 +212,22 @@ public class NotificationService(
         link.GroupId is not null
             ? [link.GroupId.Value]
             : await groups.GetGroupIdsReadingCourseAsync(link.CourseId!.Value, ct);
+
+    private async Task<bool> IsMutedAsync(Guid userId, NotificationKind kind, CancellationToken ct) =>
+        (await MutedAmongAsync([userId], kind, ct)).Contains(userId);
+
+    // Vilka av användarna som stängt av det här slaget, i en fråga.
+    private async Task<HashSet<Guid>> MutedAmongAsync(
+        IReadOnlyCollection<Guid> userIds, NotificationKind kind, CancellationToken ct)
+    {
+        if (userIds.Count == 0)
+        {
+            return [];
+        }
+
+        var muted = await users.GetMutedKindsAsync(userIds, ct);
+        return muted.Where(entry => entry.Value.Contains(kind)).Select(entry => entry.Key).ToHashSet();
+    }
 
     private async Task<bool> IsModuleOpenAsync(ContentLink link, DateTimeOffset now, CancellationToken ct)
     {

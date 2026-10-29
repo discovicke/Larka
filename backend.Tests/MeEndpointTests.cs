@@ -12,9 +12,14 @@ public class MeEndpointTests(TestWebApplicationFactory factory) : IClassFixture<
     private readonly HttpClient _client = factory.CreateClient();
 
     private record MeResponse(
-        Guid Id, string Name, string Email, string Role, SchoolResponse School, List<CourseRoleResponse> Courses);
+        Guid Id, string Name, string Email, string Role, SchoolResponse School, List<CourseRoleResponse> Courses,
+        List<GroupResponse> Groups);
 
     private record SchoolResponse(Guid Id, string Name);
+
+    private record GroupResponse(Guid Id, string Name);
+
+    private record NotificationSettingsResponse(List<string> Muted);
 
     private record CourseRoleResponse(Guid CourseId, string Role);
 
@@ -79,11 +84,90 @@ public class MeEndpointTests(TestWebApplicationFactory factory) : IClassFixture<
     }
 
     [Fact]
+    public async Task Me_HasTheGroupsTheUserIsMemberOf_OrderedByName()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var school = await TestData.AddSchoolAsync(db);
+        var second = await TestData.AddGroupAsync(db, school.Id);
+        var first = await TestData.AddGroupAsync(db, school.Id);
+        await TestData.AddGroupAsync(db, school.Id);
+        second.Name = "Bbb " + second.Name;
+        first.Name = "Aaa " + first.Name;
+        var teacher = await TestData.AddUserAsync(db, school.Id, UserRole.Teacher);
+        db.Enrollments.AddRange(
+            new Enrollment { UserId = teacher.Id, GroupId = second.Id, Role = GroupRole.Student },
+            new Enrollment { UserId = teacher.Id, GroupId = first.Id, Role = GroupRole.Teacher });
+        await db.SaveChangesAsync();
+
+        var me = await GetMeAsync(teacher.Id);
+
+        Assert.Equal([first.Id, second.Id], me!.Groups.Select(group => group.Id));
+        Assert.Equal([first.Name, second.Name], me.Groups.Select(group => group.Name));
+    }
+
+    [Fact]
+    public async Task NotificationSettings_AreEmptyByDefault()
+    {
+        var userId = await AddUserAsync();
+
+        var settings = await GetSettingsAsync(userId);
+
+        Assert.Empty(settings!.Muted);
+    }
+
+    [Fact]
+    public async Task NotificationSettings_RoundTrip_AndDuplicatesAreRemoved()
+    {
+        var userId = await AddUserAsync();
+
+        var response = await PutSettingsAsync(userId, ["NewsPublished", "DeadlineSoon", "NewsPublished"]);
+
+        response.EnsureSuccessStatusCode();
+        var saved = await response.Content.ReadFromJsonAsync<NotificationSettingsResponse>();
+        Assert.Equal(["NewsPublished", "DeadlineSoon"], saved!.Muted);
+        var read = await GetSettingsAsync(userId);
+        Assert.Equal(2, read!.Muted.Count);
+        Assert.Contains("NewsPublished", read.Muted);
+        Assert.Contains("DeadlineSoon", read.Muted);
+
+        await PutSettingsAsync(userId, []);
+        Assert.Empty((await GetSettingsAsync(userId))!.Muted);
+    }
+
+    [Fact]
     public async Task Me_ForUnknownUser_ReturnsNotFound()
     {
         var response = await SendAsync(Guid.NewGuid());
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    private async Task<Guid> AddUserAsync()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var school = await TestData.AddSchoolAsync(db);
+        return (await TestData.AddUserAsync(db, school.Id, UserRole.Student)).Id;
+    }
+
+    private async Task<NotificationSettingsResponse?> GetSettingsAsync(Guid userId)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, "/api/me/notification-settings");
+        request.Headers.Add(TestAuthHandler.Header, userId.ToString());
+        var response = await _client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<NotificationSettingsResponse>();
+    }
+
+    private async Task<HttpResponseMessage> PutSettingsAsync(Guid userId, string[] muted)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Put, "/api/me/notification-settings")
+        {
+            Content = JsonContent.Create(new { muted })
+        };
+        request.Headers.Add(TestAuthHandler.Header, userId.ToString());
+        return await _client.SendAsync(request);
     }
 
     private async Task<MeResponse?> GetMeAsync(Guid userId)

@@ -13,6 +13,16 @@ public class UserRepository(AppDb db) : IUserRepository
     public Task<User?> GetAsync(Guid id, CancellationToken ct) =>
         db.Users.FirstOrDefaultAsync(user => user.Id == id, ct);
 
+    public async Task<Dictionary<Guid, List<NotificationKind>>> GetMutedKindsAsync(
+        IReadOnlyCollection<Guid> userIds, CancellationToken ct)
+    {
+        var rows = await db.Users
+            .Where(user => userIds.Contains(user.Id) && user.MutedNotificationKinds.Count > 0)
+            .Select(user => new { user.Id, user.MutedNotificationKinds })
+            .ToListAsync(ct);
+        return rows.ToDictionary(row => row.Id, row => row.MutedNotificationKinds);
+    }
+
     public void Add(User user) => db.Users.Add(user);
 
     public Task<User?> GetByEmailAsync(string email, CancellationToken ct)

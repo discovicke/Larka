@@ -483,6 +483,78 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/notification-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["NotificationSettingsDto"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["NotificationSettingsDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["NotificationSettingsDto"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/calendar": {
         parameters: {
             query?: never;
@@ -3645,6 +3717,12 @@ export interface components {
             name: string;
             term: string;
         };
+        /** @description En grupp användaren är medlem i, med vilken roll som helst. */
+        GroupRefDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
         /** @enum {unknown} */
         GroupRole: "Student" | "Teacher" | "Mentor";
         /** @enum {unknown} */
@@ -3674,6 +3752,7 @@ export interface components {
             role: components["schemas"]["UserRole"];
             school: components["schemas"]["SchoolRefDto"];
             courses: components["schemas"]["CourseRoleDto"][];
+            groups: components["schemas"]["GroupRefDto"][];
             gitHubLogin?: null | string;
         };
         MemberDto: {
@@ -3784,6 +3863,10 @@ export interface components {
             items: components["schemas"]["NotificationDto"][];
             /** Format: int32 */
             unreadCount: number;
+        };
+        /** @description Slag av notiser användaren har stängt av i appen. */
+        NotificationSettingsDto: {
+            muted: components["schemas"]["NotificationKind"][];
         };
         ReorderContentDto: {
             linkIds: string[];
