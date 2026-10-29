@@ -7,6 +7,10 @@ name: CD
 on:
   push:
     branches: [main]
+    # Bara dokumentation ger ingen release, så det finns inget nytt att bygga eller deploya.
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
   workflow_dispatch:
 
 # Två merges direkt efter varandra får inte tagga samtidigt.

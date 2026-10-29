@@ -16,8 +16,35 @@ permissions:
   contents: read
 
 jobs:
+  # Ändrar en PR bara dokumentation (docs/ och *.md) räcker Prettier. backend hoppas över och frontend kör bara
+  # Prettier. Ett jobb som hoppas över med if: räknas som godkänt, så de obligatoriska kontrollerna går igenom.
+  # paths-ignore på hela workflowen fungerar inte: då rapporterar kontrollerna aldrig och PR:en kan inte mergas.
+  changes:
+    name: changes
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: actions/checkout@v5
+        if: github.event_name == 'pull_request'
+        with:
+          fetch-depth: 2
+
+      # På en PR är HEAD merge-commiten och HEAD^1 main, så diffen är PR:ens ändringar. Allt annat (cd.yml,
+      # manuell körning) kör alla kontroller.
+      - id: diff
+        run: |
+          if [ "${{ github.event_name }}" != pull_request ] \
+            || git diff --name-only HEAD^1 HEAD | grep -qvE '^docs/|\.md$'; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+
   backend:
     name: backend
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -55,6 +82,7 @@ jobs:
 
   frontend:
     name: frontend
+    needs: changes
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -80,28 +108,35 @@ jobs:
         run: npx prettier --check .
 
       - name: Install
+        if: needs.changes.outputs.code == 'true'
         run: npm ci
 
       # Typerna genereras från client/openapi.json. Skiljer de sig har någon glömt npm run gen:api.
       - name: Check API types are up to date
+        if: needs.changes.outputs.code == 'true'
         run: npm run gen:api && git diff --exit-code src/lib/api-types.ts
 
       # ESLint kontrollerar både kodfel och formatering (ESLint Stylistic).
       - name: Lint and check formatting
+        if: needs.changes.outputs.code == 'true'
         run: npm run lint
 
       - name: Build
+        if: needs.changes.outputs.code == 'true'
         run: npm run build
 
       - name: Test
+        if: needs.changes.outputs.code == 'true'
         run: npm run test
 
       # Layoutkontroller i en riktig webbläsare mot det byggda paketet, med API:et mockat. Hör till jobbet
       # `frontend` (ett nytt jobbnamn vore inte ett obligatoriskt statuskrav).
       - name: Install Chromium
+        if: needs.changes.outputs.code == 'true'
         run: npx playwright install --with-deps chromium
 
       - name: Layout tests (Playwright)
+        if: needs.changes.outputs.code == 'true'
         run: npx playwright test
 
       - name: Upload Playwright report
