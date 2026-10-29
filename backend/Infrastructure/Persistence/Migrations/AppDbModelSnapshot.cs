@@ -93,6 +93,34 @@ namespace Backend.Infrastructure.Persistence.Migrations
                     b.ToTable("Attachments");
                 });
 
+            modelBuilder.Entity("Backend.Domain.Entities.ChecklistTick", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CheckedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ContentLinkId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ItemIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContentLinkId");
+
+                    b.HasIndex("StudentId", "ContentLinkId", "ItemIndex")
+                        .IsUnique();
+
+                    b.ToTable("ChecklistTicks");
+                });
+
             modelBuilder.Entity("Backend.Domain.Entities.Comment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -722,6 +750,21 @@ namespace Backend.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("ContentId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Backend.Domain.Entities.ChecklistTick", b =>
+                {
+                    b.HasOne("Backend.Domain.Entities.ContentLink", null)
+                        .WithMany()
+                        .HasForeignKey("ContentLinkId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Backend.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 

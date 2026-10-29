@@ -22,6 +22,16 @@ public static class StudentContentEndpoints
             (await service.SetCompletionAsync(courseId, linkId, completionDto, ct))
                 .ToHttp(TypedResults.Ok));
 
+        course.MapGet("/links/{linkId:guid}/checklist", async (
+            Guid courseId, Guid linkId, StudentContentService service, CancellationToken ct) =>
+            (await service.GetChecklistAsync(courseId, linkId, ct)).ToHttp(TypedResults.Ok));
+
+        course.MapPut("/links/{linkId:guid}/checklist/{index:int}", async (
+            Guid courseId, Guid linkId, int index, SetChecklistTickDto tickDto,
+            StudentContentService service, CancellationToken ct) =>
+            (await service.SetChecklistTickAsync(courseId, linkId, index, tickDto, ct))
+                .ToHttp(TypedResults.Ok));
+
         return app;
     }
 }

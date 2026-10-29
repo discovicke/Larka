@@ -535,4 +535,108 @@ describe('StudentCourseContentView', () => {
     expect(wrapper.find('[data-test="student-detail"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="student-feedback"]').exists()).toBe(false)
   })
+  describe('uppgiftens faktapiller och checklista', () => {
+    const task: StudentItem = {
+      ...submitted,
+      linkId: 'l10',
+      contentId: 'x10',
+      title: 'Pipeline',
+      bodyMd: 'Bygg en pipeline.\n\n- [ ] Länk till en lyckad körning\n- [ ] Skärmbild',
+      isCompleted: false,
+      submissionStatus: null,
+      submissionModes: ['Text', 'File'],
+    }
+
+    // Mockar checklistans endpoints. `failPut` får PUT att svara 500.
+    function checklistBackend(initial: number[], failPut = false) {
+      mockApi((method, path, body) => {
+        if (path === '/api/me') {
+          return {status: 200, body: meAs('Student', ['c1'], 'Anna Elev')}
+        }
+        if (path === '/api/courses') {
+          return {status: 200, body: [course]}
+        }
+        if (path === '/api/courses/c1/student-modules') {
+          return {status: 200, body: [week([task])]}
+        }
+        if (path === '/api/courses/c1/links/l10/checklist' && method === 'GET') {
+          return {status: 200, body: {checkedIndexes: initial}}
+        }
+        if (path.startsWith('/api/courses/c1/links/l10/checklist/') && method === 'PUT') {
+          return failPut
+            ? {status: 500, body: {title: 'fel'}}
+            : {status: 200, body: {checkedIndexes: body}}
+        }
+        return {status: 200, body: []}
+      })
+    }
+
+    it('visar checklistan som bockrutor under "Att lämna in" och tar bort raderna ur texten', async () => {
+      checklistBackend([1])
+      const {wrapper} = await renderApp('/courses/c1/content?del=l10')
+
+      const section = wrapper.find('[data-test="student-checklist"]')
+      expect(section.text()).toContain('Att lämna in')
+      expect(section.text()).toContain('Länk till en lyckad körning')
+      expect(wrapper.find('[data-test="checklist-0"]').attributes('aria-checked')).toBe('false')
+      expect(wrapper.find('[data-test="checklist-1"]').attributes('aria-checked')).toBe('true')
+      expect(wrapper.find('[data-test="student-detail"]').text()).toContain('Bygg en pipeline.')
+      expect(wrapper.find('.ProseMirror').text()).not.toContain('Skärmbild')
+    })
+
+    it('sparar en bockning och skickar rätt plats', async () => {
+      checklistBackend([])
+      const {wrapper} = await renderApp('/courses/c1/content?del=l10')
+
+      await wrapper.find('[data-test="checklist-1"]').trigger('click')
+      await flushPromises()
+
+      expect(wrapper.find('[data-test="checklist-1"]').attributes('aria-checked')).toBe('true')
+      expect(sent('PUT', '/api/courses/c1/links/l10/checklist/1')).toEqual({checked: true})
+    })
+
+    it('ångrar bockningen om servern nekar', async () => {
+      checklistBackend([], true)
+      const {wrapper} = await renderApp('/courses/c1/content?del=l10')
+
+      await wrapper.find('[data-test="checklist-0"]').trigger('click')
+      await flushPromises()
+
+      expect(wrapper.find('[data-test="checklist-0"]').attributes('aria-checked')).toBe('false')
+      expect(wrapper.find('[role="alert"]').exists()).toBe(true)
+    })
+
+    it('visar deadline, betygsskala och inlämningssätt som piller', async () => {
+      checklistBackend([])
+      const {wrapper} = await renderApp('/courses/c1/content?del=l10')
+
+      const pills = wrapper.find('[data-test="fact-pills"]')
+      expect(pills.find('[data-test="pill-scale"]').text()).toContain('IG–G')
+      expect(pills.find('[data-test="pill-handin"]').text()).toContain('text, filer')
+      expect(pills.find('[data-test="pill-due"]').exists()).toBe(false)
+    })
+
+    it.each([
+      [-60 * 60 * 1000, 'text-destructive'],
+      [24 * 60 * 60 * 1000, 'text-warning'],
+      [10 * 24 * 60 * 60 * 1000, 'text-foreground'],
+    ])('färgar deadlinen efter hur nära den är (%i ms)', async (offset, tone) => {
+      const due = new Date(Date.now() + offset).toISOString()
+      mockApi((_method, path) => {
+        if (path === '/api/me') {
+          return {status: 200, body: meAs('Student', ['c1'], 'Anna Elev')}
+        }
+        if (path === '/api/courses') {
+          return {status: 200, body: [course]}
+        }
+        if (path === '/api/courses/c1/student-modules') {
+          return {status: 200, body: [week([{...task, dueAt: due}])]}
+        }
+        return {status: 200, body: {checkedIndexes: []}}
+      })
+      const {wrapper} = await renderApp('/courses/c1/content?del=l10')
+
+      expect(wrapper.find('[data-test="pill-due"]').classes()).toContain(tone)
+    })
+  })
 })

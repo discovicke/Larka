@@ -17,6 +17,7 @@ public class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
     public DbSet<ContentLink> ContentLinks => Set<ContentLink>();
     public DbSet<ContentLinkDependency> ContentLinkDependencies => Set<ContentLinkDependency>();
     public DbSet<PartCompletion> PartCompletions => Set<PartCompletion>();
+    public DbSet<ChecklistTick> ChecklistTicks => Set<ChecklistTick>();
     public DbSet<AssignmentSpec> AssignmentSpecs => Set<AssignmentSpec>();
     public DbSet<Submission> Submissions => Set<Submission>();
     public DbSet<SubmissionFile> SubmissionFiles => Set<SubmissionFile>();

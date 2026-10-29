@@ -86,6 +86,7 @@ function studentPart(linkId: string, title: string, overrides: Record<string, un
     blockedBy: [],
     submissionStatus: null,
     gradeLevel: null,
+    submissionModes: [],
     ...overrides,
   }
 }

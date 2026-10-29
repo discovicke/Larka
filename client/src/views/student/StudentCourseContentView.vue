@@ -16,17 +16,21 @@ import {computed, onMounted, ref, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 
 import GitHubAssignmentBlock from '@/components/GitHubAssignmentBlock.vue'
+import MarkdownView from '@/components/editor/MarkdownView.vue'
 import SubmissionPanel from '@/components/student/SubmissionPanel.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Badge} from '@/components/ui/badge'
 import {Button} from '@/components/ui/button'
+import {Checkbox} from '@/components/ui/checkbox'
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '@/components/ui/collapsible'
 import {Item, ItemMedia} from '@/components/ui/item'
 import {Skeleton} from '@/components/ui/skeleton'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {api, errorMessage, type Schema} from '@/lib/api'
+import {parseChecklist} from '@/lib/checklist'
 import {countLabel, formatDate, partOf} from '@/lib/content'
 import {gradeBadgeVariant, gradeLabel as gradeShort} from '@/lib/submissions'
+import {dueTextClass, isDueSoon, isOverdue} from '@/lib/today'
 
 // Elevens vy av en kurs: veckor, låsta delar och klarmarkering. Den visas i stället för redigeraren
 // på kursens innehållssida för den som inte kan redigera. Servern vet vilka grupper eleven går i,
@@ -143,6 +147,54 @@ const wantedLinkId = computed(() => typeof route.query.del === 'string'
   : '')
 
 watch(wantedLinkId, syncFromQuery)
+
+// Checklistan i uppgiftstexten (`- [ ] ...`) visas som egna bockrutor. Elevens bockar sparas på servern.
+const checklist = computed(() => selectedItem.value && !selectedItem.value.isLocked
+  ? parseChecklist(selectedItem.value.bodyMd ?? '')
+  : {items: [], body: ''})
+const checkedIndexes = ref<number[]>([])
+
+watch(() => checklist.value.items.length > 0
+  ? selectedItem.value?.linkId ?? ''
+  : '', async (linkId) => {
+  checkedIndexes.value = []
+  if (!linkId) {
+    return
+  }
+  try {
+    const {data} = await api.GET('/api/courses/{courseId}/links/{linkId}/checklist', {
+      params: {path: {courseId: props.courseId, linkId}},
+    })
+    if (selectedItem.value?.linkId === linkId) {
+      checkedIndexes.value = data?.checkedIndexes ?? []
+    }
+  } catch (exception) {
+    error.value = errorMessage(exception)
+  }
+}, {immediate: true})
+
+// Bockar direkt och ångrar om servern säger nej.
+async function toggleChecklist(index: number, checked: boolean) {
+  const linkId = selectedItem.value?.linkId
+  if (!linkId) {
+    return
+  }
+  const before = checkedIndexes.value
+  checkedIndexes.value = checked
+    ? [...before.filter((candidate) => candidate !== index), index]
+    : before.filter((candidate) => candidate !== index)
+  try {
+    await api.PUT('/api/courses/{courseId}/links/{linkId}/checklist/{index}', {
+      params: {path: {courseId: props.courseId, linkId, index}},
+      body: {checked},
+    })
+  } catch (exception) {
+    if (selectedItem.value?.linkId === linkId) {
+      checkedIndexes.value = before
+    }
+    error.value = errorMessage(exception)
+  }
+}
 
 // Lärarens kommentar och betyg hör till inlämningen, så de hämtas när en bedömd uppgift öppnas.
 const feedback = ref<Schema<'GradeDto'> | null>(null)
@@ -413,6 +465,43 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
     ? `Slutar ${formatDate(item.dueAt, true)}`
     : ''
 }
+
+// Klar eller inlämnad är inte försenad, så deadlinen får ingen varningston då.
+function isDone(item: Schema<'StudentContentItem'>): boolean {
+  return item.isCompleted || item.submissionStatus === 'Submitted' || item.submissionStatus === 'Graded'
+}
+
+function dueVariant(item: Schema<'StudentContentItem'>): 'destructive' | 'warning' | 'outline' {
+  if (!item.dueAt || isDone(item)) {
+    return 'outline'
+  }
+  const now = new Date()
+  if (isOverdue(item.dueAt, now)) {
+    return 'destructive'
+  }
+  return isDueSoon(item.dueAt, now)
+    ? 'warning'
+    : 'outline'
+}
+
+function dueClass(item: Schema<'StudentContentItem'>): string {
+  return item.dueAt && !isDone(item)
+    ? dueTextClass(item.dueAt, new Date(), 'text-muted-foreground')
+    : 'text-muted-foreground'
+}
+
+const submissionModeLabels: Record<string, string> = {
+  Text: 'text',
+  File: 'filer',
+  Repo: 'GitHub-repo',
+  OnSite: 'visas på plats',
+}
+
+function handInLabel(item: Schema<'StudentContentItem'>): string {
+  return item.type === 'Assignment'
+    ? item.submissionModes.map((mode) => submissionModeLabels[mode] ?? mode).join(', ')
+    : ''
+}
 </script>
 
 <template>
@@ -449,9 +538,6 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
               <component :is="partOf(selectedItem).icon"/>
               {{ kindOf(selectedItem) }}
             </Badge>
-            <Badge v-if="gradeScaleLabel(selectedItem.gradeScale)" variant="outline">
-              Betygsskala {{ gradeScaleLabel(selectedItem.gradeScale) }}
-            </Badge>
             <Badge
               v-if="selectedItem.isLocked"
               variant="outline"
@@ -472,15 +558,28 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
           <h2 class="text-3xl leading-tight font-semibold">{{ selectedItem.title }}</h2>
           <p class="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
             <span>{{ selectedModule.title }}</span>
-            <template v-if="selectedItem.dueAt">
-              <span>·</span>
-              <span class="font-medium text-destructive">{{ dueLabel(selectedItem) }}</span>
-            </template>
             <template v-if="selectedItem.type === 'News'">
               <span>·</span>
               <span>Nyhet</span>
             </template>
           </p>
+          <div class="flex flex-wrap items-center gap-2" data-test="fact-pills">
+            <Badge
+              v-if="selectedItem.dueAt"
+              :variant="dueVariant(selectedItem)"
+              data-test="pill-due"
+            >
+              <PhCalendarBlank/>
+              {{ dueLabel(selectedItem) }}
+            </Badge>
+            <Badge v-if="gradeScaleLabel(selectedItem.gradeScale)" variant="outline" data-test="pill-scale">
+              Betygsskala {{ gradeScaleLabel(selectedItem.gradeScale) }}
+            </Badge>
+            <Badge v-if="handInLabel(selectedItem)" variant="outline" data-test="pill-handin">
+              <PhPaperPlaneTilt/>
+              Lämnas in som {{ handInLabel(selectedItem) }}
+            </Badge>
+          </div>
         </header>
 
         <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -504,13 +603,36 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
                     ? 'Uppgiften'
                     : 'Innehåll' }}
                 </h2>
-                <p
-                  v-if="selectedItem.bodyMd"
-                  class="text-foreground/90 text-sm leading-relaxed whitespace-pre-wrap"
-                >
-                  {{ selectedItem.bodyMd }}
+                <MarkdownView
+                  v-if="checklist.body"
+                  :markdown="checklist.body"
+                  class="text-foreground/90 text-sm"
+                />
+                <p v-else-if="checklist.items.length === 0" class="text-muted-foreground text-sm">
+                  Inget innehåll än.
                 </p>
-                <p v-else class="text-muted-foreground text-sm">Inget innehåll än.</p>
+              </section>
+
+              <section
+                v-if="checklist.items.length > 0"
+                class="flex max-w-[68ch] flex-col gap-3"
+                aria-labelledby="checklist-h"
+                data-test="student-checklist"
+              >
+                <h2 id="checklist-h" class="text-lg font-semibold">Att lämna in</h2>
+                <ul class="flex flex-col gap-2">
+                  <li v-for="entry in checklist.items" :key="entry.index">
+                    <label class="flex items-start gap-2.5 text-sm">
+                      <Checkbox
+                        class="mt-0.5"
+                        :model-value="checkedIndexes.includes(entry.index)"
+                        :data-test="`checklist-${entry.index}`"
+                        @update:model-value="(value) => toggleChecklist(entry.index, value === true)"
+                      />
+                      <span>{{ entry.text }}</span>
+                    </label>
+                  </li>
+                </ul>
               </section>
             </template>
 
@@ -805,9 +927,7 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
                           <span
                             v-if="item.dueAt && !item.isLocked"
                             class="text-[12px] whitespace-nowrap"
-                            :class="item.isCompleted
-                              ? 'text-muted-foreground'
-                              : 'font-medium text-destructive'"
+                            :class="dueClass(item)"
                           >
                             {{ dueLabel(item) }}
                           </span>

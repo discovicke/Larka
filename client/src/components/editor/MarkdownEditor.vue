@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import {PhCode, PhListBullets, PhPaperclip, PhTextB, PhTextItalic} from '@phosphor-icons/vue'
+import {PhCode, PhHighlighterCircle, PhListBullets, PhPaperclip, PhTextB, PhTextItalic} from '@phosphor-icons/vue'
 import type {Editor} from '@tiptap/core'
+import Highlight from '@tiptap/extension-highlight'
 import {Markdown} from '@tiptap/markdown'
 import StarterKit from '@tiptap/starter-kit'
 import {EditorContent, useEditor} from '@tiptap/vue-3'
@@ -17,14 +18,15 @@ const model = defineModel<string>({required: true})
 const mode = ref<'rich' | 'markdown'>('rich')
 
 const editor = useEditor({
-  extensions: [StarterKit, Markdown],
+  extensions: [StarterKit, Highlight, Markdown],
   content: model.value,
   contentType: 'markdown',
   editorProps: {
     attributes: {
       'aria-label': props.label,
       'class': 'min-h-28 px-3 py-2 outline-none [&>*+*]:mt-2 [&>*+h1]:mt-4 [&>*+h2]:mt-4 [&>*+h3]:mt-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal '
-        + '[&_ol]:pl-5 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:font-mono',
+        + '[&_ol]:pl-5 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:font-mono '
+        + '[&_mark]:bg-transparent [&_mark]:text-inherit [&_mark]:font-[inherit] [&_mark]:underline [&_mark]:decoration-primary [&_mark]:decoration-[3px] [&_mark]:underline-offset-[3px]',
     },
   },
   onUpdate: ({editor: current}) => {
@@ -35,6 +37,7 @@ const editor = useEditor({
 const tools = [
   {label: 'Fetstil', icon: PhTextB, name: 'bold', run: (current: Editor) => current.chain().focus().toggleBold().run()},
   {label: 'Kursiv', icon: PhTextItalic, name: 'italic', run: (current: Editor) => current.chain().focus().toggleItalic().run()},
+  {label: 'Understrykning', icon: PhHighlighterCircle, name: 'highlight', run: (current: Editor) => current.chain().focus().toggleHighlight().run()},
   {label: 'Kod', icon: PhCode, name: 'code', run: (current: Editor) => current.chain().focus().toggleCode().run()},
   {label: 'Lista', icon: PhListBullets, name: 'bulletList', run: (current: Editor) => current.chain().focus().toggleBulletList().run()},
 ]

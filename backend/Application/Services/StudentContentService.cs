@@ -14,6 +14,7 @@ public class StudentContentService(
     IGroupRepository groups,
     ISubmissionRepository submissions,
     IPartCompletionRepository completions,
+    IChecklistRepository checklist,
     IUnitOfWork unitOfWork,
     ICurrentUser currentUser,
     TimeProvider time)
@@ -49,18 +50,8 @@ public class StudentContentService(
             return ServiceResult<StudentModuleWithContentDto>.Forbidden();
         }
 
-        var now = time.GetUtcNow();
-        var linked = await contents.GetLinkWithContentAsync(linkId, ct);
-        var module = linked?.Link.ModuleId is null
-            ? null
-            : await modules.GetAsync(linked.Link.ModuleId.Value, ct);
-        if (linked is null
-            || linked.Link.CourseId != courseId
-            || linked.Link.ModuleId is null
-            || module is null
-            || !IsModuleAvailable(module, now)
-            || (linked.Link.GroupId is not null && !groupIds.Contains(linked.Link.GroupId.Value))
-            || !IsVisible(linked, now))
+        var linked = await FindOpenPartAsync(courseId, linkId, groupIds, ct);
+        if (linked?.Link.ModuleId is null)
         {
             return ServiceResult<StudentModuleWithContentDto>.NotFound("part not found");
         }
@@ -104,6 +95,99 @@ public class StudentContentService(
         var courseModules = await BuildAsync(groupIds, courseId, ct);
         return ServiceResult<StudentModuleWithContentDto>.Ok(
             courseModules.Single(module => module.Id == linked.Link.ModuleId.Value));
+    }
+
+    /// <summary>Punkterna eleven har bockat av i uppgiftens checklista.</summary>
+    public async Task<ServiceResult<ChecklistDto>> GetChecklistAsync(
+        Guid courseId, Guid linkId, CancellationToken ct)
+    {
+        var access = await CheckChecklistAccessAsync(courseId, linkId, ct);
+        return access ?? ServiceResult<ChecklistDto>.Ok(await ChecklistOfAsync(linkId, ct));
+    }
+
+    /// <summary>Bockar av eller bockar ur en punkt. Upprepade anrop med samma värde ändrar inget.</summary>
+    public async Task<ServiceResult<ChecklistDto>> SetChecklistTickAsync(
+        Guid courseId, Guid linkId, int index, SetChecklistTickDto dto, CancellationToken ct)
+    {
+        if (index is < 0 or >= _maxChecklistItems)
+        {
+            return ServiceResult<ChecklistDto>.Invalid($"index must be between 0 and {_maxChecklistItems - 1}");
+        }
+
+        var access = await CheckChecklistAccessAsync(courseId, linkId, ct);
+        if (access is not null)
+        {
+            return access;
+        }
+
+        var ticks = await checklist.GetForStudentAsync(linkId, currentUser.UserId, ct);
+        var existing = ticks.Where(tick => tick.ItemIndex == index).ToList();
+        if (dto.Checked && existing.Count == 0)
+        {
+            checklist.Add(new ChecklistTick
+            {
+                ContentLinkId = linkId,
+                StudentId = currentUser.UserId,
+                ItemIndex = index,
+                CheckedAt = time.GetUtcNow()
+            });
+            await unitOfWork.SaveChangesAsync(ct);
+        }
+        else if (!dto.Checked && existing.Count > 0)
+        {
+            checklist.RemoveRange(existing);
+            await unitOfWork.SaveChangesAsync(ct);
+        }
+
+        return ServiceResult<ChecklistDto>.Ok(await ChecklistOfAsync(linkId, ct));
+    }
+
+    // Så många punkter får en checklista ha. Håller antalet rader per elev och del begränsat.
+    private const int _maxChecklistItems = 100;
+
+    private async Task<ChecklistDto> ChecklistOfAsync(Guid linkId, CancellationToken ct) =>
+        new((await checklist.GetForStudentAsync(linkId, currentUser.UserId, ct))
+            .Select(tick => tick.ItemIndex)
+            .ToList());
+
+    // Samma regler som för klarmarkering: eleven ska gå i en grupp som läser kursen och delen ska vara synlig.
+    private async Task<ServiceResult<ChecklistDto>?> CheckChecklistAccessAsync(
+        Guid courseId, Guid linkId, CancellationToken ct)
+    {
+        if (!await groups.CourseExistsAsync(courseId, ct))
+        {
+            return ServiceResult<ChecklistDto>.NotFound("course not found");
+        }
+
+        var groupIds = await StudentGroupsReadingCourseAsync(courseId, ct);
+        if (groupIds.Count == 0)
+        {
+            return ServiceResult<ChecklistDto>.Forbidden();
+        }
+
+        return await FindOpenPartAsync(courseId, linkId, groupIds, ct) is null
+            ? ServiceResult<ChecklistDto>.NotFound("part not found")
+            : null;
+    }
+
+    // Delen om den finns i kursen, i en vecka som har öppnat, hör till elevens grupper och är publicerad.
+    private async Task<LinkedContent?> FindOpenPartAsync(
+        Guid courseId, Guid linkId, IReadOnlyList<Guid> groupIds, CancellationToken ct)
+    {
+        var now = time.GetUtcNow();
+        var linked = await contents.GetLinkWithContentAsync(linkId, ct);
+        var module = linked?.Link.ModuleId is null
+            ? null
+            : await modules.GetAsync(linked.Link.ModuleId.Value, ct);
+        return linked is null
+            || linked.Link.CourseId != courseId
+            || linked.Link.ModuleId is null
+            || module is null
+            || !IsModuleAvailable(module, now)
+            || (linked.Link.GroupId is not null && !groupIds.Contains(linked.Link.GroupId.Value))
+            || !IsVisible(linked, now)
+                ? null
+                : linked;
     }
 
     private async Task<List<Guid>> StudentGroupsReadingCourseAsync(Guid courseId, CancellationToken ct)

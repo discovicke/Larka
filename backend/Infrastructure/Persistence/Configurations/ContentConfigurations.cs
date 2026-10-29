@@ -65,6 +65,19 @@ public class PartCompletionConfiguration : IEntityTypeConfiguration<PartCompleti
     }
 }
 
+// En rad per elev, del och avbockad punkt. Tas bort med delen.
+public class ChecklistTickConfiguration : IEntityTypeConfiguration<ChecklistTick>
+{
+    public void Configure(EntityTypeBuilder<ChecklistTick> builder)
+    {
+        builder.HasOne<ContentLink>().WithMany()
+            .HasForeignKey(tick => tick.ContentLinkId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<User>().WithMany()
+            .HasForeignKey(tick => tick.StudentId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(tick => new { tick.StudentId, tick.ContentLinkId, tick.ItemIndex }).IsUnique();
+    }
+}
+
 public class AttachmentConfiguration : IEntityTypeConfiguration<Attachment>
 {
     public void Configure(EntityTypeBuilder<Attachment> builder)

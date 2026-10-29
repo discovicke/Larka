@@ -231,6 +231,7 @@ public static class DependencyInjection
         services.AddScoped<IGroupRepository, GroupRepository>();
         services.AddScoped<IContentRepository, ContentRepository>();
         services.AddScoped<IPartCompletionRepository, PartCompletionRepository>();
+        services.AddScoped<IChecklistRepository, ChecklistRepository>();
         services.AddScoped<ISubmissionRepository, SubmissionRepository>();
         services.AddScoped<INotificationRepository, NotificationRepository>();
         services.AddScoped<ISchoolGitHubInstallationRepository, SchoolGitHubInstallationRepository>();

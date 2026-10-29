@@ -25,6 +25,13 @@ describe('MarkdownView', () => {
     expect(wrapper.find('strong').text()).toBe('alla')
   })
 
+  it('visar ==text== som understrykning', async () => {
+    const {wrapper} = render('Gör ==det här== först')
+    await flushPromises()
+
+    expect(wrapper.find('mark').text()).toBe('det här')
+  })
+
   it('visar en lista som punkter', async () => {
     const {wrapper} = render('- a\n- b')
     await flushPromises()

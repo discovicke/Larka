@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Highlight from '@tiptap/extension-highlight'
 import {Markdown} from '@tiptap/markdown'
 import StarterKit from '@tiptap/starter-kit'
 import {EditorContent, useEditor} from '@tiptap/vue-3'
@@ -9,7 +10,7 @@ import {watch} from 'vue'
 const props = defineProps<{markdown: string}>()
 
 const editor = useEditor({
-  extensions: [StarterKit, Markdown],
+  extensions: [StarterKit, Highlight, Markdown],
   content: props.markdown,
   contentType: 'markdown',
   editable: false,
@@ -22,7 +23,8 @@ const editor = useEditor({
         + '[&_code]:font-mono [&_a]:underline [&_a]:underline-offset-3 [&_strong]:font-semibold [&_h1]:text-xl '
         + '[&_h1]:font-semibold [&_h2]:text-lg [&_h2]:font-semibold [&_h3]:font-semibold '
         + '[&_blockquote]:border-l-2 [&_blockquote]:pl-3 '
-        + '[&_blockquote]:text-muted-foreground',
+        + '[&_blockquote]:text-muted-foreground '
+        + '[&_mark]:bg-transparent [&_mark]:text-inherit [&_mark]:font-[inherit] [&_mark]:underline [&_mark]:decoration-primary [&_mark]:decoration-[3px] [&_mark]:underline-offset-[3px]',
     },
   },
 })

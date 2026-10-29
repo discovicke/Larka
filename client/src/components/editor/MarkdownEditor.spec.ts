@@ -49,6 +49,16 @@ describe('MarkdownEditor', () => {
     expect(value.value.trim()).toBe('- Hej')
   })
 
+  it('läser ==text== som understrykning och skriver tillbaka samma markdown', async () => {
+    const {wrapper, value} = render('Gör ==det här== först')
+    await flushPromises()
+
+    expect(wrapper.find('[contenteditable] mark').text()).toBe('det här')
+
+    await wrapper.find('[aria-label="Kursiv"]').trigger('click')
+    expect(value.value).toContain('==det här==')
+  })
+
   it('markdown-läget visar texten rå och ändringar följer med tillbaka', async () => {
     const {wrapper, value} = render('Hej **alla**')
     await flushPromises()

@@ -510,6 +510,91 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
         Assert.Equal(setup.StudentIds[1], student.Id);
     }
 
+    private record ChecklistResponse(List<int> CheckedIndexes);
+
+    [Fact]
+    public async Task Checklist_RoundTripsPerStudent_AndOtherStudentsDoNotSeeIt()
+    {
+        var setup = await AddCourseWithGroupAsync();
+        var week = await CreateModuleAsync(setup.CourseId);
+        var link = await LinkAssignmentAsync(setup.CourseId, week.Id, "Uppgift");
+
+        Assert.Empty((await GetChecklistAsync(setup, setup.StudentIds[0], link)).CheckedIndexes);
+
+        (await SetChecklistAsync(setup, setup.StudentIds[0], link, 2, true)).EnsureSuccessStatusCode();
+        (await SetChecklistAsync(setup, setup.StudentIds[0], link, 0, true)).EnsureSuccessStatusCode();
+        // Samma värde två gånger ger fortfarande en rad.
+        (await SetChecklistAsync(setup, setup.StudentIds[0], link, 0, true)).EnsureSuccessStatusCode();
+
+        Assert.Equal([0, 2], (await GetChecklistAsync(setup, setup.StudentIds[0], link)).CheckedIndexes);
+        Assert.Empty((await GetChecklistAsync(setup, setup.StudentIds[1], link)).CheckedIndexes);
+
+        var cleared = await SetChecklistAsync(setup, setup.StudentIds[0], link, 0, false);
+        Assert.Equal([2], (await cleared.Content.ReadFromJsonAsync<ChecklistResponse>())!.CheckedIndexes);
+    }
+
+    [Fact]
+    public async Task Checklist_WithNegativeOrHugeIndex_ReturnsBadRequest()
+    {
+        var setup = await AddCourseWithGroupAsync();
+        var week = await CreateModuleAsync(setup.CourseId);
+        var link = await LinkAssignmentAsync(setup.CourseId, week.Id, "Uppgift");
+
+        var negative = await SetChecklistAsync(setup, setup.StudentIds[0], link, -1, true);
+        var huge = await SetChecklistAsync(setup, setup.StudentIds[0], link, 100000, true);
+
+        Assert.Equal(HttpStatusCode.BadRequest, negative.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, huge.StatusCode);
+    }
+
+    [Fact]
+    public async Task Checklist_ForAStudentInAnotherGroup_ReturnsForbidden()
+    {
+        var setup = await AddCourseWithGroupAsync();
+        var week = await CreateModuleAsync(setup.CourseId);
+        var link = await LinkAssignmentAsync(setup.CourseId, week.Id, "Uppgift");
+        Guid outsider;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            var otherGroup = await TestData.AddGroupAsync(db);
+            outsider = (await TestData.AddMemberAsync(db, otherGroup)).Id;
+        }
+
+        var read = await StudentClient(outsider)
+            .GetAsync($"/api/courses/{setup.CourseId}/links/{link}/checklist");
+        var write = await SetChecklistAsync(setup, outsider, link, 0, true);
+
+        Assert.Equal(HttpStatusCode.Forbidden, read.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, write.StatusCode);
+    }
+
+    [Fact]
+    public async Task Checklist_ForAnUnknownPart_ReturnsNotFound()
+    {
+        var setup = await AddCourseWithGroupAsync();
+
+        var response = await SetChecklistAsync(setup, setup.StudentIds[0], Guid.NewGuid(), 0, true);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    private async Task<ChecklistResponse> GetChecklistAsync(Setup setup, Guid studentId, Guid linkId)
+    {
+        using var student = StudentClient(studentId);
+        return (await student.GetFromJsonAsync<ChecklistResponse>(
+            $"/api/courses/{setup.CourseId}/links/{linkId}/checklist"))!;
+    }
+
+    private async Task<HttpResponseMessage> SetChecklistAsync(
+        Setup setup, Guid studentId, Guid linkId, int index, bool isChecked)
+    {
+        using var student = StudentClient(studentId);
+        return await student.PutAsJsonAsync(
+            $"/api/courses/{setup.CourseId}/links/{linkId}/checklist/{index}",
+            new { @checked = isChecked });
+    }
+
     private async Task<List<ModuleWithContent>> GetStudentModulesAsync(Setup setup, Guid studentId)
     {
         using var student = StudentClient(studentId);

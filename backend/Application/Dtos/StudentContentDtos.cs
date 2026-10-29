@@ -6,7 +6,12 @@ namespace Backend.Application.Dtos;
 
 public record SetCompletionDto(bool Completed);
 
+public record SetChecklistTickDto(bool Checked);
+
 // --- responses ---
+
+/// <summary>Vilka punkter i uppgiftens checklista eleven har bockat av (plats från 0).</summary>
+public record ChecklistDto(List<int> CheckedIndexes);
 
 /// <summary>En vecka som eleven ser den: bara publicerat innehåll, med lås och avklarande.</summary>
 public record StudentModuleWithContentDto(
