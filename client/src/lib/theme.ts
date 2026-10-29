@@ -1,7 +1,7 @@
 export type ThemePreference = 'auto' | 'light' | 'dark'
 export type ResolvedTheme = 'light' | 'dark'
 
-export const THEME_STORAGE_KEY = 'rebornlms-theme'
+export const THEME_STORAGE_KEY = 'larka-theme'
 
 export function isThemePreference(value: unknown): value is ThemePreference {
   return value === 'auto' || value === 'light' || value === 'dark'

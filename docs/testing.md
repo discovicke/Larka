@@ -57,7 +57,7 @@ I CI samlar backend- och frontendjobben varsin täckning och skriver sitt tal i 
 
 | Nivå                 | Var                                       | Körs                                               | Kräver              |
 | -------------------- | ----------------------------------------- | -------------------------------------------------- | ------------------- |
-| Backend              | `backend.Tests/` (xUnit)                  | `dotnet test RebornLMS.sln`, på varje PR           | Docker              |
+| Backend              | `backend.Tests/` (xUnit)                  | `dotnet test Larka.sln`, på varje PR               | Docker              |
 | Egna analyzer-regler | `backend.Analyzers.Tests/`                | samma                                              |                     |
 | Frontend             | `client/src/**/*.spec.ts` (Vitest, jsdom) | `npm --prefix client run test`, på varje PR        |                     |
 | Layout               | `client/layout/` (Playwright)             | `npm --prefix client run test:layout`, på varje PR | Chromium            |

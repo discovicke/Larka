@@ -644,7 +644,7 @@ namespace Backend.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = new Guid("00000000-0000-0000-0000-000000000001"),
-                            Email = "placeholder@rebornlms.local",
+                            Email = "placeholder@larka.local",
                             MutedNotificationKinds = new int[0],
                             Name = "Placeholder",
                             Role = "Admin",

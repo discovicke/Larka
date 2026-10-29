@@ -14,8 +14,8 @@ public sealed class JwtOptions
     public const int MinimumKeyBytes = 32;
 
     public string Key { get; set; } = "";
-    public string Issuer { get; set; } = "rebornlms";
-    public string Audience { get; set; } = "rebornlms";
+    public string Issuer { get; set; } = "larka";
+    public string Audience { get; set; } = "larka";
     public int LifetimeMinutes { get; set; } = 480;
 
     public bool HasValidKey => Encoding.UTF8.GetByteCount(Key) >= MinimumKeyBytes;

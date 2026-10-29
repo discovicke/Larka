@@ -79,7 +79,7 @@ public static class DevSeed
             Id = TeacherUserId,
             SchoolId = schoolId,
             Name = "Lärare Lärarsson",
-            Email = "larare@rebornlms.local",
+            Email = "larare@larka.local",
             Role = UserRole.Teacher
         };
         var student = new User
@@ -87,7 +87,7 @@ public static class DevSeed
             Id = StudentUserId,
             SchoolId = schoolId,
             Name = "Elev Elevsson",
-            Email = "elev@rebornlms.local",
+            Email = "elev@larka.local",
             Role = UserRole.Student
         };
         var secondStudent = new User
@@ -95,7 +95,7 @@ public static class DevSeed
             Id = SecondStudentUserId,
             SchoolId = schoolId,
             Name = "Elev Tvåsson",
-            Email = "elev2@rebornlms.local",
+            Email = "elev2@larka.local",
             Role = UserRole.Student
         };
 

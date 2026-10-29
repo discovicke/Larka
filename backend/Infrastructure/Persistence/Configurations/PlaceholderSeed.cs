@@ -30,7 +30,7 @@ public class PlaceholderUserSeed : IEntityTypeConfiguration<User>
             Id = PlaceholderIds.UserId,
             SchoolId = PlaceholderIds.SchoolId,
             Name = "Placeholder",
-            Email = "placeholder@rebornlms.local",
+            Email = "placeholder@larka.local",
             Role = UserRole.Admin
         });
     }

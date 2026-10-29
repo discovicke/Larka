@@ -4,15 +4,15 @@ services:
   db:
     image: postgres:17
     environment:
-      POSTGRES_USER: rebornlms
-      POSTGRES_PASSWORD: rebornlms
-      POSTGRES_DB: rebornlms
+      POSTGRES_USER: larka
+      POSTGRES_PASSWORD: larka
+      POSTGRES_DB: larka
     ports:
       - '127.0.0.1:5432:5432'
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U rebornlms']
+      test: ['CMD-SHELL', 'pg_isready -U larka']
       interval: 2s
       timeout: 3s
       retries: 15

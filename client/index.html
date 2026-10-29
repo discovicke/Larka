@@ -9,7 +9,15 @@
     <script>
       // Sätt rätt tema innan appen och CSS:en laddas, så att mörkt läge inte blinkar vitt.
       try {
-        const preference = localStorage.getItem('rebornlms-theme')
+        // Nycklarna hette rebornlms-* före namnbytet. Behåll temavalet och städa bort det gamla.
+        const oldTheme = localStorage.getItem('rebornlms-theme')
+        if (oldTheme !== null && localStorage.getItem('larka-theme') === null) {
+          localStorage.setItem('larka-theme', oldTheme)
+        }
+        for (const key of ['rebornlms-theme', 'rebornlms.token', 'rebornlms.expiresAt']) {
+          localStorage.removeItem(key)
+        }
+        const preference = localStorage.getItem('larka-theme')
         const systemDark = matchMedia('(prefers-color-scheme: dark)').matches
         document.documentElement.classList.toggle(
           'dark',

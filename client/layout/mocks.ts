@@ -4,8 +4,8 @@ import type {Schema} from '../src/lib/api'
 import {meAs} from '../src/test/me'
 
 // Samma nycklar som klienten läser i sessionStorage (src/lib/auth/localAuth.ts).
-const AUTH_TOKEN_KEY = 'rebornlms.token'
-const AUTH_EXPIRY_KEY = 'rebornlms.expiresAt'
+const AUTH_TOKEN_KEY = 'larka.token'
+const AUTH_EXPIRY_KEY = 'larka.expiresAt'
 
 const course: Schema<'CourseDto'> = {
   id: 'c1',

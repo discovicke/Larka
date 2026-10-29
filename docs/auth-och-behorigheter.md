@@ -30,16 +30,16 @@ Vid start skapas också klassen `Demo-klass` (läraren och eleven i den), och om
 
 Dev-seeden (tom lokal databas) ger alla seedade användare lösenordet `dev-password`:
 
-| Användare        | E-post                        | Id                                     | Roll    |
-| ---------------- | ----------------------------- | -------------------------------------- | ------- |
-| Placeholder      | `placeholder@rebornlms.local` | `00000000-0000-0000-0000-000000000001` | Admin   |
-| Lärare Lärarsson | `larare@rebornlms.local`      | `00000000-0000-0000-0000-000000000002` | Teacher |
-| Elev Elevsson    | `elev@rebornlms.local`        | `00000000-0000-0000-0000-000000000003` | Student |
-| Elev Tvåsson     | `elev2@rebornlms.local`       | `00000000-0000-0000-0000-000000000004` | Student |
+| Användare        | E-post                    | Id                                     | Roll    |
+| ---------------- | ------------------------- | -------------------------------------- | ------- |
+| Placeholder      | `placeholder@larka.local` | `00000000-0000-0000-0000-000000000001` | Admin   |
+| Lärare Lärarsson | `larare@larka.local`      | `00000000-0000-0000-0000-000000000002` | Teacher |
+| Elev Elevsson    | `elev@larka.local`        | `00000000-0000-0000-0000-000000000003` | Student |
+| Elev Tvåsson     | `elev2@larka.local`       | `00000000-0000-0000-0000-000000000004` | Student |
 
 ```bash
 curl -X POST http://localhost:5257/api/auth/login -H "Content-Type: application/json" \
-  -d '{"username":"larare@rebornlms.local","password":"dev-password"}'
+  -d '{"username":"larare@larka.local","password":"dev-password"}'
 curl -H "Authorization: Bearer <accessToken>" http://localhost:5257/api/me
 ```
 

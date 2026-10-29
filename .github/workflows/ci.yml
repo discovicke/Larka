@@ -60,17 +60,17 @@ jobs:
           restore-keys: nuget-${{ runner.os }}-
 
       - name: Restore
-        run: dotnet restore RebornLMS.sln
+        run: dotnet restore Larka.sln
 
       # dotnet format hoppar tyst över våra egna regler (RLMS*) om analyzern inte är byggd än.
       - name: Build analyzers
         run: dotnet build backend.Analyzers --no-restore
 
       - name: Check formatting
-        run: dotnet format RebornLMS.sln --no-restore --verify-no-changes
+        run: dotnet format Larka.sln --no-restore --verify-no-changes
 
       - name: Build (warnings as errors)
-        run: dotnet build RebornLMS.sln --no-restore -warnaserror
+        run: dotnet build Larka.sln --no-restore -warnaserror
 
       # Builden skriver om client/openapi.json. Skiljer den sig har någon ändrat API:et utan att köra builden.
       - name: Check OpenAPI document is up to date
@@ -80,7 +80,7 @@ jobs:
       # Täckningen samlas med coverlet.runsettings (Cobertura, undantag förklarade i docs/testing.md).
       - name: Test
         run: >
-          dotnet test RebornLMS.sln --no-build
+          dotnet test Larka.sln --no-build
           --settings coverlet.runsettings
           --collect:"XPlat Code Coverage"
           --results-directory coverage/backend

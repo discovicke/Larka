@@ -1,5 +1,5 @@
-export const AUTH_TOKEN_KEY = 'rebornlms.token'
-export const AUTH_EXPIRY_KEY = 'rebornlms.expiresAt'
+export const AUTH_TOKEN_KEY = 'larka.token'
+export const AUTH_EXPIRY_KEY = 'larka.expiresAt'
 
 // Sessionen ligger i en egen modul som både api.ts och localAuth.ts importerar. Då slipper vi en
 // importcykel (api -> auth -> localAuth -> api): localAuth anropar inloggningen via api-klienten.

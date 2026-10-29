@@ -7,8 +7,8 @@ export interface StoredToken {
 }
 
 // Samma nycklar som client/src/lib/auth/localAuth.ts använder i sessionStorage.
-export const tokenStorageKey = 'rebornlms.token'
-export const expiryStorageKey = 'rebornlms.expiresAt'
+export const tokenStorageKey = 'larka.token'
+export const expiryStorageKey = 'larka.expiresAt'
 
 const authDir = new URL('./.auth/', import.meta.url)
 const tokenFile = new URL('./.auth/token.json', import.meta.url)

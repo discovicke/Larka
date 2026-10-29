@@ -10,7 +10,7 @@ cd "$(dirname "$0")/.."
 rm -rf coverage client/coverage
 
 dotnet tool restore
-dotnet test RebornLMS.sln --settings coverlet.runsettings --collect:"XPlat Code Coverage" --results-directory coverage/backend
+dotnet test Larka.sln --settings coverlet.runsettings --collect:"XPlat Code Coverage" --results-directory coverage/backend
 npm --prefix client run test:coverage
 
 # Sökvägarna i frontendens Cobertura är relativa till client/, därför -sourcedirs.

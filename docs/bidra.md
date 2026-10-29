@@ -30,9 +30,9 @@ npx prettier --check .
 
 # Backend
 dotnet build backend.Analyzers   # våra egna regler, måste finnas innan dotnet format körs
-dotnet format RebornLMS.sln --verify-no-changes
-dotnet build RebornLMS.sln       # skriver också client/openapi.json
-dotnet test RebornLMS.sln
+dotnet format Larka.sln --verify-no-changes
+dotnet build Larka.sln       # skriver också client/openapi.json
+dotnet test Larka.sln
 
 # Frontend
 cd client

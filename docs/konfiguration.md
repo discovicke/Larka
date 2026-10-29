@@ -37,8 +37,8 @@ dotnet user-secrets list --project backend
 | -------------------------- | ------ | ------------------------ | ------------------------------------------- |
 | `Auth:Jwt:Key`             | ja     | dev-nyckel i Development | Minst 32 byte. Appen startar inte utan den. |
 | `Auth:Jwt:LifetimeMinutes` | nej    | `480`                    | Hur länge ett token gäller.                 |
-| `Auth:Jwt:Issuer`          | nej    | `rebornlms`              | Ändras inte i praktiken.                    |
-| `Auth:Jwt:Audience`        | nej    | `rebornlms`              | Ändras inte i praktiken.                    |
+| `Auth:Jwt:Issuer`          | nej    | `larka`                  | Ändras inte i praktiken.                    |
+| `Auth:Jwt:Audience`        | nej    | `larka`                  | Ändras inte i praktiken.                    |
 
 ### Fillagring
 
