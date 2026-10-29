@@ -53,6 +53,29 @@ public static class DependencyInjection
     }
 
     /// <summary>
+    /// Lägger in demodatan när Database:SeedDemoData är true. Ett fel loggas men stoppar inte starten, eftersom
+    /// demodata inte är värd ett driftstopp. Allt sparas i en transaktion, så databasen blir aldrig halvfylld.
+    /// </summary>
+    public static async Task SeedDemoDataAsync(this IServiceProvider services)
+    {
+        using var scope = services.CreateScope();
+        if (!scope.ServiceProvider.GetRequiredService<IOptions<DatabaseOptions>>().Value.SeedDemoData)
+        {
+            return;
+        }
+
+        try
+        {
+            await scope.ServiceProvider.GetRequiredService<DemoSeed>().SeedAsync(CancellationToken.None);
+        }
+        catch (Exception exception)
+        {
+            scope.ServiceProvider.GetRequiredService<ILogger<DemoSeed>>()
+                .LogError(exception, "Demodatan kunde inte läggas in");
+        }
+    }
+
+    /// <summary>
     /// Inloggning med användarnamn eller e-post och lösenord, och JWT-token. Allt under /api kräver token, och
     /// användaren läses från token (ClaimsCurrentUser). Microsoft Entra ID (#79) lägger till ett eget JWT-schema
     /// vid sidan av det här, utan att något annat ändras.
@@ -71,6 +94,7 @@ public static class DependencyInjection
         services.AddScoped<ITokenService, JwtTokenService>();
         services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
         services.AddScoped<AccountSeed>();
+        services.AddScoped<DemoSeed>();
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUser, ClaimsCurrentUser>();
 

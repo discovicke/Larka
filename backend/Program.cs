@@ -47,6 +47,7 @@ if (!isGeneratingOpenApiDocument)
 
     app.Services.MigrateDatabase();
     await app.Services.SeedAccountsAsync();
+    await app.Services.SeedDemoDataAsync();
 }
 
 app.UseExceptionHandler();

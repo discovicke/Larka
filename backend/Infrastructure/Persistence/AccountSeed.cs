@@ -10,7 +10,8 @@ namespace Backend.Infrastructure.Persistence;
 /// Inloggningskonton: admin, larare och elev, med lösenordet samma som användarnamnet. Körs vid varje start i
 /// alla miljöer, efter migrationerna, och är idempotent: användarna skapas bara om de saknas, lösenorden sätts
 /// om varje gång, och klassen, kopplingarna och kursen skapas bara om de saknas. Inget annat rörs, och inget
-/// tas bort. Lösenorden loggas aldrig. Kontona är offentliga, så prod-data är öppen för den som prövar dem.
+/// tas bort. Demo-klass kopplas bara till Demo-kurs, och när demodatan (DemoSeed) finns skapas varken Demo-klass
+/// eller Demo-kurs. Lösenorden loggas aldrig. Kontona är offentliga, så prod-data är öppen för den som prövar dem.
 /// </summary>
 public sealed class AccountSeed(
     AppDb db,
@@ -38,28 +39,13 @@ public sealed class AccountSeed(
         var student = await EnsureUserAsync(school, _accounts[2], created, ct);
         await EnsureUserAsync(school, _accounts[0], created, ct);
 
-        var group = await EnsureGroupAsync(school, created, ct);
-        await EnsureEnrollmentAsync(teacher, group, GroupRole.Teacher, created, ct);
-        await EnsureEnrollmentAsync(student, group, GroupRole.Student, created, ct);
-
-        var courses = await db.Courses.Where(course => course.SchoolId == school.Id).ToListAsync(ct);
-        if (courses.Count == 0)
+        // Finns demodatan (DemoSeed) är kontona placerade i riktiga klasser, och Demo-klass och Demo-kurs ska inte
+        // skapas om. Då räcker det att användarna och lösenorden finns.
+        var hasDemoData = await db.Groups.AnyAsync(
+            row => row.SchoolId == school.Id && row.Name == DemoSeed.MarkerGroupName, ct);
+        if (!hasDemoData)
         {
-            var demoCourse = new Course { SchoolId = school.Id, Title = CourseTitle, Code = CourseCode };
-            db.Courses.Add(demoCourse);
-            AddDemoCourseContent(demoCourse, teacher, created);
-            courses.Add(demoCourse);
-        }
-
-        foreach (var course in courses)
-        {
-            var linked = await db.GroupCourses.AnyAsync(
-                link => link.GroupId == group.Id && link.CourseId == course.Id, ct);
-            if (!linked)
-            {
-                db.GroupCourses.Add(new GroupCourse { GroupId = group.Id, CourseId = course.Id });
-                created.Add($"koppling {ClassName} till {course.Title}");
-            }
+            await EnsureDemoClassAsync(school, teacher, student, created, ct);
         }
 
         await db.SaveChangesAsync(ct);
@@ -68,6 +54,35 @@ public sealed class AccountSeed(
             ? "inget, allt fanns redan"
             : string.Join(", ", created);
         logger.LogInformation("Inloggningskonton klara i skolan {School}. Skapade: {Created}", school.Name, summary);
+    }
+
+    /// <summary>
+    /// Demo-klass med läraren och eleven, och Demo-kurs (bara om skolan saknar kurser) som klassen läser. Klassen
+    /// kopplas bara till Demo-kurs, aldrig till skolans övriga kurser.
+    /// </summary>
+    private async Task EnsureDemoClassAsync(
+        School school, User teacher, User student, List<string> created, CancellationToken ct)
+    {
+        var group = await EnsureGroupAsync(school, created, ct);
+        await EnsureEnrollmentAsync(teacher, group, GroupRole.Teacher, created, ct);
+        await EnsureEnrollmentAsync(student, group, GroupRole.Student, created, ct);
+
+        var demoCourse = await db.Courses.FirstOrDefaultAsync(
+            course => course.SchoolId == school.Id && course.Code == CourseCode, ct);
+        if (demoCourse is null && !await db.Courses.AnyAsync(course => course.SchoolId == school.Id, ct))
+        {
+            demoCourse = new Course { SchoolId = school.Id, Title = CourseTitle, Code = CourseCode };
+            db.Courses.Add(demoCourse);
+            AddDemoCourseContent(demoCourse, teacher, created);
+        }
+
+        if (demoCourse is not null
+            && !await db.GroupCourses.AnyAsync(
+                link => link.GroupId == group.Id && link.CourseId == demoCourse.Id, ct))
+        {
+            db.GroupCourses.Add(new GroupCourse { GroupId = group.Id, CourseId = demoCourse.Id });
+            created.Add($"koppling {ClassName} till {demoCourse.Title}");
+        }
     }
 
     /// <summary>Placeholder-skolan (finns från migrationen), annars den första skolan, annars en ny Demo-skola.</summary>

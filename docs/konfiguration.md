@@ -24,10 +24,11 @@ dotnet user-secrets list --project backend
 
 ### Databas
 
-| Nyckel                      | Hemlig | Standard                      | Vad                                                                     |
-| --------------------------- | ------ | ----------------------------- | ----------------------------------------------------------------------- |
-| `ConnectionStrings:Default` | ja\*   | Docker-Postgres i Development | Connection string i .NET-format. I prod Supabase session pooler (IPv4). |
-| `Database:SeedDevData`      | nej    | `true` i Development          | Lägger in exempeldata om databasen saknar grupper.                      |
+| Nyckel                      | Hemlig | Standard                      | Vad                                                                                                                                                                         |
+| --------------------------- | ------ | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ConnectionStrings:Default` | ja\*   | Docker-Postgres i Development | Connection string i .NET-format. I prod Supabase session pooler (IPv4).                                                                                                     |
+| `Database:SeedDevData`      | nej    | `true` i Development          | Lägger in exempeldata om databasen saknar grupper.                                                                                                                          |
+| `Database:SeedDemoData`     | nej    | `true` i Production           | Lägger in realistisk demodata för Edugrade vid start, en gång. Se [auth-och-behorigheter.md](auth-och-behorigheter.md#demodata-prod). Satt i `appsettings.Production.json`. |
 
 \* Lokalt är standardvärdet bara dev-lösenordet till Docker-containern.
 

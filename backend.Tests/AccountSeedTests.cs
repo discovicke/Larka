@@ -89,6 +89,24 @@ public class AccountSeedTests(JwtTestWebApplicationFactory factory) : IClassFixt
         Assert.Equal(otherHashBefore, (await db.Users.SingleAsync(user => user.Id == otherUser.Id)).PasswordHash);
     }
 
+    [Fact]
+    public async Task AccountSeed_LinksTheDemoClassOnlyToTheDemoCourse()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var demoGroup = await db.Groups.SingleAsync(group => group.Name == AccountSeed.ClassName);
+        var otherCourse = await TestData.AddCourseAsync(db, demoGroup.SchoolId);
+
+        await scope.ServiceProvider.GetRequiredService<AccountSeed>().SeedAsync(CancellationToken.None);
+
+        var linkedCodes = await db.GroupCourses
+            .Where(link => link.GroupId == demoGroup.Id)
+            .Join(db.Courses, link => link.CourseId, course => course.Id, (_, course) => course.Code)
+            .ToListAsync();
+        Assert.Equal([AccountSeed.CourseCode], linkedCodes);
+        Assert.False(await db.GroupCourses.AnyAsync(link => link.CourseId == otherCourse.Id));
+    }
+
     private static async Task<CountSnapshot> CountDemoRowsAsync(AppDb db)
     {
         var demoEmails = new[] { "admin", "larare", "elev" };

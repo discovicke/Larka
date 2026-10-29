@@ -24,7 +24,45 @@ Tre konton läggs in vid varje start, i alla miljöer, och deras lösenord sätt
 | `larare`     | `larare` | Teacher |
 | `elev`       | `elev`   | Student |
 
-Vid start skapas också klassen `Demo-klass` (läraren och eleven i den), och om skolan saknar kurser kursen `Demo-kurs` (kod `DEMO`) med en vecka. Ingen annan användare rörs. Kontona är offentliga, så prod-data är öppen för den som prövar dem.
+Vid start skapas också klassen `Demo-klass` (läraren och eleven i den), och om skolan saknar kurser kursen `Demo-kurs` (kod `DEMO`) med en vecka. Klassen läser bara `Demo-kurs`, aldrig skolans övriga kurser. Ingen annan användare rörs. Kontona är offentliga, så prod-data är öppen för den som prövar dem.
+
+När demodatan nedan finns skapas varken `Demo-klass` eller `Demo-kurs`, och kontona sitter i de riktiga klasserna i stället.
+
+### Demodata (prod)
+
+Prod fylls med realistisk data för skolan **Edugrade**, så att varje funktion går att visa. Det gör `DemoSeed` (`backend/Infrastructure/Persistence/DemoSeed.cs`, innehållet i `DemoCatalog.cs`) vid start, när `Database:SeedDemoData` är `true`. Inställningen ligger i `backend/appsettings.Production.json`, så den gäller i prod (Render sätter `ASPNETCORE_ENVIRONMENT=Production`) utan att någon sätter något för hand, och är av i Development och i testerna. Se [konfiguration.md](konfiguration.md#databas).
+
+Seeden är additiv och idempotent. Finns klassen `.NET25` (markören) gör den ingenting, och den ändrar eller tar aldrig bort något den inte skapat själv. Undantagen: skolan döps om från `Placeholder-skolan` till `Edugrade`, kontona `larare` och `elev` placeras i `.NET25`, och `Demo-klass` med `Demo-kurs` tas bort om ingen har lämnat in något där (annars lämnas de). Allt sparas i en transaktion. Ett fel loggas men stoppar inte starten.
+
+| Grupp             | Typ       | Innehåll                                                                                                                                                                                                                                    |
+| ----------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.NET25` (HT25)   | Klass     | Systemutvecklare .NET med AI-kompetens. 22 elever, 4 lärare (`larare` och tre till), 1 mentor. Avslutade kurser: Programmering med C#, Databaser, Webbapplikationer i C#. Pågående: DevOps. Kommande: AI-komponenter och ML i Azure, LIA 1. |
+| `.NET24` (HT24)   | Klass     | Äldre klass som är ute på LIA. 19 elever, 3 lärare, 1 mentor. Fyra avslutade kurser (C#, Databaser, Webbapplikationer, DevOps), AI-kursen, och pågående LIA 2 med veckologg.                                                                |
+| `FIB25` (HT25)    | Klass     | Fibertekniker, utan kod och GitHub. 18 elever, 3 lärare, 1 mentor. Skarvning och mätning (avslutad), Passiva fibernät och installation (pågående), Fältpraktik (kommande). Praktiska prov bedöms på plats.                                  |
+| `Klassråd .NET25` | Committee | Visar grupptyper: tre elever, `elev`, `larare` och mentorn. Har en nyhet med kommentarer men inga kurser.                                                                                                                                   |
+
+DevOps (`.NET25_DEVOPS`, 12 oktober till 13 november, 25 poäng) har veckorna v42–v46 med tre lektioner vardera (Git-flöden, CI med GitHub Actions, Docker, tester, semantisk versionering och driftsättning), en läsuppgift och fem inlämningsuppgifter. Deadlines och lägen kring demodagen, måndag 2 november:
+
+| Uppgift                      | Deadline | Läge                                                                                    |
+| ---------------------------- | -------- | --------------------------------------------------------------------------------------- |
+| Git-flöde i teamet           | 23 okt   | Nästan alla betygsatta, någon ska komplettera, någon saknas                             |
+| CI-pipeline för er backend   | 28 okt   | Många väntar på bedömning (kön i _Att bedöma_), några betygsatta, några ska komplettera |
+| Containerisera applikationen | 30 okt   | Försenad: bara en del har lämnat in, resten saknas                                      |
+| Testautomation i CI          | 6 nov    | Ska in i veckan (veckan öppnar fredag 30 okt)                                           |
+| Releasa och driftsätt        | 13 nov   | Längre fram (veckan öppnar fredag 6 nov)                                                |
+
+Alla inlämningar och betyg är daterade senast 29 oktober 2026, så inget ligger i framtiden. Dessutom finns nyheter i klasserna och kurserna (välkomst, schemaändring, påminnelse före deadline) med kommentarer, klarmarkerade lektioner, beroenden mellan lektioner (en låst del) och inkorg för `elev` och `larare`. Avslutade kurser har betyg på varje uppgift för varje elev (G eller VG). Det finns inga GitHub-repon eller installationer i demodatan.
+
+**Logga in som, för att visa:**
+
+| Konto                   | Lösenord     | Visar                                                                                                                                                                                                                                                                  |
+| ----------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `admin`                 | `admin`      | Allt i skolan: alla klasser, användare och kurser, och skolinställningarna.                                                                                                                                                                                            |
+| `larare`                | `larare`     | Lärare i `.NET25`: Idag med _Att bedöma_-kö, deadlines och schemalagda veckor, kursflikarna i DevOps och Webbapplikationer i C#, klasslistor och bedömning.                                                                                                            |
+| `elev`                  | `elev`       | Elev i `.NET25` med historik: Idag, Kalender, Inkorg, Material, Studieplan och betyg (95 av 225 poäng klara), inlämningar som är betygsatta, väntar och ska kompletteras.                                                                                              |
+| Valfri seedad användare | `larka-demo` | Alla lärare, mentorer och elever har e-post `fornamn.efternamn@demo.larka.se` (utan å, ä, ö) och samma lösenord. Till exempel `karin.holmgren@demo.larka.se` (lärare), `malin.ekstrom@demo.larka.se` (mentor), `mikael.strand@demo.larka.se` (lärare i Fibertekniker). |
+
+För att visa en annan klass: logga in som en lärare eller elev där, till exempel `henrik.lindahl@demo.larka.se` (mentor för `.NET24`) eller `sofie.brannstrom@demo.larka.se` (mentor för `FIB25`). Seedade användare har samma lösenord, och det är medvetet offentligt, så logga inte in med riktiga uppgifter där.
 
 ### Dev-inloggningar
 
@@ -47,7 +85,7 @@ Seeden körs bara när databasen är tom. Saknar en äldre dev-databas de här a
 
 ### Produktion
 
-Prod seedar inga lösenord utöver demokontona. Admin kan ge en ny användare ett tillfälligt lösenord (minst 8 tecken) när hen skapas från _Lägg till medlem_ på en grupp, eller med `password` i `POST /api/users`. Utan lösenord kan användaren inte logga in. För äldre användare utan lösenord: hasha det med ASP.NET Core `PasswordHasher<User>` och skriv hashen i `Users.PasswordHash`.
+Prod seedar inga lösenord utöver demokontona och demodatan (`larka-demo`). Admin kan ge en ny användare ett tillfälligt lösenord (minst 8 tecken) när hen skapas från _Lägg till medlem_ på en grupp, eller med `password` i `POST /api/users`. Utan lösenord kan användaren inte logga in. För äldre användare utan lösenord: hasha det med ASP.NET Core `PasswordHasher<User>` och skriv hashen i `Users.PasswordHash`.
 
 ## Roller och behörigheter
 
