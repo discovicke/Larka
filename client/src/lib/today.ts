@@ -47,10 +47,34 @@ export function splitByWeek<Item extends {dueAt: string}>(items: Item[], now: Da
   }
 }
 
-/** Deadlinen ligger inom två dygn. */
-export function isUrgent(iso: string, now: Date): boolean {
+/** Deadlinen har passerat. */
+export function isOverdue(iso: string, now: Date): boolean {
+  return new Date(iso).getTime() < now.getTime()
+}
+
+/** Deadlinen ligger framför oss men inom två dygn. */
+export function isDueSoon(iso: string, now: Date): boolean {
   const diff = new Date(iso).getTime() - now.getTime()
-  return diff <= urgentWithin
+  return diff >= 0 && diff <= urgentWithin
+}
+
+/** Klassen för en deadline: röd när den har passerat, gul inom två dygn, annars `fallback`. */
+export function dueTextClass(iso: string, now: Date, fallback = ''): string {
+  if (isOverdue(iso, now)) {
+    return 'text-destructive'
+  }
+  return isDueSoon(iso, now)
+    ? 'text-warning'
+    : fallback
+}
+
+/** Delar uppgifterna i försenade, den här veckan och senare. Ordningen behålls. */
+export function groupByDue<Item extends {dueAt: string}>(items: Item[], now: Date) {
+  const overdue = items.filter((item) => isOverdue(item.dueAt, now))
+  return {
+    overdue,
+    ...splitByWeek(items.filter((item) => !isOverdue(item.dueAt, now)), now),
+  }
 }
 
 /** "om 3 timmar", "imorgon", "om 2 dagar", "om 3 veckor". */

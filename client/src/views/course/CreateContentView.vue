@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import DateTimePicker from '@/components/DateTimePicker.vue'
-import {PhChalkboardTeacher, PhFiles, PhGithubLogo, PhTextAa} from '@phosphor-icons/vue'
+import {PhChalkboardTeacher, PhFiles, PhGithubLogo, PhTextAa, PhWarning} from '@phosphor-icons/vue'
 import {type Component, computed, onMounted, reactive, ref, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 
 import AttachmentList from '@/components/course/AttachmentList.vue'
 import MarkdownEditor from '@/components/editor/MarkdownEditor.vue'
 import PageActions from '@/components/layout/PageActions.vue'
-import {Alert, AlertDescription} from '@/components/ui/alert'
+import {Alert, AlertDescription, AlertTitle} from '@/components/ui/alert'
 import {Button} from '@/components/ui/button'
 import {Checkbox} from '@/components/ui/checkbox'
 import {
@@ -568,7 +568,7 @@ async function save(status: Schema<'ContentStatus'> = 'Published') {
               :href="selectedTemplate.htmlUrl"
               target="_blank"
               rel="noopener noreferrer"
-              class="text-primary ml-1 underline underline-offset-3"
+              class="text-link ml-1 underline underline-offset-3"
             >Öppna</a>
           </div>
           <p v-else-if="templateCommitLoading" class="text-muted-foreground text-xs">
@@ -610,39 +610,38 @@ async function save(status: Schema<'ContentStatus'> = 'Published') {
           </p>
         </Field>
 
-        <div
-          v-if="unlinkedStudents.length > 0"
-          class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
-          data-test="unlinked-students"
-        >
-          <p class="font-medium">
+        <Alert v-if="unlinkedStudents.length > 0" variant="warning" data-test="unlinked-students">
+          <PhWarning/>
+          <AlertTitle>
             {{ unlinkedStudents.length }}
             {{ unlinkedStudents.length === 1
               ? 'elev har'
               : 'elever har' }}
             inte kopplat GitHub
-          </p>
-          <p class="mt-0.5 text-xs">
-            De får ett repo men kan inte bjudas in förrän de kopplar sitt konto.
-          </p>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            class="mt-2 h-7 px-2 text-amber-900 hover:bg-amber-100 dark:text-amber-200 dark:hover:bg-amber-900/40"
-            data-test="unlinked-students-toggle"
-            @click="showUnlinkedStudents = !showUnlinkedStudents"
-          >
-            {{ showUnlinkedStudents
-              ? 'Dölj'
-              : 'Visa vilka' }}
-          </Button>
-          <ul v-if="showUnlinkedStudents" class="mt-2 flex flex-col gap-1 text-xs" data-test="unlinked-students-list">
-            <li v-for="student in unlinkedStudents" :key="student.id">
-              {{ student.name }} · {{ student.email }}
-            </li>
-          </ul>
-        </div>
+          </AlertTitle>
+          <AlertDescription>
+            <p class="text-xs">
+              De får ett repo men kan inte bjudas in förrän de kopplar sitt konto.
+            </p>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              class="text-warning hover:bg-warning/10 mt-2 h-7 px-2"
+              data-test="unlinked-students-toggle"
+              @click="showUnlinkedStudents = !showUnlinkedStudents"
+            >
+              {{ showUnlinkedStudents
+                ? 'Dölj'
+                : 'Visa vilka' }}
+            </Button>
+            <ul v-if="showUnlinkedStudents" class="mt-2 flex flex-col gap-1 text-xs" data-test="unlinked-students-list">
+              <li v-for="student in unlinkedStudents" :key="student.id">
+                {{ student.name }} · {{ student.email }}
+              </li>
+            </ul>
+          </AlertDescription>
+        </Alert>
         <p v-if="unlinkedStudentsLoading" class="text-muted-foreground text-xs">
           Kontrollerar GitHub-kopplingar…
         </p>

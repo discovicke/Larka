@@ -16,11 +16,12 @@ import {
   dueThisWeekText,
   firstName,
   greeting,
-  isUrgent,
   metaLine,
   progressPercent,
   relativeText,
   deadlineText,
+  dueTextClass,
+  groupByDue,
   shortDate,
   splitByWeek,
   weekdayAndTime,
@@ -50,8 +51,9 @@ const mobileGreeting = computed(() => name.value
   : 'Hej')
 const todo = computed(() => today.value?.todo ?? [])
 const groups = computed(() => {
-  const {thisWeek, later} = splitByWeek(todo.value, now)
+  const {overdue, thisWeek, later} = groupByDue(todo.value, now)
   return [
+    {heading: 'Försenat', items: overdue},
     {heading: 'Den här veckan', items: thisWeek},
     {heading: 'Senare', items: later},
   ].filter((group) => group.items.length > 0)
@@ -141,9 +143,7 @@ function statusText(item: Submission): string {
 }
 
 function dueClass(item: Todo): string {
-  return isUrgent(item.dueAt, now)
-    ? 'text-destructive'
-    : ''
+  return dueTextClass(item.dueAt, now)
 }
 
 function tabClass(value: Tab): string {
@@ -254,7 +254,9 @@ load()
                 data-test="todo-item"
                 class="hover:bg-muted/40 flex items-center gap-3 border-b px-5 py-3.5 last:border-b-0"
               >
-                <PhExam class="text-muted-foreground size-4 shrink-0" aria-hidden="true"/>
+                <span class="bg-primary/25 text-foreground dark:bg-primary/15 dark:text-primary flex size-8 shrink-0 items-center justify-center rounded-[7px]">
+                  <PhExam class="size-4" aria-hidden="true"/>
+                </span>
                 <span class="flex min-w-0 flex-1 flex-col">
                   <span class="truncate font-medium">{{ item.title }}</span>
                   <span class="text-muted-foreground flex flex-wrap items-center gap-x-2 text-[13px]">
@@ -447,7 +449,9 @@ load()
             data-test="mobile-todo-item"
             class="flex min-h-[60px] items-center gap-3 border-b px-3.5 py-2 last:border-b-0"
           >
-            <PhExam class="text-muted-foreground size-5 shrink-0" aria-hidden="true"/>
+            <span class="bg-primary/25 text-foreground dark:bg-primary/15 dark:text-primary flex size-8 shrink-0 items-center justify-center rounded-[7px]">
+              <PhExam class="size-4" aria-hidden="true"/>
+            </span>
             <span class="flex min-w-0 flex-1 flex-col">
               <span class="truncate font-medium">{{ item.title }}</span>
               <span class="text-muted-foreground text-[13px]">{{ metaLine(item.courseTitle, item.dueAt) }}</span>

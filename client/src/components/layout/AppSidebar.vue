@@ -212,7 +212,10 @@ function courseLabel(course: SidebarCourse): string {
             </SidebarMenuButton>
             <SidebarMenuBadge
               v-if="item.count"
-              class="bg-primary text-primary-foreground peer-hover/menu-button:text-primary-foreground peer-data-active/menu-button:text-primary-foreground rounded-full"
+              class="rounded-full"
+              :class="item.unread
+                ? 'bg-info text-white dark:text-background peer-hover/menu-button:text-white dark:peer-hover/menu-button:text-background peer-data-active/menu-button:text-white dark:peer-data-active/menu-button:text-background'
+                : 'bg-primary text-primary-foreground peer-hover/menu-button:text-primary-foreground peer-data-active/menu-button:text-primary-foreground'"
             >
               {{ item.count }}
             </SidebarMenuBadge>

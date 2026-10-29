@@ -32,7 +32,7 @@ defineProps<{
   </span>
   <span
     v-if="row.unread"
-    class="bg-primary mt-1.5 size-2 shrink-0 rounded-full"
+    class="bg-info mt-1.5 size-2 shrink-0 rounded-full"
     aria-label="Oläst"
   />
 </template>

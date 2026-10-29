@@ -116,7 +116,7 @@ watch(courseId, () => {
             type="button"
             class="flex w-full flex-col gap-1 border-b border-muted px-5 py-3.5 text-left hover:bg-muted/50"
             :class="selected?.linkId === post.linkId
-              ? 'bg-muted shadow-[inset_2px_0_0_var(--color-primary)]'
+              ? 'bg-accent'
               : ''"
             :aria-current="selected?.linkId === post.linkId
               ? 'true'

@@ -6,11 +6,12 @@ import {
   PhGithubLogo,
   PhMoon,
   PhSun,
+  PhWarning,
 } from '@phosphor-icons/vue'
 import {computed, onMounted, ref, type Component} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 
-import {Alert, AlertDescription} from '@/components/ui/alert'
+import {Alert, AlertDescription, AlertTitle} from '@/components/ui/alert'
 import {Badge} from '@/components/ui/badge'
 import {Button} from '@/components/ui/button'
 import {Checkbox} from '@/components/ui/checkbox'
@@ -696,30 +697,34 @@ const options: {
               <p class="text-muted-foreground mt-3 text-xs">
                 Frånkoppling tar bara bort kopplingen här. GitHub-appen och elevrepon påverkas inte.
               </p>
-              <div
+              <Alert
                 v-if="github.connected"
-                class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+                variant="warning"
+                class="mt-4"
                 data-test="github-security-warning"
               >
-                <p class="font-medium">Kontrollera organisationens basbehörighet</p>
-                <p class="mt-1 text-xs">
-                  Om medlemmar har <strong>Read</strong> eller <strong>Write</strong> som basbehörighet ser
-                  alla elever alla privata repon, inklusive mallar och klasskamraters repon. Sätt
-                  <strong>Member privileges → Base permissions</strong> till <strong>No permission</strong>.
-                  Stäng också av medlemmars repo-skapande, radering och ändring av visibility.
-                </p>
-                <a
-                  v-if="memberPrivilegesUrl"
-                  :href="memberPrivilegesUrl"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="mt-2 inline-flex items-center gap-1 text-xs font-medium underline underline-offset-3"
-                  data-test="github-member-privileges"
-                >
-                  Öppna medlemsinställningar
-                  <PhArrowSquareOut class="size-3.5"/>
-                </a>
-              </div>
+                <PhWarning/>
+                <AlertTitle>Kontrollera organisationens basbehörighet</AlertTitle>
+                <AlertDescription>
+                  <p class="text-xs">
+                    Om medlemmar har <strong>Read</strong> eller <strong>Write</strong> som basbehörighet ser
+                    alla elever alla privata repon, inklusive mallar och klasskamraters repon. Sätt
+                    <strong>Member privileges → Base permissions</strong> till <strong>No permission</strong>.
+                    Stäng också av medlemmars repo-skapande, radering och ändring av visibility.
+                  </p>
+                  <a
+                    v-if="memberPrivilegesUrl"
+                    :href="memberPrivilegesUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="mt-2 inline-flex items-center gap-1 text-xs font-medium underline underline-offset-3"
+                    data-test="github-member-privileges"
+                  >
+                    Öppna medlemsinställningar
+                    <PhArrowSquareOut class="size-3.5"/>
+                  </a>
+                </AlertDescription>
+              </Alert>
             </template>
 
             <Button

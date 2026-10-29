@@ -55,13 +55,13 @@ const kindIcons: Record<InboxKind, Component> = {
   assignment: PhExam,
 }
 
-// Betyg är grönt som i mockupen, komplettering gult. Resten är dämpat.
+// Nyheter är blå, betyg gröna, komplettering gul. Deadlines och uppgifter har pennans gula ton.
 const kindIconClasses: Record<InboxKind, string> = {
-  news: 'bg-muted',
+  news: 'bg-info/10 text-info dark:bg-info/20',
   grade: 'bg-success/10 text-success dark:bg-success/20',
   needsWork: 'bg-warning/10 text-warning dark:bg-warning/20',
-  deadline: 'bg-muted',
-  assignment: 'bg-muted',
+  deadline: 'bg-primary/25 text-foreground dark:bg-primary/15 dark:text-primary',
+  assignment: 'bg-primary/25 text-foreground dark:bg-primary/15 dark:text-primary',
 }
 
 const dayHeadings = ['Idag', 'Igår', 'Tidigare'] as const
@@ -324,7 +324,7 @@ watch(status, (value) => {
                 type="button"
                 class="flex w-full gap-3 px-4 py-3 text-left hover:bg-muted/40"
                 :class="selected?.post.contentId === row.contentId
-                  ? 'bg-muted shadow-[inset_2px_0_0_var(--color-primary)]'
+                  ? 'bg-accent'
                   : ''"
                 :aria-current="selected?.post.contentId === row.contentId
                   ? 'true'

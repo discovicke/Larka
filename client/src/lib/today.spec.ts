@@ -6,7 +6,10 @@ import {
   dueThisWeekText,
   firstName,
   greeting,
-  isUrgent,
+  dueTextClass,
+  groupByDue,
+  isDueSoon,
+  isOverdue,
   metaLine,
   progressPercent,
   relativeText,
@@ -57,9 +60,33 @@ describe('today', () => {
     expect(later.map((item) => item.id)).toEqual(['b', 'c'])
   })
 
-  it('markerar deadlines inom 48 timmar', () => {
-    expect(isUrgent(local(10, 23, 11), wednesday)).toBe(true)
-    expect(isUrgent(local(10, 23, 13), wednesday)).toBe(false)
+  it('skiljer försenade deadlines från de som är nära', () => {
+    expect(isOverdue(local(10, 20), wednesday)).toBe(true)
+    expect(isOverdue(local(10, 21, 13), wednesday)).toBe(false)
+    expect(isDueSoon(local(10, 20), wednesday)).toBe(false)
+    expect(isDueSoon(local(10, 23, 11), wednesday)).toBe(true)
+    expect(isDueSoon(local(10, 23, 13), wednesday)).toBe(false)
+  })
+
+  it('väljer färg efter hur nära deadlinen är', () => {
+    expect(dueTextClass(local(10, 20), wednesday)).toBe('text-destructive')
+    expect(dueTextClass(local(10, 22), wednesday)).toBe('text-warning')
+    expect(dueTextClass(local(11, 6), wednesday)).toBe('')
+    expect(dueTextClass(local(11, 6), wednesday, 'text-muted-foreground')).toBe('text-muted-foreground')
+  })
+
+  it('lägger försenade först och delar resten på veckan', () => {
+    const items = [
+      {id: 'late', dueAt: local(10, 20)},
+      {id: 'soon', dueAt: local(10, 22)},
+      {id: 'later', dueAt: local(11, 6)},
+    ]
+
+    const {overdue, thisWeek, later} = groupByDue(items, wednesday)
+
+    expect(overdue.map((item) => item.id)).toEqual(['late'])
+    expect(thisWeek.map((item) => item.id)).toEqual(['soon'])
+    expect(later.map((item) => item.id)).toEqual(['later'])
   })
 
   it('skriver tid kvar', () => {

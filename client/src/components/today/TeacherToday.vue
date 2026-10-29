@@ -11,6 +11,7 @@ import {api, type Schema} from '@/lib/api'
 import {
   dateLine,
   deadlineText,
+  dueTextClass,
   firstName,
   greeting,
   progressPercent,
@@ -171,7 +172,9 @@ load()
           data-test="to-grade-item"
           class="hover:bg-muted/40 flex items-center gap-3 border-t px-5 py-3.5"
         >
-          <PhExam class="text-muted-foreground size-4 shrink-0" aria-hidden="true"/>
+          <span class="bg-primary/25 text-foreground dark:bg-primary/15 dark:text-primary flex size-8 shrink-0 items-center justify-center rounded-[7px]">
+            <PhExam class="size-4" aria-hidden="true"/>
+          </span>
           <span class="flex min-w-0 flex-1 flex-col">
             <span class="truncate font-medium">{{ item.studentName }}</span>
             <span class="text-muted-foreground truncate text-[13px]">
@@ -203,7 +206,7 @@ load()
           >
             <span class="flex items-baseline justify-between gap-3">
               <span class="min-w-0 truncate font-medium">{{ item.title }}</span>
-              <span class="text-muted-foreground shrink-0 text-[13px]">{{ deadlineText(item.dueAt) }}</span>
+              <span class="shrink-0 text-[13px]" :class="dueTextClass(item.dueAt, now, 'text-muted-foreground')">{{ deadlineText(item.dueAt) }}</span>
             </span>
             <span class="text-muted-foreground text-[13px]">{{ item.courseTitle }}</span>
             <span
