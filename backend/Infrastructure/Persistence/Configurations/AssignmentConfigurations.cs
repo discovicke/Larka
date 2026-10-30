@@ -50,6 +50,20 @@ public class StudentRepoConfiguration : IEntityTypeConfiguration<StudentRepo>
     }
 }
 
+public class StudentHelpRequestConfiguration : IEntityTypeConfiguration<StudentHelpRequest>
+{
+    public void Configure(EntityTypeBuilder<StudentHelpRequest> builder)
+    {
+        builder.HasOne<ContentLink>().WithMany()
+            .HasForeignKey(request => request.ContentLinkId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<User>().WithMany()
+            .HasForeignKey(request => request.StudentId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<User>().WithMany()
+            .HasForeignKey(request => request.ResolvedById).OnDelete(DeleteBehavior.SetNull);
+        builder.HasIndex(request => new { request.ContentLinkId, request.StudentId }).IsUnique();
+    }
+}
+
 public class GradeConfiguration : IEntityTypeConfiguration<Grade>
 {
     public void Configure(EntityTypeBuilder<Grade> builder)

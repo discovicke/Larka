@@ -74,6 +74,10 @@ public interface ISubmissionRepository
     Task<List<RepoLockContext>> GetReposToLockAsync(
         DateTimeOffset now, int take, CancellationToken ct);
 
+    /// <summary>Alla repon för en utdelning, för manuell uppdatering eller låsning.</summary>
+    Task<List<RepoLockContext>> GetRepoContextsForLinkAsync(
+        Guid linkId, DateTimeOffset now, CancellationToken ct);
+
     /// <summary>Elevens redan skapade repon. Används när eleven kopplar GitHub efter utdelningen.</summary>
     Task<List<StudentRepo>> GetReposForStudentAsync(Guid studentId, CancellationToken ct);
 

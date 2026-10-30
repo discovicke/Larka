@@ -593,6 +593,45 @@ namespace Backend.Infrastructure.Persistence.Migrations
                     b.ToTable("SchoolGitHubInstallations");
                 });
 
+            modelBuilder.Entity("Backend.Domain.Entities.StudentHelpRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ContentLinkId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Message")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ResolvedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ResolvedById");
+
+                    b.HasIndex("StudentId");
+
+                    b.HasIndex("ContentLinkId", "StudentId")
+                        .IsUnique();
+
+                    b.ToTable("StudentHelpRequests");
+                });
+
             modelBuilder.Entity("Backend.Domain.Entities.StudentRepo", b =>
                 {
                     b.Property<Guid>("SubmissionId")
@@ -605,7 +644,31 @@ namespace Backend.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<DateTimeOffset?>("CheckStatusChangedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ChecksPassed")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ChecksTotal")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CommitCount")
+                        .HasColumnType("integer");
+
                     b.Property<string>("DesiredRepoName")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("InitialCommitAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("InitialSha")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("LastCommitAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastCommitMessage")
                         .HasColumnType("text");
 
                     b.Property<string>("LastSha")
@@ -620,6 +683,9 @@ namespace Backend.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("NextProvisioningAttemptAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTimeOffset?>("ProvisionedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<int>("ProvisioningAttempts")
                         .HasColumnType("integer");
 
@@ -628,6 +694,9 @@ namespace Backend.Infrastructure.Persistence.Migrations
 
                     b.Property<int>("ProvisioningState")
                         .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("ReopenedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("RepoFullName")
                         .IsRequired()
@@ -996,6 +1065,26 @@ namespace Backend.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("SchoolId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Backend.Domain.Entities.StudentHelpRequest", b =>
+                {
+                    b.HasOne("Backend.Domain.Entities.ContentLink", null)
+                        .WithMany()
+                        .HasForeignKey("ContentLinkId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Backend.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("ResolvedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Backend.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 

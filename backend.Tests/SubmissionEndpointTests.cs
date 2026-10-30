@@ -23,18 +23,38 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
 
     private record RepoResponse(
         string RepoFullName,
+        string? LastSha,
         string CheckStatus,
         string ProvisioningState,
         string? ProvisioningError,
         string? SubmissionSha,
         DateTimeOffset? LockedAt,
-        string? LockError);
+        string? LockError,
+        DateTimeOffset? ReopenedAt = null,
+        string? LastCommitMessage = null,
+        DateTimeOffset? LastCommitAt = null,
+        int CommitCount = 0,
+        int ChecksPassed = 0,
+        int ChecksTotal = 0);
 
     private record GradeResponse(string? Level, string Feedback);
 
+    private record SupportResponse(
+        bool NotStarted,
+        bool NoRecentPush,
+        bool RedChecks,
+        bool HelpRequested,
+        string? HelpMessage);
+
     private record SubmissionResponse(
-        Guid Id, Guid StudentId, string StudentName, string Status, List<FileResponse> Files, RepoResponse? Repo,
-        GradeResponse? Grade);
+        Guid Id,
+        Guid StudentId,
+        string StudentName,
+        string Status,
+        List<FileResponse> Files,
+        RepoResponse? Repo,
+        GradeResponse? Grade,
+        SupportResponse? Support = null);
 
     private static readonly object _fileSpec = new { submissionModes = new[] { "file" } };
 
@@ -110,6 +130,130 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     }
 
     [Fact]
+    public async Task RepoActions_RefreshAndLockOnlyTheSelectedAssignment()
+    {
+        var courseId = await AddCourseReadByTwoGroupsAsync();
+        var assignment = await CreateAssignmentAsync(
+            new { submissionModes = new[] { "repo" }, templateRepo = "skol-org/labb-1-mall" });
+        var linkId = await LinkAsync(assignment, new { courseId });
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            await scope.ServiceProvider
+                .GetRequiredService<GitHubRepoProvisioningService>()
+                .ProcessPendingAsync(CancellationToken.None);
+        }
+
+        var refresh = await _client.PostAsync($"/api/links/{linkId}/repos/refresh", null);
+        Assert.Equal(HttpStatusCode.NoContent, refresh.StatusCode);
+
+        var lockResponse = await _client.PostAsync($"/api/links/{linkId}/repos/lock", null);
+        Assert.Equal(HttpStatusCode.NoContent, lockResponse.StatusCode);
+
+        var locked = await ListAsync(linkId);
+        Assert.All(locked, submission =>
+        {
+            Assert.Equal("Submitted", submission.Status);
+            Assert.NotNull(submission.Repo!.LockedAt);
+        });
+    }
+
+    [Fact]
+    public async Task SupportFlags_DetectNotStartedOldPushAndRedChecks()
+    {
+        var courseId = await AddCourseReadByTwoGroupsAsync();
+        var assignment = await CreateAssignmentAsync(
+            new { submissionModes = new[] { "repo" }, templateRepo = "skol-org/labb-1-mall" });
+        var linkId = await LinkAsync(assignment, new { courseId });
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            await scope.ServiceProvider
+                .GetRequiredService<GitHubRepoProvisioningService>()
+                .ProcessPendingAsync(CancellationToken.None);
+
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            var now = DateTimeOffset.UtcNow;
+            var submissionIds = db.Submissions
+                .Where(submission => submission.ContentLinkId == linkId)
+                .Select(submission => submission.Id);
+            foreach (var repo in db.StudentRepos.Where(item => submissionIds.Contains(item.SubmissionId)))
+            {
+                repo.InitialSha = "initial-sha";
+                repo.LastSha = "initial-sha";
+                repo.CommitCount = 1;
+                repo.ProvisionedAt = now.AddDays(-4);
+                repo.LastCommitAt = now.AddDays(-5);
+            }
+
+            await db.SaveChangesAsync();
+        }
+
+        var notStarted = (await ListAsync(linkId))[0];
+        Assert.True(notStarted.Support?.NotStarted);
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            var now = DateTimeOffset.UtcNow;
+            var submissionIds = db.Submissions
+                .Where(submission => submission.ContentLinkId == linkId)
+                .Select(submission => submission.Id);
+            foreach (var repo in db.StudentRepos.Where(item => submissionIds.Contains(item.SubmissionId)))
+            {
+                repo.LastSha = "student-sha";
+                repo.CommitCount = 2;
+                repo.LastCommitAt = now.AddDays(-5);
+                repo.CheckStatus = CheckStatus.Red;
+                repo.CheckStatusChangedAt = now.AddHours(-40);
+            }
+
+            await db.SaveChangesAsync();
+        }
+
+        var started = (await ListAsync(linkId))[0];
+        Assert.False(started.Support?.NotStarted);
+        Assert.True(started.Support?.NoRecentPush);
+        Assert.True(started.Support?.RedChecks);
+    }
+
+    [Fact]
+    public async Task RequestingMoreWork_ReopensTheRepoForResubmission()
+    {
+        var courseId = await AddCourseReadByTwoGroupsAsync();
+        var assignment = await CreateAssignmentAsync(
+            new { submissionModes = new[] { "repo" }, templateRepo = "skol-org/labb-1-mall" });
+        var linkId = await LinkAsync(assignment, new { courseId });
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            await scope.ServiceProvider
+                .GetRequiredService<GitHubRepoProvisioningService>()
+                .ProcessPendingAsync(CancellationToken.None);
+        }
+
+        var submission = (await ListAsync(linkId))[0];
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            var entity = await db.Submissions.FindAsync(submission.Id);
+            entity!.Status = SubmissionStatus.Submitted;
+            entity.SubmittedAt = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync();
+
+            var service = scope.ServiceProvider.GetRequiredService<SubmissionService>();
+            var graded = await service.GradeAsync(
+                submission.Id,
+                new GradeSubmissionDto("Komplettera releaseflödet.", null, true),
+                CancellationToken.None);
+            Assert.True(graded.Status == ResultStatus.Ok, graded.Error);
+        }
+
+        var updated = (await ListAsync(linkId)).Single(item => item.Id == submission.Id);
+        Assert.NotNull(updated.Repo!.ReopenedAt);
+    }
+
+    [Fact]
     public async Task ReadyRepo_IsLockedAtDeadlineAndSavedAsSubmission()
     {
         var courseId = await AddCourseReadByTwoGroupsAsync();
@@ -140,7 +284,7 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
         var submissions = await ListAsync(linkId);
         Assert.All(submissions, submission => Assert.Equal("Submitted", submission.Status));
         Assert.All(submissions, submission => Assert.NotNull(submission.Repo!.LockedAt));
-        Assert.All(submissions, submission => Assert.Equal("fake-submission-sha", submission.Repo!.SubmissionSha));
+        Assert.All(submissions, submission => Assert.Equal("fake-initial-sha", submission.Repo!.SubmissionSha));
     }
 
     [Fact]

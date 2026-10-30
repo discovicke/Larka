@@ -4028,6 +4028,353 @@
         }
       }
     },
+    "/api/links/{id}/repos/refresh": {
+      "post": {
+        "tags": [
+          "Submissions"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/links/{id}/repos/lock": {
+      "post": {
+        "tags": [
+          "Submissions"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/links/{id}/help": {
+      "get": {
+        "tags": [
+          "Student support"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentHelpStatusDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Student support"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetStudentHelpDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentHelpStatusDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Student support"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/links/{id}/help/{studentId}/resolve": {
+      "post": {
+        "tags": [
+          "Student support"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "studentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/courses/{courseId}/student-modules": {
       "get": {
         "tags": [
@@ -4268,8 +4615,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "int32"
+              "type": "string"
             }
           }
         ],
@@ -4285,44 +4631,7 @@
         },
         "responses": {
           "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ChecklistDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
+            "description": "OK"
           }
         }
       }
@@ -6245,7 +6554,8 @@
           "AssignmentPublished",
           "DeadlineSoon",
           "SubmissionNeedsWork",
-          "SubmissionGraded"
+          "SubmissionGraded",
+          "StudentHelpRequested"
         ]
       },
       "NotificationListDto": {
@@ -6484,6 +6794,17 @@
           }
         }
       },
+      "SetStudentHelpDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "StudentBlockerDto": {
         "required": [
           "linkId",
@@ -6632,6 +6953,36 @@
         },
         "description": "En del i veckan. BodyMd är null när delen är låst, så att texten inte går att läsa i förväg.\nCanMarkDone är true för teori och uppgifter utan inlämningssätt; uppgifter med inlämning\nblir klara genom Submission och har Submitted/Grade i stället."
       },
+      "StudentHelpStatusDto": {
+        "required": [
+          "requested",
+          "message",
+          "createdAt",
+          "resolved"
+        ],
+        "type": "object",
+        "properties": {
+          "requested": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "resolved": {
+            "type": "boolean"
+          }
+        }
+      },
       "StudentModuleWithContentDto": {
         "required": [
           "id",
@@ -6692,7 +7043,17 @@
           "provisioningError",
           "submissionSha",
           "lockedAt",
-          "lockError"
+          "lockError",
+          "reopenedAt",
+          "lastCommitMessage",
+          "lastCommitAt",
+          "commitCount",
+          "checksPassed",
+          "checksTotal",
+          "initialSha",
+          "initialCommitAt",
+          "provisionedAt",
+          "checkStatusChangedAt"
         ],
         "type": "object",
         "properties": {
@@ -6739,8 +7100,110 @@
               "null",
               "string"
             ]
+          },
+          "reopenedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "lastCommitMessage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "lastCommitAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "commitCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "checksPassed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "checksTotal": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "initialSha": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "initialCommitAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "provisionedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "checkStatusChangedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
+      },
+      "StudentSupportDto": {
+        "required": [
+          "notStarted",
+          "noRecentPush",
+          "redChecks",
+          "helpRequested",
+          "helpRequestedAt",
+          "helpMessage",
+          "helpResolved"
+        ],
+        "type": "object",
+        "properties": {
+          "notStarted": {
+            "type": "boolean"
+          },
+          "noRecentPush": {
+            "type": "boolean"
+          },
+          "redChecks": {
+            "type": "boolean"
+          },
+          "helpRequested": {
+            "type": "boolean"
+          },
+          "helpRequestedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "helpMessage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "helpResolved": {
+            "type": "boolean"
+          }
+        },
+        "description": "Stödsignaler som läraren ser i trackingtabellen. Beräknas alltid från aktuell data."
       },
       "StudyPlanAssignmentDto": {
         "required": [
@@ -6922,7 +7385,8 @@
           "submittedAt",
           "files",
           "repo",
-          "grade"
+          "grade",
+          "support"
         ],
         "type": "object",
         "properties": {
@@ -6980,6 +7444,16 @@
               },
               {
                 "$ref": "#/components/schemas/GradeDto"
+              }
+            ]
+          },
+          "support": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/StudentSupportDto"
               }
             ]
           }
@@ -7869,6 +8343,9 @@
     },
     {
       "name": "Submissions"
+    },
+    {
+      "name": "Student support"
     },
     {
       "name": "Student content"

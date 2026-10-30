@@ -149,6 +149,7 @@ public class SubmissionRepository(AppDb db) : ISubmissionRepository
          join content in db.Content on link.ContentId equals content.Id
          where repo.ProvisioningState == RepoProvisioningState.Ready
              && repo.LockedAt == null
+             && repo.ReopenedAt == null
              && link.DueAt != null
              && link.DueAt <= now
              && content.Assignment != null
@@ -157,6 +158,17 @@ public class SubmissionRepository(AppDb db) : ISubmissionRepository
          orderby link.DueAt, repo.UpdatedAt
          select new RepoLockContext(repo, submission, student.SchoolId, link.DueAt!.Value))
         .Take(take)
+        .ToListAsync(ct);
+
+    public Task<List<RepoLockContext>> GetRepoContextsForLinkAsync(
+        Guid linkId, DateTimeOffset now, CancellationToken ct) =>
+        (from repo in db.StudentRepos
+         join submission in db.Submissions on repo.SubmissionId equals submission.Id
+         join student in db.Users on submission.StudentId equals student.Id
+         join link in db.ContentLinks on submission.ContentLinkId equals link.Id
+         where submission.ContentLinkId == linkId
+         orderby student.Name
+         select new RepoLockContext(repo, submission, student.SchoolId, link.DueAt ?? now))
         .ToListAsync(ct);
 
     public Task<List<StudentRepo>> GetReposForStudentAsync(Guid studentId, CancellationToken ct) =>

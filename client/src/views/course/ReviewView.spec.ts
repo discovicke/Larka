@@ -10,8 +10,19 @@ const course = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps'}
 const repo = {
   repoFullName: 'anna/release-pipeline',
   lastSha: '0123456789abcdef',
+  lastCommitMessage: 'feat: release pipeline',
+  lastCommitAt: '2026-10-23T20:00:00Z',
+  commitCount: 14,
   checkStatus: 'Green',
+  checksPassed: 12,
+  checksTotal: 12,
   updatedAt: '2026-10-23T20:00:00Z',
+  provisioningState: 'Ready',
+  provisioningError: null,
+  submissionSha: null,
+  lockedAt: null,
+  lockError: null,
+  reopenedAt: '2026-10-30T10:00:00Z',
 }
 
 const baseSubmission = {
@@ -137,7 +148,9 @@ describe('ReviewView', () => {
     expect(wrapper.text()).toContain('Repo')
     expect(wrapper.text()).toContain('anna/release-pipeline')
     expect(wrapper.text()).toContain('0123456')
-    expect(wrapper.text()).toContain('Tester: Gröna')
+    expect(wrapper.text()).toContain('Tester: 12/12')
+    expect(wrapper.text()).toContain('Gröna')
+    expect(wrapper.text()).toContain('Öppnat för komplettering')
   })
 
   it('visar IG och G för skalan IG-G', async () => {

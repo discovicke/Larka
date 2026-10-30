@@ -35,6 +35,9 @@ public interface ILabProvisioner
     Task<RepoLockResult> LockAtDeadlineAsync(
         StudentRepoContext context, DateTimeOffset deadline, CancellationToken ct);
 
+    /// <summary>Avarkiverar repot så att eleven kan committa igen efter en begärd komplettering.</summary>
+    Task ReopenForResubmissionAsync(StudentRepoContext context, CancellationToken ct);
+
     Task RefreshCheckStatusAsync(
         IReadOnlyList<StudentRepoContext> repos, CancellationToken ct); // pollar checks -> Green/Red
 

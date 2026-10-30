@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Backend.Application.Abstractions;
 using Backend.Domain.Enums;
 using Microsoft.Extensions.Options;
@@ -158,6 +159,14 @@ public sealed class GitHubAppService(
         string owner,
         string name,
         CancellationToken ct,
+        DateTimeOffset? until = null) =>
+        (await GetCommitSummaryAsync(installationId, owner, name, ct, until))?.Latest;
+
+    public async Task<GitHubCommitSummary?> GetCommitSummaryAsync(
+        long installationId,
+        string owner,
+        string name,
+        CancellationToken ct,
         DateTimeOffset? until = null)
     {
         EnsurePathPart(owner, nameof(owner));
@@ -195,10 +204,16 @@ public sealed class GitHubAppService(
             authoredAt = parsed;
         }
 
-        return new GitHubCommit(latest.Sha, latest.Commit.Message, authoredAt);
+        return new GitHubCommitSummary(
+            new GitHubCommit(latest.Sha, latest.Commit.Message, authoredAt),
+            CommitCountFromLinkHeader(response) ?? payload.Count);
     }
 
     public async Task<CheckStatus> GetCheckStatusAsync(
+        long installationId, string owner, string name, string reference, CancellationToken ct) =>
+        (await GetCheckSummaryAsync(installationId, owner, name, reference, ct)).Status;
+
+    public async Task<GitHubCheckSummary> GetCheckSummaryAsync(
         long installationId, string owner, string name, string reference, CancellationToken ct)
     {
         EnsurePathPart(owner, nameof(owner));
@@ -213,7 +228,12 @@ public sealed class GitHubAppService(
             null,
             ct);
         var payload = await ReadAsync<CheckRunsResponse>(response, ct);
-        return MapCheckStatus(payload?.CheckRuns ?? []);
+        var checkRuns = payload?.CheckRuns ?? [];
+        return new GitHubCheckSummary(
+            MapCheckStatus(checkRuns),
+            checkRuns.Count(checkRun =>
+                string.Equals(checkRun.Conclusion, "success", StringComparison.OrdinalIgnoreCase)),
+            checkRuns.Count);
     }
 
     public async Task<GitHubRepository> CreateRepositoryFromTemplateAsync(
@@ -275,8 +295,16 @@ public sealed class GitHubAppService(
             ct);
     }
 
-    public async Task ArchiveRepositoryAsync(
-        long installationId, string owner, string name, CancellationToken ct)
+    public Task ArchiveRepositoryAsync(
+        long installationId, string owner, string name, CancellationToken ct) =>
+        SetArchivedAsync(installationId, owner, name, true, ct);
+
+    public Task UnarchiveRepositoryAsync(
+        long installationId, string owner, string name, CancellationToken ct) =>
+        SetArchivedAsync(installationId, owner, name, false, ct);
+
+    private async Task SetArchivedAsync(
+        long installationId, string owner, string name, bool archived, CancellationToken ct)
     {
         EnsurePathPart(owner, nameof(owner));
         EnsurePathPart(name, nameof(name));
@@ -286,7 +314,7 @@ public sealed class GitHubAppService(
             HttpMethod.Patch,
             $"repos/{owner}/{name}",
             token.Token,
-            new ArchiveRepositoryRequest(true),
+            new ArchiveRepositoryRequest(archived),
             ct);
     }
 
@@ -448,6 +476,28 @@ public sealed class GitHubAppService(
             repository.Private,
             repository.IsTemplate,
             repository.Archived);
+
+    // GitHub skickar antalet sidor i Link-headern. Med per_page=1 är sista sidan antalet commits.
+    private static int? CommitCountFromLinkHeader(HttpResponseMessage response)
+    {
+        if (!response.Headers.TryGetValues("Link", out var values))
+        {
+            return null;
+        }
+
+        var last = values
+            .SelectMany(value => value.Split(','))
+            .FirstOrDefault(value => value.Contains("rel=\"last\"", StringComparison.OrdinalIgnoreCase));
+        if (last is null)
+        {
+            return null;
+        }
+
+        var match = Regex.Match(last, @"[?&]page=(\d+)");
+        return match.Success && int.TryParse(match.Groups[1].Value, out var page)
+            ? page
+            : null;
+    }
 
     private static CheckStatus MapCheckStatus(IReadOnlyList<CheckRunResponse> checkRuns)
     {

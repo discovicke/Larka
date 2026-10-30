@@ -50,6 +50,34 @@ public static class SubmissionEndpoints
             return TypedResults.Ok();
         });
 
+        var repoActions = app.MapGroup("/links/{id:guid}/repos").WithTags("Submissions");
+
+        repoActions.MapPost("/refresh", async (
+            Guid id, SubmissionService service, CancellationToken ct) =>
+            (await service.RefreshReposForLinkAsync(id, ct)).ToHttp(_ => TypedResults.NoContent()));
+
+        repoActions.MapPost("/lock", async (
+            Guid id, SubmissionService service, CancellationToken ct) =>
+            (await service.LockReposForLinkAsync(id, ct)).ToHttp(_ => TypedResults.NoContent()));
+
+        var help = app.MapGroup("/links/{id:guid}/help").WithTags("Student support");
+
+        help.MapGet("", async (
+            Guid id, StudentSupportService service, CancellationToken ct) =>
+            (await service.GetHelpAsync(id, ct)).ToHttp(TypedResults.Ok));
+
+        help.MapPost("", async (
+            Guid id, SetStudentHelpDto dto, StudentSupportService service, CancellationToken ct) =>
+            (await service.SetHelpAsync(id, dto, ct)).ToHttp(TypedResults.Ok));
+
+        help.MapDelete("", async (
+            Guid id, StudentSupportService service, CancellationToken ct) =>
+            (await service.WithdrawHelpAsync(id, ct)).ToHttp(_ => TypedResults.NoContent()));
+
+        help.MapPost("/{studentId:guid}/resolve", async (
+            Guid id, Guid studentId, StudentSupportService service, CancellationToken ct) =>
+            (await service.ResolveHelpAsync(id, studentId, ct)).ToHttp(_ => TypedResults.NoContent()));
+
         return app;
     }
 }

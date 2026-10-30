@@ -7,6 +7,7 @@ import {
   PhClock,
   PhExam,
   PhNewspaper,
+  PhQuestion,
   PhTray,
 } from '@phosphor-icons/vue'
 import {computed, type Component, ref, watch} from 'vue'
@@ -54,6 +55,7 @@ const kindIcons: Record<InboxKind, Component> = {
   needsWork: PhArrowCounterClockwise,
   deadline: PhClock,
   assignment: PhExam,
+  help: PhQuestion,
 }
 
 // Nyheter är blå, betyg gröna, komplettering gul. Deadlines och uppgifter har pennans gula ton.
@@ -63,6 +65,7 @@ const kindIconClasses: Record<InboxKind, string> = {
   needsWork: 'bg-warning/10 text-warning dark:bg-warning/20',
   deadline: 'bg-primary/25 text-foreground dark:bg-primary/15 dark:text-primary',
   assignment: 'bg-primary/25 text-foreground dark:bg-primary/15 dark:text-primary',
+  help: 'bg-warning/10 text-warning dark:bg-warning/20',
 }
 
 const dayHeadings = ['Idag', 'Igår', 'Tidigare'] as const

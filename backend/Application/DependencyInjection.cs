@@ -25,6 +25,7 @@ public static class DependencyInjection
         services.AddScoped<GitHubLinkingService>();
         services.AddScoped<GitHubRepoProvisioningService>();
         services.AddScoped<GitHubDeadlineLockService>();
+        services.AddScoped<StudentSupportService>();
         services.AddScoped<CalendarService>();
         services.AddScoped<StudyPlanService>();
         services.AddScoped<TodayService>();

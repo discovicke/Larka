@@ -15,6 +15,12 @@ public record GitHubRepository(
 /// <summary>Senaste commit på repots default branch.</summary>
 public record GitHubCommit(string Sha, string Message, DateTimeOffset? AuthoredAt);
 
+/// <summary>Senaste commit och antal commits på default branch.</summary>
+public record GitHubCommitSummary(GitHubCommit Latest, int Count);
+
+/// <summary>Sammanfattning av check runs för en commit.</summary>
+public record GitHubCheckSummary(CheckStatus Status, int Passed, int Total);
+
 /// <summary>
 /// Installationen som appen är installerad på. AccountLogin är org eller användare, AccountType är
 /// "Organization" eller "User". Permissions är GitHubs behörighetskarta, t.ex. contents=write.
@@ -70,8 +76,18 @@ public interface IGitHubAppService
         CancellationToken ct,
         DateTimeOffset? until = null);
 
+    Task<GitHubCommitSummary?> GetCommitSummaryAsync(
+        long installationId,
+        string owner,
+        string name,
+        CancellationToken ct,
+        DateTimeOffset? until = null);
+
     /// <summary>Sammanfattar check-runs för en commit: Pending, Green eller Red.</summary>
     Task<CheckStatus> GetCheckStatusAsync(
+        long installationId, string owner, string name, string reference, CancellationToken ct);
+
+    Task<GitHubCheckSummary> GetCheckSummaryAsync(
         long installationId, string owner, string name, string reference, CancellationToken ct);
 
     Task<GitHubRepository> CreateRepositoryFromTemplateAsync(
@@ -91,4 +107,6 @@ public interface IGitHubAppService
         long installationId, string owner, string name, string username, CancellationToken ct);
 
     Task ArchiveRepositoryAsync(long installationId, string owner, string name, CancellationToken ct);
+
+    Task UnarchiveRepositoryAsync(long installationId, string owner, string name, CancellationToken ct);
 }

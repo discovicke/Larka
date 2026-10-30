@@ -21,13 +21,28 @@ public class StudentRepo
     public int ProvisioningAttempts { get; set; }
     public DateTimeOffset? NextProvisioningAttemptAt { get; set; }
 
+    // Baseline när repot skapades från mallen. Används för att skilja "inte startat" från "har börjat".
+    public string? InitialSha { get; set; }
+    public DateTimeOffset? InitialCommitAt { get; set; }
+    public DateTimeOffset? ProvisionedAt { get; set; }
+
     public string? LastSha { get; set; }
+    public string? LastCommitMessage { get; set; }
+    public DateTimeOffset? LastCommitAt { get; set; }
+    public int CommitCount { get; set; }
     public CheckStatus CheckStatus { get; set; } = CheckStatus.Pending;
+    public DateTimeOffset? CheckStatusChangedAt { get; set; }
+    public int ChecksPassed { get; set; }
+    public int ChecksTotal { get; set; }
 
     // Sätts när deadlinen har passerat och repot låsts. SubmissionSha är den commit som räknas.
     public string? SubmissionSha { get; set; }
     public DateTimeOffset? LockedAt { get; set; }
     public string? LockError { get; set; }
+
+    // Sätts när läraren begär komplettering och repot öppnas för nya commits. Hindrar deadlinejobbet
+    // från att låsa repot igen direkt efter att deadlinen redan passerat.
+    public DateTimeOffset? ReopenedAt { get; set; }
 
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

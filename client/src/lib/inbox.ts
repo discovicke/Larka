@@ -6,7 +6,7 @@ type Notification = Schema<'NotificationDto'>
 export type InboxFilter = 'all' | 'unread' | 'grades' | 'news'
 
 /** Vad en rad i inkorgen handlar om. Nyheter kommer från flödena, resten från notiserna. */
-export type InboxKind = 'news' | 'grade' | 'needsWork' | 'deadline' | 'assignment'
+export type InboxKind = 'news' | 'grade' | 'needsWork' | 'deadline' | 'assignment' | 'help'
 
 export const kindLabels: Record<InboxKind, string> = {
   news: 'Nyhet',
@@ -14,6 +14,7 @@ export const kindLabels: Record<InboxKind, string> = {
   needsWork: 'Komplettering',
   deadline: 'Deadline',
   assignment: 'Ny uppgift',
+  help: 'Hjälpförfrågan',
 }
 
 /** Notiserna som blir egna rader. Nyhetsnotiserna visas på nyheten själv, som en oläst markering. */
@@ -22,6 +23,7 @@ const kindsByNotification: Partial<Record<Schema<'NotificationKind'>, InboxKind>
   DeadlineSoon: 'deadline',
   SubmissionNeedsWork: 'needsWork',
   SubmissionGraded: 'grade',
+  StudentHelpRequested: 'help',
 }
 
 export function inboxKindOf(notification: Notification): InboxKind | undefined {
@@ -54,6 +56,8 @@ export function notificationTitle(notification: Notification, kind: InboxKind): 
       return `${title} behöver kompletteras`
     case 'deadline':
       return `${title} ska lämnas in inom ett dygn`
+    case 'help':
+      return `${title}: en elev har bett om hjälp`
     default:
       return `Ny uppgift: ${title}`
   }

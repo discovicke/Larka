@@ -1,7 +1,7 @@
 import {flushPromises} from '@vue/test-utils'
-import {describe, expect, it} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 
-import {mockApi} from '@/test/mockApi'
+import {mockApi, requests} from '@/test/mockApi'
 import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
@@ -43,8 +43,18 @@ const content = {
 const repo = {
   repoFullName: 'anna/release-pipeline',
   lastSha: '0123456789abcdef',
+  lastCommitMessage: 'feat: release pipeline',
+  lastCommitAt: '2026-10-30T08:00:00Z',
+  commitCount: 14,
   checkStatus: 'Green',
-  updatedAt: '2026-10-23T20:00:00Z',
+  checksPassed: 9,
+  checksTotal: 12,
+  updatedAt: '2026-10-30T08:00:00Z',
+  provisioningState: 'Ready',
+  provisioningError: null,
+  submissionSha: null,
+  lockedAt: null,
+  lockError: null,
 }
 
 function makeSubmission(id: string, studentId: string, status: string, extra: Record<string, unknown> = {}) {
@@ -77,7 +87,16 @@ const notStarted = makeSubmission('s4', 'u4', 'NotStarted')
 const roster = [notStarted, graded, needsWork, submitted]
 
 function backend(options: {submissions?: unknown[], fail?: boolean} = {}) {
-  mockApi((_method, path) => {
+  mockApi((method, path) => {
+    if (method === 'POST' && path === '/api/links/l1/repos/refresh') {
+      return {status: 204}
+    }
+    if (method === 'POST' && path === '/api/links/l1/repos/lock') {
+      return {status: 204}
+    }
+    if (method === 'POST' && path === '/api/links/l1/help/u1/resolve') {
+      return {status: 204}
+    }
     if (path === '/api/me') {
       return {status: 200, body: meAs('Teacher', ['c1'])}
     }
@@ -131,7 +150,7 @@ describe('SubmissionsView', () => {
     const {wrapper} = await renderApp('/courses/c1/assignments/l1')
 
     const cards = wrapper.findAll('[data-test="stat-card"]').map(text)
-    expect(cards).toHaveLength(4)
+    expect(cards).toHaveLength(5)
     expect(cards[0]).toContain('Inlämnade')
     expect(cards[0]).toContain('3')
     expect(cards[0]).toContain('av 4')
@@ -141,9 +160,21 @@ describe('SubmissionsView', () => {
     expect(cards[2]).toContain('1')
     expect(cards[3]).toContain('Komplettering')
     expect(cards[3]).toContain('1')
+    expect(cards[4]).toContain('Behöver hjälp')
+    expect(cards[4]).toContain('0')
 
     const filters = wrapper.findAll('section[aria-label="Elever"] [role="tab"]').map(text)
-    expect(filters).toEqual(['Alla 4', 'Att bedöma 1', 'Komplettering 1', 'Ej inlämnad 1'])
+    expect(filters).toEqual([
+      'Alla 4',
+      'Att bedöma 1',
+      'Komplettering 1',
+      'Ej inlämnad 1',
+      'Behöver hjälp 0',
+      'Inte startat 0',
+      'Ingen push 0',
+      'Röda tester 0',
+      'Elevflagga 0',
+    ])
     expect(wrapper.text()).toContain('Visar 4 av 4 elever')
   })
 
@@ -157,7 +188,8 @@ describe('SubmissionsView', () => {
     const rows = wrapper.findAll('[data-test="submission-row"]')
     expect(rows[0].text()).toContain('Inlämnad')
     expect(rows[0].text()).toContain('1')
-    expect(rows[2].text()).toContain('Gröna')
+    expect(rows[2].text()).toContain('9/12')
+    expect(rows[2].text()).toContain('14')
     expect(rows[1].text()).toContain('Komplettera')
     expect(rows[2].text()).toContain('Bedömd')
     expect(rows[2].text()).toContain('anna/release-pipeline')
@@ -212,6 +244,61 @@ describe('SubmissionsView', () => {
     expect(router.currentRoute.value.query.tab).toBe('instructions')
     expect(wrapper.find('strong').text()).toBe('länken')
     expect(wrapper.findAll('[data-test="submission-row"]')).toHaveLength(0)
+  })
+
+  it('visar och filtrerar stödorsaker samt kan lösa en elevflagga', async () => {
+    const supported = makeSubmission('s5', 'u1', 'NotStarted', {
+      repo,
+      support: {
+        notStarted: true,
+        noRecentPush: true,
+        redChecks: true,
+        helpRequested: true,
+        helpRequestedAt: '2026-10-30T09:00:00Z',
+        helpMessage: 'Jag fastnar på releaseflödet.',
+        helpResolved: false,
+      },
+    })
+    backend({submissions: [supported]})
+    const {wrapper} = await renderApp('/courses/c1/assignments/l1')
+
+    expect(wrapper.find('[data-test="support-reasons"]').text()).toContain('Elevflagga')
+    expect(wrapper.find('[data-test="support-reasons"]').text()).toContain('Inte startat')
+
+    const filter = wrapper.findAll('section[aria-label="Elever"] [role="tab"]')
+      .find((tab) => text(tab) === 'Röda tester 1')
+    await filter?.trigger('click')
+    await flushPromises()
+    expect(rowNames(wrapper)).toEqual(['Anna Andersson'])
+
+    await wrapper.find('[data-test="support-resolve"]').trigger('click')
+    await flushPromises()
+    expect(requests.some((request) =>
+      request.method === 'POST' && request.path === '/api/links/l1/help/u1/resolve')).toBe(true)
+  })
+
+  it('uppdaterar, klonar och låser repon från lärarvyn', async () => {
+    backend()
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const {wrapper} = await renderApp('/courses/c1/assignments/l1')
+
+    await wrapper.find('[data-test="github-refresh"]').trigger('click')
+    await flushPromises()
+    expect(requests.some((request) =>
+      request.method === 'POST' && request.path === '/api/links/l1/repos/refresh')).toBe(true)
+
+    await wrapper.find('[data-test="github-clone-all"]').trigger('click')
+    await flushPromises()
+    const cloneCommands = document.querySelector<HTMLTextAreaElement>('[data-test="clone-commands"]')
+    expect(cloneCommands?.value).toContain(
+      'git clone https://github.com/anna/release-pipeline.git',
+    )
+
+    await wrapper.find('[data-test="github-lock"]').trigger('click')
+    await flushPromises()
+    expect(confirm).toHaveBeenCalled()
+    expect(requests.some((request) =>
+      request.method === 'POST' && request.path === '/api/links/l1/repos/lock')).toBe(true)
   })
 
   it('visar ett fel när inlämningarna inte kan hämtas', async () => {

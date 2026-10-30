@@ -72,21 +72,27 @@ Jobbet skapar notiser när en publiceringstid har passerat och påminnelser 24 t
 
 GitHub-appen är gemensam för plattformen. Varje skola har en installation och en organisation.
 
-| Nyckel                     | Hemlig | Vad                                                           |
-| -------------------------- | ------ | ------------------------------------------------------------- |
-| `GitHub:AppId`             | nej    | GitHub Appens ID.                                             |
-| `GitHub:AppSlug`           | nej    | Appens slug, används i installationslänken.                   |
-| `GitHub:PrivateKey`        | ja     | PEM eller base64-kodad PEM.                                   |
-| `GitHub:PrivateKeyPath`    | ja     | Alternativ filsökväg. Används om `PrivateKey` saknas.         |
-| `GitHub:ClientId`          | nej    | OAuth client id för elevens GitHub-koppling.                  |
-| `GitHub:ClientSecret`      | ja     | OAuth client secret.                                          |
-| `GitHub:WebhookSecret`     | ja     | Secret för webhook-signaturer när webhooken är aktiverad.     |
-| `GitHub:ApiBaseUrl`        | nej    | Standard `https://api.github.com/`.                           |
-| `GitHub:ProvisioningJob:*` | nej    | Bakgrundsjobb för att skapa elevrepon. Standard är aktiverat. |
-| `GitHub:DeadlineLockJob:*` | nej    | Bakgrundsjobb för deadline-låsning. Standard är aktiverat.    |
+| Nyckel                               | Hemlig | Vad                                                                             |
+| ------------------------------------ | ------ | ------------------------------------------------------------------------------- |
+| `GitHub:AppId`                       | nej    | GitHub Appens ID.                                                               |
+| `GitHub:AppSlug`                     | nej    | Appens slug, används i installationslänken.                                     |
+| `GitHub:PrivateKey`                  | ja     | PEM eller base64-kodad PEM.                                                     |
+| `GitHub:PrivateKeyPath`              | ja     | Alternativ filsökväg. Används om `PrivateKey` saknas.                           |
+| `GitHub:ClientId`                    | nej    | OAuth client id för elevens GitHub-koppling.                                    |
+| `GitHub:ClientSecret`                | ja     | OAuth client secret.                                                            |
+| `GitHub:WebhookSecret`               | ja     | Secret för webhook-signaturer när webhooken är aktiverad.                       |
+| `GitHub:ApiBaseUrl`                  | nej    | Standard `https://api.github.com/`.                                             |
+| `GitHub:ProvisioningJob:*`           | nej    | Bakgrundsjobb för att skapa elevrepon. Standard är aktiverat.                   |
+| `GitHub:DeadlineLockJob:*`           | nej    | Bakgrundsjobb för deadline-låsning. Standard är aktiverat.                      |
+| `GitHub:Support:NotStartedAfterDays` | nej    | Antal dagar innan en elev utan commits räknas som "inte startat". Standard `3`. |
+| `GitHub:Support:NoPushAfterDays`     | nej    | Antal dagar utan push innan en påbörjad uppgift flaggas. Standard `4`.          |
+| `GitHub:Support:RedChecksAfterHours` | nej    | Antal timmar med röda tester innan de flaggas. Standard `36`.                   |
 
 `GitHub:InstallationId` och `GitHub:Org` finns kvar som lokal dev-fallback, men en rad i
 `SchoolGitHubInstallations` vinner alltid.
+
+Elevens egen "Jag behöver hjälp"-flagga skickar en notis till lärarna på uppgiften. Automatiska
+signaler visas bara i lärartrackingen och skickar inga notiser.
 
 #### Säkerhetskrav i GitHub-organisationen
 

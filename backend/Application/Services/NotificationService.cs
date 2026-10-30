@@ -14,6 +14,7 @@ namespace Backend.Application.Services;
 public class NotificationService(
     INotificationRepository notifications,
     IGroupRepository groups,
+    ICourseRepository courses,
     IUserRepository users,
     IModuleRepository modules,
     ISubmissionRepository submissions,
@@ -59,6 +60,38 @@ public class NotificationService(
                 CreatedAt = time.GetUtcNow()
             }
         ]);
+    }
+
+    /// <summary>Notis till lärarna på utdelningen när en elev själv ber om hjälp.</summary>
+    public async Task NotifyStudentHelpRequestedAsync(
+        ContentLink link, Guid contentId, Guid? submissionId, CancellationToken ct)
+    {
+        if (link.CourseId is null)
+        {
+            return;
+        }
+
+        var teacherIds = (await courses.GetTeachersAsync(link.CourseId.Value, ct))
+            .Select(teacher => teacher.UserId)
+            .Distinct()
+            .ToList();
+        if (teacherIds.Count == 0)
+        {
+            return;
+        }
+
+        var muted = await MutedAmongAsync(
+            teacherIds.ToHashSet(), NotificationKind.StudentHelpRequested, ct);
+        notifications.AddRange(teacherIds
+            .Where(teacherId => !muted.Contains(teacherId))
+            .Select(teacherId => new Notification
+            {
+                UserId = teacherId,
+                Kind = NotificationKind.StudentHelpRequested,
+                ContentId = contentId,
+                SubmissionId = submissionId,
+                CreatedAt = time.GetUtcNow()
+            }));
     }
 
     /// <summary>

@@ -25,9 +25,14 @@ public record SubmissionDto(
     DateTimeOffset? SubmittedAt,
     List<SubmissionFileDto> Files,
     StudentRepoDto? Repo,
-    GradeDto? Grade)
+    GradeDto? Grade,
+    StudentSupportDto? Support)
 {
-    public static SubmissionDto From(Submission submission, string studentName, List<SubmissionFileDto> files)
+    public static SubmissionDto From(
+        Submission submission,
+        string studentName,
+        List<SubmissionFileDto> files,
+        StudentSupportDto? support = null)
     {
         var repo = submission.Repo is null
             ? null
@@ -37,9 +42,19 @@ public record SubmissionDto(
             : GradeDto.From(submission.Grade);
         return new SubmissionDto(
             submission.Id, submission.ContentLinkId, submission.StudentId, studentName, submission.Status,
-            submission.BodyMd, submission.SubmittedAt, files, repo, grade);
+            submission.BodyMd, submission.SubmittedAt, files, repo, grade, support);
     }
 }
+
+/// <summary>Stödsignaler som läraren ser i trackingtabellen. Beräknas alltid från aktuell data.</summary>
+public record StudentSupportDto(
+    bool NotStarted,
+    bool NoRecentPush,
+    bool RedChecks,
+    bool HelpRequested,
+    DateTimeOffset? HelpRequestedAt,
+    string? HelpMessage,
+    bool HelpResolved);
 
 /// <summary>Url är en tidsbegränsad länk som skapas när filen läses, inte något som sparas.</summary>
 public record SubmissionFileDto(Guid Id, string FileName, string Url, long SizeBytes)
@@ -57,7 +72,17 @@ public record StudentRepoDto(
     string? ProvisioningError,
     string? SubmissionSha,
     DateTimeOffset? LockedAt,
-    string? LockError)
+    string? LockError,
+    DateTimeOffset? ReopenedAt,
+    string? LastCommitMessage,
+    DateTimeOffset? LastCommitAt,
+    int CommitCount,
+    int ChecksPassed,
+    int ChecksTotal,
+    string? InitialSha,
+    DateTimeOffset? InitialCommitAt,
+    DateTimeOffset? ProvisionedAt,
+    DateTimeOffset? CheckStatusChangedAt)
 {
     public static StudentRepoDto From(StudentRepo repo) =>
         new(
@@ -69,7 +94,17 @@ public record StudentRepoDto(
             repo.ProvisioningError,
             repo.SubmissionSha,
             repo.LockedAt,
-            repo.LockError);
+            repo.LockError,
+            repo.ReopenedAt,
+            repo.LastCommitMessage,
+            repo.LastCommitAt,
+            repo.CommitCount,
+            repo.ChecksPassed,
+            repo.ChecksTotal,
+            repo.InitialSha,
+            repo.InitialCommitAt,
+            repo.ProvisionedAt,
+            repo.CheckStatusChangedAt);
 }
 
 public record GradeDto(Guid GradedById, GradeLevel? Level, string Feedback, DateTimeOffset GradedAt)

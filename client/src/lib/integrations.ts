@@ -37,6 +37,14 @@ export async function setGitHubEnabled(enabled: boolean): Promise<GitHubConnecti
   return data!
 }
 
+export async function refreshGitHubRepos(linkId: string): Promise<void> {
+  await api.POST('/api/links/{id}/repos/refresh', {params: {path: {id: linkId}}})
+}
+
+export async function lockGitHubRepos(linkId: string): Promise<void> {
+  await api.POST('/api/links/{id}/repos/lock', {params: {path: {id: linkId}}})
+}
+
 export type GitHubTemplateRepo = Schema<'GitHubTemplateRepoDto'>
 export type GitHubTemplateCommit = Schema<'GitHubTemplateCommitDto'>
 

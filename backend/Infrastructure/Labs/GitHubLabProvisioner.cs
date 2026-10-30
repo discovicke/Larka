@@ -117,11 +117,34 @@ public sealed class GitHubLabProvisioner(
                 repository.FullName);
         }
 
+        var now = time.GetUtcNow();
         repo.RepoFullName = repository.FullName;
         repo.ProvisioningState = RepoProvisioningState.Ready;
         repo.ProvisioningError = null;
         repo.NextProvisioningAttemptAt = null;
-        repo.UpdatedAt = time.GetUtcNow();
+        repo.ProvisionedAt ??= now;
+
+        // Spara repots startpunkt så att "inte startat" kan skiljas från elevens första commit.
+        try
+        {
+            var initial = await github.GetCommitSummaryAsync(
+                connection.InstallationId, repoOwner, repoNameFromResponse, ct);
+            if (initial is not null)
+            {
+                repo.InitialSha ??= initial.Latest.Sha;
+                repo.InitialCommitAt ??= initial.Latest.AuthoredAt;
+                repo.LastSha ??= initial.Latest.Sha;
+                repo.LastCommitMessage ??= initial.Latest.Message;
+                repo.LastCommitAt ??= initial.Latest.AuthoredAt;
+                repo.CommitCount = Math.Max(repo.CommitCount, initial.Count);
+            }
+        }
+        catch (GitHubApiException exception)
+        {
+            logger.LogWarning(exception, "Could not read initial commit for {Repo}", repository.FullName);
+        }
+
+        repo.UpdatedAt = now;
         return repo;
     }
 
@@ -139,25 +162,57 @@ public sealed class GitHubLabProvisioner(
         var connection = await GetConnectionAsync(
             context.SchoolId, new Dictionary<Guid, SchoolConnection>(), ct);
         var (owner, name) = ParseRepo(repo.RepoFullName, nameof(repo.RepoFullName));
-        var latest = await github.GetLatestCommitAsync(
+        var latest = await github.GetCommitSummaryAsync(
             connection.InstallationId, owner, name, ct, deadline);
         if (latest is not null)
         {
-            repo.LastSha = latest.Sha;
-            repo.CheckStatus = await github.GetCheckStatusAsync(
-                connection.InstallationId, owner, name, latest.Sha, ct);
+            repo.LastSha = latest.Latest.Sha;
+            repo.LastCommitMessage = latest.Latest.Message;
+            repo.LastCommitAt = latest.Latest.AuthoredAt;
+            repo.CommitCount = latest.Count;
+            var checks = await github.GetCheckSummaryAsync(
+                connection.InstallationId, owner, name, latest.Latest.Sha, ct);
+            var statusChanged = repo.CheckStatus != checks.Status;
+            repo.CheckStatus = checks.Status;
+            if (statusChanged || repo.CheckStatusChangedAt is null)
+            {
+                repo.CheckStatusChangedAt = time.GetUtcNow();
+            }
+
+            repo.ChecksPassed = checks.Passed;
+            repo.ChecksTotal = checks.Total;
         }
 
         await github.ArchiveRepositoryAsync(connection.InstallationId, owner, name, ct);
 
         var lockedAt = time.GetUtcNow();
-        repo.SubmissionSha = latest?.Sha;
+        repo.SubmissionSha = latest?.Latest.Sha;
         repo.LockedAt = lockedAt;
         repo.LockError = latest is null
             ? "Ingen commit före deadline."
             : null;
+        repo.ReopenedAt = null;
         repo.UpdatedAt = lockedAt;
-        return new RepoLockResult(true, latest?.Sha, latest?.AuthoredAt, repo.LockError);
+        return new RepoLockResult(
+            true, latest?.Latest.Sha, latest?.Latest.AuthoredAt, repo.LockError);
+    }
+
+    public async Task ReopenForResubmissionAsync(
+        StudentRepoContext context, CancellationToken ct)
+    {
+        EnsureAppConfigured();
+        var repo = context.Repo;
+        if (string.IsNullOrWhiteSpace(repo.RepoFullName))
+        {
+            return;
+        }
+
+        var connection = await GetConnectionAsync(
+            context.SchoolId, new Dictionary<Guid, SchoolConnection>(), ct);
+        var (owner, name) = ParseRepo(repo.RepoFullName, nameof(repo.RepoFullName));
+        await github.UnarchiveRepositoryAsync(connection.InstallationId, owner, name, ct);
+        repo.LockError = null;
+        repo.UpdatedAt = time.GetUtcNow();
     }
 
     public async Task RefreshCheckStatusAsync(
@@ -171,18 +226,35 @@ public sealed class GitHubLabProvisioner(
             var repo = context.Repo;
             try
             {
+                if (string.IsNullOrWhiteSpace(repo.RepoFullName))
+                {
+                    continue;
+                }
+
                 var connection = await GetConnectionAsync(context.SchoolId, connections, ct);
                 var (owner, name) = ParseRepo(repo.RepoFullName, nameof(repo.RepoFullName));
-                var latest = await github.GetLatestCommitAsync(
+                var latest = await github.GetCommitSummaryAsync(
                     connection.InstallationId, owner, name, ct);
                 if (latest is null)
                 {
                     continue;
                 }
 
-                repo.LastSha = latest.Sha;
-                repo.CheckStatus = await github.GetCheckStatusAsync(
-                    connection.InstallationId, owner, name, latest.Sha, ct);
+                var checks = await github.GetCheckSummaryAsync(
+                    connection.InstallationId, owner, name, latest.Latest.Sha, ct);
+                repo.LastSha = latest.Latest.Sha;
+                repo.LastCommitMessage = latest.Latest.Message;
+                repo.LastCommitAt = latest.Latest.AuthoredAt;
+                repo.CommitCount = latest.Count;
+                var statusChanged = repo.CheckStatus != checks.Status;
+                repo.CheckStatus = checks.Status;
+                if (statusChanged || repo.CheckStatusChangedAt is null)
+                {
+                    repo.CheckStatusChangedAt = time.GetUtcNow();
+                }
+
+                repo.ChecksPassed = checks.Passed;
+                repo.ChecksTotal = checks.Total;
                 repo.UpdatedAt = time.GetUtcNow();
             }
             catch (GitHubApiException exception)

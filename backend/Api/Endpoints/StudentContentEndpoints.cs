@@ -26,11 +26,18 @@ public static class StudentContentEndpoints
             Guid courseId, Guid linkId, StudentContentService service, CancellationToken ct) =>
             (await service.GetChecklistAsync(courseId, linkId, ct)).ToHttp(TypedResults.Ok));
 
-        course.MapPut("/links/{linkId:guid}/checklist/{index:int}", async (
-            Guid courseId, Guid linkId, int index, SetChecklistTickDto tickDto,
+        course.MapPut("/links/{linkId:guid}/checklist/{index}", async (
+            Guid courseId, Guid linkId, string index, SetChecklistTickDto tickDto,
             StudentContentService service, CancellationToken ct) =>
-            (await service.SetChecklistTickAsync(courseId, linkId, index, tickDto, ct))
-                .ToHttp(TypedResults.Ok));
+        {
+            if (!int.TryParse(index, out var parsedIndex))
+            {
+                return Results.BadRequest("index must be a number");
+            }
+
+            return (await service.SetChecklistTickAsync(courseId, linkId, parsedIndex, tickDto, ct))
+                .ToHttp(TypedResults.Ok);
+        });
 
         return app;
     }

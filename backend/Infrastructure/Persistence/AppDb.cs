@@ -23,6 +23,7 @@ public class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
     public DbSet<Submission> Submissions => Set<Submission>();
     public DbSet<SubmissionFile> SubmissionFiles => Set<SubmissionFile>();
     public DbSet<StudentRepo> StudentRepos => Set<StudentRepo>();
+    public DbSet<StudentHelpRequest> StudentHelpRequests => Set<StudentHelpRequest>();
     public DbSet<Grade> Grades => Set<Grade>();
     public DbSet<Comment> Comments => Set<Comment>();
     public DbSet<DataPatch> DataPatches => Set<DataPatch>();

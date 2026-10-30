@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import {PhCheck, PhMagnifyingGlass, PhUsersThree} from '@phosphor-icons/vue'
+import {
+  PhArrowsClockwise,
+  PhCheck,
+  PhCopy,
+  PhLock,
+  PhMagnifyingGlass,
+  PhUsersThree,
+} from '@phosphor-icons/vue'
 import {computed, ref, watch} from 'vue'
 import {
   RouterLink,
@@ -12,16 +19,35 @@ import StatusBadge from '@/components/StatusBadge.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Badge} from '@/components/ui/badge'
 import {Button} from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty'
 import {Input} from '@/components/ui/input'
 import {Skeleton} from '@/components/ui/skeleton'
+import {Textarea} from '@/components/ui/textarea'
 import {useCrumbLabels} from '@/composables/useCrumbLabels'
 import {api, type Schema} from '@/lib/api'
 import {formatDate, partOf} from '@/lib/content'
+import {lockGitHubRepos, refreshGitHubRepos} from '@/lib/integrations'
 import {submissionStatusKey} from '@/lib/status'
+import {resolveStudentHelp} from '@/lib/support'
 import {checkClass, checkLabel, gradeBadgeVariant, gradeLabel, statusLabel} from '@/lib/submissions'
 
-type Filter = 'all' | 'due' | 'needsWork' | 'notStarted'
+type Filter = 'all'
+  | 'due'
+  | 'needsWork'
+  | 'notStarted'
+  | 'needsHelp'
+  | 'supportNotStarted'
+  | 'supportNoPush'
+  | 'supportRedChecks'
+  | 'supportHelp'
 
 interface Stat {
   label: string
@@ -45,6 +71,10 @@ const error = ref('')
 const notFound = ref(false)
 const filter = ref<Filter>('all')
 const search = ref('')
+const refreshing = ref(false)
+const locking = ref(false)
+const actionError = ref('')
+const cloneOpen = ref(false)
 
 const tab = computed(() => route.query.tab === 'instructions'
   ? 'instructions'
@@ -56,6 +86,67 @@ function nameOf(submission: Schema<'SubmissionDto'>): string {
 
 function countOf(status: Schema<'SubmissionStatus'>): number {
   return submissions.value.filter((submission) => submission.status === status).length
+}
+
+function supportReasons(submission: Schema<'SubmissionDto'>): string[] {
+  const support = submission.support
+  if (!support) {
+    return []
+  }
+
+  const reasons: string[] = []
+  if (support.helpRequested) {
+    reasons.push('Elevflagga')
+  }
+  if (support.notStarted) {
+    reasons.push('Inte startat')
+  }
+  if (support.noRecentPush) {
+    reasons.push('Ingen push')
+  }
+  if (support.redChecks) {
+    reasons.push('Röda tester')
+  }
+
+  return reasons
+}
+
+function needsHelp(submission: Schema<'SubmissionDto'>): boolean {
+  return supportReasons(submission).length > 0
+}
+
+const needsHelpCount = computed(() => submissions.value.filter(needsHelp).length)
+
+function supportCount(filter: Filter): number {
+  return submissions.value.filter((submission) => {
+    const support = submission.support
+    if (filter === 'supportNotStarted') {
+      return support?.notStarted === true
+    }
+    if (filter === 'supportNoPush') {
+      return support?.noRecentPush === true
+    }
+    if (filter === 'supportRedChecks') {
+      return support?.redChecks === true
+    }
+    return support?.helpRequested === true
+  }).length
+}
+
+function supportReasonClass(reason: string): string {
+  return reason === 'Elevflagga'
+    ? 'border-primary/30 bg-primary/10 text-primary'
+    : 'border-warning/30 bg-warning/10 text-warning'
+}
+
+async function resolveHelp(submission: Schema<'SubmissionDto'>): Promise<void> {
+  actionError.value = ''
+  try {
+    await resolveStudentHelp(linkId.value, submission.studentId)
+    await load()
+  } catch {
+    actionError.value = 'Kunde inte markera hjälpfrågan som löst.'
+  }
 }
 
 const stats = computed<Stat[]>(() => [
@@ -83,6 +174,14 @@ const stats = computed<Stat[]>(() => [
     suffix: '',
     class: 'bg-card',
   },
+  ...(submissions.value.some((submission) => submission.repo !== null)
+    ? [{
+        label: 'Behöver hjälp',
+        value: needsHelpCount.value,
+        suffix: '',
+        class: 'border-warning/20 bg-warning/10 dark:border-warning/30 dark:bg-warning/20',
+      }]
+    : []),
 ])
 
 const filters = computed<{value: Filter, label: string}[]>(() => [
@@ -90,6 +189,15 @@ const filters = computed<{value: Filter, label: string}[]>(() => [
   {value: 'due', label: `Att bedöma ${countOf('Submitted')}`},
   {value: 'needsWork', label: `Komplettering ${countOf('NeedsWork')}`},
   {value: 'notStarted', label: `Ej inlämnad ${countOf('NotStarted')}`},
+  ...(submissions.value.some((submission) => submission.repo !== null)
+    ? [
+        {value: 'needsHelp' as const, label: `Behöver hjälp ${needsHelpCount.value}`},
+        {value: 'supportNotStarted' as const, label: `Inte startat ${supportCount('supportNotStarted')}`},
+        {value: 'supportNoPush' as const, label: `Ingen push ${supportCount('supportNoPush')}`},
+        {value: 'supportRedChecks' as const, label: `Röda tester ${supportCount('supportRedChecks')}`},
+        {value: 'supportHelp' as const, label: `Elevflagga ${supportCount('supportHelp')}`},
+      ]
+    : []),
 ])
 
 const statusOrder: Record<Schema<'SubmissionStatus'>, number> = {
@@ -113,6 +221,21 @@ const visible = computed(() => {
       return false
     }
     if (filter.value === 'notStarted' && submission.status !== 'NotStarted') {
+      return false
+    }
+    if (filter.value === 'needsHelp' && !needsHelp(submission)) {
+      return false
+    }
+    if (filter.value === 'supportNotStarted' && submission.support?.notStarted !== true) {
+      return false
+    }
+    if (filter.value === 'supportNoPush' && submission.support?.noRecentPush !== true) {
+      return false
+    }
+    if (filter.value === 'supportRedChecks' && submission.support?.redChecks !== true) {
+      return false
+    }
+    if (filter.value === 'supportHelp' && submission.support?.helpRequested !== true) {
       return false
     }
     return !text
@@ -167,6 +290,64 @@ function filterClass(value: Filter) {
     : 'text-muted-foreground'
 }
 
+const cloneCommands = computed(() => submissions.value
+  .map((submission) => submission.repo?.repoFullName)
+  .filter((repo): repo is string => Boolean(repo))
+  .map((repo) => `git clone https://github.com/${repo}.git`)
+  .join('\n'))
+
+async function refreshRepos() {
+  refreshing.value = true
+  actionError.value = ''
+  try {
+    await refreshGitHubRepos(linkId.value)
+    await load()
+  } catch {
+    actionError.value = 'Kunde inte uppdatera GitHub-statusen.'
+  } finally {
+    refreshing.value = false
+  }
+}
+
+async function lockRepos() {
+  if (!window.confirm('Lås alla repon nu? Repona blir skrivskyddade och senaste commit sparas som inlämning.')) {
+    return
+  }
+
+  locking.value = true
+  actionError.value = ''
+  try {
+    await lockGitHubRepos(linkId.value)
+    await load()
+  } catch {
+    actionError.value = 'Kunde inte låsa repon.'
+  } finally {
+    locking.value = false
+  }
+}
+
+function pushLabel(submission: Schema<'SubmissionDto'>): string {
+  return submission.repo?.lastCommitAt
+    ? formatDate(submission.repo.lastCommitAt, true)
+    : submission.repo
+      ? 'Ingen push'
+      : '–'
+}
+
+function repoChecksLabel(submission: Schema<'SubmissionDto'>): string {
+  const repo = submission.repo
+  if (!repo || repo.provisioningState !== 'Ready') {
+    return '–'
+  }
+  return `${repo.checksPassed}/${repo.checksTotal}`
+}
+
+function repoUrl(submission: Schema<'SubmissionDto'>): string | null {
+  return submission.repo?.repoFullName
+    ? `https://github.com/${submission.repo.repoFullName}`
+    : null
+}
+
 function reviewRoute(submission: Schema<'SubmissionDto'>) {
   return {
     name: 'submission-review',
@@ -219,6 +400,9 @@ watch([courseId, linkId], () => {
     <Alert v-if="error" variant="destructive">
       <AlertDescription>{{ error }}</AlertDescription>
     </Alert>
+    <Alert v-if="actionError" variant="destructive" data-test="github-action-error">
+      <AlertDescription>{{ actionError }}</AlertDescription>
+    </Alert>
 
     <template v-if="loading">
       <Skeleton class="h-10 w-64"/>
@@ -250,6 +434,45 @@ watch([courseId, linkId], () => {
             </div>
             <h1 class="font-heading text-[30px] leading-tight font-semibold">{{ assignment.title }}</h1>
             <p class="text-muted-foreground text-[13px]">{{ summary }}</p>
+          </div>
+          <div v-if="hasRepos" class="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              :disabled="refreshing || locking"
+              data-test="github-refresh"
+              @click="refreshRepos"
+            >
+              <PhArrowsClockwise :class="{'animate-spin': refreshing}"/>
+              {{ refreshing
+                ? 'Uppdaterar…'
+                : 'Uppdatera' }}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              :disabled="refreshing || locking || cloneCommands.length === 0"
+              data-test="github-clone-all"
+              @click="cloneOpen = true"
+            >
+              <PhCopy/>
+              Klona alla
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              :disabled="refreshing || locking"
+              data-test="github-lock"
+              @click="lockRepos"
+            >
+              <PhLock/>
+              {{ locking
+                ? 'Låser…'
+                : 'Lås repon nu' }}
+            </Button>
           </div>
         </div>
 
@@ -337,13 +560,22 @@ watch([courseId, linkId], () => {
         </div>
 
         <div class="overflow-x-auto">
-          <table class="w-full text-[13px] max-md:block md:min-w-[760px]">
+          <table
+            class="w-full text-[13px] max-md:block"
+            :class="hasRepos
+              ? 'md:min-w-[960px]'
+              : 'md:min-w-[760px]'"
+          >
             <thead class="max-md:hidden">
               <tr class="bg-muted/50 text-muted-foreground text-left">
                 <th scope="col" class="border-b px-4 py-2.5 font-medium">Elev</th>
+                <template v-if="hasRepos">
+                  <th scope="col" class="border-b px-3 py-2.5 font-medium">Senaste push</th>
+                  <th scope="col" class="border-b px-3 py-2.5 font-medium">Commits</th>
+                  <th scope="col" class="border-b px-3 py-2.5 font-medium">Tester</th>
+                </template>
+                <th v-else scope="col" class="border-b px-3 py-2.5 font-medium">Filer</th>
                 <th scope="col" class="border-b px-3 py-2.5 font-medium">Inlämnad</th>
-                <th scope="col" class="border-b px-3 py-2.5 font-medium">Filer</th>
-                <th v-if="hasRepos" scope="col" class="border-b px-3 py-2.5 font-medium">Tester</th>
                 <th scope="col" class="border-b px-3 py-2.5 font-medium">Status</th>
                 <th scope="col" class="border-b px-4 py-2.5 text-right font-medium">Betyg</th>
               </tr>
@@ -360,25 +592,73 @@ watch([courseId, linkId], () => {
               >
                 <td class="px-4 py-3 max-md:border-b-0 max-md:p-0" :class="rowBorder(index)">
                   <div class="font-medium">{{ nameOf(submission) }}</div>
-                  <div v-if="submission.repo" class="font-mono text-xs text-muted-foreground">
-                    {{ submission.repo.repoFullName }}
+                  <a
+                    v-if="repoUrl(submission)"
+                    :href="repoUrl(submission)!"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="font-mono text-xs text-muted-foreground underline underline-offset-3"
+                  >{{ submission.repo?.repoFullName }}</a>
+                  <div v-else-if="submission.repo" class="text-xs text-muted-foreground">
+                    {{ submission.repo.provisioningState === 'Failed'
+                      ? 'Repot kunde inte skapas'
+                      : 'Repot skapas' }}
                   </div>
+                  <div v-if="submission.repo?.reopenedAt" class="text-xs text-warning">
+                    Öppnat för komplettering
+                  </div>
+                  <div
+                    v-if="supportReasons(submission).length > 0"
+                    class="mt-1 flex flex-wrap items-center gap-1"
+                    data-test="support-reasons"
+                  >
+                    <Badge
+                      v-for="reason in supportReasons(submission)"
+                      :key="reason"
+                      variant="outline"
+                      class="h-5 rounded-[4px] px-1.5 text-[11px]"
+                      :class="supportReasonClass(reason)"
+                    >
+                      {{ reason }}
+                    </Badge>
+                    <Button
+                      v-if="submission.support?.helpRequested"
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      class="h-5 px-1.5 text-[11px]"
+                      data-test="support-resolve"
+                      @click="resolveHelp(submission)"
+                    >
+                      Markera löst
+                    </Button>
+                  </div>
+                </td>
+                <template v-if="hasRepos">
+                  <td class="px-3 py-3 max-md:border-b-0 max-md:p-0" :class="rowBorder(index)">
+                    {{ pushLabel(submission) }}
+                  </td>
+                  <td class="px-3 py-3 max-md:border-b-0 max-md:p-0" :class="rowBorder(index)">
+                    {{ submission.repo?.commitCount ?? '–' }}
+                  </td>
+                  <td class="px-3 py-3 max-md:border-b-0 max-md:p-0" :class="rowBorder(index)">
+                    <span
+                      v-if="submission.repo"
+                      :class="checkClass(submission.repo.checkStatus)"
+                      :title="checkLabel(submission.repo.checkStatus)"
+                    >{{ repoChecksLabel(submission) }}</span>
+                    <span v-else class="text-muted-foreground">–</span>
+                  </td>
+                </template>
+                <td v-else class="px-3 py-3 max-md:hidden" :class="rowBorder(index)">
+                  {{ submission.files.length > 0
+                    ? submission.files.length
+                    : '–' }}
                 </td>
                 <td class="px-3 py-3 max-md:border-b-0 max-md:p-0 max-md:text-muted-foreground" :class="rowBorder(index)">
                   {{ submission.submittedAt
                     ? formatDate(submission.submittedAt, true)
                     : '–' }}
-                </td>
-                <td class="px-3 py-3 max-md:hidden" :class="rowBorder(index)">
-                  {{ submission.files.length > 0
-                    ? submission.files.length
-                    : '–' }}
-                </td>
-                <td v-if="hasRepos" class="px-3 py-3 max-md:border-b-0 max-md:p-0" :class="rowBorder(index)">
-                  <span v-if="submission.repo" :class="checkClass(submission.repo.checkStatus)">
-                    {{ checkLabel(submission.repo.checkStatus) }}
-                  </span>
-                  <span v-else class="text-muted-foreground">–</span>
                 </td>
                 <td class="px-3 py-3 max-md:border-b-0 max-md:p-0" :class="rowBorder(index)">
                   <StatusBadge
@@ -414,7 +694,7 @@ watch([courseId, linkId], () => {
               <tr v-if="visible.length === 0">
                 <td
                   :colspan="hasRepos
-                    ? 6
+                    ? 7
                     : 5"
                   class="text-muted-foreground px-4 py-6 text-center"
                 >
@@ -430,5 +710,26 @@ watch([courseId, linkId], () => {
         </div>
       </section>
     </template>
+
+    <Dialog v-model:open="cloneOpen">
+      <DialogContent class="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Klona alla repon</DialogTitle>
+          <DialogDescription>
+            Kör kommandona lokalt för att få hem alla elevrepon.
+          </DialogDescription>
+        </DialogHeader>
+        <Textarea
+          :model-value="cloneCommands"
+          readonly
+          rows="8"
+          class="font-mono text-xs"
+          data-test="clone-commands"
+        />
+        <DialogFooter>
+          <Button type="button" @click="cloneOpen = false">Stäng</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>

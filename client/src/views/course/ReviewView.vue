@@ -38,7 +38,7 @@ const saving = ref(false)
 const levels = computed(() => levelsFor(assignment.value?.gradeScale ?? null))
 const hasGrades = computed(() => levels.value.length > 0)
 const studentName = computed(() => submission.value?.studentName ?? '')
-const repoUrl = computed(() => submission.value?.repo
+const repoUrl = computed(() => submission.value?.repo?.repoFullName
   ? `https://github.com/${submission.value.repo.repoFullName}`
   : '')
 const shortSha = computed(() => submission.value?.repo?.lastSha?.slice(0, 7) ?? '–')
@@ -142,7 +142,7 @@ watch([courseId, linkId, submissionId], () => {
               <template v-if="submission.submittedAt">
                 <span> · Inlämnad {{ formatDate(submission.submittedAt, true) }}</span>
               </template>
-              <template v-if="submission.repo">
+              <template v-if="submission.repo?.repoFullName">
                 <span> · </span>
                 <a
                   :href="repoUrl"
@@ -183,19 +183,43 @@ watch([courseId, linkId, submissionId], () => {
               </a>
             </section>
 
-            <section v-if="submission.repo" class="flex flex-col gap-2">
+            <section v-if="submission.repo" class="flex flex-col gap-2" data-test="review-repo">
               <h2 class="text-sm font-semibold">Repo</h2>
               <a
+                v-if="repoUrl"
                 :href="repoUrl"
                 target="_blank"
                 rel="noopener"
                 class="font-mono text-[13px] underline underline-offset-3"
               >{{ submission.repo.repoFullName }}</a>
+              <p v-else class="text-muted-foreground text-sm">
+                {{ submission.repo.provisioningState === 'Failed'
+                  ? 'Repot kunde inte skapas.'
+                  : 'Repot skapas fortfarande.' }}
+              </p>
+              <p v-if="submission.repo.lastCommitMessage" class="text-sm">
+                {{ submission.repo.lastCommitMessage }}
+              </p>
               <p class="text-muted-foreground text-xs">
                 Senaste commit <span class="font-mono">{{ shortSha }}</span>
+                <template v-if="submission.repo.lastCommitAt">
+                  · {{ formatDate(submission.repo.lastCommitAt, true) }}
+                </template>
+                · {{ submission.repo.commitCount }} commits
               </p>
               <p class="text-[13px]" :class="checkClass(submission.repo.checkStatus)">
-                Tester: {{ checkLabel(submission.repo.checkStatus) }}
+                Tester: {{ submission.repo.checksPassed }}/{{ submission.repo.checksTotal }}
+                · {{ checkLabel(submission.repo.checkStatus) }}
+              </p>
+              <p v-if="submission.repo.submissionSha" class="text-muted-foreground text-xs">
+                Inlämnad commit <span class="font-mono">{{ submission.repo.submissionSha.slice(0, 7) }}</span>
+              </p>
+              <p v-if="submission.repo.reopenedAt" class="text-warning text-xs">
+                Öppnat för komplettering {{ formatDate(submission.repo.reopenedAt, true) }}.
+                Eleven kan committa igen.
+              </p>
+              <p v-if="submission.repo.lockError" class="text-warning text-xs">
+                {{ submission.repo.lockError }}
               </p>
             </section>
           </template>

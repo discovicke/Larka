@@ -18,6 +18,7 @@ public class FakeLabProvisioner(IConfiguration cfg) : ILabProvisioner
         CancellationToken ct)
     {
         var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var now = DateTimeOffset.UtcNow;
         var repos = requests.Select(request =>
         {
             var name = GitHubRepoNaming.ForStudent(
@@ -27,6 +28,12 @@ public class FakeLabProvisioner(IConfiguration cfg) : ILabProvisioner
                 SubmissionId = request.SubmissionId,
                 RepoFullName = $"{_org}/{name}",
                 ProvisioningState = RepoProvisioningState.Ready,
+                InitialSha = "fake-initial-sha",
+                InitialCommitAt = now,
+                ProvisionedAt = now,
+                LastSha = "fake-initial-sha",
+                LastCommitAt = now,
+                CommitCount = 1,
                 CheckStatus = CheckStatus.Pending
             };
         }).ToList();
@@ -42,10 +49,17 @@ public class FakeLabProvisioner(IConfiguration cfg) : ILabProvisioner
             ? GitHubRepoNaming.ForStudent(
                 repo.RepoNamePattern, repo.AssignmentTitle ?? "assignment", context.Student)
             : repo.DesiredRepoName;
+        var now = DateTimeOffset.UtcNow;
         repo.RepoFullName = $"{_org}/{name}";
         repo.ProvisioningState = RepoProvisioningState.Ready;
         repo.ProvisioningError = null;
         repo.NextProvisioningAttemptAt = null;
+        repo.ProvisionedAt ??= now;
+        repo.InitialSha ??= "fake-initial-sha";
+        repo.InitialCommitAt ??= now;
+        repo.LastSha ??= repo.InitialSha;
+        repo.LastCommitAt ??= now;
+        repo.CommitCount = Math.Max(repo.CommitCount, 1);
         return Task.FromResult(repo);
     }
 
@@ -57,8 +71,17 @@ public class FakeLabProvisioner(IConfiguration cfg) : ILabProvisioner
         repo.SubmissionSha = sha;
         repo.LockedAt = DateTimeOffset.UtcNow;
         repo.LockError = null;
+        repo.ReopenedAt = null;
         repo.UpdatedAt = repo.LockedAt.Value;
         return Task.FromResult(new RepoLockResult(true, sha, deadline, null));
+    }
+
+    public Task ReopenForResubmissionAsync(
+        StudentRepoContext context, CancellationToken ct)
+    {
+        context.Repo.LockError = null;
+        context.Repo.UpdatedAt = DateTimeOffset.UtcNow;
+        return Task.CompletedTask;
     }
 
     public Task RefreshCheckStatusAsync(

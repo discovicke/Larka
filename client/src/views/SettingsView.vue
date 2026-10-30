@@ -227,6 +227,7 @@ const notificationRows: {id: string, label: string, kinds: NotificationKind[]}[]
   {id: 'feedback', label: 'Betyg och återkoppling', kinds: ['SubmissionGraded', 'SubmissionNeedsWork']},
   {id: 'deadline', label: 'Påminnelse 24 h före deadline', kinds: ['DeadlineSoon']},
   {id: 'assignments', label: 'Nya uppgifter', kinds: ['AssignmentPublished']},
+  {id: 'help', label: 'Elev ber om hjälp', kinds: ['StudentHelpRequested']},
   {id: 'news', label: 'Nyheter', kinds: ['NewsPublished']},
 ]
 

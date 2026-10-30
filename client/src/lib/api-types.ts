@@ -4136,6 +4136,355 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/links/{id}/repos/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/links/{id}/repos/lock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/links/{id}/help": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StudentHelpStatusDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetStudentHelpDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StudentHelpStatusDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/links/{id}/help/{studentId}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    studentId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/courses/{courseId}/student-modules": {
         parameters: {
             query?: never;
@@ -4349,7 +4698,7 @@ export interface paths {
                 path: {
                     courseId: string;
                     linkId: string;
-                    index: number;
+                    index: string;
                 };
                 cookie?: never;
             };
@@ -4364,36 +4713,7 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content: {
-                        "application/json": components["schemas"]["ChecklistDto"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": string;
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": string;
-                    };
-                };
-                /** @description Conflict */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": string;
-                    };
+                    content?: never;
                 };
             };
         };
@@ -5090,7 +5410,7 @@ export interface components {
             readAt: null | string;
         };
         /** @enum {unknown} */
-        NotificationKind: "NewsPublished" | "AssignmentPublished" | "DeadlineSoon" | "SubmissionNeedsWork" | "SubmissionGraded";
+        NotificationKind: "NewsPublished" | "AssignmentPublished" | "DeadlineSoon" | "SubmissionNeedsWork" | "SubmissionGraded" | "StudentHelpRequested";
         /** @description De senaste notiserna, och antalet olästa i alla (inte bara de som skickas med). */
         NotificationListDto: {
             items: components["schemas"]["NotificationDto"][];
@@ -5150,6 +5470,9 @@ export interface components {
         SetCompletionDto: {
             completed: boolean;
         };
+        SetStudentHelpDto: {
+            message?: null | string;
+        };
         /**
          * @description En förutsättning som eleven saknar. Title är null när förutsättningen inte är publicerad än,
          *     så att ett utkast inte läcker sin titel.
@@ -5189,6 +5512,13 @@ export interface components {
             submissionModes: components["schemas"]["SubmissionMode"][];
             repo: null | components["schemas"]["StudentRepoDto"];
         };
+        StudentHelpStatusDto: {
+            requested: boolean;
+            message: null | string;
+            /** Format: date-time */
+            createdAt: null | string;
+            resolved: boolean;
+        };
         /** @description En vecka som eleven ser den: bara publicerat innehåll, med lås och avklarande. */
         StudentModuleWithContentDto: {
             /** Format: uuid */
@@ -5216,6 +5546,35 @@ export interface components {
             /** Format: date-time */
             lockedAt: null | string;
             lockError: null | string;
+            /** Format: date-time */
+            reopenedAt: null | string;
+            lastCommitMessage: null | string;
+            /** Format: date-time */
+            lastCommitAt: null | string;
+            /** Format: int32 */
+            commitCount: number;
+            /** Format: int32 */
+            checksPassed: number;
+            /** Format: int32 */
+            checksTotal: number;
+            initialSha: null | string;
+            /** Format: date-time */
+            initialCommitAt: null | string;
+            /** Format: date-time */
+            provisionedAt: null | string;
+            /** Format: date-time */
+            checkStatusChangedAt: null | string;
+        };
+        /** @description Stödsignaler som läraren ser i trackingtabellen. Beräknas alltid från aktuell data. */
+        StudentSupportDto: {
+            notStarted: boolean;
+            noRecentPush: boolean;
+            redChecks: boolean;
+            helpRequested: boolean;
+            /** Format: date-time */
+            helpRequestedAt: null | string;
+            helpMessage: null | string;
+            helpResolved: boolean;
         };
         /** @description En uppgift eleven kan lämna in i kursen, med elevens egen inlämning och betyg. */
         StudyPlanAssignmentDto: {
@@ -5277,6 +5636,7 @@ export interface components {
             files: components["schemas"]["SubmissionFileDto"][];
             repo: null | components["schemas"]["StudentRepoDto"];
             grade: null | components["schemas"]["GradeDto"];
+            support: null | components["schemas"]["StudentSupportDto"];
         };
         /** @description Url är en tidsbegränsad länk som skapas när filen läses, inte något som sparas. */
         SubmissionFileDto: {
@@ -5534,7 +5894,7 @@ export const gradeLevelValues: ReadonlyArray<FlattenedDeepRequired<components>["
 export const gradeScaleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GradeScale"]> = ["None", "PassFail", "PassFailDistinction"];
 export const groupRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GroupRole"]> = ["Student", "Teacher", "Mentor"];
 export const groupTypeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GroupType"]> = ["Class", "Committee", "Other"];
-export const notificationKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationKind"]> = ["NewsPublished", "AssignmentPublished", "DeadlineSoon", "SubmissionNeedsWork", "SubmissionGraded"];
+export const notificationKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationKind"]> = ["NewsPublished", "AssignmentPublished", "DeadlineSoon", "SubmissionNeedsWork", "SubmissionGraded", "StudentHelpRequested"];
 export const repoProvisioningStateValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RepoProvisioningState"]> = ["Pending", "Creating", "Ready", "Failed"];
 export const repoWorkModeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RepoWorkMode"]> = ["Individual", "Group"];
 export const studyPlanCourseStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["StudyPlanCourseStatus"]> = ["Upcoming", "Ongoing", "Completed"];

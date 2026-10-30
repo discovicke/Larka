@@ -17,6 +17,7 @@ import {computed, onMounted, ref, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 
 import GitHubAssignmentBlock from '@/components/GitHubAssignmentBlock.vue'
+import StudentHelpButton from '@/components/StudentHelpButton.vue'
 import MarkdownView from '@/components/editor/MarkdownView.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import SubmissionPanel from '@/components/student/SubmissionPanel.vue'
@@ -187,7 +188,7 @@ async function toggleChecklist(index: number, checked: boolean) {
     : before.filter((candidate) => candidate !== index)
   try {
     await api.PUT('/api/courses/{courseId}/links/{linkId}/checklist/{index}', {
-      params: {path: {courseId: props.courseId, linkId, index}},
+      params: {path: {courseId: props.courseId, linkId, index: String(index)}},
       body: {checked},
     })
   } catch (exception) {
@@ -691,6 +692,11 @@ function handInLabel(item: Schema<'StudentContentItem'>): string {
                 </dl>
               </template>
             </section>
+
+            <StudentHelpButton
+              v-if="selectedItem.type === 'Assignment'"
+              :link-id="selectedItem.linkId"
+            />
           </aside>
         </div>
       </div>

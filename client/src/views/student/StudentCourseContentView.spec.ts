@@ -148,6 +148,12 @@ function backend(content: StudentItem[], gitHubLogin: string | null = null) {
     if (path === '/api/courses') {
       return {status: 200, body: [course]}
     }
+    if (method === 'GET' && path.endsWith('/help')) {
+      return {
+        status: 200,
+        body: {requested: false, message: null, createdAt: null, resolved: false},
+      }
+    }
     if (path === '/api/courses/c1/student-modules') {
       return {status: 200, body: [week(content)]}
     }

@@ -58,6 +58,10 @@ public sealed class TestGitHubAppService : IGitHubAppService
 
     public GitHubCommit? LatestTemplateCommit { get; set; }
 
+    public GitHubCommitSummary? CommitSummary { get; set; }
+
+    public GitHubCheckSummary CheckSummary { get; set; } = new(CheckStatus.Pending, 0, 0);
+
     public Task<GitHubCommit?> GetLatestCommitAsync(
         long installationId,
         string owner,
@@ -65,6 +69,18 @@ public sealed class TestGitHubAppService : IGitHubAppService
         CancellationToken ct,
         DateTimeOffset? until = null) =>
         Task.FromResult(LatestTemplateCommit);
+
+    public Task<GitHubCommitSummary?> GetCommitSummaryAsync(
+        long installationId,
+        string owner,
+        string name,
+        CancellationToken ct,
+        DateTimeOffset? until = null) =>
+        Task.FromResult(CommitSummary);
+
+    public Task<GitHubCheckSummary> GetCheckSummaryAsync(
+        long installationId, string owner, string name, string reference, CancellationToken ct) =>
+        Task.FromResult(CheckSummary);
 
     public Task<CheckStatus> GetCheckStatusAsync(
         long installationId, string owner, string name, string reference, CancellationToken ct) =>
@@ -89,6 +105,10 @@ public sealed class TestGitHubAppService : IGitHubAppService
         throw new NotSupportedException();
 
     public Task ArchiveRepositoryAsync(
+        long installationId, string owner, string name, CancellationToken ct) =>
+        throw new NotSupportedException();
+
+    public Task UnarchiveRepositoryAsync(
         long installationId, string owner, string name, CancellationToken ct) =>
         throw new NotSupportedException();
 }

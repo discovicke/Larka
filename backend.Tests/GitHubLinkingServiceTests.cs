@@ -133,6 +133,10 @@ public class GitHubLinkingServiceTests(TestWebApplicationFactory factory)
             StudentRepoContext context, DateTimeOffset deadline, CancellationToken ct) =>
             throw new NotSupportedException();
 
+        public Task ReopenForResubmissionAsync(
+            StudentRepoContext context, CancellationToken ct) =>
+            Task.CompletedTask;
+
         public Task RefreshCheckStatusAsync(
             IReadOnlyList<StudentRepoContext> repos, CancellationToken ct) =>
             Task.CompletedTask;

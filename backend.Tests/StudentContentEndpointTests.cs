@@ -512,6 +512,8 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
 
     private record ChecklistResponse(List<int> CheckedIndexes);
 
+    private record StudentHelpResponse(bool Requested, string? Message, bool Resolved);
+
     [Fact]
     public async Task Checklist_RoundTripsPerStudent_AndOtherStudentsDoNotSeeIt()
     {
@@ -531,6 +533,52 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
 
         var cleared = await SetChecklistAsync(setup, setup.StudentIds[0], link, 0, false);
         Assert.Equal([2], (await cleared.Content.ReadFromJsonAsync<ChecklistResponse>())!.CheckedIndexes);
+    }
+
+    [Fact]
+    public async Task StudentHelpFlag_CanBeRequestedAndResolved()
+    {
+        var setup = await AddCourseWithGroupAsync();
+        var week = await CreateModuleAsync(setup.CourseId);
+        var link = await LinkAssignmentAsync(setup.CourseId, week.Id, "Uppgift");
+        var studentId = setup.StudentIds[0];
+        Guid teacherId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            var teacher = await TestData.AddUserAsync(db, role: UserRole.Teacher);
+            db.CourseTeachers.Add(new CourseTeacher
+            {
+                CourseId = setup.CourseId,
+                UserId = teacher.Id
+            });
+            await db.SaveChangesAsync();
+            teacherId = teacher.Id;
+        }
+
+        using var student = StudentClient(studentId);
+        var requested = await student.PostAsJsonAsync(
+            $"/api/links/{link}/help", new { message = "Jag fastnar på releaseflödet." });
+        requested.EnsureSuccessStatusCode();
+        var status = await requested.Content.ReadFromJsonAsync<StudentHelpResponse>();
+        Assert.True(status!.Requested);
+        Assert.Equal("Jag fastnar på releaseflödet.", status.Message);
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            var notification = db.Notifications.Single(item =>
+                item.UserId == teacherId && item.Kind == NotificationKind.StudentHelpRequested);
+            Assert.NotEqual(Guid.Empty, notification.ContentId);
+        }
+
+        var resolved = await _client.PostAsync(
+            $"/api/links/{link}/help/{studentId}/resolve", null);
+        Assert.Equal(HttpStatusCode.NoContent, resolved.StatusCode);
+
+        var after = await student.GetFromJsonAsync<StudentHelpResponse>($"/api/links/{link}/help");
+        Assert.False(after!.Requested);
+        Assert.True(after.Resolved);
     }
 
     [Fact]

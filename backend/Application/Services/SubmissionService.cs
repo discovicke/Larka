@@ -16,6 +16,7 @@ public class SubmissionService(
     IUserRepository users,
     IPermissions permissions,
     ILabProvisioner provisioner,
+    StudentSupportService supportStatus,
     IFileStorage storage,
     NotificationService notifications,
     IUnitOfWork unitOfWork,
@@ -96,10 +97,15 @@ public class SubmissionService(
         }
 
         var names = await users.GetNamesAsync(linkSubmissions.Select(submission => submission.StudentId).ToList(), ct);
+        var support = await supportStatus.BuildAsync(linkSubmissions, ct);
         var dtos = new List<SubmissionDto>();
         foreach (var submission in linkSubmissions)
         {
-            dtos.Add(await ToDtoAsync(submission, names.GetValueOrDefault(submission.StudentId, ""), ct));
+            dtos.Add(await ToDtoAsync(
+                submission,
+                names.GetValueOrDefault(submission.StudentId, ""),
+                support.GetValueOrDefault(submission.Id),
+                ct));
         }
 
         return dtos;
@@ -111,11 +117,19 @@ public class SubmissionService(
     private async Task<bool> MayReadAllAsync(Guid linkId, CancellationToken ct) =>
         await permissions.CanTeachLinkAsync(linkId, ct);
 
-    private async Task<SubmissionDto> ToDtoAsync(Submission submission, CancellationToken ct) =>
-        await ToDtoAsync(submission, (await users.GetAsync(submission.StudentId, ct))?.Name ?? "", ct);
+    private async Task<SubmissionDto> ToDtoAsync(Submission submission, CancellationToken ct)
+    {
+        var name = (await users.GetAsync(submission.StudentId, ct))?.Name ?? "";
+        var support = await supportStatus.BuildAsync([submission], ct);
+        return await ToDtoAsync(submission, name, support.GetValueOrDefault(submission.Id), ct);
+    }
 
     // Filernas länkar skapas här, när inlämningen läses, så de går inte att dela vidare och gälla för alltid.
-    private async Task<SubmissionDto> ToDtoAsync(Submission submission, string studentName, CancellationToken ct)
+    private async Task<SubmissionDto> ToDtoAsync(
+        Submission submission,
+        string studentName,
+        StudentSupportDto? support,
+        CancellationToken ct)
     {
         var files = new List<SubmissionFileDto>();
         foreach (var file in submission.Files)
@@ -124,7 +138,7 @@ public class SubmissionService(
             files.Add(SubmissionFileDto.From(file, url));
         }
 
-        return SubmissionDto.From(submission, studentName, files);
+        return SubmissionDto.From(submission, studentName, files, support);
     }
 
     /// <summary>
@@ -290,6 +304,32 @@ public class SubmissionService(
             ? SubmissionStatus.NeedsWork
             : SubmissionStatus.Graded;
 
+        // En begärd komplettering ska öppna ett arkiverat repo igen, men får inte fälla betygsättningen.
+        if (dto.NeedsWork && submission.Repo is not null)
+        {
+            var now = time.GetUtcNow();
+            submission.Repo.ReopenedAt = now;
+            submission.Repo.UpdatedAt = now;
+            var student = await users.GetAsync(submission.StudentId, ct);
+            if (student is not null && !string.IsNullOrWhiteSpace(submission.Repo.RepoFullName))
+            {
+                try
+                {
+                    await provisioner.ReopenForResubmissionAsync(
+                        new StudentRepoContext(submission.Repo, student.SchoolId), ct);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    submission.Repo.LockError =
+                        "Repot kunde inte öppnas för komplettering. Öppna det manuellt i GitHub.";
+                    logger.LogWarning(
+                        exception,
+                        "Could not reopen GitHub repo for submission {SubmissionId}",
+                        submission.Id);
+                }
+            }
+        }
+
         await notifications.NotifySubmissionAsync(
             submission,
             linked.Content.Id,
@@ -317,5 +357,86 @@ public class SubmissionService(
         var repos = await submissions.GetAllReposAsync(ct);
         await provisioner.RefreshCheckStatusAsync(repos, ct);
         await unitOfWork.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Uppdaterar endast repon för en utdelning. Läraren ser resultatet direkt i tabellen.</summary>
+    public async Task<ServiceResult<bool>> RefreshReposForLinkAsync(Guid linkId, CancellationToken ct)
+    {
+        if (!await permissions.CanTeachLinkAsync(linkId, ct))
+        {
+            return ServiceResult<bool>.Forbidden();
+        }
+
+        var now = time.GetUtcNow();
+        var contexts = await submissions.GetRepoContextsForLinkAsync(linkId, now, ct);
+        var repoContexts = contexts
+            .Where(context => context.Repo.ProvisioningState == RepoProvisioningState.Ready)
+            .Select(context => new StudentRepoContext(context.Repo, context.SchoolId))
+            .ToList();
+        if (repoContexts.Count > 0)
+        {
+            await provisioner.RefreshCheckStatusAsync(repoContexts, ct);
+            await unitOfWork.SaveChangesAsync(ct);
+        }
+
+        return ServiceResult<bool>.Ok(true);
+    }
+
+    /// <summary>Låser alla färdiga repon i en utdelning direkt, utan att vänta på deadlinejobbet.</summary>
+    public async Task<ServiceResult<int>> LockReposForLinkAsync(Guid linkId, CancellationToken ct)
+    {
+        if (!await permissions.CanTeachLinkAsync(linkId, ct))
+        {
+            return ServiceResult<int>.Forbidden();
+        }
+
+        var now = time.GetUtcNow();
+        var contexts = await submissions.GetRepoContextsForLinkAsync(linkId, now, ct);
+        var locked = 0;
+        foreach (var context in contexts)
+        {
+            if (context.Repo.ProvisioningState != RepoProvisioningState.Ready)
+            {
+                continue;
+            }
+
+            try
+            {
+                var result = await provisioner.LockAtDeadlineAsync(
+                    new StudentRepoContext(context.Repo, context.SchoolId), now, ct);
+                if (!result.Locked)
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrWhiteSpace(result.Sha))
+                {
+                    context.Submission.Status = SubmissionStatus.Submitted;
+                    context.Submission.SubmittedAt = result.CommitAt ?? now;
+                }
+
+                context.Repo.LockError = result.Error;
+                context.Repo.UpdatedAt = now;
+                locked++;
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                context.Repo.LockError = exception is InvalidOperationException
+                    ? exception.Message
+                    : "Kunde inte låsa GitHub-repot. Försök igen.";
+                context.Repo.UpdatedAt = now;
+                logger.LogWarning(
+                    exception,
+                    "Could not lock GitHub repo for submission {SubmissionId}",
+                    context.Repo.SubmissionId);
+            }
+        }
+
+        await unitOfWork.SaveChangesAsync(ct);
+        return ServiceResult<int>.Ok(locked);
     }
 }

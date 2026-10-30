@@ -197,6 +197,59 @@ public class GitHubLabProvisionerTests
     }
 
     [Fact]
+    public async Task ReopenForResubmissionAsync_UnarchivesTheRepo()
+    {
+        var github = new FakeGitHubAppService();
+        var provisioner = CreateProvisioner(github);
+        var repo = new StudentRepo
+        {
+            SubmissionId = Guid.NewGuid(),
+            RepoFullName = "EduEdugrade-Sandbox/labb-1-alice",
+            ProvisioningState = RepoProvisioningState.Ready,
+            LockedAt = DateTimeOffset.UtcNow,
+            LockError = "Låst"
+        };
+
+        await provisioner.ReopenForResubmissionAsync(
+            new StudentRepoContext(repo, _schoolId), CancellationToken.None);
+
+        var unarchived = Assert.Single(github.Unarchived);
+        Assert.Equal("EduEdugrade-Sandbox", unarchived.Owner);
+        Assert.Equal("labb-1-alice", unarchived.Name);
+        Assert.Null(repo.LockError);
+    }
+
+    [Fact]
+    public async Task RefreshCheckStatusAsync_StoresCommitAndCheckSummary()
+    {
+        var commitAt = DateTimeOffset.Parse("2026-10-30T08:00:00Z");
+        var github = new FakeGitHubAppService
+        {
+            CommitSummary = new GitHubCommitSummary(
+                new GitHubCommit("abcdef123456", "feat: release", commitAt), 14),
+            CheckSummary = new GitHubCheckSummary(CheckStatus.Green, 9, 12)
+        };
+        var provisioner = CreateProvisioner(github);
+        var repo = new StudentRepo
+        {
+            SubmissionId = Guid.NewGuid(),
+            RepoFullName = "EduEdugrade-Sandbox/labb-1-alice",
+            ProvisioningState = RepoProvisioningState.Ready
+        };
+
+        await provisioner.RefreshCheckStatusAsync(
+            [new StudentRepoContext(repo, _schoolId)], CancellationToken.None);
+
+        Assert.Equal("abcdef123456", repo.LastSha);
+        Assert.Equal("feat: release", repo.LastCommitMessage);
+        Assert.Equal(commitAt, repo.LastCommitAt);
+        Assert.Equal(14, repo.CommitCount);
+        Assert.Equal(CheckStatus.Green, repo.CheckStatus);
+        Assert.Equal(9, repo.ChecksPassed);
+        Assert.Equal(12, repo.ChecksTotal);
+    }
+
+    [Fact]
     public async Task RevokeAccessAsync_RemovesCollaboratorFromExistingRepos()
     {
         var github = new FakeGitHubAppService();
@@ -345,6 +398,10 @@ public class GitHubLabProvisionerTests
         public Task<List<RepoLockContext>> GetReposToLockAsync(
             DateTimeOffset now, int take, CancellationToken ct) =>
             throw new NotSupportedException();
+
+        public Task<List<RepoLockContext>> GetRepoContextsForLinkAsync(
+            Guid linkId, DateTimeOffset now, CancellationToken ct) =>
+            throw new NotSupportedException();
     }
 
     private sealed class FakeGitHubAppService : IGitHubAppService
@@ -358,7 +415,13 @@ public class GitHubLabProvisionerTests
         public List<(long InstallationId, string Owner, string Name, string Username)> RemovedCollaborators
         { get; } = [];
 
+        public List<(long InstallationId, string Owner, string Name)> Unarchived { get; } = [];
+
         public GitHubCommit? LatestCommit { get; init; }
+
+        public GitHubCommitSummary? CommitSummary { get; init; }
+
+        public GitHubCheckSummary? CheckSummary { get; init; }
 
         public CheckStatus CheckStatus { get; init; } = CheckStatus.Pending;
 
@@ -413,9 +476,24 @@ public class GitHubLabProvisionerTests
             DateTimeOffset? until = null) =>
             Task.FromResult(LatestCommit);
 
+        public Task<GitHubCommitSummary?> GetCommitSummaryAsync(
+            long installationId,
+            string owner,
+            string name,
+            CancellationToken ct,
+            DateTimeOffset? until = null) =>
+            Task.FromResult(CommitSummary
+                ?? (LatestCommit is null
+                    ? null
+                    : new GitHubCommitSummary(LatestCommit, 1)));
+
         public Task<CheckStatus> GetCheckStatusAsync(
             long installationId, string owner, string name, string reference, CancellationToken ct) =>
             Task.FromResult(CheckStatus);
+
+        public Task<GitHubCheckSummary> GetCheckSummaryAsync(
+            long installationId, string owner, string name, string reference, CancellationToken ct) =>
+            Task.FromResult(CheckSummary ?? new GitHubCheckSummary(CheckStatus, 0, 0));
 
         public Task<GitHubInstallationToken> GetInstallationTokenAsync(
             long installationId, CancellationToken ct) => throw new NotSupportedException();
@@ -438,5 +516,12 @@ public class GitHubLabProvisionerTests
         public Task ArchiveRepositoryAsync(
             long installationId, string owner, string name, CancellationToken ct) =>
             throw new NotSupportedException();
+
+        public Task UnarchiveRepositoryAsync(
+            long installationId, string owner, string name, CancellationToken ct)
+        {
+            Unarchived.Add((installationId, owner, name));
+            return Task.CompletedTask;
+        }
     }
 }

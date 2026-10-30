@@ -170,6 +170,8 @@ public static class DependencyInjection
             .Bind(config.GetSection(GitHubProvisioningOptions.SectionName));
         services.AddOptions<GitHubDeadlineLockOptions>()
             .Bind(config.GetSection(GitHubDeadlineLockOptions.SectionName));
+        services.AddOptions<GitHubSupportOptions>()
+            .Bind(config.GetSection(GitHubSupportOptions.SectionName));
         services.AddHostedService<GitHubProvisioningJob>();
         services.AddHostedService<GitHubDeadlineLockJob>();
 
@@ -246,6 +248,7 @@ public static class DependencyInjection
         services.AddScoped<IPartCompletionRepository, PartCompletionRepository>();
         services.AddScoped<IChecklistRepository, ChecklistRepository>();
         services.AddScoped<ISubmissionRepository, SubmissionRepository>();
+        services.AddScoped<IStudentHelpRequestRepository, StudentHelpRequestRepository>();
         services.AddScoped<INotificationRepository, NotificationRepository>();
         services.AddScoped<ISchoolGitHubInstallationRepository, SchoolGitHubInstallationRepository>();
     }
