@@ -259,7 +259,6 @@ describe('AppLayout', () => {
 
   it.each([
     ['/grading'],
-    ['/courses/c1/assignments/l1'],
     ['/courses/c1/assignments/l1/submissions/s1'],
   ])('admin som inte undervisar skickas från %s till Idag', async (path) => {
     meBackend(meAs('Admin', [], 'Ada Admin'))
@@ -276,7 +275,8 @@ describe('AppLayout', () => {
     expect(grading.router.currentRoute.value.name).toBe('today')
 
     const submissions = await renderApp('/courses/c1/assignments/l1')
-    expect(submissions.router.currentRoute.value.name).toBe('assignment-submissions')
+    expect(submissions.router.currentRoute.value.name).toBe('part')
+    expect(submissions.router.currentRoute.value.query.tab).toBe('inlamningar')
   })
 
   it('användarmenyn har Logga ut', async () => {

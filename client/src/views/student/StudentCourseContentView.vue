@@ -33,7 +33,7 @@ import {api, errorMessage, type Schema} from '@/lib/api'
 import {parseChecklist} from '@/lib/checklist'
 import {countLabel, formatDate, partOf} from '@/lib/content'
 import {deadlineStatusKey, partStatusKey, statuses, toneTextClasses} from '@/lib/status'
-import {gradeBadgeVariant, gradeLabel as gradeShort} from '@/lib/submissions'
+import {gradeBadgeVariant, gradeLabel as gradeShort, handInLabel} from '@/lib/submissions'
 
 // Elevens vy av en kurs: veckor, låsta delar och klarmarkering. Den visas i stället för redigeraren
 // på kursens innehållssida för den som inte kan redigera. Servern vet vilka grupper eleven går i,
@@ -454,16 +454,9 @@ function rowBadge(item: Schema<'StudentContentItem'>) {
     : null
 }
 
-const submissionModeLabels: Record<string, string> = {
-  Text: 'text',
-  File: 'filer',
-  Repo: 'GitHub-repo',
-  OnSite: 'visas på plats',
-}
-
-function handInLabel(item: Schema<'StudentContentItem'>): string {
+function handInOf(item: Schema<'StudentContentItem'>): string {
   return item.type === 'Assignment'
-    ? item.submissionModes.map((mode) => submissionModeLabels[mode] ?? mode).join(', ')
+    ? handInLabel(item.submissionModes)
     : ''
 }
 </script>
@@ -519,9 +512,9 @@ function handInLabel(item: Schema<'StudentContentItem'>): string {
             <span v-if="gradeScaleLabel(selectedItem.gradeScale)" data-test="fact-scale">
               Betygsskala {{ gradeScaleLabel(selectedItem.gradeScale) }}
             </span>
-            <span v-if="handInLabel(selectedItem)" class="flex items-center gap-1.5" data-test="fact-handin">
+            <span v-if="handInOf(selectedItem)" class="flex items-center gap-1.5" data-test="fact-handin">
               <PhPaperPlaneTilt class="size-4"/>
-              Lämnas in som {{ handInLabel(selectedItem) }}
+              Lämnas in som {{ handInOf(selectedItem) }}
             </span>
           </div>
         </header>

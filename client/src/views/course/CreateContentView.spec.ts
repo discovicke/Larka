@@ -324,7 +324,7 @@ describe('CreateContentView', () => {
       isPinned: true,
       dueAt: expect.any(String),
     })
-    expect(router.currentRoute.value.name).toBe('course-content')
+    expect(router.currentRoute.value.name).toBe('part')
   })
 
   it('redigeringsläget listar bilagorna', async () => {

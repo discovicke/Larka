@@ -109,7 +109,10 @@ const loadError = ref('')
 const currentPartType = computed(() =>
   partTypes.find((candidate) => candidate.value === form.partType) ?? partTypes[0])
 
-const backToCourse = {name: 'course-content', params: {courseId}}
+// Redigeringen började på delens sida och går tillbaka dit. En ny del visas i kursens innehåll.
+const backRoute = computed(() => linkId.value
+  ? {name: 'part', params: {courseId, linkId: linkId.value}}
+  : {name: 'course-content', params: {courseId}})
 
 const templateOptions = computed(() => {
   const options = templates.value.map((template) => ({
@@ -340,7 +343,7 @@ async function save(status: Schema<'ContentStatus'> = 'Published') {
       await api.POST('/api/content/with-link', {body: {content, link}})
     }
 
-    await router.push(backToCourse)
+    await router.push(backRoute.value)
   } catch (exception) {
     serverError.value = errorMessage(exception)
   } finally {
@@ -361,7 +364,7 @@ async function save(status: Schema<'ContentStatus'> = 'Published') {
   <div v-else-if="module" class="flex flex-wrap items-start gap-6">
     <PageActions>
       <Button variant="outline" as-child>
-        <RouterLink :to="backToCourse">Avbryt</RouterLink>
+        <RouterLink :to="backRoute">Avbryt</RouterLink>
       </Button>
       <template v-if="isEditing">
         <Button :disabled="saving" @click="save()">Spara</Button>

@@ -182,8 +182,8 @@ function badgeOf(item: Schema<'ModuleContentItem'>): {status: StatusKey, label?:
         <ItemContent class="min-w-40">
           <ItemTitle class="font-normal">
             <RouterLink
-              v-if="canEdit && item.type !== 'News'"
-              :to="editRoute(item)"
+              v-if="item.type !== 'News'"
+              :to="{name: 'part', params: {courseId: module.courseId, linkId: item.linkId}}"
               class="hover:underline"
             >
               {{ item.title }}

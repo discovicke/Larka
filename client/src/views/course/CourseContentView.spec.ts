@@ -230,12 +230,12 @@ describe('CourseContentView', () => {
     expect(document.body.textContent).toContain('unpublish the assignment before deleting it')
   })
 
-  it('redigera går till redigeringssidan', async () => {
+  it('titeln öppnar delen och redigera går till redigeringssidan', async () => {
     backend([week('m1', 'Vecka 1', [submission])])
 
     const {wrapper} = await renderApp('/courses/c1/content')
 
-    expect(wrapper.find('a[href="/courses/c1/modules/m1/content/l1/edit"]').exists()).toBe(true)
+    expect(wrapper.find('a[href="/courses/c1/parts/l1"]').text()).toBe('Release-pipeline')
     await openPartMenu(wrapper, 'Release-pipeline')
     const edit = partAction('Redigera')
     expect(edit.tagName).toBe('A')

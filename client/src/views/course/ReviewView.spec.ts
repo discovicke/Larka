@@ -236,7 +236,8 @@ describe('ReviewView', () => {
 
     expect(sent('POST', '/api/submissions/s1/grade'))
       .toEqual({feedback: 'Bra jobbat', level: 'Pass', needsWork: false})
-    expect(router.currentRoute.value.name).toBe('assignment-submissions')
+    expect(router.currentRoute.value.name).toBe('part')
+    expect(router.currentRoute.value.query.tab).toBe('inlamningar')
   })
 
   it('kräver en kommentar när eleven ska komplettera', async () => {

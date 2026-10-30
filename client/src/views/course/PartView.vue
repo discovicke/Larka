@@ -1,0 +1,338 @@
+<script setup lang="ts">
+import {PhUsersThree} from '@phosphor-icons/vue'
+import {computed, ref, watch} from 'vue'
+import {RouterLink, useRoute, useRouter} from 'vue-router'
+
+import SubmissionsPanel from '@/components/course/SubmissionsPanel.vue'
+import MarkdownView from '@/components/editor/MarkdownView.vue'
+import StatusBadge from '@/components/StatusBadge.vue'
+import {Alert, AlertDescription} from '@/components/ui/alert'
+import {Button} from '@/components/ui/button'
+import {Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty'
+import {Skeleton} from '@/components/ui/skeleton'
+import {useCrumbLabels} from '@/composables/useCrumbLabels'
+import {useCurrentUser} from '@/composables/useCurrentUser'
+import {api, errorMessage, type Schema} from '@/lib/api'
+import {parseChecklist} from '@/lib/checklist'
+import {formatDate, partOf} from '@/lib/content'
+import {handInLabel} from '@/lib/submissions'
+
+// Delens sida för den som inte är elev: läraren, mentorn och admin läser delen här och går vidare till
+// redigeraren eller inlämningarna. Eleven har sin egen vy av samma del på kurssidan.
+const route = useRoute()
+const router = useRouter()
+const {setCrumbLabel} = useCrumbLabels()
+const {me, can, status, loadMe} = useCurrentUser()
+
+const courseId = computed(() => String(route.params.courseId))
+const linkId = computed(() => String(route.params.linkId))
+const canEdit = computed(() => can('editContent', courseId.value))
+const canGrade = computed(() => can('grade', courseId.value))
+const canReadSubmissions = computed(() => can('readSubmissions', courseId.value))
+
+const moduleId = ref('')
+const weekTitle = ref('')
+const part = ref<Schema<'ModuleContentItem'> | null>(null)
+const content = ref<Schema<'ContentDto'> | null>(null)
+const submissions = ref<Schema<'SubmissionDto'>[]>([])
+const loading = ref(true)
+const error = ref('')
+const notFound = ref(false)
+const publishing = ref(false)
+
+// Inlämningar finns bara på uppgifter med inlämningssätt, och bara för dem som får läsa dem.
+const hasSubmissions = computed(() => canReadSubmissions.value && part.value?.completionRule != null)
+const tab = computed(() => route.query.tab === 'inlamningar' && hasSubmissions.value
+  ? 'submissions'
+  : 'content')
+
+const toGrade = computed(() => submissions.value.filter((submission) => submission.status === 'Submitted').length)
+const handedIn = computed(() => submissions.value.filter((submission) => submission.status !== 'NotStarted').length)
+const handedInLabel = computed(() => `${handedIn.value} av ${submissions.value.length}`)
+
+const checklist = computed(() => parseChecklist(content.value?.bodyMd ?? ''))
+
+const facts = computed(() => {
+  const item = part.value
+  if (!item) {
+    return ''
+  }
+  const handIn = handInLabel(content.value?.assignment?.submissionModes ?? [])
+  return [
+    partOf(item).label,
+    weekTitle.value,
+    item.dueAt
+      ? `Slutar ${formatDate(item.dueAt, true)}`
+      : '',
+    scaleLabel(item.gradeScale),
+    handIn
+      ? `Lämnas in som ${handIn}`
+      : '',
+  ].filter((fact) => fact !== '').join(' · ')
+})
+
+const isDraft = computed(() => part.value?.status === 'Draft')
+const isScheduled = computed(() =>
+  !isDraft.value && part.value !== null && new Date(part.value.publishAt) > new Date())
+
+function scaleLabel(scale: Schema<'GradeScale'> | null): string {
+  if (scale === 'PassFail') {
+    return 'Betygsskala IG–G'
+  }
+  if (scale === 'PassFailDistinction') {
+    return 'Betygsskala IG–VG'
+  }
+  return ''
+}
+
+function tabClass(value: 'content' | 'submissions') {
+  return tab.value === value
+    ? 'border-primary font-medium'
+    : 'text-muted-foreground border-transparent'
+}
+
+function selectTab(value: 'content' | 'submissions') {
+  router.replace({query: value === 'submissions'
+    ? {tab: 'inlamningar'}
+    : {}})
+}
+
+// Eleven har inget att göra här: länken leder till samma del på kurssidan.
+function isStudentOfCourse(): boolean {
+  return !canReadSubmissions.value
+    && !can('manageCourse', courseId.value)
+    && (me.value?.courses ?? []).some((course) => course.courseId === courseId.value && course.role === 'Student')
+}
+
+async function load(showSkeleton = true) {
+  // Rollen avgör vad sidan visar, så användaren måste vara hämtad först.
+  if (status.value !== 'loaded') {
+    await loadMe()
+  }
+  if (isStudentOfCourse()) {
+    await router.replace({
+      name: 'course-content',
+      params: {courseId: courseId.value},
+      query: {del: linkId.value},
+    })
+    return
+  }
+
+  loading.value = showSkeleton
+  error.value = ''
+  notFound.value = false
+  try {
+    const {data: weeks} = await api.GET('/api/courses/{id}/modules', {params: {path: {id: courseId.value}}})
+    const week = (weeks ?? []).find((candidate) => candidate.content.some((item) => item.linkId === linkId.value))
+    const item = week?.content.find((candidate) => candidate.linkId === linkId.value)
+    if (!week || !item) {
+      notFound.value = true
+      return
+    }
+
+    moduleId.value = week.id
+    weekTitle.value = week.title
+    part.value = item
+    setCrumbLabel(`assignment:${linkId.value}`, item.title)
+    const [contentResult, submissionResult] = await Promise.all([
+      api.GET('/api/content/{id}', {params: {path: {id: item.contentId}}}),
+      canReadSubmissions.value && item.completionRule != null
+        ? api.GET('/api/links/{id}/submissions', {params: {path: {id: linkId.value}}})
+        : Promise.resolve({data: []}),
+    ])
+    content.value = contentResult.data ?? null
+    submissions.value = submissionResult.data ?? []
+  } catch {
+    error.value = 'Kunde inte hämta delen.'
+  } finally {
+    loading.value = false
+  }
+}
+
+async function publish() {
+  if (!part.value) {
+    return
+  }
+  publishing.value = true
+  error.value = ''
+  try {
+    await api.PUT('/api/content/{id}/status', {
+      params: {path: {id: part.value.contentId}},
+      body: {status: 'Published'},
+    })
+    await load(false)
+  } catch (exception) {
+    error.value = errorMessage(exception)
+  } finally {
+    publishing.value = false
+  }
+}
+
+watch([courseId, linkId], () => {
+  load()
+}, {immediate: true})
+</script>
+
+<template>
+  <div class="flex flex-col gap-5">
+    <Alert v-if="error" variant="destructive">
+      <AlertDescription>{{ error }}</AlertDescription>
+    </Alert>
+
+    <template v-if="loading">
+      <Skeleton class="h-10 w-64"/>
+      <Skeleton class="h-64 w-full rounded-[11px]"/>
+    </template>
+
+    <Empty v-else-if="notFound && !error" class="border border-dashed">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <PhUsersThree/>
+        </EmptyMedia>
+        <EmptyTitle>Delen finns inte</EmptyTitle>
+        <EmptyDescription>Den kan ha tagits bort från kursen.</EmptyDescription>
+      </EmptyHeader>
+    </Empty>
+
+    <template v-else-if="part">
+      <div class="flex flex-col gap-4" :class="{'border-b pb-4': !hasSubmissions}">
+        <div class="flex flex-col gap-2">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <h1 class="font-heading min-w-0 text-[30px] leading-tight font-semibold">{{ part.title }}</h1>
+            <Button
+              v-if="canEdit"
+              variant="outline"
+              as-child
+              data-test="edit-part"
+            >
+              <RouterLink
+                :to="{
+                  name: 'edit-content',
+                  params: {courseId, moduleId, linkId},
+                }"
+              >
+                Redigera
+              </RouterLink>
+            </Button>
+          </div>
+          <p class="text-muted-foreground text-sm" data-test="part-facts">{{ facts }}</p>
+        </div>
+
+        <div
+          v-if="hasSubmissions"
+          role="tablist"
+          aria-label="Delens flikar"
+          class="flex gap-5 border-b"
+        >
+          <button
+            type="button"
+            role="tab"
+            :aria-selected="tab === 'content'"
+            class="-mb-px h-10 border-b-2 text-[15px]"
+            :class="tabClass('content')"
+            data-test="tab-content"
+            @click="selectTab('content')"
+          >
+            Innehåll
+          </button>
+          <button
+            type="button"
+            role="tab"
+            :aria-selected="tab === 'submissions'"
+            class="-mb-px h-10 border-b-2 text-[15px]"
+            :class="tabClass('submissions')"
+            data-test="tab-submissions"
+            @click="selectTab('submissions')"
+          >
+            Inlämningar {{ handedInLabel }}
+          </button>
+        </div>
+      </div>
+
+      <SubmissionsPanel
+        v-if="tab === 'submissions'"
+        :course-id="courseId"
+        :link-id="linkId"
+        :submissions="submissions"
+        @reload="load(false)"
+      />
+
+      <div v-else class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <div class="flex min-w-0 flex-col gap-6">
+          <section class="flex max-w-[68ch] flex-col gap-3" data-test="part-content">
+            <h2 class="text-lg font-semibold">
+              {{ part.type === 'Assignment'
+                ? 'Uppgiften'
+                : 'Innehåll' }}
+            </h2>
+            <MarkdownView v-if="checklist.body" :markdown="checklist.body"/>
+            <p v-else-if="checklist.items.length === 0" class="text-muted-foreground text-sm">
+              Inget innehåll än.
+            </p>
+          </section>
+
+          <section
+            v-if="checklist.items.length > 0"
+            class="flex max-w-[68ch] flex-col gap-3"
+            aria-labelledby="part-checklist-h"
+            data-test="part-checklist"
+          >
+            <h2 id="part-checklist-h" class="text-lg font-semibold">Att lämna in</h2>
+            <ul class="flex list-disc flex-col gap-1.5 pl-5">
+              <li v-for="entry in checklist.items" :key="entry.index">{{ entry.text }}</li>
+            </ul>
+          </section>
+        </div>
+
+        <aside class="max-lg:order-first">
+          <section class="bg-card flex flex-col gap-3 rounded-xl border p-4" aria-labelledby="part-state-h" data-test="part-state">
+            <h2 id="part-state-h" class="text-sm font-semibold">Läge</h2>
+            <dl class="flex flex-col gap-2 text-sm">
+              <div class="flex items-center justify-between gap-2">
+                <dt class="text-muted-foreground">Publicering</dt>
+                <dd>
+                  <StatusBadge v-if="isDraft" status="publishing.draft"/>
+                  <StatusBadge
+                    v-else-if="isScheduled"
+                    status="publishing.scheduled"
+                    :label="`Schemalagd ${formatDate(part.publishAt)}`"
+                  />
+                  <template v-else>Publicerad {{ formatDate(part.publishAt) }}</template>
+                </dd>
+              </div>
+              <template v-if="hasSubmissions">
+                <div class="flex items-center justify-between gap-2">
+                  <dt class="text-muted-foreground">Inlämnade</dt>
+                  <dd>{{ handedInLabel }}</dd>
+                </div>
+                <div class="flex items-center justify-between gap-2">
+                  <dt class="text-muted-foreground">Att bedöma</dt>
+                  <dd>{{ toGrade }}</dd>
+                </div>
+              </template>
+            </dl>
+
+            <p v-if="isDraft" class="text-muted-foreground text-sm">Eleverna ser inte den här delen än.</p>
+            <Button
+              v-if="isDraft && canEdit"
+              :disabled="publishing"
+              data-test="publish-part"
+              @click="publish"
+            >
+              Publicera
+            </Button>
+            <Button
+              v-if="hasSubmissions && canGrade && toGrade > 0"
+              data-test="grade-part"
+              @click="selectTab('submissions')"
+            >
+              Bedöm {{ toGrade }} {{ toGrade === 1
+                ? 'inlämning'
+                : 'inlämningar' }}
+            </Button>
+          </section>
+        </aside>
+      </div>
+    </template>
+  </div>
+</template>

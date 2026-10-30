@@ -28,7 +28,7 @@ import CourseAboutView from '@/views/course/CourseAboutView.vue'
 import CourseContentPage from '@/views/course/CourseContentPage.vue'
 import CourseLayout from '@/views/course/CourseLayout.vue'
 import CourseNewsView from '@/views/course/CourseNewsView.vue'
-import SubmissionsView from '@/views/course/SubmissionsView.vue'
+import PartView from '@/views/course/PartView.vue'
 
 export interface Breadcrumb {
   label: string
@@ -58,14 +58,14 @@ function courseBreadcrumbs(route: RouteLocationNormalizedLoaded, ...rest: Breadc
   return [{label: 'Kurser', to: {name: 'groups', query: {filter: 'courses'}}}, course, ...rest]
 }
 
-// Uppgiften och inlämningarna ligger under kursen: uppgiften öppnar den på kursens innehåll.
+// Uppgiften och inlämningarna ligger under kursen: uppgiften öppnar delens sida.
 function assignmentBreadcrumbs(route: RouteLocationNormalizedLoaded, ...rest: Breadcrumb[]): Breadcrumb[] {
   const {courseId, linkId} = route.params
   return courseBreadcrumbs(
     route,
     {
       label: useCrumbLabels().crumbLabel(`assignment:${linkId}`, 'Uppgift'),
-      to: {name: 'course-content', params: {courseId}, query: {del: String(linkId)}},
+      to: {name: 'part', params: {courseId, linkId}},
     },
     ...rest,
   )
@@ -161,14 +161,21 @@ export const routes: RouteRecordRaw[] = [
         },
       },
       {
+        path: 'courses/:courseId/parts/:linkId',
+        name: 'part',
+        component: PartView,
+        meta: {
+          title: 'Del',
+          breadcrumbs: (route) => courseBreadcrumbs(route, {
+            label: useCrumbLabels().crumbLabel(`assignment:${route.params.linkId}`, 'Del'),
+          }),
+        },
+      },
+      // Inlämningarna är en flik på delens sida.
+      {
         path: 'courses/:courseId/assignments/:linkId',
         name: 'assignment-submissions',
-        component: SubmissionsView,
-        meta: {
-          title: 'Inlämningar',
-          requires: 'readSubmissions',
-          breadcrumbs: (route) => assignmentBreadcrumbs(route, {label: 'Inlämningar'}),
-        },
+        redirect: (to) => ({name: 'part', params: to.params, query: {tab: 'inlamningar'}}),
       },
       {
         path: 'courses/:courseId/assignments/:linkId/submissions/:submissionId',

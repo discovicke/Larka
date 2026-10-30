@@ -98,3 +98,15 @@ function oneDecimal(value: number): string {
     .toFixed(1)
     .replace('.', ',')
 }
+
+const submissionModeLabels: Record<string, string> = {
+  Text: 'text',
+  File: 'filer',
+  Repo: 'GitHub-repo',
+  OnSite: 'visas på plats',
+}
+
+/** Inlämningssätten som text, till exempel "text, filer". */
+export function handInLabel(modes: string[]): string {
+  return modes.map((mode) => submissionModeLabels[mode] ?? mode).join(', ')
+}

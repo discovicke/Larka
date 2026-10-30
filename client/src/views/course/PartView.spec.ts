@@ -1,7 +1,7 @@
 import {flushPromises} from '@vue/test-utils'
 import {describe, expect, it, vi} from 'vitest'
 
-import {mockApi, requests} from '@/test/mockApi'
+import {mockApi, requests, sent} from '@/test/mockApi'
 import {mentorAs, meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
@@ -19,7 +19,7 @@ const assignment = {
   contentId: 'x1',
   type: 'Assignment',
   gradeScale: 'PassFailDistinction',
-  completionRule: null,
+  completionRule: 'Submitted',
   title: 'Release-pipeline',
   status: 'Published',
   groupId: null,
@@ -86,7 +86,13 @@ const needsWork = makeSubmission('s3', 'u3', 'NeedsWork', {submittedAt: '2026-10
 const notStarted = makeSubmission('s4', 'u4', 'NotStarted')
 const roster = [notStarted, graded, needsWork, submitted]
 
-function backend(options: {submissions?: unknown[], fail?: boolean, me?: ReturnType<typeof meAs>} = {}) {
+function backend(options: {
+  submissions?: unknown[]
+  fail?: boolean
+  me?: ReturnType<typeof meAs>
+  bodyMd?: string
+  part?: typeof assignment | Record<string, unknown>
+} = {}) {
   mockApi((method, path) => {
     if (method === 'POST' && path === '/api/links/l1/repos/refresh') {
       return {status: 204}
@@ -104,10 +110,13 @@ function backend(options: {submissions?: unknown[], fail?: boolean, me?: ReturnT
       return {status: 200, body: [course]}
     }
     if (path === '/api/courses/c1/modules') {
-      return {status: 200, body: [week]}
+      return {status: 200, body: [{...week, content: [options.part ?? assignment]}]}
+    }
+    if (path === '/api/content/x1/status') {
+      return {status: 204}
     }
     if (path === '/api/content/x1') {
-      return {status: 200, body: content}
+      return {status: 200, body: {...content, bodyMd: options.bodyMd ?? content.bodyMd}}
     }
     if (path === '/api/links/l1/submissions') {
       return options.fail
@@ -130,7 +139,7 @@ function rowNames(wrapper: Awaited<ReturnType<typeof renderApp>>['wrapper']): st
     .map((row) => row.find('.font-medium').text())
 }
 
-describe('SubmissionsView', () => {
+describe('PartView', () => {
   it('mentorn läser listan och får Visa i stället för Bedöm', async () => {
     backend({me: mentorAs(['c1'])})
 
@@ -154,37 +163,94 @@ describe('SubmissionsView', () => {
     expect(text(row.find('a'))).toBe('Bedöm')
   })
 
-  it('visar uppgiften, veckan, betygsskalan och antalet elever', async () => {
+  it('öppnar delen läsbar med fakta, redigera och läget', async () => {
     backend()
+
+    const {wrapper} = await renderApp('/courses/c1/parts/l1')
+
+    expect(wrapper.find('h1').text()).toBe('Release-pipeline')
+    expect(text(wrapper.find('[data-test="part-facts"]')))
+      .toMatch(/^Inlämning · Vecka 4 · Slutar fre 23 okt \d\d:59 · Betygsskala IG–VG · Lämnas in som text, GitHub-repo$/)
+    expect(wrapper.find('[data-test="part-content"]').text()).toContain('länken')
+    expect(wrapper.find('[data-test="edit-part"]').attributes('href'))
+      .toBe('/courses/c1/modules/m1/content/l1/edit')
+    const state = text(wrapper.find('[data-test="part-state"]'))
+    expect(state).toContain('Publicerad')
+    expect(state).toContain('Inlämnade3 av 4')
+    expect(state).toContain('Att bedöma1')
+    expect(wrapper.find('section[aria-label="Elever"]').exists()).toBe(false)
+  })
+
+  it('Bedöm-knappen och fliken öppnar inlämningarna', async () => {
+    backend()
+
+    const {wrapper, router} = await renderApp('/courses/c1/parts/l1')
+
+    expect(text(wrapper.find('[data-test="tab-submissions"]'))).toBe('Inlämningar 3 av 4')
+    await wrapper.find('[data-test="grade-part"]').trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.query.tab).toBe('inlamningar')
+    expect(wrapper.find('section[aria-label="Elever"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="part-content"]').exists()).toBe(false)
+  })
+
+  it('checklistan i uppgiften visas som en lista utan bockrutor', async () => {
+    backend({bodyMd: 'Texten.\n\n- [ ] Länk till repot'})
+
+    const {wrapper} = await renderApp('/courses/c1/parts/l1')
+
+    expect(wrapper.find('[data-test="part-checklist"]').text()).toContain('Länk till repot')
+    expect(wrapper.find('[data-test="part-checklist"] [role="checkbox"]').exists()).toBe(false)
+  })
+
+  it('teori har inga flikar, och ett utkast går att publicera härifrån', async () => {
+    backend({part: {...assignment, type: 'Theory', gradeScale: null, completionRule: null, dueAt: null, status: 'Draft'}})
+
+    const {wrapper} = await renderApp('/courses/c1/parts/l1')
+
+    expect(wrapper.find('[data-test="tab-content"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Eleverna ser inte den här delen än.')
+    await wrapper.find('[data-test="publish-part"]').trigger('click')
+    await flushPromises()
+
+    expect(sent('PUT', '/api/content/x1/status')).toEqual({status: 'Published'})
+  })
+
+  it('mentorn ser inlämningar men kan inte redigera eller bedöma härifrån', async () => {
+    backend({me: mentorAs(['c1'])})
+
+    const {wrapper} = await renderApp('/courses/c1/parts/l1')
+
+    expect(wrapper.find('[data-test="tab-submissions"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="edit-part"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="grade-part"]').exists()).toBe(false)
+  })
+
+  it('admin läser delen utan inlämningar och utan att redigera', async () => {
+    backend({me: meAs('Admin', [], 'Ada Admin')})
 
     const {wrapper} = await renderApp('/courses/c1/assignments/l1')
 
     expect(wrapper.find('h1').text()).toBe('Release-pipeline')
-    expect(wrapper.text()).toContain('Vecka 4')
-    expect(wrapper.text()).toContain('IG–VG')
-    expect(wrapper.text()).toContain('Slutar')
-    expect(wrapper.text()).toContain('Publicerad')
-    expect(wrapper.text()).toContain('Inlämning')
+    expect(wrapper.find('[data-test="tab-submissions"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="edit-part"]').exists()).toBe(false)
+    expect(requests.some((request) => request.path === '/api/links/l1/submissions')).toBe(false)
   })
 
-  it('räknar inlämningarna i korten och i filtret', async () => {
+  it('eleven skickas till delen på kurssidan', async () => {
+    backend({me: meAs('Student', ['c1'])})
+
+    const {router} = await renderApp('/courses/c1/parts/l1')
+
+    expect(router.currentRoute.value.name).toBe('course-content')
+    expect(router.currentRoute.value.query.del).toBe('l1')
+  })
+
+  it('filtren räknar inlämningarna', async () => {
     backend()
 
     const {wrapper} = await renderApp('/courses/c1/assignments/l1')
-
-    const cards = wrapper.findAll('[data-test="stat-card"]').map(text)
-    expect(cards).toHaveLength(5)
-    expect(cards[0]).toContain('Inlämnade')
-    expect(cards[0]).toContain('3')
-    expect(cards[0]).toContain('av 4')
-    expect(cards[1]).toContain('Att bedöma')
-    expect(cards[1]).toContain('1')
-    expect(cards[2]).toContain('Bedömda')
-    expect(cards[2]).toContain('1')
-    expect(cards[3]).toContain('Komplettering')
-    expect(cards[3]).toContain('1')
-    expect(cards[4]).toContain('Behöver hjälp')
-    expect(cards[4]).toContain('0')
 
     const filters = wrapper.findAll('section[aria-label="Elever"] [role="tab"]').map(text)
     expect(filters).toEqual([
@@ -249,24 +315,10 @@ describe('SubmissionsView', () => {
     expect(toGrade.text()).toBe('Bedöm')
 
     const needsWorkLink = rows[1].find('a[href="/courses/c1/assignments/l1/submissions/s3"]')
-    expect(needsWorkLink.text()).toBe('Bedöm')
+    expect(needsWorkLink.text()).toBe('Visa')
 
     const tile = rows[2].find('a[href="/courses/c1/assignments/l1/submissions/s1"]')
     expect(tile.text()).toBe('G')
-  })
-
-  it('Instruktioner visar uppgiftens text i stället för tabellen', async () => {
-    backend()
-    const {wrapper, router} = await renderApp('/courses/c1/assignments/l1')
-
-    const instructions = wrapper.findAll('button[role="tab"]')
-      .find((tab) => tab.text() === 'Instruktioner')
-    await instructions?.trigger('click')
-    await flushPromises()
-
-    expect(router.currentRoute.value.query.tab).toBe('instructions')
-    expect(wrapper.find('strong').text()).toBe('länken')
-    expect(wrapper.findAll('[data-test="submission-row"]')).toHaveLength(0)
   })
 
   it('visar och filtrerar stödorsaker samt kan lösa en elevflagga', async () => {
@@ -329,7 +381,7 @@ describe('SubmissionsView', () => {
 
     const {wrapper} = await renderApp('/courses/c1/assignments/l1')
 
-    expect(wrapper.find('[role="alert"]').text()).toContain('Kunde inte hämta inlämningarna.')
+    expect(wrapper.find('[role="alert"]').text()).toContain('Kunde inte hämta delen.')
     expect(wrapper.findAll('[data-test="submission-row"]')).toHaveLength(0)
   })
 

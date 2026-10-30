@@ -32,7 +32,8 @@ describe('router', () => {
     ['/courses/devops/staff', 'course-staff'],
     ['/courses/devops/about', 'course-about'],
     ['/courses/devops/modules/1/new', 'create-content'],
-    ['/courses/devops/assignments/l1', 'assignment-submissions'],
+    ['/courses/devops/parts/l1', 'part'],
+    ['/courses/devops/assignments/l1', 'part'],
     ['/courses/devops/assignments/l1/submissions/s1', 'submission-review'],
     ['/dev', 'dev'],
     ['/dev/status', 'dev-status'],
@@ -75,7 +76,7 @@ function trail(route: Awaited<ReturnType<typeof open>>): Breadcrumb[] {
 
 const kurser = {label: 'Kurser', to: {name: 'groups', query: {filter: 'courses'}}}
 const devops = {label: 'DevOps', to: {name: 'course-content', params: {courseId: 'c1'}}}
-const uppgift = {label: 'Uppgift', to: {name: 'course-content', params: {courseId: 'c1'}, query: {del: 'l1'}}}
+const uppgift = {label: 'Uppgift', to: {name: 'part', params: {courseId: 'c1', linkId: 'l1'}}}
 const inlamningar = {label: 'Inlämningar', to: {name: 'assignment-submissions', params: {courseId: 'c1', linkId: 'l1'}}}
 const innehall = {label: 'Innehåll', to: {name: 'course-content', params: {courseId: 'c1'}}}
 
@@ -96,7 +97,7 @@ describe('brödsmulor', () => {
     ['om kursen', '/courses/c1/about', [kurser, devops, {label: 'Om'}]],
     ['ny del', '/courses/c1/modules/m1/new', [kurser, devops, innehall, {label: 'Ny del'}]],
     ['redigera del', '/courses/c1/modules/m1/content/l1/edit', [kurser, devops, innehall, {label: 'Redigera del'}]],
-    ['inlämningar', '/courses/c1/assignments/l1', [kurser, devops, uppgift, {label: 'Inlämningar'}]],
+    ['en del', '/courses/c1/parts/l1', [kurser, devops, {label: 'Del'}]],
     ['en inlämning', '/courses/c1/assignments/l1/submissions/s1', [kurser, devops, uppgift, inlamningar, {label: 'Inlämning'}]],
     ['en grupp', '/groups/g1', [{label: 'Alla grupper', to: {name: 'groups'}}, {label: 'Grupp'}]],
   ])('%s: spåret leder tillbaka till listan', async (_name, path, expected) => {
