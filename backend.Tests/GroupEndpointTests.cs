@@ -206,6 +206,65 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
+    [Fact]
+    public async Task GetMembers_AsMemberOfTheGroup_ReturnsNameAndGroupRoleOnly()
+    {
+        var scenario = await AddRosterScenarioAsync();
+
+        foreach (var caller in new[] { scenario.Student, scenario.Teacher, scenario.Mentor })
+        {
+            var response = await GetAsync($"/api/groups/{scenario.GroupId}/members", caller);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var body = await response.Content.ReadAsStringAsync();
+            Assert.DoesNotContain("@example.com", body);
+            Assert.DoesNotContain("email", body, StringComparison.OrdinalIgnoreCase);
+            var members = await response.Content.ReadFromJsonAsync<List<GroupMemberResponse>>();
+            Assert.Equal(4, members!.Count);
+        }
+    }
+
+    [Fact]
+    public async Task GetMembers_AsAdmin_ReturnsTheRoster()
+    {
+        var scenario = await AddRosterScenarioAsync();
+
+        var members = await _client.GetFromJsonAsync<List<GroupMemberResponse>>(
+            $"/api/groups/{scenario.GroupId}/members");
+
+        Assert.Equal(4, members!.Count);
+    }
+
+    [Fact]
+    public async Task GetMembers_AsNonMember_IsForbidden()
+    {
+        var scenario = await AddRosterScenarioAsync();
+
+        // Elev och lärare i skolan, men inte i den här gruppen. Inte heller en lärare i en annan grupp.
+        foreach (var caller in new[] { scenario.OutsideStudent, scenario.OutsideTeacher })
+        {
+            var response = await GetAsync($"/api/groups/{scenario.GroupId}/members", caller);
+
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+            Assert.DoesNotContain(scenario.StudentName, await response.Content.ReadAsStringAsync());
+        }
+    }
+
+    [Fact]
+    public async Task GetMembers_FromAnotherSchool_Returns404ForEveryRole()
+    {
+        var scenario = await AddRosterScenarioAsync();
+        var other = await AddOtherSchoolAsync();
+
+        var asOtherAdmin = await GetAsync($"/api/groups/{scenario.GroupId}/members", other.UserId);
+        var asOtherStudent = await GetAsync(
+            $"/api/groups/{scenario.GroupId}/members", await AddUserInSchoolAsync(other.SchoolId, UserRole.Student));
+
+        Assert.Equal(HttpStatusCode.NotFound, asOtherAdmin.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, asOtherStudent.StatusCode);
+    }
+
     private async Task<GroupResponse> CreateGroupAsync()
     {
         var schoolId = PlaceholderIds.SchoolId;
@@ -537,7 +596,7 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
     }
 
     // En annan skola med en användare, en grupp och en kurs.
-    private async Task<(Guid UserId, Guid GroupId, Guid CourseId)> AddOtherSchoolAsync()
+    private async Task<(Guid UserId, Guid GroupId, Guid CourseId, Guid SchoolId)> AddOtherSchoolAsync()
     {
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
@@ -545,7 +604,42 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
         var user = await TestData.AddUserAsync(db, school.Id, UserRole.Admin);
         var group = await TestData.AddGroupAsync(db, school.Id);
         var course = await TestData.AddCourseAsync(db, school.Id);
-        return (user.Id, group.Id, course.Id);
+        return (user.Id, group.Id, course.Id, school.Id);
+    }
+
+    private async Task<Guid> AddUserInSchoolAsync(Guid schoolId, UserRole role)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        return (await TestData.AddUserAsync(db, schoolId, role)).Id;
+    }
+
+    private record RosterScenario(
+        Guid GroupId,
+        Guid Student,
+        Guid Teacher,
+        Guid Mentor,
+        Guid OutsideStudent,
+        Guid OutsideTeacher,
+        string StudentName);
+
+    // En grupp med två elever, en lärare och en mentor, och en elev och en lärare i en annan grupp i samma skola.
+    private async Task<RosterScenario> AddRosterScenarioAsync()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
+        var otherGroup = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
+        var student = await TestData.AddMemberAsync(db, group);
+        await TestData.AddMemberAsync(db, group);
+        var teacher = await TestData.AddMemberAsync(db, group, GroupRole.Teacher, UserRole.Teacher);
+        var mentor = await TestData.AddMemberAsync(db, group, GroupRole.Mentor, UserRole.Teacher);
+        var outsideStudent = await TestData.AddMemberAsync(db, otherGroup);
+        var outsideTeacher = await TestData.AddMemberAsync(db, otherGroup, GroupRole.Teacher, UserRole.Teacher);
+        student.Name = "Synlig Klasskamrat";
+        await db.SaveChangesAsync();
+        return new RosterScenario(
+            group.Id, student.Id, teacher.Id, mentor.Id, outsideStudent.Id, outsideTeacher.Id, student.Name);
     }
 
     private async Task<Guid> AddSchoolAsync()

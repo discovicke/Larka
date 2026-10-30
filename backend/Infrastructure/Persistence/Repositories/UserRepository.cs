@@ -10,6 +10,12 @@ public class UserRepository(AppDb db) : IUserRepository
     public Task<List<User>> GetAllAsync(CancellationToken ct) =>
         db.Users.OrderBy(user => user.Name).ToListAsync(ct);
 
+    public Task<List<User>> GetForSchoolAsync(Guid schoolId, CancellationToken ct) =>
+        db.Users.Where(user => user.SchoolId == schoolId).OrderBy(user => user.Name).ToListAsync(ct);
+
+    public Task<Dictionary<Guid, string>> GetNamesAsync(IReadOnlyCollection<Guid> userIds, CancellationToken ct) =>
+        db.Users.Where(user => userIds.Contains(user.Id)).ToDictionaryAsync(user => user.Id, user => user.Name, ct);
+
     public Task<User?> GetAsync(Guid id, CancellationToken ct) =>
         db.Users.FirstOrDefaultAsync(user => user.Id == id, ct);
 

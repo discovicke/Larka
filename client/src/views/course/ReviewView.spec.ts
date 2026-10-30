@@ -6,9 +6,6 @@ import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
 const course = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps'}
-const teacher = {id: 'u0', schoolId: 's1', name: 'Anna Lärare', email: 'larare@example.com', role: 'Teacher'}
-const student = {id: 'u1', schoolId: 's1', name: 'Anna Andersson', email: 'anna@example.com', role: 'Student'}
-const users = [teacher, student]
 
 const repo = {
   repoFullName: 'anna/release-pipeline',
@@ -21,6 +18,7 @@ const baseSubmission = {
   id: 's1',
   contentLinkId: 'l1',
   studentId: 'u1',
+  studentName: 'Anna Andersson',
   status: 'Submitted',
   bodyMd: 'Min **lösning** finns i repot.',
   submittedAt: '2026-10-21T10:00:00Z',
@@ -88,9 +86,6 @@ function backend(options: {scale?: string, submission?: unknown} = {}) {
     }
     if (path === '/api/content/x1') {
       return {status: 200, body: content}
-    }
-    if (path === '/api/users') {
-      return {status: 200, body: users}
     }
     if (path === '/api/submissions/s1' && method === 'GET') {
       return {status: 200, body: options.submission ?? baseSubmission}

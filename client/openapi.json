@@ -183,6 +183,36 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       },
@@ -271,8 +301,35 @@
               }
             }
           },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -4379,6 +4436,7 @@
           "id",
           "contentId",
           "authorId",
+          "authorName",
           "bodyMd",
           "createdAt"
         ],
@@ -4395,6 +4453,9 @@
           "authorId": {
             "type": "string",
             "format": "uuid"
+          },
+          "authorName": {
+            "type": "string"
           },
           "bodyMd": {
             "type": "string"
@@ -4468,6 +4529,7 @@
           "title",
           "bodyMd",
           "authorId",
+          "authorName",
           "groupId",
           "courseId",
           "moduleId",
@@ -4497,6 +4559,9 @@
           "authorId": {
             "type": "string",
             "format": "uuid"
+          },
+          "authorName": {
+            "type": "string"
           },
           "groupId": {
             "type": [
@@ -6624,6 +6689,7 @@
           "id",
           "contentLinkId",
           "studentId",
+          "studentName",
           "status",
           "bodyMd",
           "submittedAt",
@@ -6644,6 +6710,9 @@
           "studentId": {
             "type": "string",
             "format": "uuid"
+          },
+          "studentName": {
+            "type": "string"
           },
           "status": {
             "$ref": "#/components/schemas/SubmissionStatus"

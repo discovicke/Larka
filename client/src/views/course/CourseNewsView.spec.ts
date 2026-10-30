@@ -6,8 +6,7 @@ import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
 const course = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps'}
-const teacher = {id: 'u1', schoolId: 's1', name: 'Anna Lärare', email: 'anna@example.com', role: 'Teacher'}
-const student = {id: 'u2', schoolId: 's1', name: 'Bo Elev', email: 'bo@example.com', role: 'Student'}
+const names: Record<string, string> = {u1: 'Anna Lärare', u2: 'Bo Elev'}
 
 function news(
   linkId: string,
@@ -23,6 +22,7 @@ function news(
     title,
     bodyMd: `${title} – brödtext`,
     authorId: 'u1',
+    authorName: 'Anna Lärare',
     groupId: null,
     courseId: 'c1',
     moduleId: null,
@@ -38,7 +38,7 @@ const newest = news('l3', 'x3', 'Inlämning flyttad', '2026-10-10T10:00:00Z')
 const oldest = news('l1', 'x1', 'Välkommen till kursen', '2026-10-01T10:00:00Z')
 
 function comment(id: string, contentId: string, authorId: string, bodyMd: string) {
-  return {id, contentId, authorId, bodyMd, createdAt: '2026-10-19T11:00:00Z'}
+  return {id, contentId, authorId, authorName: names[authorId], bodyMd, createdAt: '2026-10-19T11:00:00Z'}
 }
 
 function backend(posts: unknown[], comments: Record<string, unknown[]> = {}) {
@@ -48,9 +48,6 @@ function backend(posts: unknown[], comments: Record<string, unknown[]> = {}) {
     }
     if (path === '/api/courses') {
       return {status: 200, body: [course]}
-    }
-    if (path === '/api/users') {
-      return {status: 200, body: [teacher, student]}
     }
     if (path === '/api/courses/c1/content') {
       return {status: 200, body: posts}
@@ -66,6 +63,7 @@ function backend(posts: unknown[], comments: Record<string, unknown[]> = {}) {
             id: `k-${contentId}`,
             contentId,
             authorId: 'u2',
+            authorName: 'Bo Elev',
             bodyMd: sentBody.bodyMd,
             createdAt: '2026-10-20T10:00:00Z',
           },
@@ -266,9 +264,6 @@ describe('CourseNewsView', () => {
       if (path === '/api/courses') {
         return {status: 200, body: [course]}
       }
-      if (path === '/api/users') {
-        return {status: 200, body: [teacher, student]}
-      }
       if (path === '/api/courses/c1/content') {
         return {status: 200, body: [pinned]}
       }
@@ -290,9 +285,6 @@ describe('CourseNewsView', () => {
       if (path === '/api/courses') {
         return {status: 200, body: [course]}
       }
-      if (path === '/api/users') {
-        return {status: 200, body: [teacher, student]}
-      }
       return {status: 200, body: []}
     })
 
@@ -309,9 +301,6 @@ describe('CourseNewsView', () => {
       }
       if (path === '/api/courses') {
         return {status: 200, body: [course]}
-      }
-      if (path === '/api/users') {
-        return {status: 200, body: [teacher]}
       }
       return {status: 500, body: 'Server error'}
     })
@@ -413,9 +402,6 @@ describe('CourseNewsView', () => {
       if (path === '/api/courses') {
         return {status: 200, body: [course]}
       }
-      if (path === '/api/users') {
-        return {status: 200, body: [teacher, student]}
-      }
       if (path === '/api/courses/c1/content') {
         return {status: 200, body: current}
       }
@@ -453,9 +439,6 @@ describe('CourseNewsView', () => {
       }
       if (path === '/api/courses') {
         return {status: 200, body: [course]}
-      }
-      if (path === '/api/users') {
-        return {status: 200, body: [teacher, student]}
       }
       if (path === '/api/courses/c1/content') {
         return {status: 200, body: [pinned]}

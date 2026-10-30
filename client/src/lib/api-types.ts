@@ -232,6 +232,33 @@ export interface paths {
                         "application/json": components["schemas"]["UserDto"][];
                     };
                 };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
             };
         };
         put?: never;
@@ -319,12 +346,32 @@ export interface paths {
                         "application/json": components["schemas"]["UserDto"];
                     };
                 };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
                 /** @description Not Found */
                 404: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
                 };
             };
         };
@@ -4407,6 +4454,7 @@ export interface components {
             contentId: string;
             /** Format: uuid */
             authorId: string;
+            authorName: string;
             bodyMd: string;
             /** Format: date-time */
             createdAt: string;
@@ -4437,6 +4485,7 @@ export interface components {
             bodyMd: string;
             /** Format: uuid */
             authorId: string;
+            authorName: string;
             /** Format: uuid */
             groupId: null | string;
             /** Format: uuid */
@@ -5029,6 +5078,7 @@ export interface components {
             contentLinkId: string;
             /** Format: uuid */
             studentId: string;
+            studentName: string;
             status: components["schemas"]["SubmissionStatus"];
             bodyMd: null | string;
             /** Format: date-time */

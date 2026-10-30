@@ -95,10 +95,11 @@ public class SubmissionService(
             linkSubmissions = linkSubmissions.Where(submission => submission.StudentId == currentUser.UserId).ToList();
         }
 
+        var names = await users.GetNamesAsync(linkSubmissions.Select(submission => submission.StudentId).ToList(), ct);
         var dtos = new List<SubmissionDto>();
         foreach (var submission in linkSubmissions)
         {
-            dtos.Add(await ToDtoAsync(submission, ct));
+            dtos.Add(await ToDtoAsync(submission, names.GetValueOrDefault(submission.StudentId, ""), ct));
         }
 
         return dtos;
@@ -110,8 +111,11 @@ public class SubmissionService(
     private async Task<bool> MayReadAllAsync(Guid linkId, CancellationToken ct) =>
         await permissions.CanTeachLinkAsync(linkId, ct);
 
+    private async Task<SubmissionDto> ToDtoAsync(Submission submission, CancellationToken ct) =>
+        await ToDtoAsync(submission, (await users.GetAsync(submission.StudentId, ct))?.Name ?? "", ct);
+
     // Filernas länkar skapas här, när inlämningen läses, så de går inte att dela vidare och gälla för alltid.
-    private async Task<SubmissionDto> ToDtoAsync(Submission submission, CancellationToken ct)
+    private async Task<SubmissionDto> ToDtoAsync(Submission submission, string studentName, CancellationToken ct)
     {
         var files = new List<SubmissionFileDto>();
         foreach (var file in submission.Files)
@@ -120,7 +124,7 @@ public class SubmissionService(
             files.Add(SubmissionFileDto.From(file, url));
         }
 
-        return SubmissionDto.From(submission, files);
+        return SubmissionDto.From(submission, studentName, files);
     }
 
     /// <summary>

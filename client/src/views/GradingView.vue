@@ -22,11 +22,8 @@ interface GradingRow {
 const {courses, status} = useCourses()
 
 const rows = ref<GradingRow[]>([])
-const users = ref<Schema<'UserDto'>[]>([])
 const loading = ref(false)
 const error = ref('')
-
-const names = computed(() => new Map(users.value.map((user) => [user.id, user.name])))
 
 const orderedRows = computed(() => [...rows.value]
   .sort((left, right) => Date.parse(left.submission.submittedAt ?? '')
@@ -42,13 +39,9 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const [moduleResults, userResult] = await Promise.all([
-      Promise.all(courses.value.map((course) => api.GET('/api/courses/{id}/modules', {
-        params: {path: {id: course.id}},
-      }))),
-      api.GET('/api/users'),
-    ])
-    users.value = userResult.data ?? []
+    const moduleResults = await Promise.all(courses.value.map((course) => api.GET('/api/courses/{id}/modules', {
+      params: {path: {id: course.id}},
+    })))
 
     const assignments = moduleResults.flatMap((result, index) => {
       const course = courses.value[index]
@@ -69,7 +62,7 @@ async function load() {
         courseTitle: course.title,
         linkId: item.linkId,
         title: item.title,
-        name: names.value.get(submission.studentId) ?? submission.studentId,
+        name: submission.studentName,
       })))
   } catch {
     error.value = 'Kunde inte hämta inlämningarna.'

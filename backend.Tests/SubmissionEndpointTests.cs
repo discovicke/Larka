@@ -33,7 +33,8 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     private record GradeResponse(string? Level, string Feedback);
 
     private record SubmissionResponse(
-        Guid Id, Guid StudentId, string Status, List<FileResponse> Files, RepoResponse? Repo, GradeResponse? Grade);
+        Guid Id, Guid StudentId, string StudentName, string Status, List<FileResponse> Files, RepoResponse? Repo,
+        GradeResponse? Grade);
 
     private static readonly object _fileSpec = new { submissionModes = new[] { "file" } };
 
@@ -71,6 +72,7 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
         Assert.Equal(2, submissions.Count);
         Assert.All(submissions, submission => Assert.Equal("NotStarted", submission.Status));
         Assert.All(submissions, submission => Assert.Null(submission.Repo));
+        Assert.All(submissions, submission => Assert.Equal("Test Testsson", submission.StudentName));
     }
 
     [Fact]

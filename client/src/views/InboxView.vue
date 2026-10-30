@@ -40,7 +40,6 @@ const {courses, status} = useCourses()
 const {notifications, unreadCount, loadNotifications, markRead, markAllRead} = useNotifications()
 
 const groups = ref<Schema<'GroupDto'>[]>([])
-const users = ref<Schema<'UserDto'>[]>([])
 const posts = ref<Schema<'ContentFeedItem'>[]>([])
 const loading = ref(true)
 const loadFailed = ref(false)
@@ -169,11 +168,7 @@ async function load(showSkeleton = true) {
   }
   loadFailed.value = false
   try {
-    const [userResult, groupResult] = await Promise.all([
-      api.GET('/api/users'),
-      api.GET('/api/groups'),
-    ])
-    users.value = userResult.data ?? []
+    const groupResult = await api.GET('/api/groups')
     groups.value = groupResult.data ?? []
 
     // Alla flöden hämtas samtidigt; ett fel räcker för att visa felmeddelandet.
@@ -367,7 +362,6 @@ watch(status, (value) => {
             :post="selected.post"
             :links="selected.links"
             :targets="selected.targets"
-            :users="users"
             :course-id="selected.post.courseId ?? undefined"
             @changed="load(false)"
             @deleted="afterDelete"

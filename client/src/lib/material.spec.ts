@@ -4,7 +4,7 @@ import {formatSize, isThisWeek, materialRows} from './material'
 
 interface LinkExtra {
   title?: string
-  authorId?: string
+  authorName?: string
   courseId?: string | null
   groupId?: string | null
 }
@@ -14,7 +14,7 @@ function link(linkId: string, contentId: string, publishAt: string, extra: LinkE
     linkId,
     contentId,
     title: extra.title ?? `Del ${contentId}`,
-    authorId: extra.authorId ?? 'u1',
+    authorName: extra.authorName ?? 'Anna Lärare',
     courseId: extra.courseId ?? null,
     groupId: extra.groupId ?? null,
     publishAt,
@@ -27,7 +27,6 @@ function attachment(id: string, contentId: string, fileName: string, sizeBytes =
 
 describe('materialRows', () => {
   const names = new Map([['c1', 'DevOps'], ['c2', 'Databaser'], ['g1', 'Lag 1']])
-  const authors = new Map([['u1', 'Anna Lärare']])
 
   it('en rad per bilaga med del, mål och uppladdare', () => {
     const rows = materialRows([
@@ -36,7 +35,7 @@ describe('materialRows', () => {
     ], [
       attachment('a1', 'x1', 'rapport.pdf'),
       attachment('a2', 'x2', 'tabeller.xlsx'),
-    ], names, authors)
+    ], names)
 
     expect(rows.map((row) => row.attachment.fileName)).toEqual(['tabeller.xlsx', 'rapport.pdf'])
     expect(rows[1].title).toBe('Release-pipeline')
@@ -50,7 +49,7 @@ describe('materialRows', () => {
       link('l1', 'x1', '2026-10-10T10:00:00Z', {courseId: 'c1'}),
       link('l1', 'x1', '2026-10-10T10:00:00Z', {courseId: 'c1'}),
       link('l2', 'x1', '2026-10-10T10:00:00Z', {groupId: 'g1'}),
-    ], [attachment('a1', 'x1', 'rapport.pdf')], names, authors)
+    ], [attachment('a1', 'x1', 'rapport.pdf')], names)
 
     expect(rows).toHaveLength(1)
     expect(rows[0].targets).toEqual(['DevOps', 'Lag 1'])
@@ -60,7 +59,7 @@ describe('materialRows', () => {
     const rows = materialRows([
       link('l2', 'x1', '2026-10-01T10:00:00Z', {groupId: 'g1'}),
       link('l1', 'x1', '2026-10-10T10:00:00Z', {courseId: 'c1'}),
-    ], [attachment('a1', 'x1', 'rapport.pdf')], names, authors)
+    ], [attachment('a1', 'x1', 'rapport.pdf')], names)
 
     expect(rows[0].targets).toEqual(['DevOps', 'Lag 1'])
     expect(rows[0].publishAt).toBe('2026-10-01T10:00:00Z')
@@ -71,21 +70,9 @@ describe('materialRows', () => {
       [link('l1', 'x1', '2026-10-10T10:00:00Z', {courseId: 'c1'})],
       [attachment('a1', 'x1', 'rapport.pdf'), attachment('a2', 'x9', 'gammal.pdf')],
       names,
-      authors,
     )
 
     expect(rows.map((row) => row.attachment.id)).toEqual(['a1'])
-  })
-
-  it('visar Okänd när uppladdaren saknas', () => {
-    const rows = materialRows(
-      [link('l1', 'x1', '2026-10-10T10:00:00Z', {authorId: 'saknas'})],
-      [attachment('a1', 'x1', 'rapport.pdf')],
-      names,
-      authors,
-    )
-
-    expect(rows[0].authorName).toBe('Okänd')
   })
 })
 

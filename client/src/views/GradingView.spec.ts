@@ -7,11 +7,7 @@ import {renderApp} from '@/test/renderApp'
 
 const devops = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps'}
 const databases = {id: 'c2', schoolId: 's1', code: 'DB', title: 'Databaser'}
-const teacher = {id: 'u0', schoolId: 's1', name: 'Anna Lärare', email: 'larare@example.com', role: 'Teacher'}
-const anna = {id: 'u1', schoolId: 's1', name: 'Anna Andersson', email: 'anna@example.com', role: 'Student'}
-const bo = {id: 'u2', schoolId: 's1', name: 'Bo Berg', email: 'bo@example.com', role: 'Student'}
-const clara = {id: 'u3', schoolId: 's1', name: 'Clara Carlsson', email: 'clara@example.com', role: 'Student'}
-const users = [teacher, anna, bo, clara]
+const names: Record<string, string> = {u0: 'Anna Lärare', u1: 'Anna Andersson', u2: 'Bo Berg', u3: 'Clara Carlsson'}
 
 function assignment(linkId: string, contentId: string, title: string) {
   return {
@@ -47,6 +43,7 @@ function submission(id: string, studentId: string, status: string, submittedAt: 
     id,
     contentLinkId: 'l1',
     studentId,
+    studentName: names[studentId],
     status,
     bodyMd: null,
     submittedAt,
@@ -85,9 +82,6 @@ function backend(options: {release?: unknown[], docker?: unknown[]} = {}) {
     }
     if (path === '/api/links/l3/submissions') {
       return {status: 200, body: options.docker ?? dockerSubmissions}
-    }
-    if (path === '/api/users') {
-      return {status: 200, body: users}
     }
     return {status: 404}
   })

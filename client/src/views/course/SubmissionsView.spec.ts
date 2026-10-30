@@ -6,12 +6,13 @@ import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
 const course = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps'}
-const teacher = {id: 'u0', schoolId: 's1', name: 'Anna Lärare', email: 'larare@example.com', role: 'Teacher'}
-const anna = {id: 'u1', schoolId: 's1', name: 'Anna Andersson', email: 'anna@example.com', role: 'Student'}
-const bo = {id: 'u2', schoolId: 's1', name: 'Bo Berg', email: 'bo@example.com', role: 'Student'}
-const clara = {id: 'u3', schoolId: 's1', name: 'Clara Carlsson', email: 'clara@example.com', role: 'Student'}
-const david = {id: 'u4', schoolId: 's1', name: 'David Dahl', email: 'david@example.com', role: 'Student'}
-const users = [teacher, anna, bo, clara, david]
+const names: Record<string, string> = {
+  u0: 'Anna Lärare',
+  u1: 'Anna Andersson',
+  u2: 'Bo Berg',
+  u3: 'Clara Carlsson',
+  u4: 'David Dahl',
+}
 
 const assignment = {
   linkId: 'l1',
@@ -51,6 +52,7 @@ function makeSubmission(id: string, studentId: string, status: string, extra: Re
     id,
     contentLinkId: 'l1',
     studentId,
+    studentName: names[studentId],
     status,
     bodyMd: null,
     submittedAt: null,
@@ -92,9 +94,6 @@ function backend(options: {submissions?: unknown[], fail?: boolean} = {}) {
       return options.fail
         ? {status: 500, body: 'boom'}
         : {status: 200, body: options.submissions ?? roster}
-    }
-    if (path === '/api/users') {
-      return {status: 200, body: users}
     }
     return {status: 404}
   })

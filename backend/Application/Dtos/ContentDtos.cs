@@ -146,6 +146,7 @@ public record ContentFeedItem(
     string Title,
     string BodyMd,
     Guid AuthorId,
+    string AuthorName,
     Guid? GroupId,
     Guid? CourseId,
     Guid? ModuleId,
@@ -153,10 +154,16 @@ public record ContentFeedItem(
     DateTimeOffset? DueAt,
     bool IsPinned);
 
-public record CommentDto(Guid Id, Guid ContentId, Guid AuthorId, string BodyMd, DateTimeOffset CreatedAt)
+public record CommentDto(
+    Guid Id,
+    Guid ContentId,
+    Guid AuthorId,
+    string AuthorName,
+    string BodyMd,
+    DateTimeOffset CreatedAt)
 {
-    public static CommentDto From(Comment comment) =>
-        new(comment.Id, comment.ContentId, comment.AuthorId, comment.BodyMd, comment.CreatedAt);
+    public static CommentDto From(Comment comment, string authorName) =>
+        new(comment.Id, comment.ContentId, comment.AuthorId, authorName, comment.BodyMd, comment.CreatedAt);
 }
 
 /// <summary>Url är en tidsbegränsad länk som skapas när bilagan läses, inte något som sparas.</summary>

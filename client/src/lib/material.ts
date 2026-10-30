@@ -27,7 +27,7 @@ export function fileIcon(fileName: string): Component {
 }
 
 /** Det som behövs från ett flödesobjekt för att gruppera materialet. */
-export type MaterialLink = Pick<Schema<'ContentFeedItem'>, 'linkId' | 'contentId' | 'title' | 'authorId' | 'courseId' | 'groupId' | 'publishAt'>
+export type MaterialLink = Pick<Schema<'ContentFeedItem'>, 'linkId' | 'contentId' | 'title' | 'authorName' | 'courseId' | 'groupId' | 'publishAt'>
 
 export interface MaterialRow {
   attachment: Schema<'AttachmentDto'>
@@ -68,7 +68,6 @@ export function materialRows(
   items: MaterialLink[],
   attachments: Schema<'AttachmentDto'>[],
   names: Map<string, string>,
-  authors: Map<string, string>,
 ): MaterialRow[] {
   const seen = new Set<string>()
   const byContent = new Map<string, MaterialLink[]>()
@@ -90,7 +89,7 @@ export function materialRows(
     const first = links[0]
     contents.set(contentId, {
       title: first.title,
-      authorName: authors.get(first.authorId) ?? 'Okänd',
+      authorName: first.authorName,
       targets: [
         ...targetNames(links, 'courseId', names),
         ...targetNames(links, 'groupId', names),

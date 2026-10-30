@@ -207,12 +207,18 @@ public class GroupService(
         return ServiceResult<bool>.Ok(true);
     }
 
-    // En grupp i en annan skola svarar som om den inte fanns.
+    // En grupp i en annan skola svarar som om den inte fanns. Listan (bara namn och roll i gruppen) får läsas
+    // av gruppens medlemmar, vilken roll de än har i den, och av admin.
     public async Task<ServiceResult<List<GroupMemberDto>>> GetMembersAsync(Guid groupId, CancellationToken ct)
     {
         if (await GetOwnAsync(groupId, ct) is null)
         {
             return ServiceResult<List<GroupMemberDto>>.NotFound("group not found");
+        }
+
+        if (!await permissions.IsAdminAsync(ct) && !await groups.IsMemberAsync(groupId, currentUser.UserId, ct))
+        {
+            return ServiceResult<List<GroupMemberDto>>.Forbidden();
         }
 
         return ServiceResult<List<GroupMemberDto>>.Ok(await groups.GetMembersAsync(groupId, ct));

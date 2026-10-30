@@ -14,7 +14,6 @@ const devops: Schema<'CourseDto'> = {id: 'c1', schoolId: 's1', code: 'DEVOPS', t
 const databases: Schema<'CourseDto'> = {id: 'c2', schoolId: 's1', code: 'DB', title: 'Databaser', description: '', points: null, startsOn: null, endsOn: null}
 const group1: Schema<'GroupDto'> = {id: 'g1', schoolId: 's1', type: 'Class', name: 'Lag 1', term: 'HT26', memberCount: 0}
 const group2: Schema<'GroupDto'> = {id: 'g2', schoolId: 's1', type: 'Committee', name: 'Lag 2', term: 'HT26', memberCount: 0}
-const teacher: Schema<'UserDto'> = {id: 'u1', schoolId: 's1', name: 'Anna Lärare', email: 'anna@example.com', role: 'Teacher'}
 
 function news(
   linkId: string,
@@ -30,6 +29,7 @@ function news(
     title,
     bodyMd: `${title} – brödtext`,
     authorId: 'u1',
+    authorName: 'Anna Lärare',
     groupId: null,
     courseId: null,
     moduleId: null,
@@ -79,9 +79,6 @@ function backend(feeds: Feeds = {}) {
     }
     if (path === '/api/groups') {
       return respond<'/api/groups', 'get'>([group1, group2])
-    }
-    if (path === '/api/users') {
-      return respond<'/api/users', 'get'>([teacher])
     }
     const courseFeed = path.match(/^\/api\/courses\/([^/]+)\/content$/)
     if (courseFeed) {

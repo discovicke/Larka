@@ -27,7 +27,6 @@ const submissionId = computed(() => String(route.params.submissionId))
 
 const submission = ref<Schema<'SubmissionDto'> | null>(null)
 const assignment = ref<Schema<'ModuleContentItem'> | null>(null)
-const users = ref<Schema<'UserDto'>[]>([])
 const loading = ref(true)
 const loadError = ref('')
 const feedback = ref('')
@@ -38,10 +37,7 @@ const saving = ref(false)
 
 const levels = computed(() => levelsFor(assignment.value?.gradeScale ?? null))
 const hasGrades = computed(() => levels.value.length > 0)
-const studentName = computed(() => {
-  const found = users.value.find((user) => user.id === submission.value?.studentId)
-  return found?.name ?? submission.value?.studentId ?? ''
-})
+const studentName = computed(() => submission.value?.studentName ?? '')
 const repoUrl = computed(() => submission.value?.repo
   ? `https://github.com/${submission.value.repo.repoFullName}`
   : '')
@@ -57,14 +53,12 @@ async function load() {
   loading.value = true
   loadError.value = ''
   try {
-    const [submissionResult, moduleResult, userResult] = await Promise.all([
+    const [submissionResult, moduleResult] = await Promise.all([
       api.GET('/api/submissions/{id}', {params: {path: {id: submissionId.value}}}),
       api.GET('/api/courses/{id}/modules', {params: {path: {id: courseId.value}}}),
-      api.GET('/api/users'),
     ])
     const found = submissionResult.data ?? null
     submission.value = found
-    users.value = userResult.data ?? []
     const week = (moduleResult.data ?? [])
       .find((candidate) => candidate.content.some((item) => item.linkId === linkId.value))
     assignment.value = week?.content.find((item) => item.linkId === linkId.value) ?? null

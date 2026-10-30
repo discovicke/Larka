@@ -40,7 +40,6 @@ const weekTitle = ref('')
 const assignment = ref<Schema<'ModuleContentItem'> | null>(null)
 const content = ref<Schema<'ContentDto'> | null>(null)
 const submissions = ref<Schema<'SubmissionDto'>[]>([])
-const users = ref<Schema<'UserDto'>[]>([])
 const loading = ref(true)
 const error = ref('')
 const notFound = ref(false)
@@ -51,10 +50,8 @@ const tab = computed(() => route.query.tab === 'instructions'
   ? 'instructions'
   : 'students')
 
-const names = computed(() => new Map(users.value.map((user) => [user.id, user.name])))
-
 function nameOf(submission: Schema<'SubmissionDto'>): string {
-  return names.value.get(submission.studentId) ?? submission.studentId
+  return submission.studentName
 }
 
 function countOf(status: Schema<'SubmissionStatus'>): number {
@@ -202,12 +199,10 @@ async function load() {
   error.value = ''
   notFound.value = false
   try {
-    const [moduleResult, submissionResult, userResult] = await Promise.all([
+    const [moduleResult, submissionResult] = await Promise.all([
       api.GET('/api/courses/{id}/modules', {params: {path: {id: courseId.value}}}),
       api.GET('/api/links/{id}/submissions', {params: {path: {id: linkId.value}}}),
-      api.GET('/api/users'),
     ])
-    users.value = userResult.data ?? []
     submissions.value = submissionResult.data ?? []
     const week = (moduleResult.data ?? [])
       .find((candidate) => candidate.content.some((item) => item.linkId === linkId.value))

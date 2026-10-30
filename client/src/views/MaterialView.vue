@@ -14,7 +14,6 @@ import {fileIcon, formatSize, isThisWeek, materialRows} from '@/lib/material'
 const {courses, status} = useCourses()
 
 const groups = ref<Schema<'GroupDto'>[]>([])
-const users = ref<Schema<'UserDto'>[]>([])
 const feed = ref<Schema<'ContentFeedItem'>[]>([])
 const attachments = ref<Schema<'AttachmentDto'>[]>([])
 const loading = ref(true)
@@ -34,9 +33,7 @@ const names = computed(() => {
   return lookup
 })
 
-const authors = computed(() => new Map(users.value.map((user) => [user.id, user.name])))
-
-const rows = computed(() => materialRows(feed.value, attachments.value, names.value, authors.value))
+const rows = computed(() => materialRows(feed.value, attachments.value, names.value))
 
 // En flik per mål som har filer: kurserna först, sedan grupperna.
 const targetNames = computed(() => {
@@ -82,11 +79,7 @@ async function load() {
   loading.value = true
   loadFailed.value = false
   try {
-    const [userResult, groupResult] = await Promise.all([
-      api.GET('/api/users'),
-      api.GET('/api/groups'),
-    ])
-    users.value = userResult.data ?? []
+    const groupResult = await api.GET('/api/groups')
     groups.value = groupResult.data ?? []
 
     // Alla flöden hämtas samtidigt, utan typfilter, så att både delar och nyheter kan bära filer.

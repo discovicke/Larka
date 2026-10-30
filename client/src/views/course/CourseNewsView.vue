@@ -19,7 +19,6 @@ const courseId = computed(() => String(route.params.courseId))
 const {can} = useCurrentUser()
 const canPublish = computed(() => can('publishNews', courseId.value))
 
-const users = ref<Schema<'UserDto'>[]>([])
 const posts = ref<Schema<'ContentFeedItem'>[]>([])
 const loading = ref(true)
 const loadFailed = ref(false)
@@ -33,10 +32,6 @@ const selectedLinkId = computed(() => typeof route.query.post === 'string'
 const selected = computed(() =>
   sortedPosts.value.find((post) => post.linkId === selectedLinkId.value) ?? sortedPosts.value[0])
 
-function nameOf(authorId: string): string {
-  return users.value.find((user) => user.id === authorId)?.name ?? 'Okänd'
-}
-
 async function loadPosts() {
   loadFailed.value = false
   try {
@@ -48,15 +43,6 @@ async function loadPosts() {
     loadFailed.value = true
   } finally {
     loading.value = false
-  }
-}
-
-async function loadUsers() {
-  try {
-    const {data} = await api.GET('/api/users')
-    users.value = data ?? []
-  } catch {
-    // Namnen är ett komplement. Utan dem visas "Okänd" i stället för authorId.
   }
 }
 
@@ -75,10 +61,8 @@ async function afterDelete() {
 }
 
 watch(courseId, () => {
-  users.value = []
   loading.value = true
   loadPosts()
-  loadUsers()
 }, {immediate: true})
 </script>
 
@@ -133,7 +117,7 @@ watch(courseId, () => {
               <span>{{ formatDate(post.publishAt) }}</span>
             </span>
             <span class="font-semibold">{{ post.title }}</span>
-            <span class="text-muted-foreground text-[13px]">{{ nameOf(post.authorId) }}</span>
+            <span class="text-muted-foreground text-[13px]">{{ post.authorName }}</span>
           </button>
         </div>
 
@@ -141,7 +125,6 @@ watch(courseId, () => {
           <NewsArticle
             v-if="selected"
             :post="selected"
-            :users="users"
             :course-id="courseId"
             @changed="loadPosts"
             @deleted="afterDelete"

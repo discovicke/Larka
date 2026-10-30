@@ -13,7 +13,6 @@ afterEach(() => {
 const devops = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps'}
 const databases = {id: 'c2', schoolId: 's1', code: 'DB', title: 'Databaser'}
 const group = {id: 'g1', schoolId: 's1', type: 'Class', name: 'Lag 1', term: 'HT26'}
-const teacher = {id: 'u1', schoolId: 's1', name: 'Anna Lärare', email: 'anna@example.com', role: 'Teacher'}
 
 function part(
   linkId: string,
@@ -29,6 +28,7 @@ function part(
     title,
     bodyMd: '',
     authorId: 'u1',
+    authorName: 'Anna Lärare',
     groupId: null,
     courseId: null,
     moduleId: null,
@@ -60,9 +60,6 @@ function backend(feeds: Feeds = {}) {
     }
     if (path === '/api/groups') {
       return {status: 200, body: [group]}
-    }
-    if (path === '/api/users') {
-      return {status: 200, body: [teacher]}
     }
     const attachmentPath = path.match(/^\/api\/content\/([^/]+)\/attachments$/)
     if (attachmentPath) {

@@ -19,6 +19,7 @@ public record SubmissionDto(
     Guid Id,
     Guid ContentLinkId,
     Guid StudentId,
+    string StudentName,
     SubmissionStatus Status,
     string? BodyMd,
     DateTimeOffset? SubmittedAt,
@@ -26,7 +27,7 @@ public record SubmissionDto(
     StudentRepoDto? Repo,
     GradeDto? Grade)
 {
-    public static SubmissionDto From(Submission submission, List<SubmissionFileDto> files)
+    public static SubmissionDto From(Submission submission, string studentName, List<SubmissionFileDto> files)
     {
         var repo = submission.Repo is null
             ? null
@@ -35,8 +36,8 @@ public record SubmissionDto(
             ? null
             : GradeDto.From(submission.Grade);
         return new SubmissionDto(
-            submission.Id, submission.ContentLinkId, submission.StudentId, submission.Status, submission.BodyMd,
-            submission.SubmittedAt, files, repo, grade);
+            submission.Id, submission.ContentLinkId, submission.StudentId, studentName, submission.Status,
+            submission.BodyMd, submission.SubmittedAt, files, repo, grade);
     }
 }
 

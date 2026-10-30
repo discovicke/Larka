@@ -100,8 +100,22 @@ API:et avgör vad en användare får göra. Klienten hämtar rollerna från `GET
 | Elev                         | Läsa flöden, moduler och innehåll, lämna in, kommentera och klarmarkera delar.                                                                                                                                                             |
 | Lärare i en annan kurs/grupp | Får 403 på det som hör till kursen eller gruppen hen inte undervisar.                                                                                                                                                                      |
 
+### Användare och medlemslistor
+
+E-post och global roll (`User.Role`) lämnas bara ut till admin, och bara för användare i adminens egen skola. Alla andra får bara namn: nyheter, kommentarer och inlämningar bär författarens eller elevens namn (`authorName`, `studentName`), så klienten behöver inte slå upp användare.
+
+| Anrop                          | Admin                                   | Medlem i gruppen (elev, lärare eller mentor) | Övriga i skolan | Användare i en annan skola                    |
+| ------------------------------ | --------------------------------------- | -------------------------------------------- | --------------- | --------------------------------------------- |
+| `GET /api/users`               | Skolans användare, med e-post och roll  | `403`                                        | `403`           | Admin ser sin egen skola, andra får `403`     |
+| `GET /api/users/{id}`          | Användare i skolan, med e-post och roll | `403`                                        | `403`           | `404` för admin (en annan skola), andra `403` |
+| `GET /api/groups/{id}/members` | Hela listan                             | Hela listan                                  | `403`           | `404`                                         |
+
+Medlemslistan (`GroupMemberDto`) har bara id, namn och personens roll i just den gruppen, aldrig e-post eller global roll. En elev ser alltså klasskamraterna med namn och grupproll. Det finns ingen profilbild i datamodellen. Lärare, mentorer och admin får samma lista.
+
+Lärarnas kontaktuppgifter (namn, e-post och vilka grupper de undervisar) visas för alla i skolan via kursens egen lärarlista, `GET /api/courses/{id}/staff`, och inte via `/api/users`.
+
 Admin hanterar klasser, grupper och kurser direkt på _Alla grupper_: knappen _Ny_ uppe till höger skapar en klass, grupp eller kurs, och menyn `⋯` på varje rad har _Redigera_ och _Ta bort_. Borttagningen frågar alltid först och namnger det som tas bort. Nya användare skapas från _Lägg till medlem_ på gruppens sida ("Finns inte i listan? Skapa användare"). Den gamla sidan _Program och klasser_ under Inställningar finns inte kvar, och `/settings/groups` skickar vidare till _Alla grupper_.
 
 En lärare är den som har `GroupRole.Teacher` i en grupp som läser kursen (`GroupCourse`), oavsett om `User.Role` är Teacher eller Admin. Admin räknas som lärare på alla skolans kurser.
 
-Nekas anropet svarar API:et `403 Forbidden` som ProblemDetails med texten `Du har inte behörighet.`. Läsning och elevens egna handlingar är öppna, och en elev ser bara sina egna inlämningar.
+Nekas anropet svarar API:et `403 Forbidden` som ProblemDetails med texten `Du har inte behörighet.`. Läsning och elevens egna handlingar är öppna, och en elev ser bara sina egna inlämningar. Undantaget är användarlistan och medlemslistorna ovan.

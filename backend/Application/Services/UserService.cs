@@ -11,23 +11,39 @@ public class UserService(
     IUserRepository users,
     ISchoolRepository schools,
     IPermissions permissions,
+    ICurrentSchool currentSchool,
     IPasswordHasher<User> passwordHasher,
     IUnitOfWork unitOfWork)
 {
     private const int _minPasswordLength = 8;
 
-    public async Task<List<UserDto>> GetAllAsync(CancellationToken ct)
+    // E-post och roll är bara för admin, och bara i admins egen skola. Andra som behöver ett namn får det
+    // på det de redan hämtar (författare på nyheter och kommentarer, elev på inlämningar) eller från gruppens
+    // medlemslista.
+    public async Task<ServiceResult<List<UserDto>>> GetAllAsync(CancellationToken ct)
     {
-        var allUsers = await users.GetAllAsync(ct);
-        return allUsers.Select(UserDto.From).ToList();
+        var schoolId = await currentSchool.GetIdAsync(ct);
+        if (schoolId is null || !await permissions.IsAdminAsync(ct))
+        {
+            return ServiceResult<List<UserDto>>.Forbidden();
+        }
+
+        var schoolUsers = await users.GetForSchoolAsync(schoolId.Value, ct);
+        return ServiceResult<List<UserDto>>.Ok(schoolUsers.Select(UserDto.From).ToList());
     }
 
-    public async Task<UserDto?> GetAsync(Guid id, CancellationToken ct)
+    // En användare i en annan skola svarar som om den inte fanns.
+    public async Task<ServiceResult<UserDto>> GetAsync(Guid id, CancellationToken ct)
     {
+        if (!await permissions.IsAdminAsync(ct))
+        {
+            return ServiceResult<UserDto>.Forbidden();
+        }
+
         var user = await users.GetAsync(id, ct);
-        return user is null
-            ? null
-            : UserDto.From(user);
+        return user is null || !await currentSchool.OwnsAsync(user.SchoolId, ct)
+            ? ServiceResult<UserDto>.NotFound("user not found")
+            : ServiceResult<UserDto>.Ok(UserDto.From(user));
     }
 
     // Rollen är en enum i DTO:n, så okända roller stoppas redan när JSON läses in (400).

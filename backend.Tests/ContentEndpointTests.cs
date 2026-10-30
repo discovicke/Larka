@@ -36,7 +36,8 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
 
     private record RepoNamePreview(string Name, string Pattern);
 
-    private record FeedItem(Guid ContentId, string Type, string Title, Guid? GroupId, Guid? CourseId, bool IsPinned);
+    private record FeedItem(
+        Guid ContentId, string Type, string Title, string AuthorName, Guid? GroupId, Guid? CourseId, bool IsPinned);
 
     private record LinkResponse(Guid Id, Guid ContentId, Guid? CourseId, Guid? ModuleId);
 
@@ -124,7 +125,8 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
 
         Assert.Equal(HttpStatusCode.Created, link.StatusCode);
         var feed = await _client.GetFromJsonAsync<List<FeedItem>>($"/api/groups/{groupId}/content");
-        Assert.Contains(feed!, item => item.ContentId == content.Id && item.Title == "Loopar");
+        Assert.Contains(feed!, item =>
+            item.ContentId == content.Id && item.Title == "Loopar" && item.AuthorName == "Placeholder");
     }
 
     [Fact]
@@ -672,6 +674,8 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
 
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         Assert.Contains("Bra!", comments);
+        Assert.Contains("\"authorName\":\"Placeholder\"", comments);
+        Assert.Contains("\"authorName\":\"Placeholder\"", await created.Content.ReadAsStringAsync());
     }
 
     [Fact]

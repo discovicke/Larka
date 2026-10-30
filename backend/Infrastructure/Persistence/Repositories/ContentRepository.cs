@@ -316,13 +316,14 @@ public class ContentRepository(AppDb db) : IContentRepository
     {
         var query = from link in links
                     join content in db.Content on link.ContentId equals content.Id
+                    join author in db.Users on content.AuthorId equals author.Id
                     where content.Status == ContentStatus.Published && link.PublishAt <= now
                     // Veckans datum gäller även flödena, så att en nyhet i en framtida vecka inte läcker.
                     where link.ModuleId == null
                         || !db.Modules.Any(module => module.Id == link.ModuleId
                             && module.PublishAt != null
                             && module.PublishAt > now)
-                    select new { Link = link, Content = content };
+                    select new { Link = link, Content = content, AuthorName = author.Name };
         if (type is not null)
         {
             var contentType = type.Value;
@@ -334,8 +335,8 @@ public class ContentRepository(AppDb db) : IContentRepository
             .ThenByDescending(row => row.Link.PublishAt)
             .Select(row => new ContentFeedItem(
                 row.Link.Id, row.Content.Id, row.Content.Type, row.Content.Title, row.Content.BodyMd,
-                row.Content.AuthorId, row.Link.GroupId, row.Link.CourseId, row.Link.ModuleId, row.Link.PublishAt,
-                row.Link.DueAt, row.Link.IsPinned))
+                row.Content.AuthorId, row.AuthorName, row.Link.GroupId, row.Link.CourseId, row.Link.ModuleId,
+                row.Link.PublishAt, row.Link.DueAt, row.Link.IsPinned))
             .ToListAsync(ct);
     }
 }

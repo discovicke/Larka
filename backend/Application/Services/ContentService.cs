@@ -13,6 +13,7 @@ public class ContentService(
     ISubmissionRepository submissionRepository,
     IPartCompletionRepository completions,
     IGroupRepository groups,
+    IUserRepository users,
     IModuleRepository modules,
     SubmissionService submissions,
     NotificationService notifications,
@@ -479,7 +480,10 @@ public class ContentService(
     public async Task<List<CommentDto>> GetCommentsAsync(Guid contentId, CancellationToken ct)
     {
         var comments = await contents.GetCommentsAsync(contentId, ct);
-        return comments.Select(CommentDto.From).ToList();
+        var names = await users.GetNamesAsync(comments.Select(comment => comment.AuthorId).Distinct().ToList(), ct);
+        return comments
+            .Select(comment => CommentDto.From(comment, names.GetValueOrDefault(comment.AuthorId, "")))
+            .ToList();
     }
 
     /// <summary>Returnerar null om innehållet inte finns.</summary>
@@ -493,7 +497,8 @@ public class ContentService(
         var comment = new Comment { ContentId = contentId, AuthorId = currentUser.UserId, BodyMd = dto.BodyMd };
         contents.AddComment(comment);
         await unitOfWork.SaveChangesAsync(ct);
-        return CommentDto.From(comment);
+        var author = await users.GetAsync(currentUser.UserId, ct);
+        return CommentDto.From(comment, author?.Name ?? "");
     }
 
     /// <summary>Sparar filen i lagringen under content/{contentId}. NotFound om innehållet inte finns.</summary>

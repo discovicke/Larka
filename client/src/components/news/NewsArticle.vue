@@ -37,7 +37,6 @@ import {initials} from '@/lib/news'
 
 const props = defineProps<{
   post: Schema<'ContentFeedItem'>
-  users: Schema<'UserDto'>[]
   links?: Schema<'ContentFeedItem'>[]
   targets?: string[]
   // Kursen nyheten visas i. Gruppnyheter i inkorgen har ingen kurs, och då krävs admin.
@@ -74,10 +73,6 @@ const actionError = ref('')
 const commentCount = computed(() => comments.value.length === 1
   ? '1 kommentar'
   : `${comments.value.length} kommentarer`)
-
-function nameOf(authorId: string): string {
-  return props.users.find((user) => user.id === authorId)?.name ?? 'Okänd'
-}
 
 async function loadComments(contentId: string) {
   comments.value = []
@@ -182,10 +177,10 @@ watch(() => props.post.linkId, () => {
       <h2 v-else class="font-heading text-[28px] leading-tight font-semibold">{{ post.title }}</h2>
       <div class="flex items-center gap-3">
         <Avatar class="size-8">
-          <AvatarFallback class="text-xs font-semibold">{{ initials(nameOf(post.authorId)) }}</AvatarFallback>
+          <AvatarFallback class="text-xs font-semibold">{{ initials(post.authorName) }}</AvatarFallback>
         </Avatar>
         <div class="flex flex-col">
-          <span class="font-medium">{{ nameOf(post.authorId) }}</span>
+          <span class="font-medium">{{ post.authorName }}</span>
           <span class="text-muted-foreground text-xs">{{ formatDate(post.publishAt, true) }}</span>
         </div>
         <DropdownMenu v-if="canPublish">
@@ -235,11 +230,11 @@ watch(() => props.post.linkId, () => {
           data-test="comment"
         >
           <Avatar class="size-8">
-            <AvatarFallback class="text-xs font-semibold">{{ initials(nameOf(comment.authorId)) }}</AvatarFallback>
+            <AvatarFallback class="text-xs font-semibold">{{ initials(comment.authorName) }}</AvatarFallback>
           </Avatar>
           <div class="flex min-w-0 flex-col gap-1">
             <div class="flex flex-wrap items-baseline gap-1.5">
-              <span class="font-medium">{{ nameOf(comment.authorId) }}</span>
+              <span class="font-medium">{{ comment.authorName }}</span>
               <span class="text-muted-foreground text-xs">· {{ formatDate(comment.createdAt, true) }}</span>
             </div>
             <p class="text-foreground/80 whitespace-pre-line">{{ comment.bodyMd }}</p>
