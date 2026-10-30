@@ -17,11 +17,19 @@ public class NotificationRepository(AppDb db) : INotificationRepository
 
     public void AddRange(IEnumerable<Notification> notifications) => db.Notifications.AddRange(notifications);
 
-    public Task<List<Guid>> GetMemberIdsAsync(IReadOnlyCollection<Guid> groupIds, CancellationToken ct) =>
+    public Task<List<Guid>> GetMemberIdsAsync(
+        IReadOnlyCollection<Guid> groupIds, bool includeTeachers, CancellationToken ct) =>
         db.Enrollments
-            .Where(enrollment => groupIds.Contains(enrollment.GroupId))
+            .Where(enrollment => groupIds.Contains(enrollment.GroupId)
+                && (includeTeachers || enrollment.Role != GroupRole.Teacher))
             .Select(enrollment => enrollment.UserId)
             .Distinct()
+            .ToListAsync(ct);
+
+    public Task<List<Guid>> GetCourseTeacherIdsAsync(Guid courseId, CancellationToken ct) =>
+        db.CourseTeachers
+            .Where(courseTeacher => courseTeacher.CourseId == courseId)
+            .Select(courseTeacher => courseTeacher.UserId)
             .ToListAsync(ct);
 
     public Task<List<Guid>> GetStudentIdsAsync(IReadOnlyCollection<Guid> groupIds, CancellationToken ct) =>
@@ -95,7 +103,9 @@ public class NotificationRepository(AppDb db) : INotificationRepository
         var groupIds = db.Enrollments.Where(enrollment => enrollment.UserId == userId)
             .Select(enrollment => enrollment.GroupId);
         var courseIds = db.GroupCourses.Where(groupCourse => groupIds.Contains(groupCourse.GroupId))
-            .Select(groupCourse => groupCourse.CourseId);
+            .Select(groupCourse => groupCourse.CourseId)
+            .Concat(db.CourseTeachers.Where(courseTeacher => courseTeacher.UserId == userId)
+                .Select(courseTeacher => courseTeacher.CourseId));
         var submissionLinkIds = graded.Values.Select(submission => submission.ContentLinkId).ToList();
         var links = await db.ContentLinks
             .Where(link => submissionLinkIds.Contains(link.Id)

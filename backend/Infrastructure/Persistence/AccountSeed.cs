@@ -10,7 +10,7 @@ namespace Backend.Infrastructure.Persistence;
 /// Inloggningskonton: admin, larare och elev, med lösenordet samma som användarnamnet. Körs vid varje start i
 /// alla miljöer, efter migrationerna, och är idempotent: användarna skapas bara om de saknas, lösenorden sätts
 /// om varje gång, och klassen, kopplingarna och kursen skapas bara om de saknas. Inget annat rörs, och inget
-/// tas bort. Demo-klass kopplas bara till Demo-kurs, och när demodatan (DemoSeed) finns skapas varken Demo-klass
+/// tas bort. Läraren blir lärare i Demo-kurs när kursen skapas. Demo-klass kopplas bara till Demo-kurs, och när demodatan (DemoSeed) finns skapas varken Demo-klass
 /// eller Demo-kurs. Lösenorden loggas aldrig. Kontona är offentliga, så prod-data är öppen för den som prövar dem.
 /// </summary>
 public sealed class AccountSeed(
@@ -74,6 +74,8 @@ public sealed class AccountSeed(
             demoCourse = new Course { SchoolId = school.Id, Title = CourseTitle, Code = CourseCode };
             db.Courses.Add(demoCourse);
             AddDemoCourseContent(demoCourse, teacher, created);
+            db.CourseTeachers.Add(new CourseTeacher { CourseId = demoCourse.Id, UserId = teacher.Id });
+            created.Add($"{teacher.Email} som lärare i {CourseTitle}");
         }
 
         if (demoCourse is not null

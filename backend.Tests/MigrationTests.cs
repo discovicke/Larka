@@ -9,6 +9,7 @@ public class MigrationTests
 {
     private const string _beforeContentModel = "20261023094126_InitialCreate";
     private const string _beforeContentLinkPosition = "20261026125058_RemoveAssignmentKind";
+    private const string _beforeCourseTeachers = "20261029203427_AddDataPatches";
 
     // Faller om någon ändrat en entitet eller konfiguration utan att köra `dotnet ef migrations add`.
     // Då skulle prod-databasen inte få ändringen. Behöver ingen databas.
@@ -80,6 +81,103 @@ public class MigrationTests
         {
             PostgresServer.DropDatabase(name);
         }
+    }
+
+    // Förut var den som var lärare i en klass lärare i alla klassens kurser. Varje sådant par av användare och kurs blir
+    // en rad, en gång även när läraren når kursen via flera klasser. Mentorer, elever och lärare i klasser utan
+    // kurser får ingen rad.
+    [Fact]
+    public void CourseTeachersMigration_GivesEveryClassTeacherTheCoursesOfTheirClasses()
+    {
+        var name = $"migration_{Guid.NewGuid():N}";
+        var options = new DbContextOptionsBuilder<AppDb>().UseNpgsql(PostgresServer.CreateDatabase(name)).Options;
+
+        try
+        {
+            using var db = new AppDb(options);
+            db.GetService<IMigrator>().Migrate(_beforeCourseTeachers);
+            InsertLegacyClassTeachers(db);
+
+            db.Database.Migrate();
+
+            var rows = Query(db, """
+                SELECT course."Code" || ':' || member."Name" AS "Value"
+                FROM "CourseTeachers" AS teacher
+                JOIN "Courses" AS course ON course."Id" = teacher."CourseId"
+                JOIN "Users" AS member ON member."Id" = teacher."UserId"
+                ORDER BY course."Code", member."Name"
+                """);
+            Assert.Equal(["C1:Ann", "C1:Bo", "C2:Ann", "C2:Bo"], rows);
+            // Klassernas medlemskap är orörda.
+            Assert.Equal(["Mentor", "Student", "Teacher", "Teacher", "Teacher", "Teacher"], Query(db, """
+                SELECT "Role" AS "Value" FROM "Enrollments" ORDER BY "Role"
+                """));
+        }
+        finally
+        {
+            PostgresServer.DropDatabase(name);
+        }
+    }
+
+    // Tillbaka till modellen före: tabellen försvinner och klasslärarna är kvar i sina klasser, så ingen tappar något.
+    [Fact]
+    public void CourseTeachersMigration_CanBeRolledBack()
+    {
+        var name = $"migration_{Guid.NewGuid():N}";
+        var options = new DbContextOptionsBuilder<AppDb>().UseNpgsql(PostgresServer.CreateDatabase(name)).Options;
+
+        try
+        {
+            using var db = new AppDb(options);
+            db.GetService<IMigrator>().Migrate(_beforeCourseTeachers);
+            InsertLegacyClassTeachers(db);
+            db.Database.Migrate();
+
+            db.GetService<IMigrator>().Migrate(_beforeCourseTeachers);
+
+            Assert.Equal(["0"], Query(db, """
+                SELECT count(*)::text AS "Value" FROM information_schema.tables WHERE table_name = 'CourseTeachers'
+                """));
+            Assert.Equal(["4"], Query(db, """
+                SELECT count(*)::text AS "Value" FROM "Enrollments" WHERE "Role" = 'Teacher'
+                """));
+        }
+        finally
+        {
+            PostgresServer.DropDatabase(name);
+        }
+    }
+
+    // Klass 1 läser C1 och C2, klass 2 läser C2 och klass 3 inga kurser. Ann är lärare i klass 1 och 2, Bo i klass 1,
+    // Cia i klass 3 och Dan är mentor i klass 1.
+    private static void InsertLegacyClassTeachers(AppDb db)
+    {
+        var school = Guid.NewGuid();
+        var (ann, bo, cia, dan, eli) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        var (first, second, third) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        var (c1, c2) = (Guid.NewGuid(), Guid.NewGuid());
+        Execute(db, $"""
+            INSERT INTO "Schools" ("Id", "Name") VALUES ('{school}', 'Skola');
+            INSERT INTO "Users" ("Id", "SchoolId", "Name", "Email", "Role") VALUES
+                ('{ann}', '{school}', 'Ann', 'ann@skola.se', 'Teacher'),
+                ('{bo}', '{school}', 'Bo', 'bo@skola.se', 'Teacher'),
+                ('{cia}', '{school}', 'Cia', 'cia@skola.se', 'Teacher'),
+                ('{dan}', '{school}', 'Dan', 'dan@skola.se', 'Teacher'),
+                ('{eli}', '{school}', 'Eli', 'eli@skola.se', 'Student');
+            INSERT INTO "Groups" ("Id", "SchoolId", "Type", "Name", "Term") VALUES
+                ('{first}', '{school}', 'Class', 'Klass 1', 'HT25'),
+                ('{second}', '{school}', 'Class', 'Klass 2', 'HT25'),
+                ('{third}', '{school}', 'Class', 'Klass 3', 'HT25');
+            INSERT INTO "Courses" ("Id", "SchoolId", "Title", "Code") VALUES
+                ('{c1}', '{school}', 'Kurs 1', 'C1'),
+                ('{c2}', '{school}', 'Kurs 2', 'C2');
+            INSERT INTO "GroupCourses" ("GroupId", "CourseId") VALUES
+                ('{first}', '{c1}'), ('{first}', '{c2}'), ('{second}', '{c2}');
+            INSERT INTO "Enrollments" ("UserId", "GroupId", "Role") VALUES
+                ('{ann}', '{first}', 'Teacher'), ('{ann}', '{second}', 'Teacher'),
+                ('{bo}', '{first}', 'Teacher'), ('{cia}', '{third}', 'Teacher'),
+                ('{dan}', '{first}', 'Mentor'), ('{eli}', '{first}', 'Student');
+            """);
     }
 
     // Lägger in två länkar i samma modul, där den som publiceras först också ska visas först.

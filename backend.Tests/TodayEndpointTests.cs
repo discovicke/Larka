@@ -201,6 +201,7 @@ public class TodayEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
         var student = await TestData.AddMemberAsync(db, group);
         var otherStudent = await TestData.AddMemberAsync(db, group);
         var teacher = await TestData.AddMemberAsync(db, group, GroupRole.Teacher, UserRole.Teacher);
+        await TestData.AddCourseTeacherAsync(db, course, teacher);
         return new Setup(group.Id, otherGroup.Id, course.Id, otherCourse.Id, student.Id, otherStudent.Id, teacher.Id);
     }
 

@@ -4,11 +4,8 @@ using Backend.Domain.Enums;
 
 namespace Backend.Application.Abstractions;
 
-/// <summary>Användarens starkaste roll i en kurs, via grupperna som läser den.</summary>
+/// <summary>Användarens starkaste roll i en kurs: lärare via kursen, mentor och elev via grupperna som läser den.</summary>
 public record CourseRole(Guid CourseId, GroupRole Role);
-
-/// <summary>En lärare i en grupp: en rad per användare och grupp.</summary>
-public record GroupTeacher(Guid UserId, string Name, string Email, string GroupName);
 
 /// <summary>En kurs användaren läser som elev, och grupperna hen läser den i.</summary>
 public record StudentCourse(Course Course, List<Guid> GroupIds);
@@ -22,7 +19,10 @@ public record GroupRef(Guid Id, string Name);
 public interface IGroupRepository
 {
     Task<List<Group>> GetForSchoolAsync(Guid schoolId, CancellationToken ct);
-    /// <summary>Grupperna användaren är medlem i, med vilken roll som helst, i skolan.</summary>
+    /// <summary>
+    /// Grupperna användaren är medlem i, med vilken roll som helst, i skolan, och grupperna som läser en kurs
+    /// användaren är lärare i.
+    /// </summary>
     Task<List<Group>> GetForMemberAsync(Guid schoolId, Guid userId, CancellationToken ct);
     Task<Group?> GetAsync(Guid groupId, CancellationToken ct);
     Task<bool> ExistsAsync(Guid groupId, CancellationToken ct);
@@ -36,11 +36,14 @@ public interface IGroupRepository
     /// <summary>Användaren är lärare i gruppen.</summary>
     Task<bool> IsTeacherAsync(Guid groupId, Guid userId, CancellationToken ct);
 
-    /// <summary>Användaren är lärare i en grupp som läser kursen.</summary>
+    /// <summary>Användaren är lärare i kursen (en rad i CourseTeachers).</summary>
     Task<bool> IsTeacherOfCourseAsync(Guid courseId, Guid userId, CancellationToken ct);
 
-    /// <summary>Lärarna i grupperna, en rad per lärare och grupp.</summary>
-    Task<List<GroupTeacher>> GetTeachersAsync(IReadOnlyCollection<Guid> groupIds, CancellationToken ct);
+    /// <summary>Användaren är lärare i en kurs som gruppen läser.</summary>
+    Task<bool> TeachesCourseOfGroupAsync(Guid groupId, Guid userId, CancellationToken ct);
+
+    /// <summary>Namnen på grupperna som läser kursen, sorterade.</summary>
+    Task<List<string>> GetGroupNamesReadingCourseAsync(Guid courseId, CancellationToken ct);
 
     /// <summary>Användarens starkaste roll per kurs, Teacher före Mentor före Student.</summary>
     Task<List<CourseRole>> GetCourseRolesAsync(Guid userId, CancellationToken ct);

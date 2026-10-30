@@ -15,6 +15,8 @@ erDiagram
     Course ||--o{ GroupCourse : "läses av"
     Group ||--o{ Enrollment : "har medlemmar"
     User ||--o{ Enrollment : "är med i"
+    Course ||--o{ CourseTeacher : "har lärare"
+    User ||--o{ CourseTeacher : "undervisar i"
     Course ||--o{ Module : "delas in i"
 
     User ||--o{ Content : "skriver"
@@ -78,6 +80,10 @@ erDiagram
     GroupCourse {
         uuid GroupId PK, FK
         uuid CourseId PK, FK
+    }
+    CourseTeacher {
+        uuid CourseId PK, FK
+        uuid UserId PK, FK
     }
     Enrollment {
         uuid UserId PK, FK
@@ -191,7 +197,8 @@ erDiagram
 - **GroupCourse (Group ↔ Course, M:N).** En klass läser flera kurser och en kurs kan läsas av flera klasser. Det här är den enda kopplingen mellan kurs och grupp. Det fanns tidigare även `Course.ProgramGroupId` ("ägande program"), men två kopplingar som kan säga olika saker togs bort till förmån för en. Committee-grupper har inga rader här.
 - **En klass är en årskull.** Klassen (`GroupType.Class`) är kullen genom hela programmet, till exempel `.NET25` som startade HT25, och `Term` är när den startade, inte en period. Varje rad i GroupCourse är ett kurstillfälle med egna datum (`Course.StartsOn`/`EndsOn`), och kursens läge (pågår, kommande eller avslutad) räknas fram ur datumen. Gruppens sida visar därför klassens kurser som en tidslinje.
 - **Module (Course → Module, 1:N)** delar in en kurs i delar, oftast veckor ("Vecka 2 – E2E och releasehantering"). `Position` är ordningen i kursen, 1, 2, 3 … utan luckor. Den är inte unik i databasen, eftersom en omsortering uppdaterar raderna en i taget och då skulle krocka med sig själv på vägen. `PublishAt` är veckans eget publiceringsdatum: tomt betyder öppen direkt, och ett framtida datum låser hela veckan även om delarna skulle ha tidigare datum.
-- **Enrollment (User ↔ Group, M:N) med `Role`.** Rollen gäller _i gruppen_, så en lärare kan vara student i en annan grupp. Den är en enum i stället för fri text, så ett stavfel inte kan göra att en elev försvinner ur sin grupp. `User.Role` är fortfarande användarens roll i systemet (Admin, Teacher, Student).
+- **CourseTeacher (Course ↔ User, M:N).** Klassen har elever och en mentor, kursen har sina lärare. Det är den här kopplingen som avgör vem som får redigera och bedöma en kurs, så en lärare i `.NET25` som undervisar i DevOps kan inte ändra eller betygsätta Databaser i samma klass. Läraren behöver inte vara medlem i klassen. Bara admin sätter lärare (`/api/courses/{id}/teachers`), och användaren ska vara lärare eller admin i kursens skola. En ny kursomgång (`POST /api/courses/{id}/runs`) får samma lärare som källkursen. Migrationen `AddCourseTeachers` fyllde tabellen från den gamla modellen, där varje lärare i en klass var lärare i alla klassens kurser: en rad för varje par av användare med `GroupRole.Teacher` och kurs som klassen läser, så ingen tappade behörighet vid driftsättningen.
+- **Enrollment (User ↔ Group, M:N) med `Role`.** Rollen gäller _i gruppen_, så en lärare kan vara student i en annan grupp. Den är en enum i stället för fri text, så ett stavfel inte kan göra att en elev försvinner ur sin grupp. `Teacher` i gruppen gäller bara det som riktas till enbart gruppen, utan kurs (till exempel en nyhet till klassen), inte klassens kurser. `User.Role` är fortfarande användarens roll i systemet (Admin, Teacher, Student).
 
 ### Content
 
@@ -239,6 +246,7 @@ erDiagram
 | ---------------------------------------------------------- | ------------------------------------------------------------ |
 | School → User, Group, Course                               | blockeras (Restrict)                                         |
 | Group, Course → GroupCourse, Enrollment, ContentLink       | blockeras                                                    |
+| Course → CourseTeacher, User → CourseTeacher               | blockeras (API:et tar bort kursens lärare med kursen)        |
 | Course → Module, Module → ContentLink                      | blockeras                                                    |
 | User → Content, Comment, Submission, Grade, Enrollment     | blockeras                                                    |
 | Content → ContentLink, AssignmentSpec, Attachment, Comment | kaskad                                                       |
@@ -256,6 +264,7 @@ Principen: det man äger raderas med en (content med sina bilagor, en inlämning
 - `User.Email`
 - `Group (SchoolId, Name, Term)`
 - `Course (SchoolId, Code)`
+- `CourseTeacher (CourseId, UserId)`
 - `Submission (ContentLinkId, StudentId)`
 - `PartCompletion (ContentLinkId, StudentId)`
 - `PushSubscription.Endpoint`

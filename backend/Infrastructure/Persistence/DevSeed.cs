@@ -132,6 +132,10 @@ public static class DevSeed
         db.GroupCourses.AddRange(
             new GroupCourse { GroupId = group.Id, CourseId = devOps.Id },
             new GroupCourse { GroupId = group.Id, CourseId = webApps.Id });
+        db.CourseTeachers.AddRange(
+            new CourseTeacher { CourseId = devOps.Id, UserId = teacherId },
+            new CourseTeacher { CourseId = devOps.Id, UserId = teacher.Id },
+            new CourseTeacher { CourseId = webApps.Id, UserId = teacher.Id });
         db.Enrollments.AddRange(
             new Enrollment { UserId = teacherId, GroupId = group.Id, Role = GroupRole.Teacher },
             new Enrollment { UserId = teacher.Id, GroupId = group.Id, Role = GroupRole.Teacher },

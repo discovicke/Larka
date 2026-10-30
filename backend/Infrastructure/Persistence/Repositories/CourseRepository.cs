@@ -15,9 +15,11 @@ public class CourseRepository(AppDb db) : ICourseRepository
     public Task<List<Course>> GetForMemberAsync(Guid schoolId, Guid userId, CancellationToken ct) =>
         db.Courses
             .Where(course => course.SchoolId == schoolId
-                && db.GroupCourses.Any(groupCourse => groupCourse.CourseId == course.Id
-                    && db.Enrollments.Any(enrollment =>
-                        enrollment.GroupId == groupCourse.GroupId && enrollment.UserId == userId)))
+                && (db.GroupCourses.Any(groupCourse => groupCourse.CourseId == course.Id
+                        && db.Enrollments.Any(enrollment =>
+                            enrollment.GroupId == groupCourse.GroupId && enrollment.UserId == userId))
+                    || db.CourseTeachers.Any(courseTeacher =>
+                        courseTeacher.CourseId == course.Id && courseTeacher.UserId == userId)))
             .OrderBy(course => course.Code)
             .ToListAsync(ct);
 
@@ -26,6 +28,31 @@ public class CourseRepository(AppDb db) : ICourseRepository
 
     public Task<bool> CodeExistsAsync(Guid schoolId, string code, CancellationToken ct) =>
         db.Courses.AnyAsync(course => course.SchoolId == schoolId && course.Code == code, ct);
+
+    public Task<List<CourseTeacherInfo>> GetTeachersAsync(Guid courseId, CancellationToken ct) =>
+        db.CourseTeachers
+            .Where(courseTeacher => courseTeacher.CourseId == courseId)
+            .Join(
+                db.Users,
+                courseTeacher => courseTeacher.UserId,
+                user => user.Id,
+                (_, user) => user)
+            .OrderBy(user => user.Name)
+            .ThenBy(user => user.Email)
+            .Select(user => new CourseTeacherInfo(user.Id, user.Name, user.Email))
+            .ToListAsync(ct);
+
+    public Task<CourseTeacher?> GetTeacherAsync(Guid courseId, Guid userId, CancellationToken ct) =>
+        db.CourseTeachers.FirstOrDefaultAsync(
+            courseTeacher => courseTeacher.CourseId == courseId && courseTeacher.UserId == userId, ct);
+
+    public void AddTeacher(CourseTeacher courseTeacher) => db.CourseTeachers.Add(courseTeacher);
+
+    public void RemoveTeacher(CourseTeacher courseTeacher) => db.CourseTeachers.Remove(courseTeacher);
+
+    public async Task RemoveTeachersAsync(Guid courseId, CancellationToken ct) =>
+        db.CourseTeachers.RemoveRange(
+            await db.CourseTeachers.Where(courseTeacher => courseTeacher.CourseId == courseId).ToListAsync(ct));
 
     public void Add(Course course) => db.Courses.Add(course);
 

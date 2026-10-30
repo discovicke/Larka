@@ -30,7 +30,7 @@ public class CourseService(
             return [];
         }
 
-        // Admin ser hela skolan. Andra ser kurserna som deras grupper läser, som elev eller lärare.
+        // Admin ser hela skolan. Andra ser kurserna som deras grupper läser, och kurserna de är lärare i.
         var schoolCourses = await permissions.IsAdminAsync(ct)
             ? await courses.GetForSchoolAsync(schoolId.Value, ct)
             : await courses.GetForMemberAsync(schoolId.Value, currentUser.UserId, ct);
@@ -134,7 +134,7 @@ public class CourseService(
     }
 
     /// <summary>
-    /// Tar bort kursen med veckorna, innehållet som bara hör till den och kopplingarna till grupperna.
+    /// Tar bort kursen med veckorna, innehållet som bara hör till den, lärarna och kopplingarna till grupperna.
     /// Elevarbete stoppar borttagningen (409), så att inget försvinner av misstag. Utdelningar utan
     /// elevaktivitet följer med.
     /// </summary>
@@ -203,6 +203,8 @@ public class CourseService(
             await groups.RemoveCourseAsync(groupId, id, ct);
         }
 
+        await courses.RemoveTeachersAsync(id, ct);
+
         courses.Remove(course);
         await unitOfWork.SaveChangesAsync(ct);
         foreach (var attachment in attachments)
@@ -213,7 +215,7 @@ public class CourseService(
         return ServiceResult<bool>.Ok(true);
     }
 
-    /// <summary>Lärarna i grupperna som läser kursen. Null om kursen inte finns.</summary>
+    /// <summary>Kursens lärare, med namnen på grupperna som läser kursen. Null om kursen inte finns.</summary>
     public async Task<List<CourseStaffDto>?> GetStaffAsync(Guid id, CancellationToken ct)
     {
         if (await GetOwnAsync(id, ct) is null)
@@ -221,16 +223,9 @@ public class CourseService(
             return null;
         }
 
-        var groupIds = await groups.GetGroupIdsReadingCourseAsync(id, ct);
-        var teachers = await groups.GetTeachersAsync(groupIds, ct);
-        return teachers
-            .GroupBy(teacher => new { teacher.UserId, teacher.Name, teacher.Email })
-            .Select(group => new CourseStaffDto(
-                group.Key.UserId,
-                group.Key.Name,
-                group.Key.Email,
-                group.Select(teacher => teacher.GroupName).OrderBy(name => name).ToList()))
-            .OrderBy(member => member.Name)
+        var groupNames = await groups.GetGroupNamesReadingCourseAsync(id, ct);
+        return (await courses.GetTeachersAsync(id, ct))
+            .Select(teacher => new CourseStaffDto(teacher.UserId, teacher.Name, teacher.Email, groupNames))
             .ToList();
     }
 

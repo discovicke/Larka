@@ -15,12 +15,17 @@ internal static partial class DemoCatalog
         21,
         true,
         [
-            CSharp("NET25", new DateOnly(2025, 8, 25), new DateOnly(2025, 10, 31), "karin"),
-            Databases("NET25", new DateOnly(2025, 11, 3), new DateOnly(2025, 12, 19), "anders"),
-            WebApps("NET25", new DateOnly(2026, 3, 2), new DateOnly(2026, 4, 24), "larare"),
-            DevOps("NET25", new DateOnly(2026, 10, 12), true, "larare"),
-            AiCourse("NET25", new DateOnly(2026, 11, 16), new DateOnly(2026, 12, 18), "jenny", false),
-            Lia1()
+            CSharp("NET25", new DateOnly(2025, 8, 25), new DateOnly(2025, 10, 31), "karin")
+                with { Teachers = ["karin", "anders"] },
+            Databases("NET25", new DateOnly(2025, 11, 3), new DateOnly(2025, 12, 19), "anders")
+                with { Teachers = ["anders", "jenny"] },
+            WebApps("NET25", new DateOnly(2026, 3, 2), new DateOnly(2026, 4, 24), "larare")
+                with { Teachers = ["larare", "jenny"] },
+            DevOps("NET25", new DateOnly(2026, 10, 12), true, "larare")
+                with { Teachers = ["larare", "karin"] },
+            AiCourse("NET25", new DateOnly(2026, 11, 16), new DateOnly(2026, 12, 18), "jenny", false)
+                with { Teachers = ["jenny", "anders"] },
+            Lia1() with { Teachers = ["malin"] }
         ],
         [
             new(
@@ -189,12 +194,17 @@ internal static partial class DemoCatalog
         19,
         false,
         [
-            CSharp("NET24", new DateOnly(2024, 8, 26), new DateOnly(2024, 10, 25), "karin"),
-            Databases("NET24", new DateOnly(2024, 11, 4), new DateOnly(2024, 12, 20), "karin"),
-            WebApps("NET24", new DateOnly(2025, 3, 3), new DateOnly(2025, 4, 25), "jenny"),
-            DevOps("NET24", new DateOnly(2026, 3, 2), false, "patrik"),
-            AiCourse("NET24", new DateOnly(2026, 4, 13), new DateOnly(2026, 5, 15), "jenny", true),
-            Lia2()
+            CSharp("NET24", new DateOnly(2024, 8, 26), new DateOnly(2024, 10, 25), "karin")
+                with { Teachers = ["karin"] },
+            Databases("NET24", new DateOnly(2024, 11, 4), new DateOnly(2024, 12, 20), "karin")
+                with { Teachers = ["karin", "patrik"] },
+            WebApps("NET24", new DateOnly(2025, 3, 3), new DateOnly(2025, 4, 25), "jenny")
+                with { Teachers = ["jenny", "patrik"] },
+            DevOps("NET24", new DateOnly(2026, 3, 2), false, "patrik")
+                with { Teachers = ["patrik", "karin"] },
+            AiCourse("NET24", new DateOnly(2026, 4, 13), new DateOnly(2026, 5, 15), "jenny", true)
+                with { Teachers = ["jenny"] },
+            Lia2() with { Teachers = ["henrik"] }
         ],
         [
             new(
@@ -299,7 +309,11 @@ internal static partial class DemoCatalog
         41,
         18,
         false,
-        [FiberSplicing(), FiberPon(), FiberLia()],
+        [
+            FiberSplicing() with { Teachers = ["mikael", "camilla"] },
+            FiberPon() with { Teachers = ["roger", "camilla"] },
+            FiberLia() with { Teachers = ["sofie"] }
+        ],
         [
             new(
                 "Välkommen till Fibertekniker",

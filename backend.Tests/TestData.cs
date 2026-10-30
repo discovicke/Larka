@@ -53,6 +53,21 @@ public static class TestData
         return user;
     }
 
+    /// <summary>Gör användaren till lärare i kursen (CourseTeacher), utan att hen blir medlem i någon klass.</summary>
+    public static async Task AddCourseTeacherAsync(AppDb db, Course course, User user)
+    {
+        db.CourseTeachers.Add(new CourseTeacher { CourseId = course.Id, UserId = user.Id });
+        await db.SaveChangesAsync();
+    }
+
+    /// <summary>Skapar en lärare i kursens skola som är lärare i kursen men inte medlem i någon klass.</summary>
+    public static async Task<User> AddCourseTeacherAsync(AppDb db, Course course)
+    {
+        var user = await AddUserAsync(db, course.SchoolId, UserRole.Teacher);
+        await AddCourseTeacherAsync(db, course, user);
+        return user;
+    }
+
     /// <summary>Skapar en kurs. Skickas groupId med läser den gruppen kursen (GroupCourse).</summary>
     public static async Task<Course> AddCourseAsync(AppDb db, Guid schoolId, Guid? groupId = null)
     {

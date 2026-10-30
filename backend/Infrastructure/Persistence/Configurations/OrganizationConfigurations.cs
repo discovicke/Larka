@@ -59,6 +59,19 @@ public class GroupCourseConfiguration : IEntityTypeConfiguration<GroupCourse>
     }
 }
 
+// Kursens lärare. Raderna följer inte med när kursen eller användaren tas bort, de måste tas bort först.
+public class CourseTeacherConfiguration : IEntityTypeConfiguration<CourseTeacher>
+{
+    public void Configure(EntityTypeBuilder<CourseTeacher> builder)
+    {
+        builder.HasKey(courseTeacher => new { courseTeacher.CourseId, courseTeacher.UserId });
+        builder.HasOne<Course>().WithMany()
+            .HasForeignKey(courseTeacher => courseTeacher.CourseId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<User>().WithMany()
+            .HasForeignKey(courseTeacher => courseTeacher.UserId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
 public class EnrollmentConfiguration : IEntityTypeConfiguration<Enrollment>
 {
     public void Configure(EntityTypeBuilder<Enrollment> builder)

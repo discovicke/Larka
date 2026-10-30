@@ -14,11 +14,16 @@ namespace Backend.Infrastructure.Persistence;
 /// brödtext, nyheters titel och brödtext. Saknas en vecka, del, nyhet eller kommentar skapas den som DemoSeed hade
 /// gjort, men utan inlämningar. Datum, skalor, lägen, inlämningar, betyg, klarmarkeringar, checklistebockar och
 /// allt en lärare lagt till själv lämnas orört, och inget raderas. Allt sparas i en transaktion.
+///
+/// Undantaget är kursernas lärare (CourseTeachers). Migrationen som införde dem gjorde varje lärare i en klass till
+/// lärare i alla klassens kurser, och här görs det om till det katalogen beskriver: i varje demokurs tas lärare ur
+/// katalogens personer bort om katalogen inte har dem där, och de som katalogen har men som saknas läggs till.
+/// Andra användare än katalogens personer (riktiga konton) lämnas alltid orörda.
 /// </summary>
 public sealed class DemoContentRefresh(AppDb db, TimeProvider time, ILogger<DemoContentRefresh> logger)
 {
     /// <summary>Höj när DemoCatalog ändrats så att prod ska få ändringen. Format: ÅÅÅÅ-MM-DD.löpnummer.</summary>
-    public const string ContentVersion = "2026-10-29.2";
+    public const string ContentVersion = "2026-10-30.1";
 
     internal static string PatchId => $"demo-content@{ContentVersion}";
 
@@ -29,9 +34,12 @@ public sealed class DemoContentRefresh(AppDb db, TimeProvider time, ILogger<Demo
     private int _updated;
     private int _created;
     private int _commentsAdded;
+    private int _teachersAdded;
+    private int _teachersRemoved;
 
     /// <summary>Resultatet av en körning. Null om versionen redan var körd eller det inte finns någon demodata.</summary>
-    internal sealed record Result(int Updated, int Created, int CommentsAdded);
+    internal sealed record Result(
+        int Updated, int Created, int CommentsAdded, int TeachersAdded = 0, int TeachersRemoved = 0);
 
     internal Task<Result?> RefreshAsync(CancellationToken ct) => RefreshAsync(DemoCatalog.Classes(), ct);
 
@@ -77,6 +85,7 @@ public sealed class DemoContentRefresh(AppDb db, TimeProvider time, ILogger<Demo
                 if (course is not null && linked.Contains((group.Id, course.Id)))
                 {
                     await RefreshCourseAsync(group, data, course, courseSpec, students, ct);
+                    await RefreshTeachersAsync(course, courseSpec, ct);
                 }
             }
 
@@ -88,12 +97,44 @@ public sealed class DemoContentRefresh(AppDb db, TimeProvider time, ILogger<Demo
         await transaction.CommitAsync(ct);
 
         logger.LogInformation(
-            "Demoinnehållet uppdaterat till {Version}: {Updated} ändrade, {Created} nya och {Comments} nya kommentarer.",
+            "Demoinnehållet uppdaterat till {Version}: {Updated} ändrade, {Created} nya och {Comments} nya kommentarer, "
+            + "{TeachersAdded} lärare tillagda och {TeachersRemoved} borttagna i kurserna.",
             ContentVersion,
             _updated,
             _created,
-            _commentsAdded);
-        return new Result(_updated, _created, _commentsAdded);
+            _commentsAdded,
+            _teachersAdded,
+            _teachersRemoved);
+        return new Result(_updated, _created, _commentsAdded, _teachersAdded, _teachersRemoved);
+    }
+
+    // Katalogens lärare i kursen. Bara katalogens personer rörs: en lärare som katalogen inte har i kursen tas bort,
+    // och en som katalogen har men som saknas läggs till. Ett riktigt konto, som inte finns i katalogen, lämnas.
+    private async Task RefreshTeachersAsync(Course course, CourseSpec spec, CancellationToken ct)
+    {
+        var wanted = spec.Teachers
+            .Select(UserOf)
+            .OfType<User>()
+            .Select(user => user.Id)
+            .ToHashSet();
+        var catalogPeople = Teachers.Concat(Mentors).Select(person => person.Email).Append("larare").ToList();
+        var catalogUserIds = _users.Values
+            .Where(user => catalogPeople.Contains(user.Email))
+            .Select(user => user.Id)
+            .ToHashSet();
+
+        var existing = await db.CourseTeachers.Where(row => row.CourseId == course.Id).ToListAsync(ct);
+        foreach (var row in existing.Where(row => catalogUserIds.Contains(row.UserId) && !wanted.Contains(row.UserId)))
+        {
+            db.CourseTeachers.Remove(row);
+            _teachersRemoved++;
+        }
+
+        foreach (var userId in wanted.Where(id => existing.All(row => row.UserId != id)))
+        {
+            db.CourseTeachers.Add(new CourseTeacher { CourseId = course.Id, UserId = userId });
+            _teachersAdded++;
+        }
     }
 
     private async Task RefreshCourseAsync(

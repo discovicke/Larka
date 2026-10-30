@@ -19,18 +19,18 @@ public class ContentRepository(AppDb db) : IContentRepository
         var teacherGroupIds = db.Enrollments
             .Where(enrollment => enrollment.UserId == userId && enrollment.Role == GroupRole.Teacher)
             .Select(enrollment => enrollment.GroupId);
+        var taughtCourseIds = db.CourseTeachers
+            .Where(courseTeacher => courseTeacher.UserId == userId)
+            .Select(courseTeacher => courseTeacher.CourseId);
 
+        // En länk med kurs avgörs av kursens lärare, en länk till bara en grupp av lärarrollen i gruppen.
         return db.ContentLinks
             .Where(link => link.ContentId == contentId)
             .AnyAsync(link =>
-                (link.GroupId != null && teacherGroupIds.Contains(link.GroupId.Value))
-                || (link.CourseId != null && db.GroupCourses.Any(groupCourse =>
-                    groupCourse.CourseId == link.CourseId && teacherGroupIds.Contains(groupCourse.GroupId)))
+                (link.CourseId == null && link.GroupId != null && teacherGroupIds.Contains(link.GroupId.Value))
+                || (link.CourseId != null && taughtCourseIds.Contains(link.CourseId.Value))
                 || (link.ModuleId != null && db.Modules.Any(module =>
-                    module.Id == link.ModuleId
-                    && db.GroupCourses.Any(groupCourse =>
-                        groupCourse.CourseId == module.CourseId
-                        && teacherGroupIds.Contains(groupCourse.GroupId)))),
+                    module.Id == link.ModuleId && taughtCourseIds.Contains(module.CourseId))),
                 ct);
     }
 
@@ -143,11 +143,16 @@ public class ContentRepository(AppDb db) : IContentRepository
         var courseIds = db.GroupCourses
             .Where(groupCourse => groupIds.Contains(groupCourse.GroupId))
             .Select(groupCourse => groupCourse.CourseId);
+        var taughtCourseIds = db.CourseTeachers
+            .Where(courseTeacher => courseTeacher.UserId == userId)
+            .Select(courseTeacher => courseTeacher.CourseId);
 
+        // Kursens lärare ser kursens alla länkar, även de riktade till en enskild klass, utan att vara med i klassen.
         return db.ContentLinks
             .Where(link =>
                 (link.GroupId != null && groupIds.Contains(link.GroupId.Value))
-                || (link.GroupId == null && link.CourseId != null && courseIds.Contains(link.CourseId.Value)))
+                || (link.GroupId == null && link.CourseId != null && courseIds.Contains(link.CourseId.Value))
+                || (link.CourseId != null && taughtCourseIds.Contains(link.CourseId.Value)))
             .Where(link => link.ModuleId != null || link.DueAt != null)
             .Where(link =>
                 (link.DueAt != null && link.DueAt >= from && link.DueAt < to)

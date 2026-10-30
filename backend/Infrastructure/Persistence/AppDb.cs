@@ -11,6 +11,7 @@ public class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
     public DbSet<Course> Courses => Set<Course>();
     public DbSet<Module> Modules => Set<Module>();
     public DbSet<GroupCourse> GroupCourses => Set<GroupCourse>();
+    public DbSet<CourseTeacher> CourseTeachers => Set<CourseTeacher>();
     public DbSet<Group> Groups => Set<Group>();
     public DbSet<Enrollment> Enrollments => Set<Enrollment>();
     public DbSet<Content> Content => Set<Content>();

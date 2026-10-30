@@ -23,7 +23,7 @@ public class GroupService(
             return [];
         }
 
-        // Admin ser hela skolan, alla andra bara grupperna de är medlemmar i.
+        // Admin ser hela skolan, alla andra grupperna de är medlemmar i och grupperna som läser en kurs de är lärare i.
         var schoolGroups = await permissions.IsAdminAsync(ct)
             ? await groups.GetForSchoolAsync(schoolId.Value, ct)
             : await groups.GetForMemberAsync(schoolId.Value, currentUser.UserId, ct);
@@ -208,7 +208,8 @@ public class GroupService(
     }
 
     // En grupp i en annan skola svarar som om den inte fanns. Listan (bara namn och roll i gruppen) får läsas
-    // av gruppens medlemmar, vilken roll de än har i den, och av admin.
+    // av gruppens medlemmar, vilken roll de än har i den, av lärarna i en kurs som gruppen läser (de behöver
+    // inte vara med i klassen) och av admin.
     public async Task<ServiceResult<List<GroupMemberDto>>> GetMembersAsync(Guid groupId, CancellationToken ct)
     {
         if (await GetOwnAsync(groupId, ct) is null)
@@ -216,7 +217,9 @@ public class GroupService(
             return ServiceResult<List<GroupMemberDto>>.NotFound("group not found");
         }
 
-        if (!await permissions.IsAdminAsync(ct) && !await groups.IsMemberAsync(groupId, currentUser.UserId, ct))
+        if (!await permissions.IsAdminAsync(ct)
+            && !await groups.IsMemberAsync(groupId, currentUser.UserId, ct)
+            && !await groups.TeachesCourseOfGroupAsync(groupId, currentUser.UserId, ct))
         {
             return ServiceResult<List<GroupMemberDto>>.Forbidden();
         }

@@ -4,7 +4,7 @@ using Backend.Domain.Enums;
 
 namespace Backend.Application.Services;
 
-// Lärarens Idag-sida. Bara kurserna där användaren är lärare eller mentor räknas, och bara deras
+// Lärarens Idag-sida. Bara kurserna där användaren är lärare (en rad i CourseTeachers) räknas, och bara deras
 // inlämningar, deadlines och schemalagda publiceringar. Frågorna går över hela kursen, inte per rad.
 public class TeachingService(
     IGroupRepository groups,

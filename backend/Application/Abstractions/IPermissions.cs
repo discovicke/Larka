@@ -11,13 +11,13 @@ public interface IPermissions
     /// <summary>Bara lärare och admin får skapa innehåll.</summary>
     Task<bool> CanCreateContentAsync(CancellationToken ct);
 
-    /// <summary>Admin, eller lärare i en grupp som läser kursen.</summary>
+    /// <summary>Admin, eller lärare i kursen.</summary>
     Task<bool> CanTeachCourseAsync(Guid courseId, CancellationToken ct);
 
     /// <summary>Admin, eller lärare i gruppen.</summary>
     Task<bool> CanTeachGroupAsync(Guid groupId, CancellationToken ct);
 
-    /// <summary>Admin, eller lärare i länkens grupp eller i en grupp som läser länkens kurs.</summary>
+    /// <summary>Admin, eller lärare i länkens kurs, eller i länkens grupp när länken saknar kurs.</summary>
     Task<bool> CanTeachLinkAsync(Guid linkId, CancellationToken ct);
 
     /// <summary>Admin, eller lärare på någon av innehållets länkar.</summary>

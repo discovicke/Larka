@@ -20,8 +20,11 @@ public interface INotificationRepository
 {
     void AddRange(IEnumerable<Notification> notifications);
 
-    /// <summary>Alla medlemmar i grupperna, oavsett roll.</summary>
-    Task<List<Guid>> GetMemberIdsAsync(IReadOnlyCollection<Guid> groupIds, CancellationToken ct);
+    /// <summary>Alla medlemmar i grupperna, oavsett roll. Utan includeTeachers lämnas lärarna i klassen utanför.</summary>
+    Task<List<Guid>> GetMemberIdsAsync(IReadOnlyCollection<Guid> groupIds, bool includeTeachers, CancellationToken ct);
+
+    /// <summary>Lärarna i kursen.</summary>
+    Task<List<Guid>> GetCourseTeacherIdsAsync(Guid courseId, CancellationToken ct);
 
     /// <summary>Eleverna i grupperna.</summary>
     Task<List<Guid>> GetStudentIdsAsync(IReadOnlyCollection<Guid> groupIds, CancellationToken ct);

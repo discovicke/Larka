@@ -56,7 +56,7 @@ public interface ISubmissionRepository
     Task<List<ActiveSubmission>> GetActiveForLinksAsync(
         IReadOnlyCollection<Guid> linkIds, CancellationToken ct);
 
-    // Lärare på en grupp som utdelningen gäller för, eller på en grupp som läser kursen den gäller för.
+    // Lärare i kursen utdelningen gäller för. Gäller den bara en grupp, utan kurs, lärare i gruppen.
     Task<bool> IsTeacherOfLinkAsync(Guid linkId, Guid userId, CancellationToken ct);
     void Add(Submission submission);
     void AddRange(IEnumerable<Submission> submissions);

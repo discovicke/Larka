@@ -96,9 +96,9 @@ API:et avgör vad en användare får göra. Klienten hämtar rollerna från `GET
 | Roll                         | Får                                                                                                                                                                                                                                        |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Admin (`User.Role`)          | Allt, i hela skolan. Skapa och ändra skolor, användare och kurser. Ta bort kurser (inte om det finns elevarbete i kursen). Skapa, ändra och ta bort grupper, medlemskap och gruppens kurser (inte om innehåll är publicerat till gruppen). |
-| Lärare                       | Skapa innehåll. Ändra, publicera och ta bort eget innehåll, och innehåll som är länkat till en kurs hen undervisar: moduler, länkar, bilagor och betyg på inlämningar.                                                                     |
+| Lärare                       | Skapa innehåll. Ändra, publicera och ta bort eget innehåll, och innehåll som är länkat till en kurs hen är lärare i (`CourseTeacher`): moduler, länkar, bilagor och betyg på inlämningar.                                                  |
 | Elev                         | Läsa flöden, moduler och innehåll, lämna in, kommentera och klarmarkera delar.                                                                                                                                                             |
-| Lärare i en annan kurs/grupp | Får 403 på det som hör till kursen eller gruppen hen inte undervisar.                                                                                                                                                                      |
+| Lärare i en annan kurs/grupp | Får 403 på det som hör till kursen eller gruppen hen inte undervisar, även när kursen läses av hens egen klass.                                                                                                                            |
 
 ### Användare och medlemslistor
 
@@ -110,12 +110,30 @@ E-post och global roll (`User.Role`) lämnas bara ut till admin, och bara för a
 | `GET /api/users/{id}`          | Användare i skolan, med e-post och roll | `403`                                        | `403`           | `404` för admin (en annan skola), andra `403` |
 | `GET /api/groups/{id}/members` | Hela listan                             | Hela listan                                  | `403`           | `404`                                         |
 
+Lärare i en kurs som gruppen läser får också medlemslistan, utan att vara medlemmar i gruppen. Övriga i skolan får `403`.
+
 Medlemslistan (`GroupMemberDto`) har bara id, namn och personens roll i just den gruppen, aldrig e-post eller global roll. En elev ser alltså klasskamraterna med namn och grupproll. Det finns ingen profilbild i datamodellen. Lärare, mentorer och admin får samma lista.
 
 Lärarnas kontaktuppgifter (namn, e-post och vilka grupper de undervisar) visas för alla i skolan via kursens egen lärarlista, `GET /api/courses/{id}/staff`, och inte via `/api/users`.
 
 Admin hanterar klasser, grupper och kurser direkt på _Alla grupper_: knappen _Ny_ uppe till höger skapar en klass, grupp eller kurs, och menyn `⋯` på varje rad har _Redigera_ och _Ta bort_. Borttagningen frågar alltid först och namnger det som tas bort. Nya användare skapas från _Lägg till medlem_ på gruppens sida ("Finns inte i listan? Skapa användare"). Den gamla sidan _Program och klasser_ under Inställningar finns inte kvar, och `/settings/groups` skickar vidare till _Alla grupper_.
 
-En lärare är den som har `GroupRole.Teacher` i en grupp som läser kursen (`GroupCourse`), oavsett om `User.Role` är Teacher eller Admin. Admin räknas som lärare på alla skolans kurser.
+### Lärare i en kurs
+
+Klassen har elever och en mentor, och kursen har sina lärare. En lärare i en kurs är den som står i `CourseTeacher` för kursen. Det avgör vem som får redigera kursen, dess veckor och innehåll, och bedöma inlämningar. Att vara lärare i en klass (`GroupRole.Teacher`) ger ingen behörighet i klassens kurser, så en lärare i `.NET25` som undervisar i DevOps kan inte ändra eller betygsätta Databaser. Läraren behöver inte vara medlem i klassen. Admin räknas som lärare på alla skolans kurser.
+
+`GroupRole.Teacher` gäller bara det som riktas till enbart en grupp, utan kurs, till exempel en nyhet till klassen: där avgör fortfarande rollen i gruppen (`CanTeachGroupAsync`). Innehåll som är riktat till en grupp _och_ en kurs räknas som kursens.
+
+Samma regel gäller överallt: `GET /api/me` (rollen per kurs), Idag-sidan för lärare, kursens lärarlista, kalendern, kurslistan, grupplistan och notiser för nytt innehåll. Kursens lärare får kursens nyheter och uppgifter som notiser även om hen inte är med i klassen.
+
+| Anrop                                        | Admin                      | Övriga (lärare, elev) |
+| -------------------------------------------- | -------------------------- | --------------------- |
+| `GET /api/courses/{id}/teachers`             | Kursens lärare             | `403`                 |
+| `POST /api/courses/{id}/teachers` `{userId}` | `201`, lägger till läraren | `403`                 |
+| `DELETE /api/courses/{id}/teachers/{userId}` | `204`, tar bort läraren    | `403`                 |
+
+Användaren ska finnas i kursens skola och vara lärare eller admin i systemet (`400` annars, och `409` om hen redan är lärare i kursen). En kurs i en annan skola svarar `404`, även för admin. `GET /api/courses/{id}/staff` visar kursens lärare för alla i skolan, med namnen på klasserna som läser kursen.
+
+Demodatan (`DemoCatalog`) anger lärarna per kurs. `larare` undervisar i DevOps och Webbapplikationer i C# i `.NET25`, men inte i klassens övriga kurser trots att hen är lärare i klassen. När `DemoContentRefresh.ContentVersion` höjs rättar uppdateringen lärarna i prod efter katalogen: den tar bara bort lärare ur katalogens personer som katalogen inte har i kursen, och lägger till de som saknas. Riktiga konton lämnas orörda.
 
 Nekas anropet svarar API:et `403 Forbidden` som ProblemDetails med texten `Du har inte behörighet.`. Läsning och elevens egna handlingar är öppna, och en elev ser bara sina egna inlämningar. Undantaget är användarlistan och medlemslistorna ovan.

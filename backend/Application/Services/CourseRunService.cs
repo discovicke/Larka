@@ -7,7 +7,7 @@ using Backend.Domain.Enums;
 namespace Backend.Application.Services;
 
 // En ny omgång av en kurs för en annan klass: kursen med samma titel, beskrivning och poäng, klassen som
-// läsare, lärarna som i källkursens klasser och, om man vill, alla veckor. Allt sparas i ett enda anrop till
+// läsare, lärarna som i källkursen och, om man vill, alla veckor. Allt sparas i ett enda anrop till
 // databasen, alltså i en transaktion. Elever, inlämningar, betyg och framsteg följer aldrig med.
 public class CourseRunService(
     ICourseRepository courses,
@@ -82,20 +82,14 @@ public class CourseRunService(
         courses.Add(course);
         groups.AddCourse(new GroupCourse { GroupId = group.Id, CourseId = course.Id });
 
-        // Lärare hör till klasser, så personalen följer med genom att lärarna i källkursens klasser blir
-        // lärare i den nya klassen. Den som redan finns i klassen, i vilken roll som helst, lämnas som den är.
-        var sourceGroupIds = await groups.GetGroupIdsReadingCourseAsync(sourceCourseId, ct);
-        var teachers = await groups.GetTeachersAsync(sourceGroupIds, ct);
-        var teacherIds = teachers.Select(teacher => teacher.UserId).Distinct();
-        var staffCount = 0;
-        foreach (var teacherId in teacherIds)
+        // Kursens lärare följer med till den nya kursen. Klassen får inga lärare, den har bara elever och en mentor.
+        var teachers = await courses.GetTeachersAsync(sourceCourseId, ct);
+        foreach (var teacher in teachers)
         {
-            if (!await groups.IsMemberAsync(group.Id, teacherId, ct))
-            {
-                groups.AddMember(new Enrollment { GroupId = group.Id, UserId = teacherId, Role = GroupRole.Teacher });
-                staffCount++;
-            }
+            courses.AddTeacher(new CourseTeacher { CourseId = course.Id, UserId = teacher.UserId });
         }
+
+        var staffCount = teachers.Count;
 
         var plan = new CourseCopyService.CopyPlan();
         try

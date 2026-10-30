@@ -386,6 +386,7 @@ public class CourseCopyEndpointTests(TestWebApplicationFactory factory) : IClass
         var course = await TestData.AddCourseAsync(db, school.Id, group.Id);
         db.Modules.Add(new Module { CourseId = course.Id, Title = "Befintlig", Position = 1 });
         var teacher = await TestData.AddMemberAsync(db, group, GroupRole.Teacher, UserRole.Teacher);
+        db.CourseTeachers.Add(new CourseTeacher { CourseId = course.Id, UserId = teacher.Id });
         await db.SaveChangesAsync();
         return new TeacherScenario(teacher.Id, course.Id);
     }
@@ -397,6 +398,7 @@ public class CourseCopyEndpointTests(TestWebApplicationFactory factory) : IClass
         var groupId = await db.GroupCourses.Where(groupCourse => groupCourse.CourseId == scenario.TargetId)
             .Select(groupCourse => groupCourse.GroupId).SingleAsync();
         db.GroupCourses.Add(new GroupCourse { GroupId = groupId, CourseId = sourceCourseId });
+        db.CourseTeachers.Add(new CourseTeacher { CourseId = sourceCourseId, UserId = scenario.TeacherId });
         await db.SaveChangesAsync();
         return scenario;
     }

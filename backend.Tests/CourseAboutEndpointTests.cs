@@ -213,7 +213,7 @@ public class CourseAboutEndpointTests(TestWebApplicationFactory factory) : IClas
     }
 
     [Fact]
-    public async Task GetStaff_ListsTeachersOfReadingGroupsOnly()
+    public async Task GetStaff_ListsTheTeachersOfTheCourseOnly()
     {
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
@@ -225,7 +225,7 @@ public class CourseAboutEndpointTests(TestWebApplicationFactory factory) : IClas
 
         var course = await TestData.AddCourseAsync(db, school.Id, firstGroup.Id);
         db.GroupCourses.Add(new GroupCourse { GroupId = secondGroup.Id, CourseId = course.Id });
-        await TestData.AddCourseAsync(db, school.Id, otherGroup.Id);
+        var otherCourse = await TestData.AddCourseAsync(db, school.Id, otherGroup.Id);
 
         var anna = new User
         {
@@ -255,11 +255,24 @@ public class CourseAboutEndpointTests(TestWebApplicationFactory factory) : IClas
             Email = "olle@example.com",
             Role = UserRole.Teacher
         };
-        db.Users.AddRange(anna, bo, student, otherTeacher);
+        var classTeacher = new User
+        {
+            SchoolId = school.Id,
+            Name = "Klara Klass",
+            Email = "klara@example.com",
+            Role = UserRole.Teacher
+        };
+        db.Users.AddRange(anna, bo, student, otherTeacher, classTeacher);
+
+        // Anna och Bo är kursens lärare, Anna utan att vara med i någon klass. Klara är lärare i klassen men inte i
+        // kursen, så hon ska inte räknas.
+        db.CourseTeachers.AddRange(
+            new CourseTeacher { CourseId = course.Id, UserId = anna.Id },
+            new CourseTeacher { CourseId = course.Id, UserId = bo.Id },
+            new CourseTeacher { CourseId = otherCourse.Id, UserId = otherTeacher.Id });
         db.Enrollments.AddRange(
-            new Enrollment { UserId = anna.Id, GroupId = firstGroup.Id, Role = GroupRole.Teacher },
-            new Enrollment { UserId = anna.Id, GroupId = secondGroup.Id, Role = GroupRole.Teacher },
             new Enrollment { UserId = bo.Id, GroupId = secondGroup.Id, Role = GroupRole.Teacher },
+            new Enrollment { UserId = classTeacher.Id, GroupId = firstGroup.Id, Role = GroupRole.Teacher },
             new Enrollment { UserId = student.Id, GroupId = firstGroup.Id, Role = GroupRole.Student },
             new Enrollment { UserId = otherTeacher.Id, GroupId = otherGroup.Id, Role = GroupRole.Teacher });
         await db.SaveChangesAsync();
@@ -276,9 +289,10 @@ public class CourseAboutEndpointTests(TestWebApplicationFactory factory) : IClas
         Assert.Equal(["Klass A", "Klass B"], annaRow.Groups);
         Assert.Equal("anna@example.com", annaRow.Email);
         var boRow = Assert.Single(staff, member => member.UserId == bo.Id);
-        Assert.Equal(["Klass B"], boRow.Groups);
+        Assert.Equal(["Klass A", "Klass B"], boRow.Groups);
         Assert.DoesNotContain(staff, member => member.UserId == student.Id);
         Assert.DoesNotContain(staff, member => member.UserId == otherTeacher.Id);
+        Assert.DoesNotContain(staff, member => member.UserId == classTeacher.Id);
     }
 
     [Fact]
@@ -297,6 +311,7 @@ public class CourseAboutEndpointTests(TestWebApplicationFactory factory) : IClas
         var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
         var course = await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId, group.Id);
         var teacher = await TestData.AddMemberAsync(db, group, GroupRole.Teacher, UserRole.Teacher);
+        await TestData.AddCourseTeacherAsync(db, course, teacher);
         var student = await TestData.AddMemberAsync(db, group, GroupRole.Student, UserRole.Student);
         return (course, teacher, student);
     }

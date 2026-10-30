@@ -61,7 +61,14 @@ internal sealed record CourseSpec(
     DateOnly End,
     string Author,
     ModuleSpec[] Modules,
-    NewsSpec[] News);
+    NewsSpec[] News)
+{
+    /// <summary>
+    /// Nycklarna för kursens lärare (CourseTeacher), som i DemoPeople plus larare. Läraren behöver inte vara med i
+    /// klassen. Författaren ska vara en av dem. DemoContentRefresh gör prod lik detta.
+    /// </summary>
+    public string[] Teachers { get; init; } = [];
+}
 
 internal sealed record ClassSpec(
     string Name,

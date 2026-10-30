@@ -288,6 +288,21 @@ namespace Backend.Infrastructure.Persistence.Migrations
                     b.ToTable("Courses");
                 });
 
+            modelBuilder.Entity("Backend.Domain.Entities.CourseTeacher", b =>
+                {
+                    b.Property<Guid>("CourseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("CourseId", "UserId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("CourseTeachers");
+                });
+
             modelBuilder.Entity("Backend.Domain.Entities.DataPatch", b =>
                 {
                     b.Property<string>("Id")
@@ -850,6 +865,21 @@ namespace Backend.Infrastructure.Persistence.Migrations
                     b.HasOne("Backend.Domain.Entities.School", null)
                         .WithMany()
                         .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Backend.Domain.Entities.CourseTeacher", b =>
+                {
+                    b.HasOne("Backend.Domain.Entities.Course", null)
+                        .WithMany()
+                        .HasForeignKey("CourseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Backend.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

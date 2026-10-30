@@ -234,6 +234,7 @@ public class CourseEndpointTests(TestWebApplicationFactory factory) : IClassFixt
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
         Assert.False(await db.Modules.AnyAsync(module => module.CourseId == setup.CourseId));
         Assert.False(await db.GroupCourses.AnyAsync(groupCourse => groupCourse.CourseId == setup.CourseId));
+        Assert.False(await db.CourseTeachers.AnyAsync(courseTeacher => courseTeacher.CourseId == setup.CourseId));
         Assert.False(await db.ContentLinks.AnyAsync(link => link.CourseId == setup.CourseId));
         Assert.False(await db.Content.AnyAsync(content => content.Id == setup.OnlyHereContentId));
         Assert.True(await db.Content.AnyAsync(content => content.Id == setup.SharedContentId));
@@ -256,7 +257,7 @@ public class CourseEndpointTests(TestWebApplicationFactory factory) : IClassFixt
     public async Task DeleteCourse_AsTeacherOfTheCourse_ReturnsForbidden()
     {
         var setup = await AddCourseWithContentAsync();
-        var teacher = await AddTeacherAsync(setup.GroupId);
+        var teacher = await AddTeacherAsync(setup.GroupId, setup.CourseId);
 
         var response = await SendAsync(HttpMethod.Delete, $"/api/courses/{setup.CourseId}", teacher.Id);
 
@@ -292,6 +293,7 @@ public class CourseEndpointTests(TestWebApplicationFactory factory) : IClassFixt
         var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
         var course = await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId, group.Id);
         var student = await TestData.AddMemberAsync(db, group, GroupRole.Student, UserRole.Student);
+        await TestData.AddCourseTeacherAsync(db, course);
         var week = new Module { CourseId = course.Id, Title = "Vecka 1", Position = 1 };
         var onlyHere = new Content { AuthorId = PlaceholderIds.UserId, Type = ContentType.Theory, Title = "Bara här" };
         var shared = new Content { AuthorId = PlaceholderIds.UserId, Type = ContentType.Theory, Title = "Delad" };
@@ -323,14 +325,21 @@ public class CourseEndpointTests(TestWebApplicationFactory factory) : IClassFixt
         return new CourseWithContent(course.Id, group.Id, shared.Id, onlyHere.Id);
     }
 
-    private async Task<User> AddTeacherAsync(Guid? groupId = null)
+    private async Task<User> AddTeacherAsync(Guid? groupId = null, Guid? courseId = null)
     {
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
         var group = groupId is null
             ? await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId)
             : await db.Groups.SingleAsync(found => found.Id == groupId);
-        return await TestData.AddMemberAsync(db, group, GroupRole.Teacher, UserRole.Teacher);
+        var teacher = await TestData.AddMemberAsync(db, group, GroupRole.Teacher, UserRole.Teacher);
+        if (courseId is not null)
+        {
+            var course = await db.Courses.SingleAsync(found => found.Id == courseId);
+            await TestData.AddCourseTeacherAsync(db, course, teacher);
+        }
+
+        return teacher;
     }
 
     private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, Guid userId, object? body = null)

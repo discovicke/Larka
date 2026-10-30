@@ -32,8 +32,14 @@ public record CourseDto(
             course.EndsOn);
 }
 
-/// <summary>En lärare i kursen, med namnen på grupperna som läser den där hen är lärare.</summary>
+/// <summary>En lärare i kursen, med namnen på grupperna som läser kursen.</summary>
 public record CourseStaffDto(Guid UserId, string Name, string Email, List<string> Groups);
+
+/// <summary>En lärare i kursen, som admin ser den.</summary>
+public record CourseTeacherDto(Guid UserId, string Name, string Email);
+
+/// <summary>Gör användaren till lärare i kursen. Användaren ska vara lärare eller admin i kursens skola.</summary>
+public record AddCourseTeacherDto(Guid UserId);
 
 /// <summary>Elev i kursen som ännu inte har kopplat ett GitHub-konto.</summary>
 public record UnlinkedGitHubStudentDto(Guid Id, string Name, string Email);

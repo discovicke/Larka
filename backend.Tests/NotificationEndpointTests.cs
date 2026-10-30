@@ -87,6 +87,27 @@ public class NotificationEndpointTests(TestWebApplicationFactory factory) : ICla
     }
 
     [Fact]
+    public async Task CourseNews_NotifiesTheTeachersOfTheCourse_NotTheTeachersOfTheClass()
+    {
+        var setup = await AddSetupAsync();
+        Guid courseTeacher;
+        await using (var db = factory.Services.CreateScope().ServiceProvider.GetRequiredService<AppDb>())
+        {
+            var course = await db.Courses.SingleAsync(found => found.Id == setup.CourseId);
+            courseTeacher = (await TestData.AddCourseTeacherAsync(db, course)).Id;
+        }
+
+        await CreateAsync(News("Kursnyhet"), new { courseId = setup.CourseId });
+        await CreateAsync(News("Klassnyhet"), new { groupId = setup.GroupId });
+
+        // Kursens lärare behöver inte vara med i klassen, men får bara kursens nyhet.
+        Assert.Equal(["Kursnyhet"], (await ListForAsync(courseTeacher)).Items.Select(item => item.Title));
+        // Klassens lärare får klassens nyhet, men är inte kursens lärare och får inte kursens.
+        Assert.Equal(["Klassnyhet"], (await ListForAsync(setup.TeacherId)).Items.Select(item => item.Title));
+        Assert.Equal(2, (await ListForAsync(setup.StudentId)).Items.Count);
+    }
+
+    [Fact]
     public async Task Assignments_AreNotified_ButTheoryIsNot()
     {
         var setup = await AddSetupAsync();

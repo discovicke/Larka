@@ -160,6 +160,36 @@ public class DemoSeedTests(DemoSeedTests.DemoFixture fixture) : IClassFixture<De
         Assert.Contains(me.Courses, course => course.CourseId == devOps.Id && course.Role == "Teacher");
     }
 
+    // Varje kurs har sina egna lärare, och katalogens författare är en av dem. larare undervisar i DevOps och
+    // Webbapplikationer i C# i .NET25, men inte i klassens övriga kurser trots att hen är lärare i klassen.
+    [Fact]
+    public async Task Seed_GivesEveryCourseItsOwnTeachers_AndLarareTeachesTwoOfTheClassCourses()
+    {
+        using var scope = fixture.Factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var codeOf = await db.Courses.ToDictionaryAsync(course => course.Id, course => course.Code);
+        var emailOf = await db.Users.ToDictionaryAsync(user => user.Id, user => user.Email);
+        var taught = (await db.CourseTeachers.ToListAsync())
+            .GroupBy(row => codeOf[row.CourseId])
+            .ToDictionary(rows => rows.Key, rows => rows.Select(row => emailOf[row.UserId]).Order().ToList());
+
+        foreach (var course in DemoCatalog.Classes().SelectMany(spec => spec.Courses))
+        {
+            Assert.Contains(course.Author, course.Teachers);
+            Assert.Equal(
+                course.Teachers.Select(key => key == "larare"
+                        ? "larare"
+                        : DemoPeople.Teachers.Concat(DemoPeople.Mentors).Single(person => person.Key == key).Email)
+                    .Order(),
+                taught[course.Code]);
+        }
+
+        var me = await GetAsync<MeResponse>("larare", "/api/me");
+        var teaching = me.Courses.Where(course => course.Role == "Teacher")
+            .Select(course => codeOf[course.CourseId]).Order();
+        Assert.Equal([".NET25_DEVOPS", ".NET25_WEBB"], teaching);
+    }
+
     [Fact]
     public async Task Seed_RunAgain_CreatesNothingNew()
     {

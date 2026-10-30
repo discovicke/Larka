@@ -204,6 +204,7 @@ public class TeachingEndpointTests(TestWebApplicationFactory factory) : IClassFi
         var otherStudent = await TestData.AddMemberAsync(db, group);
         var otherGroupStudent = await TestData.AddMemberAsync(db, otherGroup);
         var teacher = await TestData.AddMemberAsync(db, group, GroupRole.Teacher, UserRole.Teacher);
+        await TestData.AddCourseTeacherAsync(db, course, teacher);
         return new Setup(
             group.Id,
             otherGroup.Id,

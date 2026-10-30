@@ -16,6 +16,7 @@ public static class DependencyInjection
         services.AddScoped<RoadmapService>();
         services.AddScoped<CourseCopyService>();
         services.AddScoped<CourseRunService>();
+        services.AddScoped<CourseTeacherService>();
         services.AddScoped<StudentContentService>();
         services.AddScoped<ContentService>();
         services.AddScoped<MeService>();

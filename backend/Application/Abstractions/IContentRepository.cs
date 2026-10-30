@@ -28,7 +28,9 @@ public interface IContentRepository
     Task<Content?> GetAsync(Guid id, CancellationToken ct);
     Task<bool> ExistsAsync(Guid id, CancellationToken ct);
 
-    /// <summary>Lärare på någon av innehållets länkar, via länkens grupp eller kurs.</summary>
+    /// <summary>
+    /// Lärare på någon av innehållets länkar: lärare i länkens kurs, eller i länkens grupp när länken saknar kurs.
+    /// </summary>
     Task<bool> IsTeacherOfContentAsync(Guid contentId, Guid userId, CancellationToken ct);
     void Add(Content content);
     void AddLink(ContentLink link);

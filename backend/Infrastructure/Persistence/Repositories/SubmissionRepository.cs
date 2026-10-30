@@ -85,13 +85,18 @@ public class SubmissionRepository(AppDb db) : ISubmissionRepository
         var teacherGroupIds = db.Enrollments
             .Where(enrollment => enrollment.UserId == userId && enrollment.Role == GroupRole.Teacher)
             .Select(enrollment => enrollment.GroupId);
+        var taughtCourseIds = db.CourseTeachers
+            .Where(courseTeacher => courseTeacher.UserId == userId)
+            .Select(courseTeacher => courseTeacher.CourseId);
 
+        // En länk med kurs avgörs av kursens lärare, även när den också är riktad till en grupp. Bara en länk till
+        // en grupp utan kurs avgörs av lärarrollen i gruppen.
         return db.ContentLinks
             .Where(link => link.Id == linkId)
             .AnyAsync(link =>
-                (link.GroupId != null && teacherGroupIds.Contains(link.GroupId.Value))
-                || (link.CourseId != null && db.GroupCourses.Any(groupCourse =>
-                    groupCourse.CourseId == link.CourseId && teacherGroupIds.Contains(groupCourse.GroupId))),
+                link.CourseId != null
+                    ? taughtCourseIds.Contains(link.CourseId.Value)
+                    : link.GroupId != null && teacherGroupIds.Contains(link.GroupId.Value),
                 ct);
     }
 

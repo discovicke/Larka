@@ -154,6 +154,7 @@ public sealed class DemoSeed(AppDb db, IPasswordHasher<User> passwordHasher, ILo
             .ExecuteDeleteAsync(ct);
         await db.Modules.Where(module => module.CourseId == courseId).ExecuteDeleteAsync(ct);
         await db.GroupCourses.Where(link => link.GroupId == groupId).ExecuteDeleteAsync(ct);
+        await db.CourseTeachers.Where(courseTeacher => courseTeacher.CourseId == courseId).ExecuteDeleteAsync(ct);
         await db.Enrollments.Where(enrollment => enrollment.GroupId == groupId).ExecuteDeleteAsync(ct);
         await db.Groups.Where(group => group.Id == groupId).ExecuteDeleteAsync(ct);
         await db.Courses.Where(course => course.Id == courseId).ExecuteDeleteAsync(ct);
@@ -183,6 +184,7 @@ internal sealed class DemoBuilder(
     };
 
     private readonly List<NewsItem> _news = [];
+    private readonly HashSet<(Guid CourseId, Guid UserId)> _taught = [];
     private readonly List<GradedItem> _graded = [];
     private readonly List<AssignmentItem> _assignments = [];
     private int _courseCounter;
@@ -261,6 +263,12 @@ internal sealed class DemoBuilder(
         };
         db.Courses.Add(course);
         db.GroupCourses.Add(new GroupCourse { GroupId = group.Id, CourseId = course.Id });
+        foreach (var key in spec.Teachers)
+        {
+            var teacher = UserOf(key);
+            db.CourseTeachers.Add(new CourseTeacher { CourseId = course.Id, UserId = teacher.Id });
+            _taught.Add((course.Id, teacher.Id));
+        }
 
         var author = UserOf(spec.Author);
         for (var moduleIndex = 0; moduleIndex < spec.Modules.Length; moduleIndex++)
@@ -504,7 +512,7 @@ internal sealed class DemoBuilder(
         var (content, link) = NewNews(spec, author.Id, group.Id, course?.Id);
         db.Content.Add(content);
         db.ContentLinks.Add(link);
-        _news.Add(new NewsItem(group.Id, content, spec.At, author.Id));
+        _news.Add(new NewsItem(group.Id, link.CourseId, content, spec.At, author.Id));
 
         foreach (var comment in spec.Comments)
         {
@@ -619,9 +627,13 @@ internal sealed class DemoBuilder(
                 .Select(enrollment => enrollment.GroupId)
                 .ToHashSet();
 
+            // Nyheter i en kurs når läraren bara om hen är kursens lärare, klassens nyheter når klassens lärare.
             foreach (var news in _news.Where(item => groupIds.Contains(item.GroupId)
                          && item.AuthorId != user.Id
-                         && item.At >= since))
+                         && item.At >= since
+                         && (user.Id == publicStudent.Id
+                             || item.CourseId is null
+                             || _taught.Contains((item.CourseId.Value, user.Id)))))
             {
                 AddNotification(
                     user,
@@ -724,7 +736,7 @@ internal sealed class DemoBuilder(
         return user;
     }
 
-    private sealed record NewsItem(Guid GroupId, Content Content, DateTimeOffset At, Guid AuthorId);
+    private sealed record NewsItem(Guid GroupId, Guid? CourseId, Content Content, DateTimeOffset At, Guid AuthorId);
 
     private sealed record GradedItem(Guid StudentId, ContentLink Link, Submission Submission, DateTimeOffset GradedAt);
 

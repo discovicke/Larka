@@ -138,7 +138,14 @@ public class NotificationService(
         {
             if (ContentVisibility.IsVisible(content, link, now) && await IsModuleOpenAsync(link, now, ct))
             {
-                recipients.UnionWith(await notifications.GetMemberIdsAsync(await GroupIdsAsync(link, ct), ct));
+                // Kursens lärare är de som står i kursen, inte lärarna i klassen. En länk till bara en grupp, utan
+                // kurs, når gruppens lärare som förut.
+                var groupIds = await GroupIdsAsync(link, ct);
+                recipients.UnionWith(await notifications.GetMemberIdsAsync(groupIds, link.CourseId is null, ct));
+                if (link.CourseId is not null)
+                {
+                    recipients.UnionWith(await notifications.GetCourseTeacherIdsAsync(link.CourseId.Value, ct));
+                }
             }
         }
 

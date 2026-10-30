@@ -179,6 +179,85 @@ public class DemoContentRefreshTests
         Assert.All(dueBefore, pair => Assert.Equal(pair.Value, dueAfter[pair.Key]));
     }
 
+    // Migrationen gjorde varje klasslärare till lärare i alla klassens kurser. Uppdateringen gör om det till katalogens
+    // lärare per kurs, men rör inga konton som katalogen inte känner.
+    [Fact]
+    public async Task Refresh_NarrowsTheBackfilledCourseTeachers_ToTheCatalog_AndLeavesRealUsers()
+    {
+        using var database = new TestWebApplicationFactory();
+        using var scope = database.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        await SeedAsync(scope);
+
+        // Läget efter migrationen: varje lärare i en klass är lärare i alla klassens kurser.
+        await db.CourseTeachers.ExecuteDeleteAsync();
+        db.ChangeTracker.Clear();
+        var backfilled = await db.Enrollments
+            .Where(enrollment => enrollment.Role == GroupRole.Teacher)
+            .Join(
+                db.GroupCourses,
+                enrollment => enrollment.GroupId,
+                groupCourse => groupCourse.GroupId,
+                (enrollment, groupCourse) => new { groupCourse.CourseId, enrollment.UserId })
+            .Distinct()
+            .ToListAsync();
+        db.CourseTeachers.AddRange(backfilled.Select(row =>
+            new CourseTeacher { CourseId = row.CourseId, UserId = row.UserId }));
+
+        // En riktig lärare i .NET25, som inte finns i katalogen, med alla klassens kurser.
+        var group = await db.Groups.SingleAsync(row => row.Name == DemoSeed.MarkerGroupName);
+        var real = await TestData.AddUserAsync(db, group.SchoolId, UserRole.Teacher);
+        db.Enrollments.Add(new Enrollment { UserId = real.Id, GroupId = group.Id, Role = GroupRole.Teacher });
+        var classCourseIds = await db.GroupCourses.Where(link => link.GroupId == group.Id)
+            .Select(link => link.CourseId).ToListAsync();
+        db.CourseTeachers.AddRange(classCourseIds.Select(id => new CourseTeacher { CourseId = id, UserId = real.Id }));
+        await db.SaveChangesAsync();
+
+        // Det katalogen vill ha: personerna per kurskod.
+        var emailsByCode = DemoCatalog.Classes().SelectMany(spec => spec.Courses)
+            .ToDictionary(
+                course => course.Code,
+                course => course.Teachers.Select(key => key == "larare"
+                        ? "larare"
+                        : DemoPeople.Teachers.Concat(DemoPeople.Mentors).Single(person => person.Key == key).Email)
+                    .Order().ToList());
+        var catalogEmails = DemoPeople.Teachers.Concat(DemoPeople.Mentors).Select(person => person.Email)
+            .Append("larare").ToHashSet();
+        var emailOf = await db.Users.ToDictionaryAsync(user => user.Id, user => user.Email);
+        var codeOf = await db.Courses.ToDictionaryAsync(course => course.Id, course => course.Code);
+        var wanted = emailsByCode.SelectMany(pair => pair.Value.Select(email => (pair.Key, email))).ToHashSet();
+        var have = backfilled.Select(row => (codeOf[row.CourseId], emailOf[row.UserId])).ToHashSet();
+        var expectedRemoved = have.Count(pair => !wanted.Contains(pair));
+        var expectedAdded = wanted.Count(pair => !have.Contains(pair));
+        Assert.True(expectedRemoved > 0);
+        Assert.True(expectedAdded > 0);
+        db.ChangeTracker.Clear();
+
+        var result = await scope.ServiceProvider.GetRequiredService<DemoContentRefresh>()
+            .RefreshAsync(CancellationToken.None);
+
+        Assert.Equal((expectedAdded, expectedRemoved), (result!.TeachersAdded, result.TeachersRemoved));
+        var rows = (await db.CourseTeachers.ToListAsync())
+            .Select(row => (codeOf[row.CourseId], emailOf.GetValueOrDefault(row.UserId) ?? "")).ToList();
+        foreach (var (code, emails) in emailsByCode)
+        {
+            Assert.Equal(
+                emails,
+                rows.Where(row => row.Item1 == code && catalogEmails.Contains(row.Item2))
+                    .Select(row => row.Item2).Order());
+        }
+
+        // Läraren som katalogen inte känner behåller alla kurser i klassen, och larare undervisar i DevOps och
+        // Webbapplikationer men inte i Programmering med C#.
+        Assert.Equal(
+            classCourseIds.Order(),
+            await db.CourseTeachers.Where(row => row.UserId == real.Id).Select(row => row.CourseId).OrderBy(id => id)
+                .ToListAsync());
+        Assert.Equal(
+            [".NET25_DEVOPS", ".NET25_WEBB"],
+            rows.Where(row => row.Item2 == "larare").Select(row => row.Item1).Order());
+    }
+
     [Fact]
     public async Task Refresh_FindsRenamedItemsByWas_AndCreatesNewPartsInOrder()
     {

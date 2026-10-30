@@ -371,6 +371,8 @@ public class AuthorizationTests(TestWebApplicationFactory factory) : IClassFixtu
         var teacher = await TestData.AddMemberAsync(db, group, GroupRole.Teacher, UserRole.Teacher);
         var otherTeacher = await TestData.AddMemberAsync(
             db, otherGroup, GroupRole.Teacher, UserRole.Teacher);
+        await TestData.AddCourseTeacherAsync(db, course, teacher);
+        await TestData.AddCourseTeacherAsync(db, otherCourse, otherTeacher);
 
         return new Scenario(
             school.Id, group.Id, course.Id, otherCourse.Id, student.Id, teacher.Id, otherTeacher.Id);

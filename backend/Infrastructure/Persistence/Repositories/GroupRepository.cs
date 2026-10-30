@@ -14,7 +14,10 @@ public class GroupRepository(AppDb db) : IGroupRepository
     public Task<List<Group>> GetForMemberAsync(Guid schoolId, Guid userId, CancellationToken ct) =>
         db.Groups
             .Where(group => group.SchoolId == schoolId
-                && db.Enrollments.Any(enrollment => enrollment.GroupId == group.Id && enrollment.UserId == userId))
+                && (db.Enrollments.Any(enrollment => enrollment.GroupId == group.Id && enrollment.UserId == userId)
+                    || db.GroupCourses.Any(groupCourse => groupCourse.GroupId == group.Id
+                        && db.CourseTeachers.Any(courseTeacher =>
+                            courseTeacher.CourseId == groupCourse.CourseId && courseTeacher.UserId == userId))))
             .ToListAsync(ct);
 
     public Task<Dictionary<Guid, int>> GetMemberCountsAsync(Guid schoolId, CancellationToken ct) =>
@@ -69,43 +72,43 @@ public class GroupRepository(AppDb db) : IGroupRepository
                 && enrollment.Role == GroupRole.Teacher,
             ct);
 
-    public Task<bool> IsTeacherOfCourseAsync(Guid courseId, Guid userId, CancellationToken ct)
-    {
-        var teacherGroupIds = db.Enrollments
-            .Where(enrollment => enrollment.UserId == userId && enrollment.Role == GroupRole.Teacher)
-            .Select(enrollment => enrollment.GroupId);
+    public Task<bool> IsTeacherOfCourseAsync(Guid courseId, Guid userId, CancellationToken ct) =>
+        db.CourseTeachers.AnyAsync(
+            courseTeacher => courseTeacher.CourseId == courseId && courseTeacher.UserId == userId, ct);
 
-        return db.GroupCourses.AnyAsync(
-            groupCourse => groupCourse.CourseId == courseId && teacherGroupIds.Contains(groupCourse.GroupId), ct);
-    }
+    public Task<bool> TeachesCourseOfGroupAsync(Guid groupId, Guid userId, CancellationToken ct) =>
+        db.GroupCourses.AnyAsync(
+            groupCourse => groupCourse.GroupId == groupId
+                && db.CourseTeachers.Any(courseTeacher =>
+                    courseTeacher.CourseId == groupCourse.CourseId && courseTeacher.UserId == userId),
+            ct);
 
-    public Task<List<GroupTeacher>> GetTeachersAsync(IReadOnlyCollection<Guid> groupIds, CancellationToken ct) =>
-        db.Enrollments
-            .Where(enrollment => groupIds.Contains(enrollment.GroupId) && enrollment.Role == GroupRole.Teacher)
-            .Join(
-                db.Users,
-                enrollment => enrollment.UserId,
-                user => user.Id,
-                (enrollment, user) => new { enrollment.GroupId, UserId = user.Id, user.Name, user.Email })
-            .Join(
-                db.Groups,
-                row => row.GroupId,
-                group => group.Id,
-                (row, group) => new GroupTeacher(row.UserId, row.Name, row.Email, group.Name))
+    public Task<List<string>> GetGroupNamesReadingCourseAsync(Guid courseId, CancellationToken ct) =>
+        db.GroupCourses
+            .Where(groupCourse => groupCourse.CourseId == courseId)
+            .Join(db.Groups, groupCourse => groupCourse.GroupId, group => group.Id, (_, group) => group.Name)
+            .OrderBy(name => name)
             .ToListAsync(ct);
 
+    // Lärare i en kurs är den som står i CourseTeachers. Lärarrollen i en klass räknas inte här, bara mentor och
+    // elev, och läraren behöver inte vara medlem i någon klass som läser kursen.
     public async Task<List<CourseRole>> GetCourseRolesAsync(Guid userId, CancellationToken ct)
     {
         var rows = await db.Enrollments
-            .Where(enrollment => enrollment.UserId == userId)
+            .Where(enrollment => enrollment.UserId == userId && enrollment.Role != GroupRole.Teacher)
             .Join(
                 db.GroupCourses,
                 enrollment => enrollment.GroupId,
                 groupCourse => groupCourse.GroupId,
                 (enrollment, groupCourse) => new { groupCourse.CourseId, enrollment.Role })
             .ToListAsync(ct);
+        var taught = await db.CourseTeachers
+            .Where(courseTeacher => courseTeacher.UserId == userId)
+            .Select(courseTeacher => courseTeacher.CourseId)
+            .ToListAsync(ct);
 
         return rows
+            .Concat(taught.Select(courseId => new { CourseId = courseId, Role = GroupRole.Teacher }))
             .GroupBy(row => row.CourseId)
             .Select(group => new CourseRole(group.Key, Strongest(group.Select(row => row.Role))))
             .ToList();

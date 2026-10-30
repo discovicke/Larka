@@ -31,6 +31,21 @@ public static class CourseEndpoints
                 : TypedResults.Ok(staff);
         });
 
+        // Vem som är lärare i kursen. Bara admin.
+        courses.MapGet("/{id:guid}/teachers", async (
+            Guid id, CourseTeacherService service, CancellationToken ct) =>
+            (await service.GetAsync(id, ct)).ToHttp(TypedResults.Ok));
+
+        // 409 om användaren redan är lärare i kursen.
+        courses.MapPost("/{id:guid}/teachers", async (
+            Guid id, AddCourseTeacherDto teacherDto, CourseTeacherService service, CancellationToken ct) =>
+            (await service.AddAsync(id, teacherDto, ct)).ToHttp(teacher =>
+                TypedResults.Created($"/api/courses/{id}/teachers", teacher)));
+
+        courses.MapDelete("/{id:guid}/teachers/{userId:guid}", async (
+            Guid id, Guid userId, CourseTeacherService service, CancellationToken ct) =>
+            (await service.RemoveAsync(id, userId, ct)).ToHttp(_ => TypedResults.NoContent()));
+
         // Lärarna ser vilka elever i kursen som ännu inte har kopplat GitHub.
         courses.MapGet("/{id:guid}/students/unlinked-github", async (
             Guid id, CourseService service, CancellationToken ct) =>

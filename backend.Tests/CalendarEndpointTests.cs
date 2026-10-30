@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Backend.Domain.Enums;
 using Backend.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace backend.Tests;
@@ -212,6 +213,33 @@ public class CalendarEndpointTests(TestWebApplicationFactory factory) : IClassFi
     }
 
     [Fact]
+    public async Task Calendar_ShowsTheCourseToItsTeacherOutsideTheClass_AndNotToTheTeacherOfTheClass()
+    {
+        var setup = await AddSetupAsync();
+        var week = await CreateModuleAsync(setup.CourseId);
+        var from = StartOfToday();
+        await CreateTheoryLinkAsync(
+            "Kurspublicering",
+            new { courseId = setup.CourseId, moduleId = week.Id, publishAt = from.AddDays(2) });
+        Guid outsideTeacher;
+        Guid otherCourseTeacher;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            var course = await db.Courses.SingleAsync(found => found.Id == setup.CourseId);
+            var otherCourse = await db.Courses.SingleAsync(found => found.Id == setup.OtherCourseId);
+            outsideTeacher = (await TestData.AddCourseTeacherAsync(db, course)).Id;
+            otherCourseTeacher = (await TestData.AddCourseTeacherAsync(db, otherCourse)).Id;
+        }
+
+        var asCourseTeacher = await GetCalendarAsync(outsideTeacher, from, from.AddDays(7));
+        var asOtherCourseTeacher = await GetCalendarAsync(otherCourseTeacher, from, from.AddDays(7));
+
+        Assert.Equal(["Kurspublicering"], asCourseTeacher.Select(item => item.Title));
+        Assert.Empty(asOtherCourseTeacher);
+    }
+
+    [Fact]
     public async Task InvalidRanges_ReturnBadRequest()
     {
         var from = StartOfToday();
@@ -245,6 +273,7 @@ public class CalendarEndpointTests(TestWebApplicationFactory factory) : IClassFi
         var otherCourse = await TestData.AddCourseAsync(db, school.Id, otherGroup.Id);
         var student = await TestData.AddMemberAsync(db, group);
         var teacher = await TestData.AddMemberAsync(db, group, GroupRole.Teacher, UserRole.Teacher);
+        await TestData.AddCourseTeacherAsync(db, course, teacher);
 
         return new Setup(
             group.Id, otherGroup.Id, course.Id, otherCourse.Id, student.Id, teacher.Id);
