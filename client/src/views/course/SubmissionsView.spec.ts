@@ -158,7 +158,7 @@ describe('SubmissionsView', () => {
     expect(rows[0].text()).toContain('Inlämnad')
     expect(rows[0].text()).toContain('1')
     expect(rows[2].text()).toContain('Gröna')
-    expect(rows[1].text()).toContain('Komplettering')
+    expect(rows[1].text()).toContain('Komplettera')
     expect(rows[2].text()).toContain('Bedömd')
     expect(rows[2].text()).toContain('anna/release-pipeline')
     expect(rows[3].text()).toContain('Ej inlämnad')

@@ -87,7 +87,8 @@ describe('CourseContentView', () => {
     const items = wrapper.findAll('[data-test="module-item"]').map((item) => item.text())
     expect(items[0]).toContain('Release-pipeline')
     expect(items[0]).toContain('Inlämning · fre 23 okt')
-    expect(items[0]).toContain('Publicerad')
+    // Publicerad är normalläget, så en publicerad del har inget eget märke.
+    expect(items[0]).not.toContain('Publicerad')
     expect(items[1]).toContain('Övning')
     expect(items[2]).toContain('Teori')
     expect(items[2]).toContain('Utkast')
@@ -357,12 +358,12 @@ describe('CourseContentView', () => {
     expect(labels).not.toContain('Ta bort vecka')
   })
 
-  it('visar veckans publiceringsdatum i veckobadgen', async () => {
+  it('visar veckans publiceringsdatum i veckomärket', async () => {
     backend([week('m1', 'Vecka 1', [submission], '2026-11-03T08:00:00Z')])
 
     const {wrapper} = await renderApp('/courses/c1/content')
 
-    expect(wrapper.text()).toContain('Publiceras')
+    expect(wrapper.text()).toContain('Schemalagd')
   })
 
   it('flyttar en del till en annan vecka och visar att beroenden togs bort', async () => {

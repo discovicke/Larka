@@ -58,16 +58,6 @@ export function isDueSoon(iso: string, now: Date): boolean {
   return diff >= 0 && diff <= urgentWithin
 }
 
-/** Klassen för en deadline: röd när den har passerat, gul inom två dygn, annars `fallback`. */
-export function dueTextClass(iso: string, now: Date, fallback = ''): string {
-  if (isOverdue(iso, now)) {
-    return 'text-destructive'
-  }
-  return isDueSoon(iso, now)
-    ? 'text-warning'
-    : fallback
-}
-
 /** Delar uppgifterna i försenade, den här veckan och senare. Ordningen behålls. */
 export function groupByDue<Item extends {dueAt: string}>(items: Item[], now: Date) {
   const overdue = items.filter((item) => isOverdue(item.dueAt, now))

@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import {PhFile, PhPaperPlaneTilt, PhWarning, PhX} from '@phosphor-icons/vue'
+import {PhFile, PhPaperPlaneTilt, PhX} from '@phosphor-icons/vue'
 import {computed, ref, watch} from 'vue'
 
 import MarkdownEditor from '@/components/editor/MarkdownEditor.vue'
 import MarkdownView from '@/components/editor/MarkdownView.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
-import {Badge} from '@/components/ui/badge'
 import {Button} from '@/components/ui/button'
 import {Input} from '@/components/ui/input'
 import {api, errorMessage, multipart, type Schema} from '@/lib/api'
@@ -130,15 +129,9 @@ async function submit() {
   >
     <div class="flex flex-wrap items-center justify-between gap-2">
       <h2 id="submission-h" class="text-lg font-semibold">Din inlämning</h2>
-      <Badge
-        v-if="isLate"
-        variant="outline"
-        class="border-warning/20 bg-warning/10 text-warning dark:border-warning/30 dark:bg-warning/20"
-        data-test="submission-late"
-      >
-        <PhWarning/>
+      <span v-if="isLate" class="text-muted-foreground text-sm" data-test="submission-late">
         Sen inlämning
-      </Badge>
+      </span>
     </div>
 
     <p v-if="onSite" class="text-muted-foreground text-sm" data-test="submission-onsite">

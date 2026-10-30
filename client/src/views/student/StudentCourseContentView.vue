@@ -18,6 +18,7 @@ import {useRoute, useRouter} from 'vue-router'
 
 import GitHubAssignmentBlock from '@/components/GitHubAssignmentBlock.vue'
 import MarkdownView from '@/components/editor/MarkdownView.vue'
+import StatusBadge from '@/components/StatusBadge.vue'
 import SubmissionPanel from '@/components/student/SubmissionPanel.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Badge} from '@/components/ui/badge'
@@ -30,8 +31,8 @@ import {useCurrentUser} from '@/composables/useCurrentUser'
 import {api, errorMessage, type Schema} from '@/lib/api'
 import {parseChecklist} from '@/lib/checklist'
 import {countLabel, formatDate, partOf} from '@/lib/content'
+import {deadlineStatusKey, partStatusKey, statuses, toneTextClasses} from '@/lib/status'
 import {gradeBadgeVariant, gradeLabel as gradeShort} from '@/lib/submissions'
-import {dueTextClass, isDueSoon, isOverdue} from '@/lib/today'
 
 // Elevens vy av en kurs: veckor, låsta delar och klarmarkering. Den visas i stället för redigeraren
 // på kursens innehållssida för den som inte kan redigera. Servern vet vilka grupper eleven går i,
@@ -57,12 +58,12 @@ const visibleModules = computed(() => filter.value === 'all'
   ? modules.value
   : availableModules.value)
 const completable = computed(() => allItems.value.filter((item) => item.type !== 'News'))
-const completedCount = computed(() => completable.value.filter((item) => item.isCompleted).length)
+const completedCount = computed(() => completable.value.filter(isFinished).length)
 const todoCount = computed(() => completable.value.length - completedCount.value)
 const availableCount = computed(() => allItems.value.filter(isAvailable).length)
 const submissionCount = computed(() => allItems.value.filter((item) => kindOf(item) === 'Inlämning').length)
 const gradedCount = computed(() => allItems.value.filter((item) => item.submissionStatus === 'Graded').length)
-const lockedCount = computed(() => allItems.value.filter((item) => item.isLocked && !item.isCompleted).length)
+const lockedCount = computed(() => allItems.value.filter((item) => item.isLocked && !isFinished(item)).length)
 const progressPercent = computed(() => completable.value.length === 0
   ? 0
   : Math.round((completedCount.value / completable.value.length) * 100))
@@ -271,15 +272,21 @@ interface PartSection {
   empty: string
 }
 
+// Klar för listorna och räknarna. isCompleted är också sann för en inlämnad uppgift (och för en som ska
+// kompletteras), men en komplettering är ett steg kvar och räknas inte som klar. Inlämnad räknas.
+function isFinished(item: Schema<'StudentContentItem'>): boolean {
+  return item.isCompleted && partStatusKey(item) !== 'submission.needsWork'
+}
+
 function isAvailable(item: Schema<'StudentContentItem'>): boolean {
-  return item.type !== 'News' && !item.isLocked && !item.isCompleted
+  return item.type !== 'News' && !item.isLocked && !isFinished(item)
 }
 
 function sectionsFor(module: Schema<'StudentModuleWithContentDto'>): PartSection[] {
   const available = module.content.filter(isAvailable)
   const availableIds = new Set(available.map((item) => item.linkId))
   const locked = module.content.filter((item) =>
-    item.type !== 'News' && item.isLocked && !item.isCompleted)
+    item.type !== 'News' && item.isLocked && !isFinished(item))
 
   // Bara låsta delar som öppnas när delarna i "Nästa steg" är klara. Då visas ett lager fram,
   // inte hela beroendekedjan.
@@ -326,7 +333,7 @@ function sectionsFor(module: Schema<'StudentModuleWithContentDto'>): PartSection
     {
       key: 'completed',
       title: 'Klart',
-      items: module.content.filter((item) => item.type !== 'News' && item.isCompleted),
+      items: module.content.filter((item) => item.type !== 'News' && isFinished(item)),
       defaultOpen: false,
       empty: '',
     },
@@ -363,7 +370,7 @@ function filterLabel(value: 'all' | 'todo' | 'submissions'): string {
 function moduleProgress(module: Schema<'StudentModuleWithContentDto'>): {done: number, total: number} {
   const parts = module.content.filter((item) => item.type !== 'News')
   return {
-    done: parts.filter((item) => item.isCompleted).length,
+    done: parts.filter(isFinished).length,
     total: parts.length,
   }
 }
@@ -389,50 +396,21 @@ function gradeScaleLabel(scale: Schema<'GradeScale'> | null): string | null {
   return null
 }
 
+// Etiketten, ikonen och färgen kommer från samma läge (lib/status.ts), så de kan inte skilja sig åt.
+function statusKey(item: Schema<'StudentContentItem'>) {
+  return partStatusKey(item)
+}
+
 function rowIcon(item: Schema<'StudentContentItem'>): Component {
-  if (item.isCompleted) {
-    return PhCheckCircle
-  }
-  if (item.isLocked) {
-    return PhLock
-  }
-  if (item.submissionStatus === 'Submitted') {
-    return PhPaperPlaneTilt
-  }
-  return PhCircle
+  return statuses[statusKey(item)].icon ?? PhCircle
 }
 
 function rowIconClass(item: Schema<'StudentContentItem'>): string {
-  if (item.isCompleted) {
-    return 'text-success'
-  }
-  if (item.isLocked) {
-    return 'text-muted-foreground'
-  }
-  if (item.submissionStatus === 'Submitted') {
-    return 'text-info'
-  }
-  if (item.submissionStatus === 'NeedsWork' || item.gradeLevel === 'Fail') {
-    return 'text-destructive'
-  }
-  return 'text-muted-foreground'
+  return toneTextClasses[statuses[statusKey(item)].tone]
 }
 
 function missingBlockers(item: Schema<'StudentContentItem'>): Schema<'StudentBlockerDto'>[] {
   return item.blockedBy.filter((blocker) => !blocker.isSatisfied)
-}
-
-function submissionLabel(item: Schema<'StudentContentItem'>): string {
-  if (item.submissionStatus === 'Submitted') {
-    return 'Inlämnad'
-  }
-  if (item.submissionStatus === 'NeedsWork') {
-    return 'Behöver kompletteras'
-  }
-  if (item.submissionStatus === 'Graded') {
-    return gradeLabel(item.gradeLevel)
-  }
-  return 'Inte inlämnad'
 }
 
 function gradeLabel(level: Schema<'GradeLevel'> | null): string {
@@ -449,16 +427,7 @@ function gradeLabel(level: Schema<'GradeLevel'> | null): string {
 }
 
 function statusHeading(item: Schema<'StudentContentItem'>): string {
-  if (item.isCompleted) {
-    return 'Klar'
-  }
-  if (item.isLocked) {
-    return 'Låst'
-  }
-  if (item.type === 'Assignment') {
-    return submissionLabel(item)
-  }
-  return 'Inte påbörjad'
+  return statuses[statusKey(item)].label
 }
 
 function dueLabel(item: Schema<'StudentContentItem'>): string {
@@ -467,28 +436,21 @@ function dueLabel(item: Schema<'StudentContentItem'>): string {
     : ''
 }
 
-// Klar eller inlämnad är inte försenad, så deadlinen får ingen varningston då.
+// Klar eller inlämnad är inte försenad, så deadlinen får inget läge då.
 function isDone(item: Schema<'StudentContentItem'>): boolean {
   return item.isCompleted || item.submissionStatus === 'Submitted' || item.submissionStatus === 'Graded'
 }
 
-function dueVariant(item: Schema<'StudentContentItem'>): 'destructive' | 'warning' | 'outline' {
-  if (!item.dueAt || isDone(item)) {
-    return 'outline'
-  }
-  const now = new Date()
-  if (isOverdue(item.dueAt, now)) {
-    return 'destructive'
-  }
-  return isDueSoon(item.dueAt, now)
-    ? 'warning'
-    : 'outline'
+function dueStatus(item: Schema<'StudentContentItem'>) {
+  return deadlineStatusKey(item.dueAt, isDone(item))
 }
 
-function dueClass(item: Schema<'StudentContentItem'>): string {
-  return item.dueAt && !isDone(item)
-    ? dueTextClass(item.dueAt, new Date(), 'text-muted-foreground')
-    : 'text-muted-foreground'
+// Märket i raden bara för uppgifter med inlämning, och inte för Att göra eller Låst: de visas av ikonen.
+function rowBadge(item: Schema<'StudentContentItem'>) {
+  const key = statusKey(item)
+  return item.type === 'Assignment' && !item.canMarkDone && key !== 'progress.todo' && key !== 'progress.locked'
+    ? key
+    : null
 }
 
 const submissionModeLabels: Record<string, string> = {
@@ -534,44 +496,32 @@ function handInLabel(item: Schema<'StudentContentItem'>): string {
         </div>
 
         <header class="flex flex-col gap-3 border-b pb-4">
-          <div class="flex flex-wrap items-center gap-2">
-            <Badge variant="outline">
-              <component :is="partOf(selectedItem).icon"/>
-              {{ kindOf(selectedItem) }}
-            </Badge>
-            <Badge
-              v-if="selectedItem.isLocked"
-              variant="outline"
-              class="text-muted-foreground"
-            >
-              <PhLock/>
-              Låst
-            </Badge>
-          </div>
           <h2 class="text-3xl leading-tight font-semibold">{{ selectedItem.title }}</h2>
           <p class="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+            <span class="flex items-center gap-1">
+              <component :is="partOf(selectedItem).icon" class="size-4"/>
+              {{ kindOf(selectedItem) }}
+            </span>
+            <span>·</span>
             <span>{{ selectedModule.title }}</span>
             <template v-if="selectedItem.type === 'News'">
               <span>·</span>
               <span>Nyhet</span>
             </template>
           </p>
-          <div class="flex flex-wrap items-center gap-2" data-test="fact-pills">
-            <Badge
-              v-if="selectedItem.dueAt"
-              :variant="dueVariant(selectedItem)"
-              data-test="pill-due"
-            >
-              <PhCalendarBlank/>
+          <div class="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm" data-test="facts">
+            <span v-if="selectedItem.dueAt" class="flex items-center gap-1.5" data-test="fact-due">
+              <PhCalendarBlank class="size-4"/>
               {{ dueLabel(selectedItem) }}
-            </Badge>
-            <Badge v-if="gradeScaleLabel(selectedItem.gradeScale)" variant="outline" data-test="pill-scale">
+              <StatusBadge v-if="dueStatus(selectedItem)" :status="dueStatus(selectedItem)!"/>
+            </span>
+            <span v-if="gradeScaleLabel(selectedItem.gradeScale)" data-test="fact-scale">
               Betygsskala {{ gradeScaleLabel(selectedItem.gradeScale) }}
-            </Badge>
-            <Badge v-if="handInLabel(selectedItem)" variant="outline" data-test="pill-handin">
-              <PhPaperPlaneTilt/>
+            </span>
+            <span v-if="handInLabel(selectedItem)" class="flex items-center gap-1.5" data-test="fact-handin">
+              <PhPaperPlaneTilt class="size-4"/>
               Lämnas in som {{ handInLabel(selectedItem) }}
-            </Badge>
+            </span>
           </div>
         </header>
 
@@ -652,14 +602,7 @@ function handInLabel(item: Schema<'StudentContentItem'>): string {
                     ? 'Läraren vill att du kompletterar'
                     : 'Lärarens kommentar' }}
                 </h2>
-                <Badge
-                  v-if="selectedItem.submissionStatus === 'NeedsWork'"
-                  variant="outline"
-                  class="border-warning/20 bg-warning/10 text-warning dark:border-warning/30 dark:bg-warning/20"
-                >
-                  Behöver kompletteras
-                </Badge>
-                <Badge v-else-if="feedback.level" :variant="gradeBadgeVariant(feedback.level)" data-test="grade-stamp">
+                <Badge v-if="feedback.level && selectedItem.submissionStatus !== 'NeedsWork'" :variant="gradeBadgeVariant(feedback.level)" data-test="grade-stamp">
                   {{ gradeShort(feedback.level) }}
                 </Badge>
               </div>
@@ -738,10 +681,6 @@ function handInLabel(item: Schema<'StudentContentItem'>): string {
                 </p>
                 <dl class="flex flex-col gap-1.5 text-sm">
                   <div class="flex items-center justify-between gap-2">
-                    <dt class="text-muted-foreground">Inlämning</dt>
-                    <dd>{{ submissionLabel(selectedItem) }}</dd>
-                  </div>
-                  <div class="flex items-center justify-between gap-2">
                     <dt class="text-muted-foreground">Betyg</dt>
                     <dd>
                       {{ selectedItem.gradeLevel
@@ -751,14 +690,6 @@ function handInLabel(item: Schema<'StudentContentItem'>): string {
                   </div>
                 </dl>
               </template>
-            </section>
-
-            <section v-if="selectedItem.dueAt" class="bg-card flex flex-col gap-2 rounded-xl border p-4">
-              <h2 class="flex items-center gap-2 text-sm font-semibold">
-                <PhCalendarBlank class="text-muted-foreground size-4"/>
-                Deadline
-              </h2>
-              <p class="text-sm">{{ formatDate(selectedItem.dueAt, true) }}</p>
             </section>
           </aside>
         </div>
@@ -816,15 +747,11 @@ function handInLabel(item: Schema<'StudentContentItem'>): string {
                     <template v-if="module.description"> · {{ module.description }}</template>
                   </span>
                 </span>
-                <Badge
+                <StatusBadge
                   v-if="moduleProgress(module).total > 0
                     && moduleProgress(module).done === moduleProgress(module).total"
-                  variant="outline"
-                  class="border-success/20 bg-success/10 text-success dark:border-success/30 dark:bg-success/20"
-                >
-                  <PhCheckCircle/>
-                  Klar
-                </Badge>
+                  status="progress.done"
+                />
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <Collapsible
@@ -884,7 +811,9 @@ function handInLabel(item: Schema<'StudentContentItem'>): string {
                         v-else
                         :is="rowIcon(item)"
                         class="size-[18px] shrink-0"
-                        :class="rowIconClass(item)"
+                        :class="[rowIconClass(item), rowBadge(item)
+                          ? 'sm:invisible'
+                          : '']"
                         :aria-label="statusHeading(item)"
                         role="img"
                       />
@@ -907,20 +836,18 @@ function handInLabel(item: Schema<'StudentContentItem'>): string {
                           <span class="text-muted-foreground text-[12px]">{{ detailsOf(item) }}</span>
                         </span>
                         <span class="hidden items-center gap-2 sm:flex">
+                          <StatusBadge v-if="rowBadge(item)" :status="rowBadge(item)!"/>
                           <Badge
-                            v-if="item.type === 'Assignment' && !item.isLocked"
-                            variant="outline"
-                            class="h-[22px] rounded-[5px]"
-                            :class="item.isCompleted
-                              ? 'border-success/20 bg-success/10 text-success dark:border-success/30 dark:bg-success/20'
-                              : ''"
+                            v-if="item.submissionStatus === 'Graded' && item.gradeLevel"
+                            :variant="gradeBadgeVariant(item.gradeLevel)"
+                            data-test="row-grade-stamp"
                           >
-                            {{ submissionLabel(item) }}
+                            {{ gradeShort(item.gradeLevel) }}
                           </Badge>
+                          <StatusBadge v-if="dueStatus(item) && !item.isLocked" :status="dueStatus(item)!"/>
                           <span
                             v-if="item.dueAt && !item.isLocked"
-                            class="text-[12px] whitespace-nowrap"
-                            :class="dueClass(item)"
+                            class="text-muted-foreground text-[12px] whitespace-nowrap"
                           >
                             {{ dueLabel(item) }}
                           </span>
@@ -949,12 +876,12 @@ function handInLabel(item: Schema<'StudentContentItem'>): string {
                 <span class="truncate font-sans text-[15px] font-semibold">{{ module.title }}</span>
                 <span class="text-muted-foreground text-[13px]">Veckan är låst</span>
               </span>
-              <Badge variant="outline" class="gap-1.5">
-                <PhCalendarBlank/>
+              <span class="text-muted-foreground flex items-center gap-1.5 text-[13px]">
+                <PhCalendarBlank class="size-4"/>
                 Öppnar {{ module.publishAt
                   ? formatDate(module.publishAt, true)
                   : 'senare' }}
-              </Badge>
+              </span>
             </Item>
           </template>
         </div>

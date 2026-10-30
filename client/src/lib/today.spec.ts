@@ -6,7 +6,6 @@ import {
   dueThisWeekText,
   firstName,
   greeting,
-  dueTextClass,
   groupByDue,
   isDueSoon,
   isOverdue,
@@ -66,13 +65,6 @@ describe('today', () => {
     expect(isDueSoon(local(10, 20), wednesday)).toBe(false)
     expect(isDueSoon(local(10, 23, 11), wednesday)).toBe(true)
     expect(isDueSoon(local(10, 23, 13), wednesday)).toBe(false)
-  })
-
-  it('väljer färg efter hur nära deadlinen är', () => {
-    expect(dueTextClass(local(10, 20), wednesday)).toBe('text-destructive')
-    expect(dueTextClass(local(10, 22), wednesday)).toBe('text-warning')
-    expect(dueTextClass(local(11, 6), wednesday)).toBe('')
-    expect(dueTextClass(local(11, 6), wednesday, 'text-muted-foreground')).toBe('text-muted-foreground')
   })
 
   it('lägger försenade först och delar resten på veckan', () => {

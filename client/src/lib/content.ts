@@ -2,6 +2,7 @@ import {PhBookOpenText, PhExam, PhNewspaper, PhPencilSimpleLine} from '@phosphor
 import type {Component} from 'vue'
 
 import type {Schema} from '@/lib/api'
+import type {StatusKey} from '@/lib/status'
 
 // "Typ av del" i formuläret. Övning och inlämning är båda uppgifter, men bara inlämningen har en betygsskala.
 export type PartType = 'Theory' | 'Exercise' | 'Submission'
@@ -56,13 +57,13 @@ export function formatDate(iso: string, withTime = false): string {
 }
 
 export interface WeekPublishState {
-  label: string
-  class: string
-  kind: 'published' | 'partial' | 'scheduled' | 'draft'
+  status: StatusKey
+  /** Ersätter lägets text när den behöver en detalj, t.ex. "Schemalagd tis 3 nov". */
+  label?: string
 }
 
 /**
- * Veckans badge. Veckans eget datum är en hård grind: innan det är passerat visas "Publiceras".
+ * Veckans läge. Veckans eget datum är en hård grind: innan det är passerat visas "Schemalagd".
  * Efter det sammanfattas delarnas status, så att blandade veckor syns som "Delvis publicerad".
  */
 export function weekPublishState(
@@ -73,11 +74,7 @@ export function weekPublishState(
   now = new Date(),
 ): WeekPublishState | null {
   if (module.publishAt && new Date(module.publishAt) > now) {
-    return {
-      label: `Publiceras ${formatDate(module.publishAt, true)}`,
-      class: 'bg-muted',
-      kind: 'scheduled',
-    }
+    return {status: 'publishing.scheduled', label: `Schemalagd ${formatDate(module.publishAt, true)}`}
   }
 
   if (module.content.length === 0) {
@@ -87,31 +84,19 @@ export function weekPublishState(
   const live = module.content.filter((part) =>
     part.status === 'Published' && new Date(part.publishAt) <= now)
   if (live.length === module.content.length) {
-    return {
-      label: 'Publicerad',
-      class: 'border-success/20 bg-success/10 text-success',
-      kind: 'published',
-    }
+    return {status: 'publishing.published'}
   }
 
   if (live.length > 0) {
-    return {
-      label: 'Delvis publicerad',
-      class: 'border-warning/20 bg-warning/10 text-warning',
-      kind: 'partial',
-    }
+    return {status: 'publishing.partial'}
   }
 
   const scheduled = module.content
     .filter((part) => part.status === 'Published' && new Date(part.publishAt) > now)
     .sort((left, right) => Date.parse(left.publishAt) - Date.parse(right.publishAt))
   if (scheduled.length > 0) {
-    return {
-      label: `Publiceras ${formatDate(scheduled[0].publishAt, true)}`,
-      class: 'bg-muted',
-      kind: 'scheduled',
-    }
+    return {status: 'publishing.scheduled', label: `Schemalagd ${formatDate(scheduled[0].publishAt, true)}`}
   }
 
-  return {label: 'Utkast', class: '', kind: 'draft'}
+  return {status: 'publishing.draft'}
 }

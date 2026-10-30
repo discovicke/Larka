@@ -209,14 +209,21 @@ public class TodayService(
                 studentCourse.Course.Code,
                 studentCourse.Course.Title,
                 visible.Count,
-                visible.Count(part => PartRules.IsSatisfied(
-                    part.Content,
+                visible.Count(part => IsCompletedForProgress(
+                    part,
                     completionByLink.GetValueOrDefault(part.Link.Id),
                     submissionByLink.GetValueOrDefault(part.Link.Id)))));
         }
 
         return result;
     }
+
+    // En uppgift som läraren har bett eleven komplettera är ett steg kvar, så den räknas inte som klar
+    // i framstegen. PartRules.IsSatisfied är oförändrad, så upplåsning av nästa del fungerar som förut.
+    private static bool IsCompletedForProgress(
+        LinkedContent part, PartCompletion? completion, Submission? submission) =>
+        submission?.Status != SubmissionStatus.NeedsWork
+        && PartRules.IsSatisfied(part.Content, completion, submission);
 
     private record RecentSubmission(Submission Submission, LinkedContent Link, string? CourseTitle);
 }

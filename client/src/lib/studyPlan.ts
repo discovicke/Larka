@@ -74,7 +74,7 @@ export function assignmentStatus(assignment: StudyPlanAssignment, now = new Date
         ? gradeLabels[assignment.grade]
         : 'Bedömd'
     case 'NeedsWork':
-      return 'Komplettering'
+      return 'Komplettera'
     case 'Submitted':
       return 'Inlämnad'
     default:

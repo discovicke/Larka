@@ -35,6 +35,7 @@ describe('router', () => {
     ['/courses/devops/assignments/l1', 'assignment-submissions'],
     ['/courses/devops/assignments/l1/submissions/s1', 'submission-review'],
     ['/dev', 'dev'],
+    ['/dev/status', 'dev-status'],
   ])('%s öppnar %s', async (path, routeName) => {
     const route = await open(path)
 

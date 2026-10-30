@@ -8,6 +8,7 @@ import {
 } from 'vue-router'
 
 import MarkdownView from '@/components/editor/MarkdownView.vue'
+import StatusBadge from '@/components/StatusBadge.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Badge} from '@/components/ui/badge'
 import {Button} from '@/components/ui/button'
@@ -17,6 +18,7 @@ import {Skeleton} from '@/components/ui/skeleton'
 import {useCrumbLabels} from '@/composables/useCrumbLabels'
 import {api, type Schema} from '@/lib/api'
 import {formatDate, partOf} from '@/lib/content'
+import {submissionStatusKey} from '@/lib/status'
 import {checkClass, checkLabel, gradeBadgeVariant, gradeLabel, statusLabel} from '@/lib/submissions'
 
 type Filter = 'all' | 'due' | 'needsWork' | 'notStarted'
@@ -26,8 +28,6 @@ interface Stat {
   value: number
   suffix: string
   class: string
-  labelClass?: string
-  valueClass?: string
 }
 
 const route = useRoute()
@@ -81,9 +81,7 @@ const stats = computed<Stat[]>(() => [
     label: 'Komplettering',
     value: countOf('NeedsWork'),
     suffix: '',
-    class: 'border-warning/20 bg-warning/10 dark:border-warning/30 dark:bg-warning/20',
-    labelClass: 'text-warning',
-    valueClass: 'text-warning',
+    class: 'bg-card',
   },
 ])
 
@@ -169,18 +167,6 @@ function filterClass(value: Filter) {
     : 'text-muted-foreground'
 }
 
-function statusClass(submission: Schema<'SubmissionDto'>): string {
-  return submission.status === 'Submitted'
-    ? 'border-success/20 bg-success/10 text-success dark:border-success/30 dark:bg-success/20'
-    : 'border-warning/20 bg-warning/10 text-warning dark:border-warning/30 dark:bg-warning/20'
-}
-
-function statusText(submission: Schema<'SubmissionDto'>): string {
-  return submission.status === 'Submitted'
-    ? 'Inlämnad'
-    : statusLabel(submission)
-}
-
 function reviewRoute(submission: Schema<'SubmissionDto'>) {
   return {
     name: 'submission-review',
@@ -255,17 +241,12 @@ watch([courseId, linkId], () => {
         <div class="flex flex-wrap items-end justify-between gap-4">
           <div class="flex flex-col gap-2">
             <div class="flex flex-wrap items-center gap-2">
-              <Badge variant="outline">{{ partOf(assignment).label }}</Badge>
-              <Badge
-                variant="outline"
-                :class="published
-                  ? 'border-success/20 bg-success/10 text-success dark:border-success/30 dark:bg-success/20'
-                  : ''"
-              >
-                {{ published
-                  ? 'Publicerad'
-                  : 'Utkast' }}
-              </Badge>
+              <span class="text-muted-foreground text-[13px]">{{ partOf(assignment).label }}</span>
+              <StatusBadge
+                :status="published
+                  ? 'publishing.published'
+                  : 'publishing.draft'"
+              />
             </div>
             <h1 class="font-heading text-[30px] leading-tight font-semibold">{{ assignment.title }}</h1>
             <p class="text-muted-foreground text-[13px]">{{ summary }}</p>
@@ -304,8 +285,8 @@ watch([courseId, linkId], () => {
           :class="stat.class"
           data-test="stat-card"
         >
-          <span class="text-[13px] text-muted-foreground" :class="stat.labelClass">{{ stat.label }}</span>
-          <span class="font-heading text-2xl font-semibold" :class="stat.valueClass">
+          <span class="text-[13px] text-muted-foreground">{{ stat.label }}</span>
+          <span class="font-heading text-2xl font-semibold">
             {{ stat.value }}
             <span v-if="stat.suffix" class="text-sm font-normal text-muted-foreground">{{ stat.suffix }}</span>
           </span>
@@ -356,8 +337,8 @@ watch([courseId, linkId], () => {
         </div>
 
         <div class="overflow-x-auto">
-          <table class="w-full min-w-[760px] text-[13px]">
-            <thead>
+          <table class="w-full text-[13px] max-md:block md:min-w-[760px]">
+            <thead class="max-md:hidden">
               <tr class="bg-muted/50 text-muted-foreground text-left">
                 <th scope="col" class="border-b px-4 py-2.5 font-medium">Elev</th>
                 <th scope="col" class="border-b px-3 py-2.5 font-medium">Inlämnad</th>
@@ -367,41 +348,46 @@ watch([courseId, linkId], () => {
                 <th scope="col" class="border-b px-4 py-2.5 text-right font-medium">Betyg</th>
               </tr>
             </thead>
-            <tbody>
-              <tr v-for="(submission, index) in visible" :key="submission.id" data-test="submission-row">
-                <td class="px-4 py-3" :class="rowBorder(index)">
+            <tbody class="max-md:block">
+              <tr
+                v-for="(submission, index) in visible"
+                :key="submission.id"
+                class="max-md:grid max-md:grid-cols-[minmax(0,1fr)_auto] max-md:gap-x-3 max-md:gap-y-1 max-md:px-4 max-md:py-3"
+                :class="index < visible.length - 1
+                  ? 'max-md:border-b'
+                  : ''"
+                data-test="submission-row"
+              >
+                <td class="px-4 py-3 max-md:border-b-0 max-md:p-0" :class="rowBorder(index)">
                   <div class="font-medium">{{ nameOf(submission) }}</div>
                   <div v-if="submission.repo" class="font-mono text-xs text-muted-foreground">
                     {{ submission.repo.repoFullName }}
                   </div>
                 </td>
-                <td class="px-3 py-3" :class="rowBorder(index)">
+                <td class="px-3 py-3 max-md:border-b-0 max-md:p-0 max-md:text-muted-foreground" :class="rowBorder(index)">
                   {{ submission.submittedAt
                     ? formatDate(submission.submittedAt, true)
                     : '–' }}
                 </td>
-                <td class="px-3 py-3" :class="rowBorder(index)">
+                <td class="px-3 py-3 max-md:hidden" :class="rowBorder(index)">
                   {{ submission.files.length > 0
                     ? submission.files.length
                     : '–' }}
                 </td>
-                <td v-if="hasRepos" class="px-3 py-3" :class="rowBorder(index)">
+                <td v-if="hasRepos" class="px-3 py-3 max-md:border-b-0 max-md:p-0" :class="rowBorder(index)">
                   <span v-if="submission.repo" :class="checkClass(submission.repo.checkStatus)">
                     {{ checkLabel(submission.repo.checkStatus) }}
                   </span>
                   <span v-else class="text-muted-foreground">–</span>
                 </td>
-                <td class="px-3 py-3" :class="rowBorder(index)">
-                  <Badge
+                <td class="px-3 py-3 max-md:border-b-0 max-md:p-0" :class="rowBorder(index)">
+                  <StatusBadge
                     v-if="submission.status === 'Submitted' || submission.status === 'NeedsWork'"
-                    variant="outline"
-                    :class="statusClass(submission)"
-                  >
-                    {{ statusText(submission) }}
-                  </Badge>
+                    :status="submissionStatusKey(submission.status)"
+                  />
                   <span v-else class="text-muted-foreground">{{ statusLabel(submission) }}</span>
                 </td>
-                <td class="px-4 py-3 text-right" :class="rowBorder(index)">
+                <td class="px-4 py-3 text-right max-md:col-start-2 max-md:row-span-2 max-md:row-start-1 max-md:self-center max-md:border-b-0 max-md:p-0" :class="rowBorder(index)">
                   <div class="flex justify-end">
                     <Button
                       v-if="submission.status === 'Submitted' || submission.status === 'NeedsWork'"

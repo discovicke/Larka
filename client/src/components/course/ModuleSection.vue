@@ -19,7 +19,7 @@ import {
 } from '@phosphor-icons/vue'
 import {computed, ref} from 'vue'
 
-import {Badge} from '@/components/ui/badge'
+import StatusBadge from '@/components/StatusBadge.vue'
 import {Button} from '@/components/ui/button'
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '@/components/ui/collapsible'
 import {
@@ -32,6 +32,7 @@ import {
 import {Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle} from '@/components/ui/item'
 import type {Schema} from '@/lib/api'
 import {countLabel, formatDate, partOf, weekPublishState} from '@/lib/content'
+import type {StatusKey} from '@/lib/status'
 
 const props = defineProps<{
   module: Schema<'ModuleWithContentDto'>
@@ -85,17 +86,24 @@ function hasCounts(item: Schema<'ModuleContentItem'>): boolean {
   return item.submittedCount != null && item.studentCount != null
 }
 
-function badgeOf(item: Schema<'ModuleContentItem'>): {label: string, class: string} {
+// Veckans märke visar läget en gång. Delen får bara ett eget märke när den avviker: utkast, eller
+// ett annat publiceringsdatum än veckans. Publicerad är normalläget och visas inte per del.
+function showItemBadge(item: Schema<'ModuleContentItem'>): boolean {
+  const badge = badgeOf(item)
+  if (badge.status === 'publishing.published') {
+    return false
+  }
+  return !(weekState.value?.status === badge.status && weekState.value.label === badge.label)
+}
+
+function badgeOf(item: Schema<'ModuleContentItem'>): {status: StatusKey, label?: string} {
   if (item.status === 'Draft') {
-    return {label: 'Utkast', class: ''}
+    return {status: 'publishing.draft'}
   }
   if (new Date(item.publishAt) > new Date()) {
-    return {label: `Publiceras ${formatDate(item.publishAt, true)}`, class: 'bg-muted'}
+    return {status: 'publishing.scheduled', label: `Schemalagd ${formatDate(item.publishAt, true)}`}
   }
-  return {
-    label: 'Publicerad',
-    class: 'border-success/20 bg-success/10 text-success dark:border-success/30 dark:bg-success/20',
-  }
+  return {status: 'publishing.published'}
 }
 </script>
 
@@ -106,7 +114,7 @@ function badgeOf(item: Schema<'ModuleContentItem'>): {label: string, class: stri
     :aria-label="module.title"
     class="bg-card text-card-foreground overflow-hidden rounded-[11px] border"
   >
-    <div class="bg-muted/40 flex items-center gap-2.5 py-2 pr-3 pl-2" :class="{'border-b': open}">
+    <div class="bg-muted/40 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 py-2 pr-3 pl-2" :class="{'border-b': open}">
       <CollapsibleTrigger as-child>
         <Button
           variant="ghost"
@@ -118,16 +126,8 @@ function badgeOf(item: Schema<'ModuleContentItem'>): {label: string, class: stri
           <PhCaretDown class="text-muted-foreground transition-transform" :class="{'-rotate-90': !open}"/>
         </Button>
       </CollapsibleTrigger>
-      <h2 class="flex-1 font-sans text-sm font-semibold">{{ module.title }}</h2>
-      <Badge
-        v-if="weekState"
-        variant="outline"
-        class="h-[22px] rounded-[5px]"
-        :class="weekState.class"
-      >
-        <PhCalendarBlank v-if="weekState.kind === 'scheduled'"/>
-        {{ weekState.label }}
-      </Badge>
+      <h2 class="min-w-32 flex-1 font-sans text-sm font-semibold">{{ module.title }}</h2>
+      <StatusBadge v-if="weekState" :status="weekState.status" :label="weekState.label"/>
       <span class="text-muted-foreground text-[13px]">{{ countLabel(module.content.length, 'del', 'delar') }}</span>
       <DropdownMenu v-if="canEdit">
         <DropdownMenuTrigger as-child>
@@ -177,7 +177,7 @@ function badgeOf(item: Schema<'ModuleContentItem'>): {label: string, class: stri
         <ItemMedia variant="icon" class="text-muted-foreground">
           <component :is="partOf(item).icon"/>
         </ItemMedia>
-        <ItemContent class="min-w-60">
+        <ItemContent class="min-w-40">
           <ItemTitle class="font-normal">
             <RouterLink
               v-if="canEdit && item.type !== 'News'"
@@ -214,9 +214,7 @@ function badgeOf(item: Schema<'ModuleContentItem'>): {label: string, class: stri
           </template>
         </ItemDescription>
         <ItemActions>
-          <Badge variant="outline" class="h-[22px] rounded-[5px]" :class="badgeOf(item).class">
-            {{ badgeOf(item).label }}
-          </Badge>
+          <StatusBadge v-if="showItemBadge(item)" :status="badgeOf(item).status" :label="badgeOf(item).label"/>
           <DropdownMenu v-if="canEdit">
             <DropdownMenuTrigger as-child>
               <Button variant="ghost" size="icon-sm" :aria-label="`Fler val för ${item.title}`">

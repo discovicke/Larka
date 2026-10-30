@@ -3,15 +3,16 @@ import {PhExam} from '@phosphor-icons/vue'
 import {computed, ref} from 'vue'
 import {RouterLink, type RouteLocationRaw} from 'vue-router'
 
+import StatusBadge from '@/components/StatusBadge.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Skeleton} from '@/components/ui/skeleton'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {useGradingCount} from '@/composables/useGradingCount'
 import {api, type Schema} from '@/lib/api'
+import {deadlineStatusKey} from '@/lib/status'
 import {
   dateLine,
   deadlineText,
-  dueTextClass,
   firstName,
   greeting,
   progressPercent,
@@ -204,9 +205,12 @@ load()
             data-test="deadline-item"
             class="flex flex-col gap-1.5"
           >
-            <span class="flex items-baseline justify-between gap-3">
-              <span class="min-w-0 truncate font-medium">{{ item.title }}</span>
-              <span class="shrink-0 text-[13px]" :class="dueTextClass(item.dueAt, now, 'text-muted-foreground')">{{ deadlineText(item.dueAt) }}</span>
+            <span class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <span class="min-w-32 flex-1 truncate font-medium">{{ item.title }}</span>
+              <span class="text-muted-foreground flex shrink-0 items-center gap-2 text-[13px]">
+                <StatusBadge v-if="deadlineStatusKey(item.dueAt, false, now)" :status="deadlineStatusKey(item.dueAt, false, now)!"/>
+                {{ deadlineText(item.dueAt) }}
+              </span>
             </span>
             <span class="text-muted-foreground text-[13px]">{{ item.courseTitle }}</span>
             <span

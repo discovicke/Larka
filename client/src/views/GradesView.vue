@@ -4,12 +4,14 @@ import {computed, ref} from 'vue'
 
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import CourseStatusBadge from '@/components/course/CourseStatusBadge.vue'
+import StatusBadge from '@/components/StatusBadge.vue'
 import {Badge} from '@/components/ui/badge'
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card'
 import {Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty'
 import {Skeleton} from '@/components/ui/skeleton'
 import {api} from '@/lib/api'
 import {type CourseStatus, courseStatus} from '@/lib/courseStatus'
+import {submissionStatusKey} from '@/lib/status'
 import {gradeBadgeVariant} from '@/lib/submissions'
 import {
   assignmentStatus,
@@ -56,9 +58,6 @@ function assignmentStatusClass(assignment: StudyPlanAssignment): string {
     return assignment.grade === 'Fail'
       ? 'text-destructive font-semibold'
       : 'text-success font-semibold'
-  }
-  if (assignment.status === 'NeedsWork') {
-    return 'text-warning'
   }
   return 'text-muted-foreground'
 }
@@ -274,7 +273,12 @@ load()
                     />
                     {{ assignment.title }}
                   </span>
-                  <span class="sm:shrink-0" :class="assignmentStatusClass(assignment)">
+                  <StatusBadge
+                    v-if="assignment.status === 'Submitted' || assignment.status === 'NeedsWork'"
+                    class="sm:shrink-0"
+                    :status="submissionStatusKey(assignment.status)"
+                  />
+                  <span v-else class="sm:shrink-0" :class="assignmentStatusClass(assignment)">
                     {{ assignmentStatus(assignment) }}
                   </span>
                 </button>

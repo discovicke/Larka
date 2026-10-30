@@ -114,12 +114,12 @@ describe('TodayView', () => {
       .toEqual([expect.stringContaining('Release-pipeline'), expect.stringContaining('E2E-tester')])
     expect(later.findAll('[data-test="todo-item"]')).toHaveLength(1)
     expect(later.text()).toContain('Inlämningsuppgift 1')
-    expect(later.text()).toContain('Komplettering begärd')
+    expect(later.text()).toContain('Komplettera')
     expect(thisWeek.text()).toContain('om 2 dagar')
     expect(thisWeek.find('[data-test="todo-due"]').text()).toBe('Fre 23 okt 23:59')
   })
 
-  it('lägger försenade uppgifter först under Försenat, i rött', async () => {
+  it('lägger försenade uppgifter först under Försenat, med ett Försenat-märke', async () => {
     backend({
       ...full,
       todo: [todo('l0', 'Sen uppgift', local(10, 19)), todo('l1', 'Snart', local(10, 22)), ...full.todo.slice(1)],
@@ -131,9 +131,10 @@ describe('TodayView', () => {
     expect(groups[0]?.attributes('data-test')).toBe('group-Försenat')
     const overdue = groups[0]!.find('[data-test="todo-item"]')
     expect(overdue.text()).toContain('Sen uppgift')
-    expect(overdue.find('.text-destructive').exists()).toBe(true)
+    expect(groups[0]!.find('[data-status="deadline.overdue"]').exists()).toBe(true)
+    expect(overdue.find('[data-status="deadline.overdue"]').exists()).toBe(false)
     const soon = wrapper.find('[data-test="group-Den här veckan"] [data-test="todo-item"]')
-    expect(soon.find('.text-warning').exists()).toBe(true)
+    expect(soon.find('[data-status="deadline.soon"]').exists()).toBe(true)
   })
 
   it('länkar uppgifter och återkoppling till delen på kurssidan', async () => {

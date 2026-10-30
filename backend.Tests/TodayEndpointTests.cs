@@ -176,6 +176,23 @@ public class TodayEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
     }
 
     [Fact]
+    public async Task Courses_DoNotCountAPartThatNeedsWork_AsCompleted()
+    {
+        var setup = await AddSetupAsync();
+        var week = await CreateModuleAsync(setup.CourseId);
+        var link = new { courseId = setup.CourseId, moduleId = week.Id };
+        var submitted = await CreateAssignmentLinkAsync("Inlämnad", link);
+        var needsWork = await CreateAssignmentLinkAsync("Komplettera", link);
+        await AddSubmissionAsync(submitted, setup.StudentId, SubmissionStatus.Submitted);
+        await AddSubmissionAsync(needsWork, setup.StudentId, SubmissionStatus.NeedsWork);
+
+        var today = await GetTodayAsync(setup.StudentId);
+
+        var course = Assert.Single(today.Courses);
+        Assert.Equal((2, 1), (course.TotalParts, course.CompletedParts));
+    }
+
+    [Fact]
     public async Task Teacher_GetsNoStudentLists()
     {
         var setup = await AddSetupAsync();

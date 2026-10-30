@@ -15,8 +15,8 @@ describe('weekPublishState', () => {
       content: [part('Published', '2026-10-01T08:00:00Z')],
     }, now)
 
-    expect(state).toMatchObject({kind: 'scheduled'})
-    expect(state?.label).toContain('Publiceras')
+    expect(state).toMatchObject({status: 'publishing.scheduled'})
+    expect(state?.label).toContain('Schemalagd')
   })
 
   it('visar publicerad när alla delar är live', () => {
@@ -26,7 +26,7 @@ describe('weekPublishState', () => {
         part('Published', '2026-10-01T08:00:00Z'),
         part('Published', '2026-10-02T08:00:00Z'),
       ],
-    }, now)).toMatchObject({label: 'Publicerad'})
+    }, now)).toMatchObject({status: 'publishing.published'})
   })
 
   it('visar delvis publicerad när bara några delar är live', () => {
@@ -36,7 +36,7 @@ describe('weekPublishState', () => {
         part('Published', '2026-10-01T08:00:00Z'),
         part('Draft', '2026-10-02T08:00:00Z'),
       ],
-    }, now)).toMatchObject({label: 'Delvis publicerad'})
+    }, now)).toMatchObject({status: 'publishing.partial'})
   })
 
   it('visar nästa publiceringsdatum när ingen del är live', () => {
@@ -48,15 +48,15 @@ describe('weekPublishState', () => {
       ],
     }, now)
 
-    expect(state).toMatchObject({kind: 'scheduled'})
-    expect(state?.label).toContain('Publiceras')
+    expect(state).toMatchObject({status: 'publishing.scheduled'})
+    expect(state?.label).toContain('Schemalagd')
   })
 
   it('visar utkast när alla delar är utkast', () => {
     expect(weekPublishState({
       publishAt: null,
       content: [part('Draft', '2026-10-01T08:00:00Z')],
-    }, now)).toMatchObject({label: 'Utkast'})
+    }, now)).toMatchObject({status: 'publishing.draft'})
   })
 
   it('visar ingen badge för en tom vecka utan datum', () => {

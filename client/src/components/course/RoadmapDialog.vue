@@ -2,6 +2,7 @@
 import {PhArrowDown, PhEye, PhEyeSlash, PhLock, PhLockOpen, PhX} from '@phosphor-icons/vue'
 import {computed, reactive, ref, watch} from 'vue'
 
+import StatusBadge from '@/components/StatusBadge.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Badge} from '@/components/ui/badge'
 import {Button} from '@/components/ui/button'
@@ -259,10 +260,7 @@ watch(open, (isOpen) => {
               <div
                 v-for="row in stage.rows"
                 :key="row.node.linkId"
-                class="border-l-2 px-4 py-3"
-                :class="row.part.status === 'Draft'
-                  ? 'border-l-warning/60'
-                  : 'border-l-transparent'"
+                class="px-4 py-3"
                 :data-test="`roadmap-part-${row.node.linkId}`"
               >
                 <div class="flex items-start gap-3">
@@ -270,14 +268,8 @@ watch(open, (isOpen) => {
                   <div class="min-w-0 flex-1">
                     <div class="flex flex-wrap items-center gap-2">
                       <span class="text-sm font-medium">{{ row.node.title }}</span>
-                      <Badge variant="outline">{{ partOf(row.part).label }}</Badge>
-                      <Badge
-                        v-if="row.part.status === 'Draft'"
-                        variant="outline"
-                        class="border-warning/20 bg-warning/10 text-warning dark:border-warning/30 dark:bg-warning/20"
-                      >
-                        Utkast
-                      </Badge>
+                      <span class="text-muted-foreground text-xs">{{ partOf(row.part).label }}</span>
+                      <StatusBadge v-if="row.part.status === 'Draft'" status="publishing.draft"/>
                     </div>
 
                     <template v-if="row.part.type !== 'News'">
@@ -370,7 +362,7 @@ watch(open, (isOpen) => {
 
                       <p
                         v-if="row.part.status === 'Draft'"
-                        class="mt-2 flex items-center gap-1.5 text-xs text-warning"
+                        class="text-muted-foreground mt-2 flex items-center gap-1.5 text-xs"
                         data-test="roadmap-draft"
                       >
                         <PhEye class="size-3.5"/>

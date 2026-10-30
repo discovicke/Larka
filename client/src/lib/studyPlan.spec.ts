@@ -70,7 +70,7 @@ describe('assignmentStatus', () => {
 
   it('visar inlämnad, komplettering och betyg', () => {
     expect(assignmentStatus(assignment('Submitted'), now)).toBe('Inlämnad')
-    expect(assignmentStatus(assignment('NeedsWork'), now)).toBe('Komplettering')
+    expect(assignmentStatus(assignment('NeedsWork'), now)).toBe('Komplettera')
     expect(assignmentStatus(assignment('Graded'), now)).toBe('G')
   })
 })

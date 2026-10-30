@@ -220,7 +220,7 @@ describe('StudentCourseContentView', () => {
     })
     const {wrapper} = await renderApp('/courses/c1/content?del=l8')
 
-    expect(wrapper.find('[data-test="student-detail"]').text()).toContain('Inte inlämnad')
+    expect(wrapper.find('[data-test="student-detail"]').find('aside').text()).toContain('Att göra')
     const markdownTab = wrapper.findAll('button').find((button) => button.text() === 'Markdown')!
     await markdownTab.trigger('click')
     await wrapper.find('[data-test="submission-form"] textarea').setValue('Klart')
@@ -231,7 +231,7 @@ describe('StudentCourseContentView', () => {
     expect(detail.find('[data-test="submission-form"]').exists()).toBe(false)
     expect(detail.find('[data-test="submission-date"]').text()).toContain('Inlämnad')
     expect(detail.find('aside').text()).toContain('Inlämnad')
-    expect(detail.find('aside').text()).not.toContain('Inte inlämnad')
+    expect(detail.find('aside').text()).not.toContain('Att göra')
   })
 
   it('visar kursens header en gång och ingen val av grupp eller kurs', async () => {
@@ -273,7 +273,7 @@ describe('StudentCourseContentView', () => {
 
     const open = wrapper.find('[data-test="student-detail"]')
     expect(open.find('header').findAll('*').filter((node) => node.text() === 'Klar')).toHaveLength(0)
-    expect(open.find('aside').text()).toContain('Inte påbörjad')
+    expect(open.find('aside').text()).toContain('Att göra')
   })
 
   it('visar redigeraren för en lärare och inte elevvyn', async () => {
@@ -393,14 +393,32 @@ describe('StudentCourseContentView', () => {
     expect(wrapper.find('[data-test="complete-l6"]').exists()).toBe(true)
   })
 
+  it('lägger en uppgift som ska kompletteras under Nästa steg och räknar den inte som klar', async () => {
+    const needsWork: StudentItem = {...submitted, linkId: 'l11', contentId: 'x11', title: 'Komplettera mig', submissionStatus: 'NeedsWork'}
+    backend([needsWork, submitted])
+    const {wrapper} = await renderApp('/courses/c1/content')
+
+    // Klart är hopfälld från början, så en del som syns direkt ligger i Nästa steg.
+    expect(wrapper.find('[data-test="student-part-l11"] [data-status="submission.needsWork"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="student-part-l3"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('1 av 2 klara')
+
+    await openSection(wrapper, 'completed')
+    expect(wrapper.find('[data-test="student-part-l3"]').text()).toContain('Inlämnad')
+  })
+
   it('visar inlämningens status och betyg', async () => {
     backend([submitted, graded])
     const {wrapper} = await renderApp('/courses/c1/content')
 
     await openSection(wrapper, 'completed')
 
-    expect(wrapper.text()).toContain('Inlämnad')
-    expect(wrapper.text()).toContain('Godkänd (G)')
+    const handedIn = wrapper.find('[data-test="student-part-l3"]')
+    expect(handedIn.text()).toContain('Inlämnad')
+    expect(handedIn.text()).not.toContain('Klar')
+    const gradedRow = wrapper.find('[data-test="student-part-l4"]')
+    expect(gradedRow.text()).toContain('Klar')
+    expect(gradedRow.find('[data-test="row-grade-stamp"]').text()).toBe('G')
     expect(wrapper.find('[data-test="complete-l3"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="complete-l4"]').exists()).toBe(false)
   })
@@ -626,21 +644,22 @@ describe('StudentCourseContentView', () => {
       expect(wrapper.find('[role="alert"]').exists()).toBe(true)
     })
 
-    it('visar deadline, betygsskala och inlämningssätt som piller', async () => {
+    it('visar betygsskala och inlämningssätt som vanlig text, inte som piller', async () => {
       checklistBackend([])
       const {wrapper} = await renderApp('/courses/c1/content?del=l10')
 
-      const pills = wrapper.find('[data-test="fact-pills"]')
-      expect(pills.find('[data-test="pill-scale"]').text()).toContain('IG–G')
-      expect(pills.find('[data-test="pill-handin"]').text()).toContain('text, filer')
-      expect(pills.find('[data-test="pill-due"]').exists()).toBe(false)
+      const facts = wrapper.find('[data-test="facts"]')
+      expect(facts.find('[data-test="fact-scale"]').text()).toContain('IG–G')
+      expect(facts.find('[data-test="fact-handin"]').text()).toContain('text, filer')
+      expect(facts.find('[data-test="fact-due"]').exists()).toBe(false)
+      expect(facts.find('[data-slot="badge"]').exists()).toBe(false)
     })
 
     it.each([
-      [-60 * 60 * 1000, 'text-destructive'],
-      [24 * 60 * 60 * 1000, 'text-warning'],
-      [10 * 24 * 60 * 60 * 1000, 'text-foreground'],
-    ])('färgar deadlinen efter hur nära den är (%i ms)', async (offset, tone) => {
+      [-60 * 60 * 1000, 'deadline.overdue'],
+      [24 * 60 * 60 * 1000, 'deadline.soon'],
+      [10 * 24 * 60 * 60 * 1000, null],
+    ])('märker deadlinen bara när den är nära eller passerad (%i ms)', async (offset, status) => {
       const due = new Date(Date.now() + offset).toISOString()
       mockApi((_method, path) => {
         if (path === '/api/me') {
@@ -656,7 +675,15 @@ describe('StudentCourseContentView', () => {
       })
       const {wrapper} = await renderApp('/courses/c1/content?del=l10')
 
-      expect(wrapper.find('[data-test="pill-due"]').classes()).toContain(tone)
+      const dueFact = wrapper.find('[data-test="fact-due"]')
+      expect(dueFact.exists()).toBe(true)
+      const badge = dueFact.find('[data-test="status-badge"]')
+      if (status) {
+        expect(badge.attributes('data-status')).toBe(status)
+      } else {
+        expect(badge.exists()).toBe(false)
+      }
+      expect(wrapper.find('aside').text()).not.toContain('Deadline')
     })
   })
 })

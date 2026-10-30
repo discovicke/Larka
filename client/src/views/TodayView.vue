@@ -4,12 +4,14 @@ import {computed, ref} from 'vue'
 import {RouterLink, type RouteLocationRaw} from 'vue-router'
 
 import {Alert, AlertDescription} from '@/components/ui/alert'
+import StatusBadge from '@/components/StatusBadge.vue'
 import TeacherToday from '@/components/today/TeacherToday.vue'
 import {Skeleton} from '@/components/ui/skeleton'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {api, type Schema} from '@/lib/api'
 import {formatDate} from '@/lib/content'
 import {isStudentEverywhere} from '@/lib/permissions'
+import {deadlineStatusKey, submissionStatusKey} from '@/lib/status'
 import {gradeText} from '@/lib/studyPlan'
 import {
   dateLine,
@@ -20,7 +22,6 @@ import {
   progressPercent,
   relativeText,
   deadlineText,
-  dueTextClass,
   groupByDue,
   shortDate,
   splitByWeek,
@@ -113,7 +114,7 @@ function timeLabel(iso: string): string {
 function feedbackLabel(item: Feedback): string {
   return item.grade
     ? 'Betyg'
-    : 'Komplettering'
+    : 'Komplettera'
 }
 
 function gradeTile(item: Feedback): string {
@@ -128,22 +129,17 @@ function gradeTileClass(item: Feedback): string {
   }
   return item.grade
     ? 'bg-success/10 text-success dark:bg-success/20'
-    : 'bg-warning/10 text-warning dark:bg-warning/20'
+    : 'bg-destructive/10 text-destructive dark:bg-destructive/20'
 }
 
 function statusText(item: Submission): string {
-  if (item.status === 'Graded') {
-    return `Bedömd${item.grade
-      ? ` · ${gradeText(item.grade)}`
-      : ''}`
-  }
-  return item.status === 'NeedsWork'
-    ? 'Komplettera'
-    : 'Inlämnad'
+  return `Bedömd${item.grade
+    ? ` · ${gradeText(item.grade)}`
+    : ''}`
 }
 
-function dueClass(item: Todo): string {
-  return dueTextClass(item.dueAt, now)
+function dueStatus(item: Todo) {
+  return deadlineStatusKey(item.dueAt, false, now)
 }
 
 function tabClass(value: Tab): string {
@@ -242,7 +238,8 @@ load()
               <h3
                 class="bg-muted/40 text-muted-foreground border-y px-5 py-1.5 font-sans text-xs font-medium tracking-normal"
               >
-                {{ group.heading }}
+                <StatusBadge v-if="group.heading === 'Försenat'" status="deadline.overdue" :label="group.heading"/>
+                <template v-else>{{ group.heading }}</template>
               </h3>
               <component
                 :is="partLink(item)
@@ -261,14 +258,13 @@ load()
                   <span class="truncate font-medium">{{ item.title }}</span>
                   <span class="text-muted-foreground flex flex-wrap items-center gap-x-2 text-[13px]">
                     <span v-if="item.courseTitle">{{ item.courseTitle }}</span>
-                    <span v-if="item.status === 'NeedsWork'" class="text-warning">
-                      Komplettering begärd
-                    </span>
+                    <StatusBadge v-if="item.status === 'NeedsWork'" status="submission.needsWork"/>
                   </span>
                 </span>
-                <span class="flex shrink-0 flex-col items-end text-[13px]" :class="dueClass(item)">
+                <span class="flex shrink-0 flex-col items-end gap-0.5 text-[13px]">
                   <span class="font-medium" data-test="todo-due">{{ deadlineText(item.dueAt) }}</span>
                   <span class="text-muted-foreground">{{ relativeText(item.dueAt, now) }}</span>
+                  <StatusBadge v-if="dueStatus(item) === 'deadline.soon'" status="deadline.soon"/>
                 </span>
               </component>
             </div>
@@ -298,7 +294,11 @@ load()
                 <span class="text-muted-foreground text-[13px]">{{ item.courseTitle }}</span>
               </span>
               <span class="flex shrink-0 flex-col items-end text-[13px]">
-                <span class="font-medium">{{ statusText(item) }}</span>
+                <StatusBadge
+                  v-if="item.status !== 'Graded'"
+                  :status="submissionStatusKey(item.status)"
+                />
+                <span v-else class="font-medium">{{ statusText(item) }}</span>
                 <span v-if="item.submittedAt" class="text-muted-foreground">{{ shortDate(item.submittedAt) }}</span>
               </span>
             </component>

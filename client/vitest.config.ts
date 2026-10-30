@@ -22,6 +22,7 @@ export default mergeConfig(
           'src/components/dev/**',
           'src/composables/useDev*.ts',
           'src/views/DevView.vue',
+          'src/views/DevStatusView.vue',
         ],
       },
     },
