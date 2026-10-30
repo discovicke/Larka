@@ -1,5 +1,5 @@
 import {flushPromises} from '@vue/test-utils'
-import {describe, expect, it} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 
 import {mockApi, requests, sent} from '@/test/mockApi'
 import {meAs} from '@/test/me'
@@ -222,6 +222,43 @@ describe('CourseNewsView', () => {
     expect(wrapper.find('article h2').text()).toBe('Inlämning flyttad')
     expect(wrapper.findAll('[data-test="comment"]').map((item) => item.text()))
       .toEqual([expect.stringContaining('Tack för infon.')])
+  })
+
+  it('på mobil visar listan först, sedan bara artikeln med en länk tillbaka', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: true,
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }))
+    backend([oldest, newest, pinned])
+
+    const {wrapper, router} = await renderApp('/courses/c1/news')
+
+    expect(wrapper.find('article').exists()).toBe(false)
+    expect(titles(wrapper)).toHaveLength(3)
+
+    await wrapper.findAll('[data-test="news-item"]')[1].trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    expect(router.currentRoute.value.query.post).toBe('l3')
+    expect(wrapper.find('article h2').text()).toBe('Inlämning flyttad')
+    expect(wrapper.find('[data-test="news-item"]').exists()).toBe(false)
+
+    router.back()
+    await flushPromises()
+    expect(wrapper.find('article').exists()).toBe(false)
+
+    await wrapper.findAll('[data-test="news-item"]')[1].trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="back-to-list"]').text()).toBe('Alla nyheter')
+    await wrapper.find('[data-test="back-to-list"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('article').exists()).toBe(false)
+    expect(titles(wrapper)).toHaveLength(3)
+    vi.unstubAllGlobals()
   })
 
   it('skickar en kommentar och visar den direkt', async () => {

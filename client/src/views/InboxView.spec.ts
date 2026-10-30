@@ -573,6 +573,85 @@ describe('InboxView', () => {
     expect(wrapper.find('[aria-label="Nyhet"] h1').text()).toBe('Välkommen till kursen')
   })
 
+  it('på mobil visar listan först, artikeln med en länk tillbaka, och bakåt går till listan', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: true,
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }))
+    backend({
+      courses: {
+        c1: [
+          news('l1', 'x1', 'Välkommen till kursen', '2026-10-01T10:00:00Z', {courseId: 'c1'}),
+          news('l2', 'x2', 'Studiebesök', '2026-10-10T10:00:00Z', {courseId: 'c1'}),
+        ],
+      },
+      notifications: [gradeNotification],
+    })
+
+    const {wrapper, router} = await renderApp('/inbox')
+
+    expect(wrapper.find('[aria-label="Nyhet"]').exists()).toBe(false)
+    expect(wrapper.findAll('[data-test="news-item"]')).toHaveLength(2)
+    expect(wrapper.findAll('[data-test="notification-item"]')).toHaveLength(1)
+
+    await wrapper.findAll('[data-test="news-item"]')[1].trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.query.post).toBe('x1')
+    expect(wrapper.find('[aria-label="Nyhet"] h1').text()).toBe('Välkommen till kursen')
+    expect(wrapper.find('[data-test="news-item"]').exists()).toBe(false)
+
+    router.back()
+    await flushPromises()
+
+    expect(router.currentRoute.value.query.post).toBeUndefined()
+    expect(wrapper.find('[aria-label="Nyhet"]').exists()).toBe(false)
+
+    await wrapper.findAll('[data-test="news-item"]')[0].trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="back-to-list"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[aria-label="Nyhet"]').exists()).toBe(false)
+    expect(wrapper.findAll('[data-test="news-item"]')).toHaveLength(2)
+    vi.unstubAllGlobals()
+  })
+
+  it('på mobil ligger en oläst nyhet kvar i artikelvyn när den markeras som läst i fliken Olästa', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: true,
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }))
+    backend({
+      courses: {
+        c1: [
+          news('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1'}),
+          news('l2', 'x2', 'Äldre nyhet', '2026-10-01T10:00:00Z', {courseId: 'c1'}),
+        ],
+      },
+      notifications: [notification('n-news', 'NewsPublished', {contentId: 'x1'})],
+    })
+
+    const {wrapper, router} = await renderApp('/inbox')
+    await openTab(wrapper, 'Olästa')
+    expect(wrapper.findAll('[data-test="news-item"]')).toHaveLength(1)
+
+    await wrapper.find('[data-test="news-item"]').trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    expect(requests.filter((request) => request.method === 'POST').map((request) => request.path))
+      .toEqual(['/api/notifications/n-news/read'])
+    expect(router.currentRoute.value.query.post).toBe('x1')
+    expect(wrapper.find('[aria-label="Nyhet"] h1').text()).toBe('Studiebesök')
+    expect(wrapper.find('[data-test="back-to-list"]').exists()).toBe(true)
+    vi.unstubAllGlobals()
+  })
+
   it('raderar nyheten från alla mål när den är publicerad i flera', async () => {
     backend({
       courses: {

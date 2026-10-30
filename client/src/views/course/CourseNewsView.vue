@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {PhNewspaper, PhPushPin} from '@phosphor-icons/vue'
+import {PhArrowLeft, PhNewspaper, PhPushPin} from '@phosphor-icons/vue'
 import {computed, ref, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 
@@ -9,6 +9,7 @@ import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty'
 import {Skeleton} from '@/components/ui/skeleton'
 import {useCurrentUser} from '@/composables/useCurrentUser'
+import {useMobileDetail} from '@/composables/useMobileDetail'
 import {api, type Schema} from '@/lib/api'
 import {formatDate} from '@/lib/content'
 import {sortNews} from '@/lib/news'
@@ -29,8 +30,14 @@ const sortedPosts = computed(() => sortNews(posts.value))
 const selectedLinkId = computed(() => typeof route.query.post === 'string'
   ? route.query.post
   : '')
+const {isMobile, open} = useMobileDetail(computed(() => selectedLinkId.value || undefined))
+
+// På mobil är ingen nyhet vald förrän eleven öppnat en; på desktop visas den första.
 const selected = computed(() =>
-  sortedPosts.value.find((post) => post.linkId === selectedLinkId.value) ?? sortedPosts.value[0])
+  sortedPosts.value.find((post) => post.linkId === selectedLinkId.value)
+  ?? (isMobile.value
+    ? undefined
+    : sortedPosts.value[0]))
 
 async function loadPosts() {
   loadFailed.value = false
@@ -47,7 +54,7 @@ async function loadPosts() {
 }
 
 function select(post: Schema<'ContentFeedItem'>) {
-  router.replace({query: {post: post.linkId}})
+  open(post.linkId)
 }
 
 async function created(linkId: string) {
@@ -93,7 +100,7 @@ watch(courseId, () => {
       </div>
 
       <div class="bg-card flex flex-wrap overflow-hidden rounded-[11px] border">
-        <div class="flex-[1_1_360px] min-w-0 border-r max-md:border-r-0 max-md:border-b">
+        <div v-if="!isMobile || !selected" class="flex-[1_1_360px] min-w-0 border-r max-md:border-r-0">
           <button
             v-for="post in sortedPosts"
             :key="post.linkId"
@@ -121,7 +128,16 @@ watch(courseId, () => {
           </button>
         </div>
 
-        <article class="flex-[999_1_520px] min-w-0 px-[clamp(16px,3vw,40px)] pt-7 pb-12">
+        <article v-if="!isMobile || selected" class="flex-[999_1_520px] min-w-0 px-[clamp(16px,3vw,40px)] pt-7 pb-12">
+          <RouterLink
+            v-if="isMobile"
+            :to="{query: {}}"
+            class="text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1.5 text-sm"
+            data-test="back-to-list"
+          >
+            <PhArrowLeft class="size-4"/>
+            Alla nyheter
+          </RouterLink>
           <NewsArticle
             v-if="selected"
             :post="selected"

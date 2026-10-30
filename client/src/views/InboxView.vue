@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   PhArrowCounterClockwise,
+  PhArrowLeft,
   PhCheckCircle,
   PhChecks,
   PhClock,
@@ -19,6 +20,7 @@ import {Button} from '@/components/ui/button'
 import {Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty'
 import {Skeleton} from '@/components/ui/skeleton'
 import {useCourses} from '@/composables/useCourses'
+import {useMobileDetail} from '@/composables/useMobileDetail'
 import {useNotifications} from '@/composables/useNotifications'
 import {api, type Schema} from '@/lib/api'
 import {formatDate} from '@/lib/content'
@@ -139,8 +141,16 @@ const selectedId = computed(() => typeof route.query.post === 'string'
   : '')
 const visibleNews = computed(() => entries.value.filter((entry) =>
   visibleRows.value.some((row) => row.contentId === entry.post.contentId)))
+const {isMobile, open} = useMobileDetail(computed(() => selectedId.value || undefined))
+
+// Ett öppnat inlägg slås upp bland alla nyheter, inte bara de som matchar fliken: när en nyhet markeras som läst
+// försvinner den ur fliken Olästa, men artikeln ska ligga kvar. På mobil är ingen nyhet vald förrän eleven
+// öppnat en; på desktop visas den första synliga.
 const selected = computed(() =>
-  visibleNews.value.find((entry) => entry.post.contentId === selectedId.value) ?? visibleNews.value[0])
+  entries.value.find((entry) => entry.post.contentId === selectedId.value)
+  ?? (isMobile.value
+    ? undefined
+    : visibleNews.value[0]))
 const isEmpty = computed(() => !loading.value && !loadFailed.value && rows.value.length === 0)
 
 function tabClass(value: InboxFilter) {
@@ -192,7 +202,7 @@ async function load(showSkeleton = true) {
 }
 
 function select(contentId: string) {
-  router.replace({query: {post: contentId}})
+  open(contentId)
 }
 
 // Notiser om en del öppnar delen på kurssidan (?del=). Saknas kursen eller delen, som när innehållet
@@ -271,7 +281,7 @@ watch(status, (value) => {
     </template>
 
     <template v-else>
-      <div class="flex min-w-0 flex-[1_1_420px] flex-col border-r max-md:border-r-0 max-md:border-b">
+      <div v-if="!isMobile || !selected" class="flex min-w-0 flex-[1_1_420px] flex-col border-r max-md:border-r-0">
         <div class="border-b px-4 py-3">
           <div role="tablist" class="bg-muted inline-flex flex-wrap rounded-[7px] p-[3px]">
             <button
@@ -354,9 +364,19 @@ watch(status, (value) => {
       </div>
 
       <section
+        v-if="!isMobile || selected"
         aria-label="Nyhet"
         class="flex-[999_1_480px] min-w-0 px-[clamp(16px,3vw,40px)] py-8"
       >
+        <RouterLink
+          v-if="isMobile"
+          :to="{query: {}}"
+          class="text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1.5 text-sm"
+          data-test="back-to-list"
+        >
+          <PhArrowLeft class="size-4"/>
+          Tillbaka till inkorgen
+        </RouterLink>
         <div v-if="selected" class="max-w-[640px]">
           <NewsArticle
             :post="selected.post"
