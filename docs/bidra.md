@@ -40,7 +40,6 @@ npm run gen:api                  # API-typerna från client/openapi.json
 npm run lint
 npm run build
 npm run test
-npm run test:layout
 ```
 
 `npm run format` i repots rot fixar formateringen i hela repot (Prettier, ESLint och `dotnet format`), och `npm run format:check` kontrollerar den.

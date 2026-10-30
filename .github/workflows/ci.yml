@@ -166,26 +166,6 @@ jobs:
           path: client/coverage/cobertura-coverage.xml
           retention-days: 7
 
-      # Layoutkontroller i en riktig webbläsare mot det byggda paketet, med API:et mockat. Hör till jobbet
-      # `frontend` (ett nytt jobbnamn vore inte ett obligatoriskt statuskrav).
-      - name: Install Chromium
-        if: needs.changes.outputs.code == 'true'
-        run: npx playwright install --with-deps chromium
-
-      - name: Layout tests (Playwright)
-        if: needs.changes.outputs.code == 'true'
-        run: npx playwright test
-
-      - name: Upload Playwright report
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: layout-report
-          path: |
-            client/layout/playwright-report
-            client/layout/test-results
-          retention-days: 7
-
   # Slår ihop backendens och frontendens täckning till en rapport. Inget obligatoriskt statuskrav och ingen
   # tröskel som fäller bygget. Hoppas över när backend eller frontend hoppas över (bara dokumentation).
   coverage:

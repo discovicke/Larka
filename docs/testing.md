@@ -53,29 +53,16 @@ I CI samlar backend- och frontendjobben varsin täckning och skriver sitt tal i 
 
 ## Testnivåer och hur de körs
 
-| Nivå                 | Var                                       | Körs                                               | Kräver              |
-| -------------------- | ----------------------------------------- | -------------------------------------------------- | ------------------- |
-| Backend              | `backend.Tests/` (xUnit)                  | `dotnet test Larka.sln`, på varje PR               | Docker              |
-| Egna analyzer-regler | `backend.Analyzers.Tests/`                | samma                                              |                     |
-| Frontend             | `client/src/**/*.spec.ts` (Vitest, jsdom) | `npm --prefix client run test`, på varje PR        |                     |
-| Layout               | `client/layout/` (Playwright)             | `npm --prefix client run test:layout`, på varje PR | Chromium            |
-| E2E                  | `e2e/` (Playwright)                       | varje dag 05:17 UTC och manuellt                   | den deployade appen |
+| Nivå                 | Var                                       | Körs                                        | Kräver              |
+| -------------------- | ----------------------------------------- | ------------------------------------------- | ------------------- |
+| Backend              | `backend.Tests/` (xUnit)                  | `dotnet test Larka.sln`, på varje PR        | Docker              |
+| Egna analyzer-regler | `backend.Analyzers.Tests/`                | samma                                       |                     |
+| Frontend             | `client/src/**/*.spec.ts` (Vitest, jsdom) | `npm --prefix client run test`, på varje PR |                     |
+| E2E                  | `e2e/` (Playwright)                       | varje dag 05:17 UTC och manuellt            | den deployade appen |
 
 ### Backend mot Postgres
 
 Testerna startar en tillfällig Postgres med Testcontainers (en container per körning, en databas per testklass) och kör migrationerna, så `dotnet test` kräver att Docker körs.
-
-### Layout i webbläsaren
-
-Vitest kör i jsdom, som saknar layout, så sidornas mått prövas i en riktig Chromium med Playwright. Testerna startar `vite preview` av det byggda paketet och mockar `/api/**` (`layout/mocks.ts`), så varken backend eller databas behövs. De kontrollerar att Idag, kursens innehåll, skapa innehåll (alla typer av del) och 404 inte scrollar i sidled vid 390 och 1440 px, att headern är minst 56 px, sidomenyn 256 px och innehållet högst 1120 px, och att sidomenyn är en drawer under 768 px. I CI laddas rapporten upp som artefakt om något faller.
-
-```bash
-cd client
-npx playwright install chromium   # en gång
-npm run test:layout               # bygger och kör testerna
-```
-
-Helsidesbilder vid 390 och 1440 px, t.ex. till en PR: `SCREENSHOTS=1 npx playwright test screenshots`. Bilderna hamnar i `client/layout/screenshots/` (byt med `SCREENSHOT_DIR`, och sidorna med `SCREENSHOT_ROUTES=/,/courses/c1/content`).
 
 ### E2E mot den deployade appen
 
