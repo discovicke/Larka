@@ -71,6 +71,7 @@ Jobbet skapar notiser när en publiceringstid har passerat och påminnelser 24 t
 ### GitHub
 
 GitHub-appen är gemensam för plattformen. Varje skola har en installation och en organisation.
+Se [github-integration.md](github-integration.md) för hur flödena hänger ihop.
 
 | Nyckel                               | Hemlig | Vad                                                                             |
 | ------------------------------------ | ------ | ------------------------------------------------------------------------------- |

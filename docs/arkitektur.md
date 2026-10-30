@@ -60,4 +60,5 @@ Lokal utveckling och tester fungerar utan externa tj√§nster. Utan Supabase-inst√
 
 - Datamodellen: [er-diagram.md](er-diagram.md)
 - Roller och regler: [auth-och-behorigheter.md](auth-och-behorigheter.md)
+- GitHub-integrationen: [github-integration.md](github-integration.md)
 - Designen: [design.md](design.md)
