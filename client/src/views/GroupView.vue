@@ -2,8 +2,11 @@
 import {computed, ref, watch} from 'vue'
 import {useRoute} from 'vue-router'
 
+import {PhDotsThree} from '@phosphor-icons/vue'
+
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import AddMemberDialog from '@/components/groups/AddMemberDialog.vue'
+import ChangeRoleDialog from '@/components/groups/ChangeRoleDialog.vue'
 import LinkCourseDialog from '@/components/groups/LinkCourseDialog.vue'
 import RemoveMemberDialog from '@/components/groups/RemoveMemberDialog.vue'
 import UnlinkCourseDialog from '@/components/groups/UnlinkCourseDialog.vue'
@@ -15,11 +18,16 @@ import NewCourseDialog from '@/components/groups/NewCourseDialog.vue'
 import SetMentorDialog from '@/components/groups/SetMentorDialog.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import {Button} from '@/components/ui/button'
-import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {Skeleton} from '@/components/ui/skeleton'
 import {useCrumbLabels} from '@/composables/useCrumbLabels'
 import {useCurrentUser} from '@/composables/useCurrentUser'
-import {ApiError, api, errorMessage, unwrap, type Schema} from '@/lib/api'
+import {ApiError, api, unwrap, type Schema} from '@/lib/api'
 import {periodLabel} from '@/lib/coursePeriod'
 import {courseStatus} from '@/lib/courseStatus'
 import {groupRoles as roles} from '@/lib/groupRoles'
@@ -50,10 +58,7 @@ const courseForTeachers = ref<Schema<'CourseDto'> | null>(null)
 // Lärarna per kurs, bara för admin. En kurs som saknas här har inte fått sina lärare hämtade.
 const teachersByCourse = ref<Record<string, Schema<'CourseTeacherDto'>[]>>({})
 const courseToUnlink = ref<Schema<'CourseDto'> | null>(null)
-const changingRole = ref('')
-const memberError = ref('')
-// Byts vid fel, så att listan ritas om med den gamla rollen.
-const roleRevision = ref(0)
+const memberToChange = ref<Schema<'GroupMemberDto'> | null>(null)
 
 const subtitle = computed(() => {
   if (!group.value) {
@@ -204,29 +209,6 @@ function removeMember(userId: string) {
   members.value = members.value.filter((member) => member.userId !== userId)
 }
 
-async function changeRole(member: Schema<'GroupMemberDto'>, role: Schema<'GroupRole'>) {
-  if (role === member.role) {
-    return
-  }
-
-  changingRole.value = member.userId
-  memberError.value = ''
-  try {
-    await api.PUT('/api/groups/{id}/members/{userId}', {
-      params: {path: {id: groupId.value, userId: member.userId}},
-      body: {role},
-    })
-    members.value = members.value.map((found) => found.userId === member.userId
-      ? {...found, role}
-      : found)
-  } catch (exception) {
-    roleRevision.value++
-    memberError.value = `Kunde inte ändra rollen för ${member.name}. ${errorMessage(exception)}`
-  } finally {
-    changingRole.value = ''
-  }
-}
-
 function addCourse(course: Schema<'CourseDto'>) {
   courses.value = [...courses.value, course]
 }
@@ -370,10 +352,6 @@ watch(isAdmin, (admin) => {
         </Button>
       </div>
 
-      <Alert v-if="memberError" variant="destructive">
-        <AlertDescription>{{ memberError }}</AlertDescription>
-      </Alert>
-
       <section
         v-for="role in membersByRole"
         :key="role.value"
@@ -402,37 +380,38 @@ watch(isAdmin, (admin) => {
           <div
             v-for="member in role.members"
             :key="member.userId"
-            class="flex flex-wrap items-center gap-x-3 gap-y-2 border-b px-4 py-3.5 last:border-b-0"
+            class="flex items-center gap-x-3 border-b px-4 py-2 last:border-b-0"
             data-test="member-row"
           >
             <Avatar class="size-10">
               <AvatarFallback class="text-[13px] font-semibold">{{ initials(member.name) }}</AvatarFallback>
             </Avatar>
             <span class="font-medium" data-test="member-name">{{ member.name }}</span>
-            <div v-if="isAdmin" class="ml-auto flex items-center gap-2">
-              <NativeSelect
-                :key="`${member.userId}-${member.role}-${roleRevision}`"
-                :model-value="member.role"
-                :aria-label="`Roll för ${member.name}`"
-                :disabled="changingRole === member.userId"
-                class="w-32"
-                data-test="member-role-select"
-                @change="(event: Event) => changeRole(member, (event.target as HTMLSelectElement).value as Schema<'GroupRole'>)"
-              >
-                <NativeSelectOption v-for="option in roles" :key="option.value" :value="option.value">
-                  {{ option.label }}
-                </NativeSelectOption>
-              </NativeSelect>
-              <Button
-                variant="outline"
-                class="h-8"
-                :disabled="changingRole === member.userId"
-                data-test="remove-member"
-                @click="memberToRemove = member"
-              >
-                Ta bort
-              </Button>
-            </div>
+            <DropdownMenu v-if="isAdmin">
+              <DropdownMenuTrigger as-child>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  class="ml-auto size-11 md:size-8"
+                  :aria-label="`Fler val för ${member.name}`"
+                  data-test="member-menu"
+                >
+                  <PhDotsThree/>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem data-test="change-member-role" @select="memberToChange = member">
+                  Ändra roll
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  variant="destructive"
+                  data-test="remove-member"
+                  @select="memberToRemove = member"
+                >
+                  Ta bort
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </section>
@@ -479,6 +458,15 @@ watch(isAdmin, (admin) => {
           : []"
         @update:open="(value) => { if (!value) courseForTeachers = null }"
         @changed="setTeachers"
+      />
+      <ChangeRoleDialog
+        :open="memberToChange !== null"
+        :group-id="group.id"
+        :group-name="group.name"
+        :member="memberToChange"
+        :members="members"
+        @update:open="(value) => { if (!value) memberToChange = null }"
+        @changed="reloadMembers"
       />
       <RemoveMemberDialog
         :open="memberToRemove !== null"

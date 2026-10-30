@@ -1,6 +1,47 @@
 import {describe, expect, it} from 'vitest'
 
-import {checkClass, checkLabel, formatSize, gradeBadgeVariant, gradeLabel, gradeName, levelsFor, statusLabel} from './submissions'
+import type {Schema} from './api'
+import {
+  checkClass,
+  checkLabel,
+  formatSize,
+  gradeBadgeVariant,
+  gradeLabel,
+  gradeName,
+  levelsFor,
+  nextInQueue,
+  statusLabel,
+} from './submissions'
+
+describe('nextInQueue', () => {
+  const entry = (id: string, studentName: string, status: Schema<'SubmissionStatus'> = 'Submitted') =>
+    ({id, studentName, status})
+  const list = [
+    entry('c', 'Örjan'),
+    entry('a', 'Anna'),
+    entry('g', 'Greta', 'Graded'),
+    entry('b', 'Bo'),
+    entry('n', 'Nils', 'NeedsWork'),
+  ]
+
+  it('tar nästa inlämnade på namn och hoppar över bedömda och kompletteringar', () => {
+    expect(nextInQueue(list, entry('a', 'Anna'))?.id).toBe('b')
+    expect(nextInQueue(list, entry('b', 'Bo'))?.id).toBe('c')
+  })
+
+  it('börjar om från början efter den sista', () => {
+    expect(nextInQueue(list, entry('c', 'Örjan'))?.id).toBe('a')
+  })
+
+  it('hittar rätt plats även när den öppna redan är bedömd', () => {
+    expect(nextInQueue(list, entry('g', 'Greta', 'Graded'))?.id).toBe('c')
+  })
+
+  it('ger null när ingen väntar', () => {
+    expect(nextInQueue([entry('a', 'Anna')], entry('a', 'Anna'))).toBeNull()
+    expect(nextInQueue([], entry('a', 'Anna'))).toBeNull()
+  })
+})
 
 describe('gradeLabel', () => {
   it('förkortar betygsstegen som i listan', () => {

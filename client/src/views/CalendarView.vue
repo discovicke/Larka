@@ -101,7 +101,7 @@ function linkFor(item: Item): RouteLocationRaw | null {
   if (item.contentType === 'Assignment' && can('readSubmissions', item.courseId)) {
     return {name: 'assignment-submissions', params: {courseId: item.courseId, linkId: item.linkId}}
   }
-  // Eleven (och läraren, som ignorerar ?del=) landar på delen själv.
+  // Eleven landar på delen i kursvyn. Kurssidan skickar alla andra vidare till delens egen sida.
   return {name: 'course-content', params: {courseId: item.courseId}, query: {del: item.linkId}}
 }
 

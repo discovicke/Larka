@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import {PhFile, PhInfo} from '@phosphor-icons/vue'
+import {PhCaretDown, PhFile, PhInfo} from '@phosphor-icons/vue'
 import {computed, ref, watch} from 'vue'
 import {
+  onBeforeRouteLeave,
+  onBeforeRouteUpdate,
   useRoute,
   useRouter,
 } from 'vue-router'
@@ -10,14 +12,17 @@ import MarkdownView from '@/components/editor/MarkdownView.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Avatar, AvatarFallback} from '@/components/ui/avatar'
 import {Button} from '@/components/ui/button'
+import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '@/components/ui/collapsible'
 import {Skeleton} from '@/components/ui/skeleton'
 import {Textarea} from '@/components/ui/textarea'
 import {useCrumbLabels} from '@/composables/useCrumbLabels'
 import {useCurrentUser} from '@/composables/useCurrentUser'
+import {useFlash} from '@/composables/useFlash'
 import {api, type Schema} from '@/lib/api'
+import {parseChecklist} from '@/lib/checklist'
 import {formatDate} from '@/lib/content'
 import {initials} from '@/lib/news'
-import {checkClass, checkLabel, formatSize, gradeLabel, gradeName, levelsFor} from '@/lib/submissions'
+import {checkClass, checkLabel, formatSize, gradeLabel, gradeName, levelsFor, nextInQueue} from '@/lib/submissions'
 
 const route = useRoute()
 const {setCrumbLabel} = useCrumbLabels()
@@ -28,6 +33,7 @@ const submissionId = computed(() => String(route.params.submissionId))
 // Mentorn läser inlämningen och betyget men bedömer inte.
 const {can} = useCurrentUser()
 const canGrade = computed(() => can('grade', courseId.value))
+const {setFlash, takeFlash} = useFlash()
 
 const submission = ref<Schema<'SubmissionDto'> | null>(null)
 const assignment = ref<Schema<'ModuleContentItem'> | null>(null)
@@ -38,6 +44,16 @@ const level = ref<Schema<'GradeLevel'> | null>(null)
 const formError = ref('')
 const saveError = ref('')
 const saving = ref(false)
+const notice = ref('')
+// Uppgiftstexten och kön hämtas med sidan. Uppgiften är hopfälld tills läraren öppnar den,
+// och ligger kvar öppen när läraren går vidare till nästa inlämning.
+const task = ref<Schema<'ContentDto'> | null>(null)
+const taskOpen = ref(false)
+const queue = ref<Schema<'SubmissionDto'>[]>([])
+// Det läraren hade när sidan öppnades, för att se om något är ändrat och osparat.
+const savedFeedback = ref('')
+const savedLevel = ref<Schema<'GradeLevel'> | null>(null)
+let leaving = false
 
 const levels = computed(() => levelsFor(assignment.value?.gradeScale ?? null))
 const hasGrades = computed(() => levels.value.length > 0)
@@ -49,6 +65,17 @@ const shortSha = computed(() => submission.value?.repo?.lastSha?.slice(0, 7) ?? 
 const gradedAt = computed(() => submission.value?.grade
   ? formatDate(submission.value.grade.gradedAt, true)
   : '')
+const taskChecklist = computed(() => parseChecklist(task.value?.bodyMd ?? ''))
+const hasTask = computed(() => Boolean(taskChecklist.value.body) || taskChecklist.value.items.length > 0)
+// Bara en inlämnad inlämning ingår i kön. Komplettera och Bedömd sparar tillbaka till listan.
+const inQueue = computed(() => canGrade.value && submission.value?.status === 'Submitted')
+const next = computed(() => submission.value && inQueue.value
+  ? nextInQueue(queue.value, submission.value)
+  : null)
+const remaining = computed(() => queue.value.filter((candidate) => candidate.status === 'Submitted').length)
+const dirty = computed(() => canGrade.value
+  && (feedback.value !== savedFeedback.value || level.value !== savedLevel.value))
+
 function checkRunLabel(run: Schema<'GitHubCheckRunDto'>): string {
   if (run.status !== 'completed') {
     return 'Körs'
@@ -71,16 +98,25 @@ const hasHandedIn = computed(() => Boolean(submission.value?.bodyMd)
 async function load() {
   loading.value = true
   loadError.value = ''
+  leaving = false
   try {
-    const [submissionResult, moduleResult] = await Promise.all([
+    notice.value = takeFlash()
+    const [submissionResult, moduleResult, queueResult] = await Promise.all([
       api.GET('/api/submissions/{id}', {params: {path: {id: submissionId.value}}}),
       api.GET('/api/courses/{id}/modules', {params: {path: {id: courseId.value}}}),
+      canGrade.value
+        ? api.GET('/api/links/{id}/submissions', {params: {path: {id: linkId.value}}})
+        : Promise.resolve({data: []}),
     ])
+    queue.value = queueResult.data ?? []
     const found = submissionResult.data ?? null
     submission.value = found
     const week = (moduleResult.data ?? [])
       .find((candidate) => candidate.content.some((item) => item.linkId === linkId.value))
     assignment.value = week?.content.find((item) => item.linkId === linkId.value) ?? null
+    task.value = assignment.value
+      ? (await api.GET('/api/content/{id}', {params: {path: {id: assignment.value.contentId}}})).data ?? null
+      : null
     setCrumbLabel(`assignment:${linkId.value}`, assignment.value?.title)
     setCrumbLabel(`student:${submissionId.value}`, studentName.value)
     if (found?.grade) {
@@ -90,6 +126,8 @@ async function load() {
       level.value = null
       feedback.value = ''
     }
+    savedFeedback.value = feedback.value
+    savedLevel.value = level.value
   } catch {
     loadError.value = 'Kunde inte hämta inlämningen.'
   } finally {
@@ -106,8 +144,20 @@ async function save(body: Schema<'GradeSubmissionDto'>) {
   saveError.value = ''
   try {
     await api.POST('/api/submissions/{id}/grade', {params: {path: {id: current.id}}, body})
-    await router.push({name: 'assignment-submissions', params: {courseId: courseId.value, linkId: linkId.value}})
+    leaving = true
+    setFlash('Bedömningen är sparad.')
+    // Listan hämtas igen så att kön speglar det som hände medan läraren bedömde.
+    const fresh = inQueue.value
+      ? (await api.GET('/api/links/{id}/submissions', {params: {path: {id: linkId.value}}})).data ?? []
+      : []
+    const following = inQueue.value
+      ? nextInQueue(fresh, current)
+      : null
+    await (following
+      ? router.push({name: 'submission-review', params: {courseId: courseId.value, linkId: linkId.value, submissionId: following.id}})
+      : router.push({name: 'assignment-submissions', params: {courseId: courseId.value, linkId: linkId.value}}))
   } catch {
+    leaving = false
     saveError.value = 'Kunde inte spara bedömningen.'
   } finally {
     saving.value = false
@@ -131,6 +181,26 @@ async function requestWork() {
   }
   await save({feedback: feedback.value, level: null, needsWork: true})
 }
+
+// Hoppa över går till nästa utan att spara. Osparade ändringar frågar guarden om.
+async function skip() {
+  if (next.value) {
+    await router.push({
+      name: 'submission-review',
+      params: {courseId: courseId.value, linkId: linkId.value, submissionId: next.value.id},
+    })
+  }
+}
+
+function confirmLeave(): boolean {
+  if (leaving || !dirty.value) {
+    return true
+  }
+  return window.confirm('Du har osparade ändringar i bedömningen. Lämna sidan ändå?')
+}
+
+onBeforeRouteLeave(confirmLeave)
+onBeforeRouteUpdate(confirmLeave)
 
 watch([courseId, linkId, submissionId], () => {
   load()
@@ -173,6 +243,42 @@ watch([courseId, linkId, submissionId], () => {
             </div>
           </div>
         </div>
+
+        <Collapsible
+          v-if="hasTask"
+          v-model:open="taskOpen"
+          as="section"
+          aria-label="Uppgiften"
+          class="max-w-[760px] border-b"
+          data-test="review-task"
+        >
+          <CollapsibleTrigger
+            class="group hover:bg-muted/30 flex w-full items-center gap-2 px-6 py-3 text-left transition-colors"
+            data-test="review-task-toggle"
+          >
+            <PhCaretDown
+              class="text-muted-foreground size-4 shrink-0 transition-transform duration-200 group-data-[state=closed]:-rotate-90"
+            />
+            <span class="text-sm font-semibold">Uppgiften</span>
+            <span class="text-muted-foreground min-w-0 flex-1 truncate text-[13px]">{{ assignment?.title }}</span>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div class="flex max-w-[68ch] flex-col gap-4 px-6 pt-1 pb-5">
+              <MarkdownView v-if="taskChecklist.body" :markdown="taskChecklist.body"/>
+              <section
+                v-if="taskChecklist.items.length > 0"
+                class="flex flex-col gap-2"
+                aria-labelledby="review-checklist-h"
+                data-test="review-checklist"
+              >
+                <h2 id="review-checklist-h" class="text-sm font-semibold">Att lämna in</h2>
+                <ul class="flex list-disc flex-col gap-1.5 pl-5 text-sm">
+                  <li v-for="entry in taskChecklist.items" :key="entry.index">{{ entry.text }}</li>
+                </ul>
+              </section>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
 
         <div class="flex max-w-[760px] flex-col gap-6 p-6">
           <p v-if="!hasHandedIn" class="text-muted-foreground text-sm">
@@ -318,6 +424,10 @@ watch([courseId, linkId, submissionId], () => {
           <p class="text-sm whitespace-pre-line">{{ feedback }}</p>
         </section>
 
+        <Alert v-if="notice" data-test="review-notice">
+          <AlertDescription>{{ notice }}</AlertDescription>
+        </Alert>
+
         <p v-if="formError" class="text-destructive text-[13px]">{{ formError }}</p>
 
         <Alert v-if="saveError" variant="destructive">
@@ -331,7 +441,19 @@ watch([courseId, linkId, submissionId], () => {
               <PhInfo class="size-3.5"/>
               Eleven ser betyget och kommentaren direkt.
             </p>
-            <Button class="w-full" :disabled="saving" @click="publish">Publicera bedömning</Button>
+            <p v-if="inQueue" class="text-sm font-medium" data-test="review-remaining">
+              {{ remaining }} kvar att bedöma
+            </p>
+            <Button
+              class="w-full"
+              :disabled="saving"
+              data-test="review-save"
+              @click="publish"
+            >
+              {{ next
+                ? 'Spara och nästa'
+                : 'Spara' }}
+            </Button>
             <Button
               variant="outline"
               class="w-full"
@@ -339,6 +461,16 @@ watch([courseId, linkId, submissionId], () => {
               @click="requestWork"
             >
               Begär komplettering
+            </Button>
+            <Button
+              v-if="next"
+              variant="ghost"
+              class="w-full"
+              :disabled="saving"
+              data-test="review-skip"
+              @click="skip"
+            >
+              Hoppa över till nästa
             </Button>
           </template>
         </div>

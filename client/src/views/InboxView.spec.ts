@@ -386,7 +386,7 @@ describe('InboxView', () => {
     ['SubmissionNeedsWork', 'Komplettera'],
     ['AssignmentPublished', 'Ny labb'],
     ['DeadlineSoon', 'Snart labb'],
-  ] as const)('öppnar delen på kurssidan när %s har kurs och del', async (kind, title) => {
+  ] as const)('öppnar delens sida för en lärare när %s har kurs och del', async (kind, title) => {
     backend({
       notifications: [notification('n-part', kind, {title, courseId: 'c1', courseTitle: 'DevOps', linkId: 'l9'})],
     })
@@ -396,8 +396,8 @@ describe('InboxView', () => {
     await wrapper.find('[data-test="notification-item"]').trigger('click')
     await flushPromises()
 
-    expect(router.currentRoute.value.path).toBe('/courses/c1/content')
-    expect(router.currentRoute.value.query.del).toBe('l9')
+    // Kurssidan skickar läraren vidare från ?del= till delens egen sida.
+    expect(router.currentRoute.value.path).toBe('/courses/c1/parts/l9')
   })
 
   it('Markera alla som lästa skickar ett anrop och nollställer olästa', async () => {

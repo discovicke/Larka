@@ -148,6 +148,16 @@ describe('TeacherToday', () => {
     expect(rows[1].text()).toContain('Del')
   })
 
+  it('länkar en schemalagd del till delens sida och en vecka till kursen', async () => {
+    backend()
+
+    const {wrapper} = await renderApp('/')
+
+    const rows = wrapper.findAll('[data-test="scheduled-item"]')
+    expect(rows[0].attributes('href')).toBe('/courses/c1/content')
+    expect(rows[1].attributes('href')).toBe('/courses/c1/parts/l4')
+  })
+
   it('visar kurserna med antal elever och en markering när något väntar', async () => {
     backend()
 

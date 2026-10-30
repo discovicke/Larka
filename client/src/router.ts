@@ -120,8 +120,8 @@ export const routes: RouteRecordRaw[] = [
           {
             path: 'staff',
             name: 'course-staff',
-            component: CourseAboutView,
-            meta: {title: 'Personal', breadcrumbs: (route) => courseBreadcrumbs(route, {label: 'Personal'})},
+            // Personal är en del av Om. Gamla länkar landar på personalen.
+            redirect: (to) => ({name: 'course-about', params: to.params, hash: '#personal'}),
           },
           {
             path: 'about',

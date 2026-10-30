@@ -12,6 +12,7 @@ import {Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/co
 import {Skeleton} from '@/components/ui/skeleton'
 import {useCrumbLabels} from '@/composables/useCrumbLabels'
 import {useCurrentUser} from '@/composables/useCurrentUser'
+import {useFlash} from '@/composables/useFlash'
 import {api, errorMessage, type Schema} from '@/lib/api'
 import {parseChecklist} from '@/lib/checklist'
 import {formatDate, partOf} from '@/lib/content'
@@ -23,6 +24,9 @@ const route = useRoute()
 const router = useRouter()
 const {setCrumbLabel} = useCrumbLabels()
 const {me, can, status, loadMe} = useCurrentUser()
+
+// Besked från sidan man kom från, till exempel att en bedömning är sparad.
+const notice = ref(useFlash().takeFlash())
 
 const courseId = computed(() => String(route.params.courseId))
 const linkId = computed(() => String(route.params.linkId))
@@ -199,6 +203,10 @@ watch([courseId, linkId], () => {
 
 <template>
   <div class="flex flex-col gap-5">
+    <Alert v-if="notice" data-test="part-notice">
+      <AlertDescription>{{ notice }}</AlertDescription>
+    </Alert>
+
     <Alert v-if="error" variant="destructive">
       <AlertDescription>{{ error }}</AlertDescription>
     </Alert>

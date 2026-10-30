@@ -124,11 +124,15 @@ describe('CourseAboutView', () => {
     expect(undated.wrapper.find('[data-test="course-status"]').exists()).toBe(false)
   })
 
-  it('personalfilen visar samma sida med personalen', async () => {
+  it('Om visar beskrivning, personal och fakta, och /staff går till #personal', async () => {
     backend()
 
-    const {wrapper} = await renderApp('/courses/c1/staff')
+    const {wrapper, router} = await renderApp('/courses/c1/staff')
 
+    expect(router.currentRoute.value.name).toBe('course-about')
+    expect(router.currentRoute.value.hash).toBe('#personal')
+    expect(wrapper.find('#description-heading').exists()).toBe(true)
+    expect(wrapper.find('#facts-heading').exists()).toBe(true)
     expect(wrapper.find('#personal').exists()).toBe(true)
     expect(wrapper.find('#staff-heading').text()).toBe('Personal')
     expect(wrapper.findAll('[data-test="staff-row"]')).toHaveLength(2)

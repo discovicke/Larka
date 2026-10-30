@@ -29,7 +29,6 @@ describe('router', () => {
     ['/settings', 'settings'],
     ['/courses/devops/content', 'course-content'],
     ['/courses/devops/news', 'course-news'],
-    ['/courses/devops/staff', 'course-staff'],
     ['/courses/devops/about', 'course-about'],
     ['/courses/devops/modules/1/new', 'create-content'],
     ['/courses/devops/parts/l1', 'part'],
@@ -41,6 +40,17 @@ describe('router', () => {
     const route = await open(path)
 
     expect(route.name).toBe(routeName)
+  })
+
+  it('personalsidan och länkar till course-staff går till Om vid personalen', async () => {
+    const byPath = await open('/courses/devops/staff')
+    expect(byPath.name).toBe('course-about')
+    expect(byPath.hash).toBe('#personal')
+
+    const router = createAppRouter(createMemoryHistory())
+    await router.push({name: 'course-staff', params: {courseId: 'devops'}})
+    expect(router.currentRoute.value.name).toBe('course-about')
+    expect(router.currentRoute.value.hash).toBe('#personal')
   })
 
   it('kurssidan öppnar fliken Innehåll', async () => {
@@ -93,7 +103,6 @@ describe('brödsmulor', () => {
   it.each([
     ['kursens innehåll', '/courses/c1/content', [kurser, devops]],
     ['kursens nyheter', '/courses/c1/news', [kurser, devops, {label: 'Nyheter'}]],
-    ['kursens personal', '/courses/c1/staff', [kurser, devops, {label: 'Personal'}]],
     ['om kursen', '/courses/c1/about', [kurser, devops, {label: 'Om'}]],
     ['ny del', '/courses/c1/modules/m1/new', [kurser, devops, innehall, {label: 'Ny del'}]],
     ['redigera del', '/courses/c1/modules/m1/content/l1/edit', [kurser, devops, innehall, {label: 'Redigera del'}]],

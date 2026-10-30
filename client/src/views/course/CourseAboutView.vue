@@ -142,9 +142,9 @@ async function save() {
   }
 }
 
-// Personal-fliken visar samma sida som Om, men scrollar till personalen.
+// Länken till #personal scrollar till personalen. Personalen laddas sist, så scrollen väntar på det.
 function scrollToStaff() {
-  if (route.name !== 'course-staff') {
+  if (route.hash !== '#personal') {
     return
   }
   nextTick(() => {
@@ -160,7 +160,7 @@ watch(courseId, () => {
   loadStaff()
 }, {immediate: true})
 
-watch(() => route.name, scrollToStaff)
+watch(() => route.hash, scrollToStaff)
 </script>
 
 <template>

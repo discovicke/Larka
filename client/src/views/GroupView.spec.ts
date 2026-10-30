@@ -234,8 +234,8 @@ describe('GroupView', () => {
       const {wrapper} = await renderApp('/groups/g1')
 
       expect(wrapper.find('[data-test="add-member"]').exists()).toBe(false)
-      expect(wrapper.find('[data-test="remove-member"]').exists()).toBe(false)
-      expect(wrapper.find('[data-test="member-role-select"]').exists()).toBe(false)
+      expect(wrapper.find('[data-test="member-menu"]').exists()).toBe(false)
+      expect(wrapper.find('select').exists()).toBe(false)
       expect(wrapper.find('[data-test="link-course-button"]').exists()).toBe(false)
       expect(wrapper.find('[data-test="unlink-course"]').exists()).toBe(false)
     })
@@ -288,36 +288,88 @@ describe('GroupView', () => {
       expect(modal().textContent).toContain('Inga användare hittades')
     })
 
-    it('byter roll och flyttar medlemmen till den nya rollgruppen', async () => {
+    async function openMemberMenu(wrapper: Awaited<ReturnType<typeof renderApp>>['wrapper'], name: string) {
+      await wrapper.find(`[aria-label="Fler val för ${name}"]`).trigger('keydown', {key: 'Enter'})
+      await flushPromises()
+    }
+
+    async function chooseAction(label: string) {
+      const item = [...document.querySelectorAll('[role="menuitem"]')]
+        .find((candidate) => candidate.textContent?.trim() === label) as HTMLElement
+      item.click()
+      await flushPromises()
+    }
+
+    function chooseRole(value: string) {
+      const select = modal().querySelector('[data-test="change-role-select"]') as HTMLSelectElement
+      select.value = value
+      select.dispatchEvent(new Event('change'))
+      return flushPromises()
+    }
+
+    it('visar bara namnen och en meny per medlem', async () => {
       backend({role: 'Admin'})
       const {wrapper} = await renderApp('/groups/g1')
 
-      const select = wrapper.find('select[aria-label="Roll för Siv Student"]')
-      await select.setValue('Teacher')
-      await flushPromises()
+      expect(wrapper.findAll('[data-test="member-row"]')).toHaveLength(4)
+      expect(wrapper.findAll('[data-test="member-menu"]')).toHaveLength(4)
+      expect(wrapper.find('select').exists()).toBe(false)
+      expect(wrapper.text()).not.toContain('Ta bort')
+      await openMemberMenu(wrapper, 'Siv Student')
+      expect([...document.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent?.trim()))
+        .toEqual(['Ändra roll', 'Ta bort'])
+    })
+
+    it('byter roll i en dialog och laddar om listan', async () => {
+      backend({role: 'Admin'})
+      const {wrapper} = await renderApp('/groups/g1')
+
+      await openMemberMenu(wrapper, 'Siv Student')
+      await chooseAction('Ändra roll')
+      expect(modal().textContent).toContain('Ändra roll för Siv Student')
+      expect(modal().querySelector('[data-test="confirm-change-role"]')?.hasAttribute('disabled')).toBe(true)
+      await chooseRole('Teacher')
+      await click(modal().querySelector('[data-test="confirm-change-role"]'))
 
       expect(sent('PUT', '/api/groups/g1/members/u1')).toEqual({role: 'Teacher'})
-      expect(roleOf(wrapper, 'Siv Student')).toBe('Lärare')
+      expect(requests.some((request) => request.method === 'DELETE')).toBe(false)
+      expect(modal()).toBeNull()
+    })
+
+    it('byter mentor när en medlem får rollen Mentor', async () => {
+      backend({role: 'Admin'})
+      const {wrapper} = await renderApp('/groups/g1')
+
+      await openMemberMenu(wrapper, 'Lars Lärare')
+      await chooseAction('Ändra roll')
+      await chooseRole('Mentor')
+      expect(modal().querySelector('[data-test="mentor-leaves"]')?.textContent).toContain('Malin Mentor lämnar klassen')
+      await click(modal().querySelector('[data-test="confirm-change-role"]'))
+
+      expect(sent('PUT', '/api/groups/g1/members/u2')).toEqual({role: 'Mentor'})
+      expect(requests.filter((request) => request.method === 'DELETE').map((request) => request.path))
+        .toEqual(['/api/groups/g1/members/u3'])
     })
 
     it('behåller rollen och visar felet när rollbytet misslyckas', async () => {
       backend({role: 'Admin', writeStatus: 500})
       const {wrapper} = await renderApp('/groups/g1')
 
-      await wrapper.find('select[aria-label="Roll för Siv Student"]').setValue('Teacher')
-      await flushPromises()
+      await openMemberMenu(wrapper, 'Siv Student')
+      await chooseAction('Ändra roll')
+      await chooseRole('Teacher')
+      await click(modal().querySelector('[data-test="confirm-change-role"]'))
 
+      expect(modal().querySelector('[role="alert"]')?.textContent).toContain('Kunde inte ändra rollen för Siv Student.')
       expect(roleOf(wrapper, 'Siv Student')).toBe('Elev')
-      expect(wrapper.find('[role="alert"]').text()).toContain('Kunde inte ändra rollen för Siv Student.')
-      expect((wrapper.find('select[aria-label="Roll för Siv Student"]').element as HTMLSelectElement).value).toBe('Student')
     })
 
     it('tar bort en medlem efter bekräftelse', async () => {
       backend({role: 'Admin'})
       const {wrapper} = await renderApp('/groups/g1')
 
-      await wrapper.findAll('[data-test="remove-member"]')[2].trigger('click')
-      await flushPromises()
+      await openMemberMenu(wrapper, 'Siv Student')
+      await chooseAction('Ta bort')
       expect(modal().textContent).toContain('Ta bort Siv Student från TE22A?')
       expect(requests.some((request) => request.method === 'DELETE')).toBe(false)
       await click(modal().querySelector('[data-test="confirm-remove-member"]'))
@@ -330,8 +382,8 @@ describe('GroupView', () => {
       backend({role: 'Admin', writeStatus: 500})
       const {wrapper} = await renderApp('/groups/g1')
 
-      await wrapper.findAll('[data-test="remove-member"]')[2].trigger('click')
-      await flushPromises()
+      await openMemberMenu(wrapper, 'Siv Student')
+      await chooseAction('Ta bort')
       await click(modal().querySelector('[data-test="confirm-remove-member"]'))
 
       expect(modal().querySelector('[role="alert"]')?.textContent).toContain('fel')

@@ -1,0 +1,134 @@
+<script setup lang="ts">
+import {computed, ref, watch} from 'vue'
+
+import {Alert, AlertDescription} from '@/components/ui/alert'
+import {Button} from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {FieldLabel} from '@/components/ui/field'
+import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
+import {api, errorMessage, type Schema} from '@/lib/api'
+import {groupRoles} from '@/lib/groupRoles'
+
+const props = defineProps<{
+  groupId: string
+  groupName: string
+  member: Schema<'GroupMemberDto'> | null
+  members: Schema<'GroupMemberDto'>[]
+}>()
+// changed kommer också när den förra mentorn inte kunde tas bort, så att sidan visar läget.
+const emit = defineEmits<{changed: []}>()
+
+const open = defineModel<boolean>('open', {required: true})
+
+const role = ref<Schema<'GroupRole'>>('Student')
+const saving = ref(false)
+const error = ref('')
+
+// En klass har en mentor, så den som redan är mentor lämnar klassen när en ny utses.
+const leavingMentors = computed(() => role.value === 'Mentor'
+  ? props.members.filter((found) => found.role === 'Mentor' && found.userId !== props.member?.userId)
+  : [])
+
+watch(open, (isOpen) => {
+  if (isOpen && props.member) {
+    role.value = props.member.role
+    error.value = ''
+  }
+})
+
+async function save() {
+  if (!props.member) {
+    return
+  }
+
+  const member = props.member
+  saving.value = true
+  error.value = ''
+  try {
+    await api.PUT('/api/groups/{id}/members/{userId}', {
+      params: {path: {id: props.groupId, userId: member.userId}},
+      body: {role: role.value},
+    })
+  } catch (exception) {
+    error.value = `Kunde inte ändra rollen för ${member.name}. ${errorMessage(exception)}`
+    saving.value = false
+    return
+  }
+
+  try {
+    for (const mentor of leavingMentors.value) {
+      await api.DELETE('/api/groups/{id}/members/{userId}', {
+        params: {path: {id: props.groupId, userId: mentor.userId}},
+      })
+    }
+    emit('changed')
+    open.value = false
+  } catch (exception) {
+    emit('changed')
+    error.value = `${member.name} är mentor, men den förra mentorn kunde inte tas bort ur klassen. ${errorMessage(exception)}`
+  } finally {
+    saving.value = false
+  }
+}
+</script>
+
+<template>
+  <Dialog v-model:open="open">
+    <DialogContent class="grid-cols-[minmax(0,1fr)] sm:max-w-md">
+      <form class="flex min-w-0 flex-col gap-4" @submit.prevent="save">
+        <DialogHeader class="min-w-0">
+          <DialogTitle class="break-words">Ändra roll för {{ member?.name }}</DialogTitle>
+          <DialogDescription>Rollen gäller i {{ groupName }}.</DialogDescription>
+        </DialogHeader>
+
+        <div class="flex min-w-0 flex-col gap-1.5">
+          <FieldLabel for="change-role">Roll</FieldLabel>
+          <NativeSelect
+            id="change-role"
+            v-model="role"
+            class="w-full"
+            :disabled="saving"
+            data-test="change-role-select"
+          >
+            <NativeSelectOption v-for="option in groupRoles" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </NativeSelectOption>
+          </NativeSelect>
+        </div>
+
+        <p v-if="leavingMentors.length > 0" class="text-muted-foreground text-sm" data-test="mentor-leaves">
+          {{ leavingMentors.map((mentor) => mentor.name).join(', ') }} lämnar klassen när du byter.
+        </p>
+
+        <Alert v-if="error" variant="destructive">
+          <AlertDescription>{{ error }}</AlertDescription>
+        </Alert>
+
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            :disabled="saving"
+            @click="open = false"
+          >
+            Avbryt
+          </Button>
+          <Button
+            type="submit"
+            :disabled="saving || role === member?.role"
+            data-test="confirm-change-role"
+          >
+            Spara
+          </Button>
+        </DialogFooter>
+      </form>
+    </DialogContent>
+  </Dialog>
+</template>

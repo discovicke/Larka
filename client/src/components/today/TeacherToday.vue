@@ -119,6 +119,13 @@ function assignmentLink(item: Deadline): RouteLocationRaw {
   return {name: 'assignment-submissions', params: {courseId: item.courseId, linkId: item.linkId}}
 }
 
+// En schemalagd del öppnar delens sida. En vecka har ingen del och öppnar kursen.
+function scheduledLink(item: Scheduled): RouteLocationRaw {
+  return item.kind !== 'Week' && item.linkId
+    ? {name: 'part', params: {courseId: item.courseId, linkId: item.linkId}}
+    : courseLink(item.courseId)
+}
+
 function courseLink(courseId: string): RouteLocationRaw {
   return {name: 'course-content', params: {courseId}}
 }
@@ -249,7 +256,7 @@ load()
           <RouterLink
             v-for="item in teaching.scheduled"
             :key="`${item.kind}-${item.linkId ?? item.moduleId}`"
-            :to="courseLink(item.courseId)"
+            :to="scheduledLink(item)"
             data-test="scheduled-item"
             class="flex flex-col"
           >

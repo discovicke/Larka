@@ -110,3 +110,16 @@ const submissionModeLabels: Record<string, string> = {
 export function handInLabel(modes: string[]): string {
   return modes.map((mode) => submissionModeLabels[mode] ?? mode).join(', ')
 }
+
+/** Den som står näst i bedömningskön: inlämnade, sorterade på namn som i listan, utom den som är öppen. */
+export function nextInQueue<T extends {id: string, studentName: string, status: Schema<'SubmissionStatus'>}>(
+  list: T[],
+  current: {id: string, studentName: string},
+): T | null {
+  const others = list
+    .filter((candidate) => candidate.status === 'Submitted' && candidate.id !== current.id)
+    .sort((left, right) => left.studentName.localeCompare(right.studentName, 'sv'))
+  return others.find((candidate) => candidate.studentName.localeCompare(current.studentName, 'sv') > 0)
+    ?? others[0]
+    ?? null
+}

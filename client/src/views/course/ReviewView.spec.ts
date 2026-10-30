@@ -1,5 +1,5 @@
 import {flushPromises} from '@vue/test-utils'
-import {describe, expect, it} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 
 import {mockApi, requests, sent} from '@/test/mockApi'
 import {mentorAs, meAs} from '@/test/me'
@@ -85,7 +85,16 @@ const content = {
   assignment: {gradeScale: 'PassFail', submissionModes: ['Text', 'Repo'], templateRepo: null},
 }
 
-function backend(options: {scale?: string, submission?: unknown, me?: ReturnType<typeof meAs>} = {}) {
+function queued(id: string, studentName: string, status = 'Submitted') {
+  return {...baseSubmission, id, studentName, status, repo: null, files: []}
+}
+
+function backend(options: {
+  scale?: string
+  submission?: unknown
+  me?: ReturnType<typeof meAs>
+  queue?: unknown[]
+} = {}) {
   mockApi((method, path) => {
     if (path === '/api/me') {
       return {status: 200, body: options.me ?? meAs('Teacher', ['c1'])}
@@ -102,11 +111,21 @@ function backend(options: {scale?: string, submission?: unknown, me?: ReturnType
     if (path === '/api/submissions/s1' && method === 'GET') {
       return {status: 200, body: options.submission ?? baseSubmission}
     }
+    const other = /^\/api\/submissions\/(s\d+)$/.exec(path)
+    if (other && method === 'GET') {
+      const found = (options.queue ?? []).find((candidate) => (candidate as {id: string}).id === other[1])
+      return found
+        ? {status: 200, body: found}
+        : {status: 404}
+    }
+    if (/^\/api\/submissions\/s\d+\/grade$/.test(path) && method === 'POST') {
+      return {status: 200, body: baseSubmission}
+    }
     if (path === '/api/submissions/s1/grade' && method === 'POST') {
       return {status: 200, body: baseSubmission}
     }
     if (path === '/api/links/l1/submissions') {
-      return {status: 200, body: []}
+      return {status: 200, body: options.queue ?? []}
     }
     return {status: 404}
   })
@@ -144,7 +163,7 @@ describe('ReviewView', () => {
     expect(wrapper.text()).toContain('Tidigare kommentar')
     expect(wrapper.findAll('[role="radio"]')).toHaveLength(0)
     expect(wrapper.find('textarea').exists()).toBe(false)
-    expect(wrapper.text()).not.toContain('Publicera bedömning')
+    expect(wrapper.text()).not.toContain('Spara')
     expect(wrapper.text()).not.toContain('Begär komplettering')
   })
 
@@ -155,7 +174,7 @@ describe('ReviewView', () => {
 
     expect(wrapper.find('[data-test="read-only-grade"]').exists()).toBe(false)
     expect(wrapper.find('textarea').exists()).toBe(true)
-    expect(wrapper.text()).toContain('Publicera bedömning')
+    expect(wrapper.text()).toContain('Spara')
   })
 
   it('visar eleven, svaret, filerna och repot', async () => {
@@ -217,11 +236,54 @@ describe('ReviewView', () => {
 
     const {wrapper} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
 
-    await button(wrapper, 'Publicera bedömning').trigger('click')
+    await button(wrapper, 'Spara').trigger('click')
     await flushPromises()
 
     expect(wrapper.text()).toContain('Välj ett betyg.')
     expect(requests.filter((request) => request.method === 'POST')).toHaveLength(0)
+  })
+
+  it('visar uppgiften hopfälld och öppnar den med kriterier och checklista', async () => {
+    backend()
+
+    const {wrapper} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
+
+    expect(wrapper.find('[data-test="review-task"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('Lämna in länken')
+
+    await wrapper.find('[data-test="review-task-toggle"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="review-task"]').text()).toContain('Lämna in länken till repot.')
+  })
+
+  it('visar Att lämna in-listan i uppgiften', async () => {
+    mockApi((_method, path) => {
+      if (path === '/api/me') {
+        return {status: 200, body: meAs('Teacher', ['c1'])}
+      }
+      if (path === '/api/courses') {
+        return {status: 200, body: [course]}
+      }
+      if (path === '/api/courses/c1/modules') {
+        return {status: 200, body: [week('PassFail')]}
+      }
+      if (path === '/api/content/x1') {
+        return {status: 200, body: {...content, bodyMd: 'Bygg pipelinen.\n\n- [ ] Länk till körning\n- [ ] README'}}
+      }
+      if (path === '/api/submissions/s1') {
+        return {status: 200, body: baseSubmission}
+      }
+      return {status: 200, body: []}
+    })
+
+    const {wrapper} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
+    await wrapper.find('[data-test="review-task-toggle"]').trigger('click')
+    await flushPromises()
+
+    const list = wrapper.find('[data-test="review-checklist"]')
+    expect(list.findAll('li').map(text)).toEqual(['Länk till körning', 'README'])
+    expect(list.text()).toContain('Att lämna in')
   })
 
   it('publicerar betyget och går tillbaka till inlämningarna', async () => {
@@ -231,7 +293,7 @@ describe('ReviewView', () => {
 
     await wrapper.findAll('[role="radio"]')[1].trigger('click')
     await wrapper.find('#feedback').setValue('Bra jobbat')
-    await button(wrapper, 'Publicera bedömning').trigger('click')
+    await button(wrapper, 'Spara').trigger('click')
     await flushPromises()
     await flushPromises()
 
@@ -239,6 +301,147 @@ describe('ReviewView', () => {
       .toEqual({feedback: 'Bra jobbat', level: 'Pass', needsWork: false})
     expect(router.currentRoute.value.name).toBe('part')
     expect(router.currentRoute.value.query.tab).toBe('inlamningar')
+    expect(wrapper.find('[data-test="part-notice"]').text()).toBe('Bedömningen är sparad.')
+  })
+
+  describe('bedömningskön', () => {
+    const queue = [
+      baseSubmission,
+      queued('s2', 'Örjan Berg'),
+      queued('s3', 'Bo Carlsson'),
+      queued('s4', 'Cecilia Dahl', 'Graded'),
+      queued('s5', 'Dag Eriksson', 'NeedsWork'),
+    ]
+
+    it('visar hur många som är kvar och säger Spara och nästa', async () => {
+      backend({queue})
+
+      const {wrapper} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
+
+      expect(text(wrapper.find('[data-test="review-remaining"]'))).toBe('3 kvar att bedöma')
+      expect(text(wrapper.find('[data-test="review-save"]'))).toBe('Spara och nästa')
+      expect(wrapper.find('[data-test="review-skip"]').exists()).toBe(true)
+    })
+
+    it('sparar och går till nästa inlämnade i listans ordning', async () => {
+      backend({queue})
+
+      const {wrapper, router} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
+
+      await wrapper.findAll('[role="radio"]')[1].trigger('click')
+      await wrapper.find('[data-test="review-save"]').trigger('click')
+      await flushPromises()
+      await flushPromises()
+
+      expect(sent('POST', '/api/submissions/s1/grade')).toMatchObject({level: 'Pass', needsWork: false})
+      // Anna följs av Bo Carlsson, inte Örjan, och Cecilia (Bedömd) och Dag (Komplettera) hoppas över.
+      expect(router.currentRoute.value.params.submissionId).toBe('s3')
+      expect(wrapper.find('h1').text()).toBe('Bo Carlsson')
+      expect(wrapper.find('[data-test="review-notice"]').text()).toBe('Bedömningen är sparad.')
+    })
+
+    it('begär komplettering och går också vidare', async () => {
+      backend({queue})
+
+      const {wrapper, router} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
+
+      await wrapper.find('#feedback').setValue('Komplettera.')
+      await button(wrapper, 'Begär komplettering').trigger('click')
+      await flushPromises()
+      await flushPromises()
+
+      expect(router.currentRoute.value.params.submissionId).toBe('s3')
+    })
+
+    it('säger bara Spara på den sista och går tillbaka till listan', async () => {
+      backend({queue: [baseSubmission, queued('s4', 'Cecilia Dahl', 'Graded')]})
+
+      const {wrapper, router} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
+
+      expect(text(wrapper.find('[data-test="review-remaining"]'))).toBe('1 kvar att bedöma')
+      expect(text(wrapper.find('[data-test="review-save"]'))).toBe('Spara')
+      expect(wrapper.find('[data-test="review-skip"]').exists()).toBe(false)
+
+      await wrapper.findAll('[role="radio"]')[1].trigger('click')
+      await wrapper.find('[data-test="review-save"]').trigger('click')
+      await flushPromises()
+      await flushPromises()
+
+      expect(router.currentRoute.value.name).toBe('part')
+      expect(router.currentRoute.value.query.tab).toBe('inlamningar')
+      expect(wrapper.find('[data-test="part-notice"]').text()).toBe('Bedömningen är sparad.')
+    })
+
+    it('hoppar över till nästa utan att spara', async () => {
+      backend({queue})
+
+      const {wrapper, router} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
+
+      await wrapper.find('[data-test="review-skip"]').trigger('click')
+      await flushPromises()
+      await flushPromises()
+
+      expect(router.currentRoute.value.params.submissionId).toBe('s3')
+      expect(requests.filter((request) => request.method === 'POST')).toHaveLength(0)
+    })
+
+    it('frågar innan osparade ändringar kastas vid hoppa över', async () => {
+      backend({queue})
+      const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true)
+
+      const {wrapper, router} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
+      await wrapper.find('#feedback').setValue('Halvskrivet')
+
+      await wrapper.find('[data-test="review-skip"]').trigger('click')
+      await flushPromises()
+      expect(confirm).toHaveBeenCalledTimes(1)
+      expect(router.currentRoute.value.params.submissionId).toBe('s1')
+
+      await wrapper.find('[data-test="review-skip"]').trigger('click')
+      await flushPromises()
+      await flushPromises()
+      expect(router.currentRoute.value.params.submissionId).toBe('s3')
+      confirm.mockRestore()
+    })
+
+    it('frågar inte när inget är ändrat', async () => {
+      backend({queue})
+      const confirm = vi.spyOn(window, 'confirm')
+
+      const {wrapper} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
+      await wrapper.find('[data-test="review-skip"]').trigger('click')
+      await flushPromises()
+
+      expect(confirm).not.toHaveBeenCalled()
+      confirm.mockRestore()
+    })
+
+    it('Komplettera och Bedömd står utanför kön och sparar tillbaka till listan', async () => {
+      backend({queue: [gradedSubmission, queued('s2', 'Örjan Berg')], submission: gradedSubmission})
+
+      const {wrapper, router} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
+
+      expect(wrapper.find('[data-test="review-remaining"]').exists()).toBe(false)
+      expect(wrapper.find('[data-test="review-skip"]').exists()).toBe(false)
+      expect(text(wrapper.find('[data-test="review-save"]'))).toBe('Spara')
+
+      await wrapper.find('[data-test="review-save"]').trigger('click')
+      await flushPromises()
+      await flushPromises()
+
+      expect(router.currentRoute.value.name).toBe('part')
+    })
+
+    it('mentorn ser varken formulär eller kö', async () => {
+      backend({me: mentorAs(['c1']), queue})
+
+      const {wrapper} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
+
+      expect(wrapper.find('[data-test="review-save"]').exists()).toBe(false)
+      expect(wrapper.find('[data-test="review-remaining"]').exists()).toBe(false)
+      expect(wrapper.find('[data-test="review-skip"]').exists()).toBe(false)
+      expect(requests.some((request) => request.path === '/api/links/l1/submissions')).toBe(false)
+    })
   })
 
   it('kräver en kommentar när eleven ska komplettera', async () => {
