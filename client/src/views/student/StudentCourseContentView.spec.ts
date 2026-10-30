@@ -256,6 +256,26 @@ describe('StudentCourseContentView', () => {
     expect(detail.text()).not.toContain('/')
   })
 
+  it('visar Klar bara i statuspanelen i detaljvyn, inte också i huvudet', async () => {
+    backend([completed, theory])
+    const {wrapper} = await renderApp('/courses/c1/content?del=l6')
+
+    const detail = wrapper.find('[data-test="student-detail"]')
+    expect(detail.find('header').findAll('*').filter((node) => node.text() === 'Klar')).toHaveLength(0)
+    expect(detail.find('aside').text()).toContain('Klar')
+    expect(detail.find('[data-test="undo-l6"]').text()).toBe('Ångra')
+    expect(detail.find('aside').classes()).toContain('max-lg:order-first')
+    expect(detail.findAll('span.font-medium').filter((span) => span.text() === 'Klar')).toHaveLength(1)
+
+    await wrapper.find('[data-test="student-back"]').trigger('click')
+    await wrapper.find('[data-test="student-open-l1"]').trigger('click')
+    await flushPromises()
+
+    const open = wrapper.find('[data-test="student-detail"]')
+    expect(open.find('header').findAll('*').filter((node) => node.text() === 'Klar')).toHaveLength(0)
+    expect(open.find('aside').text()).toContain('Inte påbörjad')
+  })
+
   it('visar redigeraren för en lärare och inte elevvyn', async () => {
     mockApi((_method, path) => {
       if (path === '/api/me') {

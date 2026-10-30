@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  PhArrowCounterClockwise,
   PhArrowLeft,
   PhCalendarBlank,
   PhCaretDown,
@@ -546,14 +547,6 @@ function handInLabel(item: Schema<'StudentContentItem'>): string {
               <PhLock/>
               Låst
             </Badge>
-            <Badge
-              v-else-if="selectedItem.isCompleted"
-              variant="outline"
-              class="border-success/20 bg-success/10 text-success dark:border-success/30 dark:bg-success/20"
-            >
-              <PhCheckCircle/>
-              Klar
-            </Badge>
           </div>
           <h2 class="text-3xl leading-tight font-semibold">{{ selectedItem.title }}</h2>
           <p class="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
@@ -710,7 +703,7 @@ function handInLabel(item: Schema<'StudentContentItem'>): string {
             </section>
           </div>
 
-          <aside class="flex flex-col gap-4">
+          <aside class="flex flex-col gap-4 max-lg:order-first">
             <section class="bg-card flex flex-col gap-3 rounded-xl border p-4" aria-labelledby="status-h">
               <h2 id="status-h" class="text-sm font-semibold">Din status</h2>
               <div class="flex items-center gap-2">
@@ -735,8 +728,8 @@ function handInLabel(item: Schema<'StudentContentItem'>): string {
                   :data-test="`undo-${selectedItem.linkId}`"
                   @click="setCompleted(selectedItem.linkId, false)"
                 >
-                  <PhCheckCircle/>
-                  Klar – ångra
+                  <PhArrowCounterClockwise/>
+                  Ångra
                 </Button>
               </template>
               <template v-else-if="selectedItem.type === 'Assignment'">

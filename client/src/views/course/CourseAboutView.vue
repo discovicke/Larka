@@ -166,7 +166,7 @@ watch(() => route.name, scrollToStaff)
   <template v-else>
     <div class="flex flex-wrap items-start gap-6">
       <div class="flex min-w-0 flex-[999_1_520px] flex-col gap-6">
-        <section aria-labelledby="description-heading" class="flex max-w-[68ch] flex-col gap-2.5">
+        <section aria-labelledby="description-heading" class="flex flex-col gap-2.5">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <h2 id="description-heading" class="text-lg font-semibold">Beskrivning</h2>
             <div v-if="canEdit" class="flex items-center gap-2">
@@ -189,8 +189,10 @@ watch(() => route.name, scrollToStaff)
               </Button>
             </div>
           </div>
-          <MarkdownView v-if="hasDescription" :markdown="course.description"/>
-          <p v-else class="text-muted-foreground">Ingen kursbeskrivning ännu.</p>
+          <div class="max-w-[68ch]">
+            <MarkdownView v-if="hasDescription" :markdown="course.description"/>
+            <p v-else class="text-muted-foreground">Ingen kursbeskrivning ännu.</p>
+          </div>
         </section>
 
         <section id="personal" aria-labelledby="staff-heading" class="flex scroll-mt-6 flex-col gap-2.5">
