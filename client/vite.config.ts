@@ -14,8 +14,20 @@ export default defineConfig({
     },
   },
   build: {
-    // Editorn (Tiptap) är en egen chunk på drygt 500 kB som bara laddas på sidan för att skapa innehåll.
     chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        // Annars hamnar allt i en chunk på 1,4 MB. Biblioteken ändras sällan, så de cachas också längre så här.
+        manualChunks(id) {
+          if (/node_modules\/(@tiptap|prosemirror|linkifyjs|markdown-it|marked)/.test(id)) {
+            return 'editor'
+          }
+          if (id.includes('node_modules')) {
+            return 'vendor'
+          }
+        },
+      },
+    },
   },
   server: {
     // Vite skickar API-anropen vidare till backend, så webbläsaren pratar bara med en origin (ingen CORS).

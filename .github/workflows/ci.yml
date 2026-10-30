@@ -141,9 +141,13 @@ jobs:
         if: needs.changes.outputs.code == 'true'
         run: npm run lint
 
-      - name: Build
+      # Vite skriver varningar med (!) men avslutar ändå med 0, så de letas upp i utskriften.
+      - name: Build (no warnings)
         if: needs.changes.outputs.code == 'true'
-        run: npm run build
+        shell: bash
+        run: |
+          npm run build 2>&1 | tee build.log
+          ! grep -F '(!)' build.log
 
       # Kör testerna som vanligt och samlar täckning (Cobertura i client/coverage). Ett fallerande test
       # fäller steget precis som npm run test.
