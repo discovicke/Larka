@@ -17,7 +17,6 @@ Vi testar det som är kärnan i produkten, inte varje rad kod. 100 % täckning �
 - Svara med `respond<'/api/courses', 'get'>(body)` i `mockApi` så att fixturen typkontrolleras mot OpenAPI-schemat (se `CalendarView.spec.ts`).
 - Asserta på synlig text, roller, `data-test` och skickade API-anrop.
 - Undvik att asserta på CSS-klasser, intern komponentstruktur eller exakta implementationdetaljer.
-- Dev-verktygen under `components/dev` är inte kärna och testas inte.
 - Genererade shadcn-komponenter under `components/ui` testas indirekt genom vyerna.
 
 ## Backend
@@ -32,9 +31,8 @@ Vi testar det som är kärnan i produkten, inte varje rad kod. 100 % täckning �
 - 100 % kodtäckning
 - styling och exakta CSS-klasser
 - genererade UI-komponenter
-- dev-only formulär och sidor
 
-`npm run test:coverage` räknar bara produktionskod. Genererade UI-komponenter och dev-verktyg är undantagna i `vitest.config.ts`.
+`npm run test:coverage` räknar bara produktionskod. Genererade UI-komponenter är undantagna i `vitest.config.ts`.
 
 ## Kodtäckning
 
@@ -49,7 +47,7 @@ Kommandot kör backendtesterna (Docker måste vara igång) och frontendtesterna 
 Undantaget från täckningen:
 
 - Backend (`coverlet.runsettings`): EF-migreringar (genererade), `Program.cs` (uppstartskod), `DevSeed.cs` (dev-data), kod märkt `[GeneratedCode]` eller `[CompilerGenerated]` samt testprojekten och analyzern.
-- Frontend (`client/vitest.config.ts`): genererade UI-komponenter, dev-verktyg, `main.ts`, `utils.ts` och genererade API-typer.
+- Frontend (`client/vitest.config.ts`): genererade UI-komponenter, `main.ts`, `utils.ts` och genererade API-typer.
 
 I CI samlar backend- och frontendjobben varsin täckning och skriver sitt tal i jobbsammanfattningen. Jobbet `Coverage report` slår ihop dem. Sammanfattningen finns i det jobbet och hela HTML-rapporten i artefakten `coverage-report`. Jobbet är inget obligatoriskt krav. README:ns badge visar radtäckningen för hela repot och uppdateras av CD vid varje körning på `main`.
 

@@ -174,24 +174,6 @@ public class RelationTests(TestWebApplicationFactory factory) : IClassFixture<Te
         Assert.Null(kept.ContentId);
     }
 
-    [Fact]
-    public async Task PushSubscription_WithSameEndpoint_IsRejected()
-    {
-        using var scope = factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
-        var user = await TestData.AddUserAsync(db);
-        var endpoint = $"https://fcm.googleapis.com/fcm/send/{Guid.NewGuid():N}";
-        db.PushSubscriptions.Add(NewSubscription(user.Id, endpoint));
-        await db.SaveChangesAsync();
-
-        db.PushSubscriptions.Add(NewSubscription(user.Id, endpoint));
-
-        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
-    }
-
-    private static PushSubscription NewSubscription(Guid userId, string endpoint) =>
-        new() { UserId = userId, Endpoint = endpoint, P256dh = "k", Auth = "a" };
-
     private static async Task<(ContentLink Link, User Student)> AddLinkWithStudentAsync(AppDb db)
     {
         var group = await TestData.AddGroupAsync(db);

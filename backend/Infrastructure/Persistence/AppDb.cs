@@ -31,7 +31,6 @@ public class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
     public DbSet<DataPatch> DataPatches => Set<DataPatch>();
     public DbSet<Attachment> Attachments => Set<Attachment>();
     public DbSet<Notification> Notifications => Set<Notification>();
-    public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
     public DbSet<SchoolGitHubInstallation> SchoolGitHubInstallations => Set<SchoolGitHubInstallation>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder builder)

@@ -87,24 +87,6 @@ export const toneTextClasses: Record<StatusTone, string> = {
 
 export const statuses: Record<StatusKey, StatusDefinition> = definitions
 
-export const statusFamilyTitles: Record<StatusFamily, string> = {
-  course: 'Kursens läge',
-  publishing: 'Publicering',
-  progress: 'Elevens framsteg',
-  submission: 'Inlämning och bedömning',
-  deadline: 'Deadline',
-}
-
-/** Lägena grupperade per familj, i den ordning de visas på statusbladet. */
-export function statusFamilies(): {family: StatusFamily, title: string, keys: StatusKey[]}[] {
-  const keys = Object.keys(statuses) as StatusKey[]
-  return (Object.keys(statusFamilyTitles) as StatusFamily[]).map((family) => ({
-    family,
-    title: statusFamilyTitles[family],
-    keys: keys.filter((key) => statuses[key].family === family),
-  }))
-}
-
 export function statusVariant(key: StatusKey): BadgeVariant {
   return toneVariants[statuses[key].tone]
 }

@@ -4,7 +4,6 @@ import {
   courseStatusKey,
   deadlineStatusKey,
   partStatusKey,
-  statusFamilies,
   statuses,
   type StatusKey,
   statusVariant,
@@ -58,13 +57,6 @@ describe('statuses', () => {
     expect(statusVariant('progress.done')).toBe('success')
     expect(statusVariant('course.running')).toBe('outline')
     expect(statusVariant('deadline.overdue')).toBe('destructive')
-  })
-
-  it('familjerna innehåller alla lägen en gång', () => {
-    const groups = statusFamilies()
-    const keys = groups.flatMap((group) => group.keys)
-    expect([...keys].sort()).toEqual((Object.keys(statuses) as StatusKey[]).sort())
-    expect(groups.every((group) => group.keys.length > 0)).toBe(true)
   })
 })
 

@@ -204,10 +204,6 @@ export const routes: RouteRecordRaw[] = [
   },
   // Inloggningen ligger utanför layouten: sidomenyn och headern kräver en inloggad användare.
   {path: '/login', name: 'login', component: LoginView, meta: {title: 'Logga in', public: true}},
-  // Verktyg för att skapa testdata. Länkas inte i navigationen och ligger utanför layouten.
-  {path: '/dev', name: 'dev', component: () => import('@/views/DevView.vue'), meta: {title: 'Testdata'}},
-  // Alla statuslägen på ett blad, för att granska färg och text. Också utanför layouten.
-  {path: '/dev/status', name: 'dev-status', component: () => import('@/views/DevStatusView.vue'), meta: {title: 'Statusblad'}},
 ]
 
 // Bara inloggade får se sidorna. Den som inte är inloggad skickas till inloggningen, med sidan i redirect.

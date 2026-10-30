@@ -19,13 +19,3 @@ public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
             .HasForeignKey(notification => notification.SubmissionId).OnDelete(DeleteBehavior.SetNull);
     }
 }
-
-public class PushSubscriptionConfiguration : IEntityTypeConfiguration<PushSubscription>
-{
-    public void Configure(EntityTypeBuilder<PushSubscription> builder)
-    {
-        builder.HasOne<User>().WithMany()
-            .HasForeignKey(subscription => subscription.UserId).OnDelete(DeleteBehavior.Cascade);
-        builder.HasIndex(subscription => subscription.Endpoint).IsUnique();
-    }
-}

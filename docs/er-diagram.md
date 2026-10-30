@@ -46,7 +46,6 @@ erDiagram
     User ||--o{ Notification : "får"
     Content |o--o{ Notification : "gäller"
     Submission |o--o{ Notification : "gäller"
-    User ||--o{ PushSubscription : "har enheter"
 
     School {
         uuid Id PK
@@ -212,14 +211,6 @@ erDiagram
         timestamptz CreatedAt
         timestamptz ReadAt "nullable"
     }
-    PushSubscription {
-        uuid Id PK
-        uuid UserId FK
-        string Endpoint UK
-        string P256dh
-        string Auth
-        timestamptz CreatedAt
-    }
     SchoolGitHubInstallation {
         uuid Id PK
         uuid SchoolId FK, UK
@@ -288,7 +279,6 @@ erDiagram
 ### Notiser
 
 - **Notification** är _vad som hände_ för en användare (t.ex. ny nyhet, uppgift rättad), med valfri länk till content eller submission. Den visas i appen och `ReadAt` markerar den som läst.
-- **PushSubscription** är _vart_ en pushnotis ska skickas: en rad per enhet (mobil, dator) som användaren har tillåtit notiser på. Den är `Endpoint` + nycklarna webbläsaren ger. Saknas rader skickas ingen push, men notisen finns ändå i appen.
 
 ## Delete-regler
 
@@ -304,7 +294,7 @@ erDiagram
 | ContentLink → ContentLinkDependency                        | kaskad                                                       |
 | ContentLink → PartCompletion                               | kaskad i databasen, men API blockerar om klarmarkering finns |
 | Submission → SubmissionFile, StudentRepo, Grade            | kaskad                                                       |
-| User → Notification, PushSubscription                      | kaskad                                                       |
+| User → Notification                                        | kaskad                                                       |
 | Content, Submission → Notification                         | sätts till null                                              |
 
 Principen: det man äger raderas med en (content med sina bilagor, en inlämning med sina filer). Delade saker (skolor, grupper, kurser, användare) och elevernas arbete går inte att radera så länge något pekar på dem.
@@ -317,7 +307,6 @@ Principen: det man äger raderas med en (content med sina bilagor, en inlämning
 - `CourseTeacher (CourseId, UserId)`
 - `Submission (ContentLinkId, StudentId)`
 - `PartCompletion (ContentLinkId, StudentId)`
-- `PushSubscription.Endpoint`
 
 ## Enums
 

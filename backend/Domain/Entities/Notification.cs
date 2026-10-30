@@ -3,7 +3,6 @@ using Backend.Domain.Enums;
 namespace Backend.Domain.Entities;
 
 // Vad som hände, för en användare. Visas i appen; ReadAt markerar den som läst.
-// Vart den eventuellt skickas som push styrs av användarens PushSubscriptions.
 public class Notification
 {
     public Guid Id { get; set; } = Guid.NewGuid();

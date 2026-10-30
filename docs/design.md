@@ -29,7 +29,7 @@ Aktiv menypunkt i sidomenyn är "krita": kritvit fyllning med tavelgrön text i 
 
 ## Status
 
-Statusmärken (pills) visar läget hos något, och bara det. Alla lägen finns på ett ställe, `client/src/lib/status.ts`, och ritas med `StatusBadge` (`client/src/components/StatusBadge.vue`). Ett blad med alla lägen i verklig storlek finns på `/dev/status`. Nya lägen läggs till i `status.ts`, aldrig som egna klasser i en vy.
+Statusmärken (pills) visar läget hos något, och bara det. Alla lägen finns på ett ställe, `client/src/lib/status.ts`, och ritas med `StatusBadge` (`client/src/components/StatusBadge.vue`). Nya lägen läggs till i `status.ts`, aldrig som egna klasser i en vy.
 
 ### Regler
 

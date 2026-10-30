@@ -82,7 +82,6 @@ Allt byggs med Vue-komponenterna i repot.
 
 - `client/src/components/ui`: shadcn-vue, stil `reka-nova`. Ändra helst bara varianter.
 - `client/src/components/layout/AppLogo.vue`: logon.
-- `/dev/status` i appen: alla lägen i verklig storlek.
 
 ## Se också
 

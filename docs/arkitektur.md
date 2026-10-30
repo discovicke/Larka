@@ -51,7 +51,7 @@ Lokal utveckling och tester fungerar utan externa tj채nster. Utan Supabase-inst�
 | Mapp               | Inneh책ll                                                                                                         |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------- |
 | `src/views/`       | En vy per sida, kopplad i `router.ts`.                                                                           |
-| `src/components/`  | Egna komponenter. `ui/` 채r genererade shadcn-komponenter, `dev/` dev-verktyg.                                    |
+| `src/components/`  | Egna komponenter. `ui/` 채r genererade shadcn-komponenter.                                                        |
 | `src/composables/` | Delat tillst책nd, t.ex. inloggad anv채ndare och notiser.                                                           |
 | `src/lib/api.ts`   | Den typade API-klienten. Typerna genereras fr책n backend, se [utveckling.md](utveckling.md#api-typer-i-klienten). |
 | `src/lib/auth/`    | Tokenet i sessionStorage och vidarekoppling till `/login`.                                                       |
