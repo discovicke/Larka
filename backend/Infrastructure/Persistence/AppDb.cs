@@ -20,9 +20,11 @@ public class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
     public DbSet<PartCompletion> PartCompletions => Set<PartCompletion>();
     public DbSet<ChecklistTick> ChecklistTicks => Set<ChecklistTick>();
     public DbSet<AssignmentSpec> AssignmentSpecs => Set<AssignmentSpec>();
+    public DbSet<AssignmentRequirement> AssignmentRequirements => Set<AssignmentRequirement>();
     public DbSet<Submission> Submissions => Set<Submission>();
     public DbSet<SubmissionFile> SubmissionFiles => Set<SubmissionFile>();
     public DbSet<StudentRepo> StudentRepos => Set<StudentRepo>();
+    public DbSet<StudentRepoCheckRun> StudentRepoCheckRuns => Set<StudentRepoCheckRun>();
     public DbSet<StudentHelpRequest> StudentHelpRequests => Set<StudentHelpRequest>();
     public DbSet<Grade> Grades => Set<Grade>();
     public DbSet<Comment> Comments => Set<Comment>();

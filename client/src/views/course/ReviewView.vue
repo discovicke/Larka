@@ -49,6 +49,21 @@ const shortSha = computed(() => submission.value?.repo?.lastSha?.slice(0, 7) ?? 
 const gradedAt = computed(() => submission.value?.grade
   ? formatDate(submission.value.grade.gradedAt, true)
   : '')
+function checkRunLabel(run: Schema<'GitHubCheckRunDto'>): string {
+  if (run.status !== 'completed') {
+    return 'Körs'
+  }
+  return run.conclusion === 'success'
+    ? 'Godkänd'
+    : 'Underkänd'
+}
+
+function checkRunClass(run: Schema<'GitHubCheckRunDto'>): string {
+  return run.conclusion === 'success'
+    ? 'text-success'
+    : 'text-warning'
+}
+
 const hasHandedIn = computed(() => Boolean(submission.value?.bodyMd)
   || (submission.value?.files.length ?? 0) > 0
   || Boolean(submission.value?.repo))
@@ -215,6 +230,20 @@ watch([courseId, linkId, submissionId], () => {
                 Tester: {{ submission.repo.checksPassed }}/{{ submission.repo.checksTotal }}
                 · {{ checkLabel(submission.repo.checkStatus) }}
               </p>
+              <ul
+                v-if="submission.repo.checkRuns.length > 0"
+                class="flex flex-col gap-1 text-xs"
+                data-test="review-check-runs"
+              >
+                <li
+                  v-for="run in submission.repo.checkRuns"
+                  :key="run.id"
+                  class="flex items-center justify-between gap-3 rounded border px-2 py-1"
+                >
+                  <span class="font-mono">{{ run.name }}</span>
+                  <span :class="checkRunClass(run)">{{ checkRunLabel(run) }}</span>
+                </li>
+              </ul>
               <p v-if="submission.repo.submissionSha" class="text-muted-foreground text-xs">
                 Inlämnad commit <span class="font-mono">{{ submission.repo.submissionSha.slice(0, 7) }}</span>
               </p>

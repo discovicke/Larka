@@ -18,8 +18,18 @@ public record GitHubCommit(string Sha, string Message, DateTimeOffset? AuthoredA
 /// <summary>Senaste commit och antal commits på default branch.</summary>
 public record GitHubCommitSummary(GitHubCommit Latest, int Count);
 
+public record GitHubCheckRun(
+    long Id,
+    string Name,
+    string Status,
+    string? Conclusion);
+
 /// <summary>Sammanfattning av check runs för en commit.</summary>
-public record GitHubCheckSummary(CheckStatus Status, int Passed, int Total);
+public record GitHubCheckSummary(
+    CheckStatus Status,
+    int Passed,
+    int Total,
+    IReadOnlyList<GitHubCheckRun> Runs);
 
 /// <summary>
 /// Installationen som appen är installerad på. AccountLogin är org eller användare, AccountType är
@@ -65,6 +75,10 @@ public interface IGitHubAppService
     Task<IReadOnlyList<GitHubRepository>> ListRepositoriesAsync(long installationId, CancellationToken ct);
 
     Task<IReadOnlyList<GitHubRepository>> ListTemplateRepositoriesAsync(long installationId, CancellationToken ct);
+
+    /// <summary>Workflow-namn från mallens .github/workflows, som förslag till krav.</summary>
+    Task<IReadOnlyList<string>> ListWorkflowNamesAsync(
+        long installationId, string owner, string name, CancellationToken ct);
 
     Task<GitHubRepository> GetRepositoryAsync(
         long installationId, string owner, string name, CancellationToken ct);

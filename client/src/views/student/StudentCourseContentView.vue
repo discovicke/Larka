@@ -581,6 +581,8 @@ function handInOf(item: Schema<'StudentContentItem'>): string {
               :check-status="selectedItem.repo?.checkStatus"
               :repo-provisioning-state="selectedItem.repo?.provisioningState"
               :repo-provisioning-error="selectedItem.repo?.provisioningError"
+              :requirements="selectedItem.requirements"
+              :check-runs="selectedItem.repo?.checkRuns"
               :redirect-to="route.fullPath"
             />
 

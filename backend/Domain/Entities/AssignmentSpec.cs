@@ -18,4 +18,6 @@ public class AssignmentSpec
     public bool LockAtDeadline { get; set; } = true;
     public bool FeedbackPullRequest { get; set; } // fas 2
     public bool AllowLate { get; set; } // fas 2
+
+    public List<AssignmentRequirement> Requirements { get; set; } = [];
 }

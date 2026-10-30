@@ -82,7 +82,8 @@ public record StudentRepoDto(
     string? InitialSha,
     DateTimeOffset? InitialCommitAt,
     DateTimeOffset? ProvisionedAt,
-    DateTimeOffset? CheckStatusChangedAt)
+    DateTimeOffset? CheckStatusChangedAt,
+    List<GitHubCheckRunDto> CheckRuns)
 {
     public static StudentRepoDto From(StudentRepo repo) =>
         new(
@@ -104,8 +105,22 @@ public record StudentRepoDto(
             repo.InitialSha,
             repo.InitialCommitAt,
             repo.ProvisionedAt,
-            repo.CheckStatusChangedAt);
+            repo.CheckStatusChangedAt,
+            repo.CheckRuns
+                .OrderBy(checkRun => checkRun.Name)
+                .Select(checkRun => new GitHubCheckRunDto(
+                    checkRun.ExternalKey,
+                    checkRun.Name,
+                    checkRun.Status,
+                    checkRun.Conclusion))
+                .ToList());
 }
+
+public record GitHubCheckRunDto(
+    string Id,
+    string Name,
+    string Status,
+    string? Conclusion);
 
 public record GradeDto(Guid GradedById, GradeLevel? Level, string Feedback, DateTimeOffset GradedAt)
 {

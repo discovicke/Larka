@@ -289,7 +289,8 @@ public class ContentService(
             dto.RepoNamePattern,
             dto.WorkMode ?? RepoWorkMode.Individual,
             dto.FeedbackPullRequest ?? false,
-            dto.AllowLate ?? false);
+            dto.AllowLate ?? false,
+            dto.Requirements);
         if (fieldError is not null)
         {
             return ServiceResult<ContentDto>.Invalid(fieldError);
@@ -311,6 +312,7 @@ public class ContentService(
                 dto.LockAtDeadline ?? true,
                 dto.FeedbackPullRequest ?? false,
                 dto.AllowLate ?? false);
+            ApplyRequirements(spec, dto.Requirements);
             // En regel som inte längre kan uppfyllas får inte låsa nästa del för alltid.
             if (spec.GradeScale == GradeScale.None || spec.SubmissionModes.Count == 0)
             {
@@ -651,7 +653,8 @@ public class ContentService(
             dto.RepoNamePattern,
             dto.WorkMode ?? RepoWorkMode.Individual,
             dto.FeedbackPullRequest ?? false,
-            dto.AllowLate ?? false);
+            dto.AllowLate ?? false,
+            dto.Requirements);
         if (fieldError is not null)
         {
             return ValidationResult<Content>.Invalid(fieldError);
@@ -684,6 +687,7 @@ public class ContentService(
                 dto.LockAtDeadline ?? true,
                 dto.FeedbackPullRequest ?? false,
                 dto.AllowLate ?? false);
+            ApplyRequirements(spec, dto.Requirements);
             content.Assignment = spec;
         }
 
@@ -757,7 +761,8 @@ public class ContentService(
         string? repoNamePattern,
         RepoWorkMode workMode,
         bool feedbackPullRequest,
-        bool allowLate)
+        bool allowLate,
+        List<AssignmentRequirementInput>? requirements)
     {
         var hasAssignmentFields = gradeScale is not null
             || modes is not null
@@ -765,7 +770,8 @@ public class ContentService(
             || !string.IsNullOrWhiteSpace(repoNamePattern)
             || feedbackPullRequest
             || allowLate
-            || workMode != RepoWorkMode.Individual;
+            || workMode != RepoWorkMode.Individual
+            || requirements is not null && requirements.Count > 0;
         if (type != ContentType.Assignment && hasAssignmentFields)
         {
             return "gradeScale, submissionModes and GitHub settings are only allowed on assignments";
@@ -808,6 +814,22 @@ public class ContentService(
             return "templateRepo must look like org/name";
         }
 
+        if (requirements is not null && requirements.Count > 0)
+        {
+            foreach (var requirement in requirements)
+            {
+                if (string.IsNullOrWhiteSpace(requirement.Title))
+                {
+                    return "every requirement needs a title";
+                }
+
+                if (!requirement.IsManual && string.IsNullOrWhiteSpace(requirement.TestPattern))
+                {
+                    return "requirements that are not manual need a test pattern";
+                }
+            }
+        }
+
         return GitHubRepoNaming.Validate(repoNamePattern);
     }
 
@@ -836,6 +858,31 @@ public class ContentService(
         spec.LockAtDeadline = lockAtDeadline;
         spec.FeedbackPullRequest = feedbackPullRequest;
         spec.AllowLate = allowLate;
+    }
+
+    private static void ApplyRequirements(
+        AssignmentSpec spec, List<AssignmentRequirementInput>? requirements)
+    {
+        spec.Requirements.Clear();
+        if (!SubmissionService.UsesRepo(spec.SubmissionModes) || requirements is null)
+        {
+            return;
+        }
+
+        for (var index = 0; index < requirements.Count; index++)
+        {
+            var requirement = requirements[index];
+            spec.Requirements.Add(new AssignmentRequirement
+            {
+                ContentId = spec.ContentId,
+                Title = requirement.Title.Trim(),
+                TestPattern = requirement.IsManual
+                    ? null
+                    : requirement.TestPattern?.Trim(),
+                IsManual = requirement.IsManual,
+                Position = index
+            });
+        }
     }
 
     // Lärare på någon av innehållets länkar, eller den som skrev innehållet. Admin har ingen genväg hit.

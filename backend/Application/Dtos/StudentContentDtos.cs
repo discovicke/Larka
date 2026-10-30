@@ -47,6 +47,7 @@ public record StudentContentItem(
     GradeLevel? GradeLevel,
     bool HasRepoMode,
     List<SubmissionMode> SubmissionModes,
+    List<AssignmentRequirementDto> Requirements,
     StudentRepoDto? Repo);
 
 /// <summary>

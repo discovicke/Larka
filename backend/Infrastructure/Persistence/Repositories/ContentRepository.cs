@@ -9,7 +9,10 @@ namespace Backend.Infrastructure.Persistence.Repositories;
 public class ContentRepository(AppDb db) : IContentRepository
 {
     public Task<Content?> GetAsync(Guid id, CancellationToken ct) =>
-        db.Content.Include(content => content.Assignment).FirstOrDefaultAsync(content => content.Id == id, ct);
+        db.Content
+            .Include(content => content.Assignment)
+            .ThenInclude(assignment => assignment!.Requirements)
+            .FirstOrDefaultAsync(content => content.Id == id, ct);
 
     public Task<bool> ExistsAsync(Guid id, CancellationToken ct) =>
         db.Content.AnyAsync(content => content.Id == id, ct);
@@ -327,6 +330,7 @@ public class ContentRepository(AppDb db) : IContentRepository
         var contentIds = links.Select(link => link.ContentId).Distinct().ToList();
         var contents = await db.Content
             .Include(content => content.Assignment)
+                .ThenInclude(assignment => assignment!.Requirements)
             .Where(content => contentIds.Contains(content.Id))
             .ToDictionaryAsync(content => content.Id, ct);
         return links

@@ -22,6 +22,35 @@ namespace Backend.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Backend.Domain.Entities.AssignmentRequirement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ContentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsManual")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TestPattern")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContentId", "Position");
+
+                    b.ToTable("AssignmentRequirements");
+                });
+
             modelBuilder.Entity("Backend.Domain.Entities.AssignmentSpec", b =>
                 {
                     b.Property<Guid>("ContentId")
@@ -719,6 +748,33 @@ namespace Backend.Infrastructure.Persistence.Migrations
                     b.ToTable("StudentRepos");
                 });
 
+            modelBuilder.Entity("Backend.Domain.Entities.StudentRepoCheckRun", b =>
+                {
+                    b.Property<Guid>("SubmissionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ExternalKey")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Conclusion")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("SubmissionId", "ExternalKey");
+
+                    b.ToTable("StudentRepoCheckRuns");
+                });
+
             modelBuilder.Entity("Backend.Domain.Entities.Submission", b =>
                 {
                     b.Property<Guid>("Id")
@@ -831,6 +887,15 @@ namespace Backend.Infrastructure.Persistence.Migrations
                             Role = "Admin",
                             SchoolId = new Guid("00000000-0000-0000-0000-00000000000a")
                         });
+                });
+
+            modelBuilder.Entity("Backend.Domain.Entities.AssignmentRequirement", b =>
+                {
+                    b.HasOne("Backend.Domain.Entities.AssignmentSpec", null)
+                        .WithMany("Requirements")
+                        .HasForeignKey("ContentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Backend.Domain.Entities.AssignmentSpec", b =>
@@ -1097,6 +1162,15 @@ namespace Backend.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Backend.Domain.Entities.StudentRepoCheckRun", b =>
+                {
+                    b.HasOne("Backend.Domain.Entities.StudentRepo", null)
+                        .WithMany("CheckRuns")
+                        .HasForeignKey("SubmissionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Backend.Domain.Entities.Submission", b =>
                 {
                     b.HasOne("Backend.Domain.Entities.ContentLink", null)
@@ -1130,9 +1204,19 @@ namespace Backend.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Backend.Domain.Entities.AssignmentSpec", b =>
+                {
+                    b.Navigation("Requirements");
+                });
+
             modelBuilder.Entity("Backend.Domain.Entities.Content", b =>
                 {
                     b.Navigation("Assignment");
+                });
+
+            modelBuilder.Entity("Backend.Domain.Entities.StudentRepo", b =>
+                {
+                    b.Navigation("CheckRuns");
                 });
 
             modelBuilder.Entity("Backend.Domain.Entities.Submission", b =>

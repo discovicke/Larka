@@ -227,7 +227,7 @@ public class GitHubLabProvisionerTests
         {
             CommitSummary = new GitHubCommitSummary(
                 new GitHubCommit("abcdef123456", "feat: release", commitAt), 14),
-            CheckSummary = new GitHubCheckSummary(CheckStatus.Green, 9, 12)
+            CheckSummary = new GitHubCheckSummary(CheckStatus.Green, 9, 12, [])
         };
         var provisioner = CreateProvisioner(github);
         var repo = new StudentRepo
@@ -402,6 +402,14 @@ public class GitHubLabProvisionerTests
         public Task<List<RepoLockContext>> GetRepoContextsForLinkAsync(
             Guid linkId, DateTimeOffset now, CancellationToken ct) =>
             throw new NotSupportedException();
+
+        public Task<StudentRepoContext?> GetRepoContextByFullNameAsync(
+            string repoFullName, CancellationToken ct) =>
+            throw new NotSupportedException();
+
+        public Task ReplaceCheckRunsAsync(
+            Guid submissionId, IReadOnlyList<StudentRepoCheckRun> runs, CancellationToken ct) =>
+            Task.CompletedTask;
     }
 
     private sealed class FakeGitHubAppService : IGitHubAppService
@@ -493,7 +501,7 @@ public class GitHubLabProvisionerTests
 
         public Task<GitHubCheckSummary> GetCheckSummaryAsync(
             long installationId, string owner, string name, string reference, CancellationToken ct) =>
-            Task.FromResult(CheckSummary ?? new GitHubCheckSummary(CheckStatus, 0, 0));
+            Task.FromResult(CheckSummary ?? new GitHubCheckSummary(CheckStatus, 0, 0, []));
 
         public Task<GitHubInstallationToken> GetInstallationTokenAsync(
             long installationId, CancellationToken ct) => throw new NotSupportedException();
@@ -506,6 +514,10 @@ public class GitHubLabProvisionerTests
 
         public Task<IReadOnlyList<GitHubRepository>> ListTemplateRepositoriesAsync(
             long installationId, CancellationToken ct) => throw new NotSupportedException();
+
+        public Task<IReadOnlyList<string>> ListWorkflowNamesAsync(
+            long installationId, string owner, string name, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<string>>([]);
 
         public Task<GitHubRepository> GetRepositoryAsync(
             long installationId, string owner, string name, CancellationToken ct) =>

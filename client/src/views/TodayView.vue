@@ -5,6 +5,7 @@ import {RouterLink, type RouteLocationRaw} from 'vue-router'
 
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import StatusBadge from '@/components/StatusBadge.vue'
+import GitHubOnboardingBanner from '@/components/GitHubOnboardingBanner.vue'
 import AdminToday from '@/components/today/AdminToday.vue'
 import TeacherToday from '@/components/today/TeacherToday.vue'
 import {Skeleton} from '@/components/ui/skeleton'
@@ -179,6 +180,8 @@ load()
 </script>
 
 <template>
+  <GitHubOnboardingBanner/>
+
   <div v-if="isAdmin" class="flex flex-col gap-6" data-test="admin-today">
     <AdminToday/>
     <TeacherToday v-if="isTeacher" embedded/>

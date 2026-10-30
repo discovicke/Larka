@@ -52,6 +52,23 @@ describe('toRequests', () => {
     expect(link.dueAt).toBe(new Date('2026-11-01T10:00').toISOString())
   })
 
+  it('krav skickas med repo-uppgiften', () => {
+    const {content} = toRequests(form({
+      partType: 'Submission',
+      submissionModes: ['Repo'],
+      templateRepo: 'org/mall',
+      requirements: [
+        {title: 'Bygger', testPattern: 'Build.*', isManual: false},
+        {title: 'Reflektion', testPattern: '', isManual: true},
+      ],
+    }), 'Published', target)
+
+    expect(content.requirements).toEqual([
+      {title: 'Bygger', testPattern: 'Build.*', isManual: false},
+      {title: 'Reflektion', testPattern: null, isManual: true},
+    ])
+  })
+
   it('mallrepot skickas inte utan GitHub', () => {
     const {content} = toRequests(form({partType: 'Submission', submissionModes: ['File'], templateRepo: 'org/mall'}), 'Published', target)
 

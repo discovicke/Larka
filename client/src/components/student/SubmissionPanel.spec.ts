@@ -26,6 +26,7 @@ const base: Item = {
   gradeLevel: null,
   hasRepoMode: false,
   submissionModes: ['Text'],
+  requirements: [],
   repo: null,
 }
 
@@ -98,6 +99,22 @@ describe('SubmissionPanel', () => {
     append.mockRestore()
   })
 
+  it('låter eleven lämna in senaste commit för en repo-uppgift', async () => {
+    backend()
+    const wrapper = await show({submissionModes: ['Repo'], hasRepoMode: true})
+
+    expect(wrapper.find('[data-test="repo-submission"]').exists()).toBe(true)
+    const submit = wrapper.find('[data-test="repo-submission-submit"]')
+    expect(submit.text()).toContain('Lämna in senaste commit')
+
+    await submit.trigger('click')
+    await flushPromises()
+
+    expect(requests.some((request) =>
+      request.method === 'POST' && request.path === '/api/links/l1/submissions')).toBe(true)
+    expect(wrapper.emitted('submitted')).toHaveLength(1)
+  })
+
   it('tar emot filer, listar dem och låter eleven ta bort en före inlämning', async () => {
     backend()
     const append = vi.spyOn(FormData.prototype, 'append')
@@ -127,13 +144,6 @@ describe('SubmissionPanel', () => {
 
     expect(wrapper.find('[data-test="submission-file-input"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('Ditt svar')
-  })
-
-  it('visar bara repo-uppgifter utan panel', async () => {
-    backend()
-    const wrapper = await show({submissionModes: ['Repo'], hasRepoMode: true})
-
-    expect(wrapper.find('[data-test="submission-panel"]').exists()).toBe(false)
   })
 
   it('visar Bedöms på plats utan formulär', async () => {

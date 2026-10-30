@@ -58,6 +58,36 @@ public class GitHubTemplateService(
         }
     }
 
+    public async Task<ServiceResult<List<string>>> GetTestsAsync(
+        string owner, string repo, CancellationToken ct)
+    {
+        if (!await permissions.CanCreateContentAsync(ct))
+        {
+            return ServiceResult<List<string>>.Forbidden();
+        }
+
+        var connection = await ResolveInstallationAsync(ct);
+        if (connection.Error is not null)
+        {
+            return ServiceResult<List<string>>.Invalid(connection.Error);
+        }
+
+        try
+        {
+            return ServiceResult<List<string>>.Ok(
+                (await github.ListWorkflowNamesAsync(
+                    connection.InstallationId!.Value, owner, repo, ct)).ToList());
+        }
+        catch (GitHubApiException exception)
+        {
+            return ServiceResult<List<string>>.Invalid(exception.Message);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return ServiceResult<List<string>>.Invalid(exception.Message);
+        }
+    }
+
     public async Task<ServiceResult<GitHubTemplateCommitDto>> GetLatestCommitAsync(
         string owner, string repo, CancellationToken ct)
     {

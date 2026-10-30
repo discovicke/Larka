@@ -44,5 +44,7 @@ public class StudentRepo
     // från att låsa repot igen direkt efter att deadlinen redan passerat.
     public DateTimeOffset? ReopenedAt { get; set; }
 
+    public List<StudentRepoCheckRun> CheckRuns { get; set; } = [];
+
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

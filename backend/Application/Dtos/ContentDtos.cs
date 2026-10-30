@@ -17,7 +17,13 @@ public record CreateContentDto(
     RepoWorkMode? WorkMode = null,
     bool? LockAtDeadline = null,
     bool? FeedbackPullRequest = null, // fas 2
-    bool? AllowLate = null); // fas 2
+    bool? AllowLate = null, // fas 2
+    List<AssignmentRequirementInput>? Requirements = null);
+
+public record AssignmentRequirementInput(
+    string Title,
+    string? TestPattern = null,
+    bool IsManual = false);
 
 // Skapar innehållet och länken i samma transaktion, så att ett fel i länken inte lämnar ett orphan.
 public record CreateContentWithLinkDto(CreateContentDto Content, CreateContentLinkDto Link);
@@ -46,7 +52,8 @@ public record UpdateContentDto(
     RepoWorkMode? WorkMode = null,
     bool? LockAtDeadline = null,
     bool? FeedbackPullRequest = null, // fas 2
-    bool? AllowLate = null); // fas 2
+    bool? AllowLate = null, // fas 2
+    List<AssignmentRequirementInput>? Requirements = null);
 
 public record UpdateContentStatusDto(ContentStatus Status);
 
@@ -109,7 +116,8 @@ public record AssignmentSpecDto(
     RepoWorkMode WorkMode,
     bool LockAtDeadline,
     bool FeedbackPullRequest,
-    bool AllowLate)
+    bool AllowLate,
+    List<AssignmentRequirementDto> Requirements)
 {
     public static AssignmentSpecDto From(AssignmentSpec spec) =>
         new(
@@ -120,7 +128,27 @@ public record AssignmentSpecDto(
             spec.WorkMode,
             spec.LockAtDeadline,
             spec.FeedbackPullRequest,
-            spec.AllowLate);
+            spec.AllowLate,
+            spec.Requirements
+                .OrderBy(requirement => requirement.Position)
+                .Select(AssignmentRequirementDto.From)
+                .ToList());
+}
+
+public record AssignmentRequirementDto(
+    Guid Id,
+    string Title,
+    string? TestPattern,
+    bool IsManual,
+    int Position)
+{
+    public static AssignmentRequirementDto From(AssignmentRequirement requirement) =>
+        new(
+            requirement.Id,
+            requirement.Title,
+            requirement.TestPattern,
+            requirement.IsManual,
+            requirement.Position);
 }
 
 public record ContentLinkDto(

@@ -218,6 +218,10 @@ public class SubmissionService(
         submission.Status = SubmissionStatus.Submitted;
         submission.SubmittedAt = time.GetUtcNow();
         submission.BodyMd = dto.BodyMd;
+        if (UsesRepo(modes) && submission.Repo is not null)
+        {
+            submission.Repo.SubmissionSha = submission.Repo.LastSha;
+        }
 
         // Nya filer ersätter de gamla, och först när allt är sparat tas de gamla bort ur lagringen.
         var removedFiles = submission.Files.Where(file => !keptFiles.Contains(file)).ToList();
@@ -375,6 +379,21 @@ public class SubmissionService(
         var repos = await submissions.GetAllReposAsync(ct);
         await provisioner.RefreshCheckStatusAsync(repos, ct);
         await unitOfWork.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Uppdaterar ett repo via GitHub-namn. Används av webhookar.</summary>
+    public async Task<bool> RefreshRepoByFullNameAsync(
+        string repoFullName, CancellationToken ct)
+    {
+        var context = await submissions.GetRepoContextByFullNameAsync(repoFullName, ct);
+        if (context is null)
+        {
+            return false;
+        }
+
+        await provisioner.RefreshCheckStatusAsync([context], ct);
+        await unitOfWork.SaveChangesAsync(ct);
+        return true;
     }
 
     /// <summary>Uppdaterar endast repon för en utdelning. Läraren ser resultatet direkt i tabellen.</summary>

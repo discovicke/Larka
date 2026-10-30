@@ -28,6 +28,7 @@ const editorKey = ref(0)
 
 const hasText = computed(() => props.item.submissionModes.includes('Text'))
 const hasFiles = computed(() => props.item.submissionModes.includes('File'))
+const hasRepo = computed(() => props.item.submissionModes.includes('Repo'))
 const hasForm = computed(() => hasText.value || hasFiles.value)
 const onSite = computed(() => props.item.submissionModes.includes('OnSite'))
 const status = computed(() => props.item.submissionStatus ?? 'NotStarted')
@@ -42,7 +43,11 @@ const submitLabel = computed(() => status.value === 'NotStarted'
   : status.value === 'NeedsWork'
     ? 'Lämna in igen'
     : 'Spara ändringarna')
-const canSubmit = computed(() => (hasText.value && bodyMd.value.trim() !== '')
+const repoSubmitLabel = computed(() => status.value === 'NeedsWork'
+  ? 'Lämna in igen'
+  : 'Lämna in senaste commit')
+const canSubmit = computed(() => hasRepo.value
+  || (hasText.value && bodyMd.value.trim() !== '')
   || (hasFiles.value && keptFiles.value.length + addedFiles.value.length > 0))
 
 watch(() => props.item.linkId, load, {immediate: true})
@@ -51,7 +56,7 @@ async function load() {
   submission.value = null
   editing.value = false
   error.value = ''
-  if (!hasForm.value) {
+  if (!hasForm.value && !hasRepo.value) {
     return
   }
   try {
@@ -122,7 +127,7 @@ async function submit() {
 
 <template>
   <section
-    v-if="hasForm || onSite"
+    v-if="hasForm || hasRepo || onSite"
     class="bg-card flex flex-col gap-4 rounded-xl border p-4"
     aria-labelledby="submission-h"
     data-test="submission-panel"
@@ -141,6 +146,29 @@ async function submit() {
     <Alert v-if="error" variant="destructive">
       <AlertDescription>{{ error }}</AlertDescription>
     </Alert>
+
+    <div v-if="hasRepo && !hasForm" class="flex flex-col gap-2" data-test="repo-submission">
+      <p v-if="status === 'Submitted'" class="text-muted-foreground text-sm">
+        Inlämnad
+        <template v-if="submission?.submittedAt">
+          {{ formatDate(submission.submittedAt, true) }}
+        </template>
+        · commit <code class="font-mono">{{ submission?.repo?.submissionSha?.slice(0, 7) ?? '–' }}</code>
+      </p>
+      <p v-else class="text-muted-foreground text-sm">
+        När du lämnar in sparas senaste commit som din inlämning. Du kan lämna in igen fram till deadline.
+      </p>
+      <Button
+        v-if="status !== 'Graded'"
+        type="button"
+        :disabled="saving"
+        data-test="repo-submission-submit"
+        @click="submit"
+      >
+        <PhPaperPlaneTilt/>
+        {{ repoSubmitLabel }}
+      </Button>
+    </div>
 
     <form
       v-if="formOpen"

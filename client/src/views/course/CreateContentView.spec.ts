@@ -88,6 +88,9 @@ function backend(onPost: Handler = () => ({status: 201, body: {content, link: {i
     if (path === '/api/integrations/github/templates/edugrade-net25/mall-lab2/latest-commit') {
       return {status: 200, body: templateCommit}
     }
+    if (path === '/api/integrations/github/templates/edugrade-net25/mall-lab2/tests') {
+      return {status: 200, body: ['CI', 'Release']}
+    }
     if (path === '/api/courses/c1/students/unlinked-github') {
       return {
         status: 200,
@@ -128,6 +131,9 @@ function editBackend(
     }
     if (path === '/api/integrations/github/templates/edugrade-net25/mall-lab2/latest-commit') {
       return {status: 200, body: templateCommit}
+    }
+    if (path === '/api/integrations/github/templates/edugrade-net25/mall-lab2/tests') {
+      return {status: 200, body: ['CI', 'Release']}
     }
     if (path === '/api/courses/c1/students/unlinked-github') {
       return {
@@ -212,6 +218,12 @@ describe('CreateContentView', () => {
     expect(wrapper.find('[data-test="unlinked-students-list"]').text()).toContain('Lina Ahmed')
     expect(requests.filter((request) =>
       request.method === 'POST' && request.path === '/api/content/with-link')).toHaveLength(0)
+
+    await wrapper.find('[data-test="requirements-load"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.findAll('[data-test="requirement-row"]')).toHaveLength(2)
+    expect((wrapper.findAll('[data-test="requirement-row"] input')[0].element as HTMLInputElement).value)
+      .toBe('CI')
   })
 
   it('teori har varken deadline, betygsskala eller inlämning', async () => {

@@ -23,6 +23,7 @@ const repo = {
   lockedAt: null,
   lockError: null,
   reopenedAt: '2026-10-30T10:00:00Z',
+  checkRuns: [],
 }
 
 const baseSubmission = {

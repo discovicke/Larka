@@ -32,7 +32,14 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
         string? WorkMode = null,
         bool LockAtDeadline = true,
         bool FeedbackPullRequest = false,
-        bool AllowLate = false);
+        bool AllowLate = false,
+        List<RequirementDetail>? Requirements = null);
+
+    private record RequirementDetail(
+        string Title,
+        string? TestPattern,
+        bool IsManual,
+        int Position);
 
     private record RepoNamePreview(string Name, string Pattern);
 
@@ -347,6 +354,29 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
         Assert.True(detail.Assignment.LockAtDeadline);
         Assert.False(detail.Assignment.FeedbackPullRequest);
         Assert.False(detail.Assignment.AllowLate);
+    }
+
+    [Fact]
+    public async Task RepoAssignment_StoresRequirementsInOrder()
+    {
+        var content = await CreateAssignmentAsync(
+            "Labb 2",
+            gradeScale: "passFail",
+            submissionModes: ["repo"],
+            templateRepo: "org/template",
+            requirements:
+            [
+                new { title = "Bygger", testPattern = "Build.*", isManual = false },
+                new { title = "Reflektion", testPattern = (string?)null, isManual = true }
+            ]);
+
+        var detail = await _client.GetFromJsonAsync<ContentDetail>($"/api/content/{content.Id}");
+
+        Assert.Equal(2, detail!.Assignment!.Requirements!.Count);
+        Assert.Equal("Bygger", detail.Assignment.Requirements[0].Title);
+        Assert.Equal("Build.*", detail.Assignment.Requirements[0].TestPattern);
+        Assert.Equal(0, detail.Assignment.Requirements[0].Position);
+        Assert.True(detail.Assignment.Requirements[1].IsManual);
     }
 
     [Fact]
@@ -708,7 +738,8 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
         string? gradeScale = null,
         string[]? submissionModes = null,
         string? templateRepo = null,
-        string? repoNamePattern = null)
+        string? repoNamePattern = null,
+        object[]? requirements = null)
     {
         var response = await _client.PostAsJsonAsync("/api/content", new
         {
@@ -719,7 +750,8 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
             gradeScale,
             submissionModes,
             templateRepo,
-            repoNamePattern
+            repoNamePattern,
+            requirements
         });
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<ContentResponse>())!;

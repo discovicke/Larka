@@ -181,6 +181,7 @@ public sealed class GitHubLabProvisioner(
 
             repo.ChecksPassed = checks.Passed;
             repo.ChecksTotal = checks.Total;
+            await ApplyCheckRunsAsync(repo, checks.Runs, time.GetUtcNow(), ct);
         }
 
         await github.ArchiveRepositoryAsync(connection.InstallationId, owner, name, ct);
@@ -255,7 +256,9 @@ public sealed class GitHubLabProvisioner(
 
                 repo.ChecksPassed = checks.Passed;
                 repo.ChecksTotal = checks.Total;
-                repo.UpdatedAt = time.GetUtcNow();
+                var now = time.GetUtcNow();
+                await ApplyCheckRunsAsync(repo, checks.Runs, now, ct);
+                repo.UpdatedAt = now;
             }
             catch (GitHubApiException exception)
             {
@@ -460,6 +463,23 @@ public sealed class GitHubLabProvisioner(
                 owner,
                 name);
         }
+    }
+
+    private async Task ApplyCheckRunsAsync(
+        StudentRepo repo, IReadOnlyList<GitHubCheckRun> runs, DateTimeOffset now, CancellationToken ct)
+    {
+        await submissions.ReplaceCheckRunsAsync(
+            repo.SubmissionId,
+            runs.Select(run => new StudentRepoCheckRun
+            {
+                SubmissionId = repo.SubmissionId,
+                ExternalKey = run.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                Name = run.Name,
+                Status = run.Status,
+                Conclusion = run.Conclusion,
+                UpdatedAt = now
+            }).ToList(),
+            ct);
     }
 
     private static (string Owner, string Name) ParseRepo(string value, string parameterName)

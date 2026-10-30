@@ -27,6 +27,10 @@ public static class IntegrationEndpoints
             string owner, string repo, GitHubTemplateService service, CancellationToken ct) =>
             (await service.GetLatestCommitAsync(owner, repo, ct)).ToHttp(TypedResults.Ok));
 
+        integrations.MapGet("/github/templates/{owner}/{repo}/tests", async (
+            string owner, string repo, GitHubTemplateService service, CancellationToken ct) =>
+            (await service.GetTestsAsync(owner, repo, ct)).ToHttp(TypedResults.Ok));
+
         // Klienten öppnar länken i webbläsaren. State-cookien gör att setup-callbacken kan lita på
         // att det är samma admin och skola som startade installationen.
         integrations.MapGet("/github/install", async (

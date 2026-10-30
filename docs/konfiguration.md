@@ -84,12 +84,22 @@ GitHub-appen är gemensam för plattformen. Varje skola har en installation och 
 | `GitHub:ApiBaseUrl`                  | nej    | Standard `https://api.github.com/`.                                             |
 | `GitHub:ProvisioningJob:*`           | nej    | Bakgrundsjobb för att skapa elevrepon. Standard är aktiverat.                   |
 | `GitHub:DeadlineLockJob:*`           | nej    | Bakgrundsjobb för deadline-låsning. Standard är aktiverat.                      |
+| `GitHub:ChecksJob:*`                 | nej    | Fallback-poll för commits och checks. Standard är aktiverat var 6:e timme.      |
 | `GitHub:Support:NotStartedAfterDays` | nej    | Antal dagar innan en elev utan commits räknas som "inte startat". Standard `3`. |
 | `GitHub:Support:NoPushAfterDays`     | nej    | Antal dagar utan push innan en påbörjad uppgift flaggas. Standard `4`.          |
 | `GitHub:Support:RedChecksAfterHours` | nej    | Antal timmar med röda tester innan de flaggas. Standard `36`.                   |
 
 `GitHub:InstallationId` och `GitHub:Org` finns kvar som lokal dev-fallback, men en rad i
 `SchoolGitHubInstallations` vinner alltid.
+
+GitHub-webhooken pekar på:
+
+```text
+https://<backend>/api/webhooks/github
+```
+
+Aktivera `check_run`, `workflow_run` och `push`. Signaturen verifieras med `GitHub:WebhookSecret`.
+Om webhooken är avstängd uppdaterar `GitHub:ChecksJob` elevrepon med jämna mellanrum i stället.
 
 Elevens egen "Jag behöver hjälp"-flagga skickar en notis till lärarna på uppgiften. Automatiska
 signaler visas bara i lärartrackingen och skickar inga notiser.

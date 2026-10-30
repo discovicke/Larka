@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import DateTimePicker from '@/components/DateTimePicker.vue'
-import {PhChalkboardTeacher, PhFiles, PhGithubLogo, PhTextAa, PhWarning} from '@phosphor-icons/vue'
+import {
+  PhChalkboardTeacher,
+  PhFiles,
+  PhGithubLogo,
+  PhPlus,
+  PhTextAa,
+  PhTrash,
+  PhWarning,
+} from '@phosphor-icons/vue'
 import {type Component, computed, onMounted, reactive, ref, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 
@@ -41,6 +49,7 @@ import {
 import {toDateTimeLocal} from '@/lib/form'
 import {
   fetchGitHubTemplateCommit,
+  fetchGitHubTemplateTests,
   fetchGitHubTemplates,
   fetchUnlinkedGitHubStudents,
   type GitHubTemplateCommit,
@@ -79,6 +88,8 @@ const templatesError = ref('')
 const templateCommit = ref<GitHubTemplateCommit | null>(null)
 const templateCommitLoading = ref(false)
 const templateCommitError = ref('')
+const requirementsLoading = ref(false)
+const requirementsError = ref('')
 const repoNamePreview = ref<{name: string, pattern: string} | null>(null)
 const repoNamePreviewLoading = ref(false)
 const repoNamePreviewError = ref('')
@@ -172,6 +183,39 @@ async function loadTemplateCommit(fullName: string) {
     templateCommitError.value = errorMessage(exception)
   } finally {
     templateCommitLoading.value = false
+  }
+}
+
+function addRequirement() {
+  form.requirements.push({title: '', testPattern: '', isManual: false})
+}
+
+function removeRequirement(index: number) {
+  form.requirements.splice(index, 1)
+}
+
+async function loadRequirementsFromTemplate() {
+  requirementsError.value = ''
+  if (!form.templateRepo) {
+    requirementsError.value = 'Välj ett mallrepo först.'
+    return
+  }
+
+  requirementsLoading.value = true
+  try {
+    const tests = await fetchGitHubTemplateTests(form.templateRepo)
+    form.requirements = tests.map((name) => ({
+      title: name,
+      testPattern: name,
+      isManual: false,
+    }))
+    if (tests.length === 0) {
+      requirementsError.value = 'Hittade inga workflow-namn i mallen.'
+    }
+  } catch (exception) {
+    requirementsError.value = errorMessage(exception)
+  } finally {
+    requirementsLoading.value = false
   }
 }
 
@@ -281,6 +325,11 @@ async function load() {
     form.submissionModes = content.assignment?.submissionModes ?? []
     form.templateRepo = content.assignment?.templateRepo ?? ''
     form.repoNamePattern = content.assignment?.repoNamePattern ?? defaultRepoNamePattern
+    form.requirements = (content.assignment?.requirements ?? []).map((requirement) => ({
+      title: requirement.title,
+      testPattern: requirement.testPattern ?? '',
+      isManual: requirement.isManual,
+    }))
     form.isPinned = foundPart.isPinned
   } catch (exception) {
     if (exception instanceof ApiError && exception.status === 404) {
@@ -612,6 +661,79 @@ async function save(status: Schema<'ContentStatus'> = 'Published') {
             {{ repoNamePreviewError }}
           </p>
         </Field>
+
+        <div class="flex flex-col gap-2" data-test="requirements">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex flex-col gap-0.5">
+              <h3 class="text-sm font-semibold">Krav och automatiska tester</h3>
+              <p class="text-muted-foreground text-xs">
+                Koppla elevtext till testmönster, eller markera kravet som manuellt.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              :disabled="requirementsLoading || !form.templateRepo"
+              data-test="requirements-load"
+              @click="loadRequirementsFromTemplate"
+            >
+              {{ requirementsLoading
+                ? 'Läser in…'
+                : 'Läs in från mallen' }}
+            </Button>
+          </div>
+
+          <div
+            v-for="(requirement, index) in form.requirements"
+            :key="index"
+            class="grid gap-2 rounded-lg border p-2 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_auto_auto]"
+            data-test="requirement-row"
+          >
+            <Input
+              v-model="requirement.title"
+              :aria-label="`Krav ${index + 1}`"
+              placeholder="Krav som eleven ser"
+            />
+            <Input
+              v-model="requirement.testPattern"
+              :disabled="requirement.isManual"
+              class="font-mono text-xs"
+              placeholder="Testmönster, t.ex. Release.Tag*"
+              :aria-label="`Testmönster ${index + 1}`"
+            />
+            <label class="flex items-center gap-2 text-xs whitespace-nowrap">
+              <Checkbox v-model="requirement.isManual"/>
+              Bedöms av lärare
+            </label>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              :aria-label="`Ta bort krav ${index + 1}`"
+              data-test="requirement-remove"
+              @click="removeRequirement(index)"
+            >
+              <PhTrash/>
+            </Button>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            class="w-fit"
+            data-test="requirement-add"
+            @click="addRequirement"
+          >
+            <PhPlus/>
+            Lägg till krav
+          </Button>
+          <p v-if="requirementsError" class="text-destructive text-xs" data-test="requirements-error">
+            {{ requirementsError }}
+          </p>
+          <FieldError v-if="errors.requirements">{{ errors.requirements }}</FieldError>
+        </div>
 
         <Alert v-if="unlinkedStudents.length > 0" variant="warning" data-test="unlinked-students">
           <PhWarning/>

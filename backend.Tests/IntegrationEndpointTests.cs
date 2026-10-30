@@ -156,6 +156,11 @@ public class IntegrationEndpointTests(TestWebApplicationFactory factory)
             "/api/integrations/github/templates/skol-org/template/latest-commit");
         Assert.Equal("abc123", commit!.Sha);
         Assert.Equal("Template update", commit.Message);
+
+        github.WorkflowNames = ["CI", "Release"];
+        var tests = await _client.GetFromJsonAsync<List<string>>(
+            "/api/integrations/github/templates/skol-org/template/tests");
+        Assert.Equal(["CI", "Release"], tests);
     }
 
     [Fact]

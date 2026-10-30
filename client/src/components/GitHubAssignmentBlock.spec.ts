@@ -78,6 +78,39 @@ describe('GitHubAssignmentBlock', () => {
     expect(wrapper.find('[data-test="student-repo-status"]').text()).toContain('Tester godkända')
   })
 
+  it('visar kravstatus från check runs', () => {
+    const wrapper = mount(GitHubAssignmentBlock, {
+      props: {
+        hasRepoMode: true,
+        gitHubLogin: 'elev-kalle',
+        repoUrl: 'https://github.com/skol-org/kalle-labb-1',
+        requirements: [
+          {
+            id: 'r1',
+            title: 'Bygger',
+            testPattern: 'Build.*',
+            isManual: false,
+            position: 0,
+          },
+          {
+            id: 'r2',
+            title: 'Reflektion',
+            testPattern: null,
+            isManual: true,
+            position: 1,
+          },
+        ],
+        checkRuns: [
+          {id: 'c1', name: 'Build.test', status: 'completed', conclusion: 'success'},
+        ],
+      },
+    })
+
+    expect(wrapper.find('[data-test="student-requirements"]').text()).toContain('Bygger')
+    expect(wrapper.find('[data-test="student-requirements"]').text()).toContain('Godkänd')
+    expect(wrapper.find('[data-test="student-requirements"]').text()).toContain('Bedöms av lärare')
+  })
+
   it('visar underkänd status när checkStatus är Red', () => {
     const wrapper = mount(GitHubAssignmentBlock, {
       props: {

@@ -24,6 +24,18 @@
         }
       }
     },
+    "/api/webhooks/github": {
+      "post": {
+        "tags": [
+          "GitHub webhooks"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/auth/login": {
       "post": {
         "tags": [
@@ -877,6 +889,76 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/GitHubTemplateCommitDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/github/templates/{owner}/{repo}/tests": {
+      "get": {
+        "tags": [
+          "Integrations"
+        ],
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
                 }
               }
             }
@@ -5186,6 +5268,59 @@
         },
         "description": "En användare som inte kan logga in. GroupId är en klass hen går i, om hen går i någon."
       },
+      "AssignmentRequirementDto": {
+        "required": [
+          "id",
+          "title",
+          "testPattern",
+          "isManual",
+          "position"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "testPattern": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "isManual": {
+            "type": "boolean"
+          },
+          "position": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "AssignmentRequirementInput": {
+        "required": [
+          "title"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "testPattern": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "isManual": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
       "AssignmentSpecDto": {
         "required": [
           "gradeScale",
@@ -5195,7 +5330,8 @@
           "workMode",
           "lockAtDeadline",
           "feedbackPullRequest",
-          "allowLate"
+          "allowLate",
+          "requirements"
         ],
         "type": "object",
         "properties": {
@@ -5231,6 +5367,12 @@
           },
           "allowLate": {
             "type": "boolean"
+          },
+          "requirements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AssignmentRequirementDto"
+            }
           }
         }
       },
@@ -5881,6 +6023,15 @@
               "null",
               "boolean"
             ]
+          },
+          "requirements": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/AssignmentRequirementInput"
+            }
           }
         }
       },
@@ -6139,6 +6290,32 @@
         "properties": {
           "url": {
             "type": "string"
+          }
+        }
+      },
+      "GitHubCheckRunDto": {
+        "required": [
+          "id",
+          "name",
+          "status",
+          "conclusion"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "conclusion": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -7341,6 +7518,7 @@
           "gradeLevel",
           "hasRepoMode",
           "submissionModes",
+          "requirements",
           "repo"
         ],
         "type": "object",
@@ -7431,6 +7609,12 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/SubmissionMode"
+            }
+          },
+          "requirements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AssignmentRequirementDto"
             }
           },
           "repo": {
@@ -7546,7 +7730,8 @@
           "initialSha",
           "initialCommitAt",
           "provisionedAt",
-          "checkStatusChangedAt"
+          "checkStatusChangedAt",
+          "checkRuns"
         ],
         "type": "object",
         "properties": {
@@ -7652,6 +7837,12 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "checkRuns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GitHubCheckRunDto"
+            }
           }
         }
       },
@@ -8601,6 +8792,15 @@
               "null",
               "boolean"
             ]
+          },
+          "requirements": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/AssignmentRequirementInput"
+            }
           }
         }
       },
@@ -8804,6 +9004,9 @@
   "tags": [
     {
       "name": "Health"
+    },
+    {
+      "name": "GitHub webhooks"
     },
     {
       "name": "Auth"

@@ -20,6 +20,17 @@ public class AssignmentSpecConfiguration : IEntityTypeConfiguration<AssignmentSp
         // Standardvärdet gäller rader som skapas utanför EF och de som fanns innan kolumnen kom.
         builder.Property(spec => spec.CompletionRule).HasDefaultValue(CompletionRule.Submitted);
         builder.Property(spec => spec.LockAtDeadline).HasDefaultValue(true);
+        builder.HasMany(spec => spec.Requirements).WithOne()
+            .HasForeignKey(requirement => requirement.ContentId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public class AssignmentRequirementConfiguration : IEntityTypeConfiguration<AssignmentRequirement>
+{
+    public void Configure(EntityTypeBuilder<AssignmentRequirement> builder)
+    {
+        // Positionen är unik per uppgift; listan sparas och läses i den ordning läraren angav.
+        builder.HasIndex(requirement => new { requirement.ContentId, requirement.Position });
     }
 }
 
@@ -47,6 +58,16 @@ public class StudentRepoConfiguration : IEntityTypeConfiguration<StudentRepo>
     public void Configure(EntityTypeBuilder<StudentRepo> builder)
     {
         builder.HasKey(repo => repo.SubmissionId);
+        builder.HasMany(repo => repo.CheckRuns).WithOne()
+            .HasForeignKey(checkRun => checkRun.SubmissionId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public class StudentRepoCheckRunConfiguration : IEntityTypeConfiguration<StudentRepoCheckRun>
+{
+    public void Configure(EntityTypeBuilder<StudentRepoCheckRun> builder)
+    {
+        builder.HasKey(checkRun => new { checkRun.SubmissionId, checkRun.ExternalKey });
     }
 }
 

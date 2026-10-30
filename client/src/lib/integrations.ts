@@ -53,6 +53,14 @@ export async function fetchGitHubTemplates(): Promise<GitHubTemplateRepo[]> {
   return data ?? []
 }
 
+export async function fetchGitHubTemplateTests(fullName: string): Promise<string[]> {
+  const [owner, repo] = fullName.split('/', 2)
+  const {data} = await api.GET('/api/integrations/github/templates/{owner}/{repo}/tests', {
+    params: {path: {owner, repo}},
+  })
+  return data ?? []
+}
+
 export async function fetchGitHubTemplateCommit(fullName: string): Promise<GitHubTemplateCommit> {
   const [owner, repo] = fullName.split('/', 2)
   const {data} = await api.GET('/api/integrations/github/templates/{owner}/{repo}/latest-commit', {

@@ -4,6 +4,12 @@ import {isoOrNull} from '@/lib/form'
 
 type SubmissionMode = Schema<'SubmissionMode'>
 
+export interface RequirementForm {
+  title: string
+  testPattern: string
+  isManual: boolean
+}
+
 export interface ContentForm {
   partType: PartType
   title: string
@@ -14,11 +20,12 @@ export interface ContentForm {
   submissionModes: SubmissionMode[]
   templateRepo: string
   repoNamePattern: string
+  requirements: RequirementForm[]
   isPinned: boolean
 }
 
 export type FormErrors = Partial<Record<
-  'title' | 'dueAt' | 'templateRepo' | 'repoNamePattern',
+  'title' | 'dueAt' | 'templateRepo' | 'repoNamePattern' | 'requirements',
   string
 >>
 
@@ -35,6 +42,7 @@ export function emptyForm(): ContentForm {
     submissionModes: [],
     templateRepo: '',
     repoNamePattern: defaultRepoNamePattern,
+    requirements: [],
     isPinned: false,
   }
 }
@@ -66,6 +74,11 @@ export function validate(form: ContentForm): FormErrors {
     }
     if (pattern && /[/\\]/.test(pattern)) {
       errors.repoNamePattern = 'Mönstret får inte innehålla slash.'
+    }
+    if (form.requirements.some((requirement) =>
+      !requirement.title.trim()
+      || (!requirement.isManual && !requirement.testPattern.trim()))) {
+      errors.requirements = 'Varje krav måste ha en text och ett testmönster, eller markeras som manuellt.'
     }
   }
   return errors
@@ -102,6 +115,15 @@ export function toRequests(
       lockAtDeadline: true,
       feedbackPullRequest: false,
       allowLate: false,
+      requirements: usesRepo(form)
+        ? form.requirements.map((requirement) => ({
+            title: requirement.title.trim(),
+            testPattern: requirement.isManual
+              ? null
+              : requirement.testPattern.trim(),
+            isManual: requirement.isManual,
+          }))
+        : [],
     },
     link: {...link, dueAt: isoOrNull(form.dueAt)},
   }
@@ -143,6 +165,15 @@ export function toUpdateRequests(
       lockAtDeadline: true,
       feedbackPullRequest: false,
       allowLate: false,
+      requirements: usesRepo(form)
+        ? form.requirements.map((requirement) => ({
+            title: requirement.title.trim(),
+            testPattern: requirement.isManual
+              ? null
+              : requirement.testPattern.trim(),
+            isManual: requirement.isManual,
+          }))
+        : [],
     },
     link,
   }

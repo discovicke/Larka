@@ -48,6 +48,12 @@ public sealed class TestGitHubAppService : IGitHubAppService
 
     public List<GitHubRepository> TemplateRepositories { get; set; } = [];
 
+    public List<string> WorkflowNames { get; set; } = [];
+
+    public Task<IReadOnlyList<string>> ListWorkflowNamesAsync(
+        long installationId, string owner, string name, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<string>>(WorkflowNames);
+
     public Task<IReadOnlyList<GitHubRepository>> ListTemplateRepositoriesAsync(
         long installationId, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<GitHubRepository>>(TemplateRepositories);
@@ -60,7 +66,7 @@ public sealed class TestGitHubAppService : IGitHubAppService
 
     public GitHubCommitSummary? CommitSummary { get; set; }
 
-    public GitHubCheckSummary CheckSummary { get; set; } = new(CheckStatus.Pending, 0, 0);
+    public GitHubCheckSummary CheckSummary { get; set; } = new(CheckStatus.Pending, 0, 0, []);
 
     public Task<GitHubCommit?> GetLatestCommitAsync(
         long installationId,

@@ -166,6 +166,7 @@ public class NotificationRepository(AppDb db) : INotificationRepository
             .Join(
                 db.Content
                     .Include(content => content.Assignment)
+                .ThenInclude(assignment => assignment!.Requirements)
                     .Where(content => content.Status == ContentStatus.Published),
                 link => link.ContentId,
                 content => content.Id,

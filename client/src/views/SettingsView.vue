@@ -43,6 +43,7 @@ const {preference, resolvedTheme} = useTheme()
 const {me, loadMe, reloadMe, can} = useCurrentUser()
 
 const githubInstallStateKey = 'github_install_state'
+const githubEnabled = computed(() => me.value?.gitHubEnabled === true)
 
 const isAdmin = computed(() => can('admin'))
 const github = ref<GitHubConnection | null>(null)
@@ -237,7 +238,9 @@ const notificationError = ref('')
 
 const navItems = computed(() => [
   {id: 'profil', label: 'Profil'},
-  {id: 'konton', label: 'Kopplade konton'},
+  ...(githubEnabled.value
+    ? [{id: 'konton', label: 'Anslutna konton'}]
+    : []),
   {id: 'aviseringar', label: 'Aviseringar'},
   {id: 'utseende', label: 'Utseende'},
   ...(isAdmin.value
@@ -388,7 +391,7 @@ const options: {
           </div>
         </section>
 
-        <section id="konton" class="flex scroll-mt-6 flex-col gap-6">
+        <section v-if="githubEnabled" id="konton" class="flex scroll-mt-6 flex-col gap-6">
           <!-- Elevens/användarens eget GitHub-konto -->
           <section class="bg-card rounded-xl border p-5" data-test="user-github">
             <header class="flex flex-wrap items-start justify-between gap-3">
@@ -397,7 +400,7 @@ const options: {
                 <div class="flex flex-col gap-0.5">
                   <h2 class="text-base font-semibold">Ditt GitHub-konto</h2>
                   <p class="text-muted-foreground text-sm">
-                    Koppla ditt konto för att få tillgång till personliga uppgiftsrepon.
+                    Anslut ditt GitHub-konto för att få åtkomst till dina kursrepon och lämna in koduppgifter.
                   </p>
                 </div>
               </div>
@@ -408,15 +411,15 @@ const options: {
                 data-test="user-github-status"
               >
                 {{ me?.gitHubLogin
-                  ? 'Kopplad'
-                  : 'Inte kopplad' }}
+                  ? 'Ansluten'
+                  : 'Inte ansluten' }}
               </Badge>
             </header>
 
             <div class="mt-4 flex flex-wrap items-center gap-3">
               <template v-if="me?.gitHubLogin">
                 <span class="text-sm">
-                  Kopplad som <strong class="font-mono" data-test="user-github-login">@{{ me.gitHubLogin }}</strong>
+                  Ansluten som <strong class="font-mono" data-test="user-github-login">@{{ me.gitHubLogin }}</strong>
                 </span>
                 <Button
                   variant="outline"
@@ -425,7 +428,7 @@ const options: {
                   data-test="user-github-disconnect"
                   @click="handleUnlinkUserGitHub"
                 >
-                  Koppla från
+                  Ta bort anslutning
                 </Button>
               </template>
               <template v-else>
@@ -439,7 +442,7 @@ const options: {
                   <PhGithubLogo class="size-4"/>
                   {{ userGitHubLoading
                     ? 'Laddar…'
-                    : 'Koppla GitHub' }}
+                    : 'Anslut GitHub' }}
                 </Button>
               </template>
             </div>

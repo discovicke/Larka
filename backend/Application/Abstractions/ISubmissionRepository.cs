@@ -78,6 +78,14 @@ public interface ISubmissionRepository
     Task<List<RepoLockContext>> GetRepoContextsForLinkAsync(
         Guid linkId, DateTimeOffset now, CancellationToken ct);
 
+    /// <summary>Repo och skola via GitHub-namnet, för webhookar och polling.</summary>
+    Task<StudentRepoContext?> GetRepoContextByFullNameAsync(
+        string repoFullName, CancellationToken ct);
+
+    /// <summary>Ersätter sparade check runs för ett repo utan att kräva att navigationen är laddad.</summary>
+    Task ReplaceCheckRunsAsync(
+        Guid submissionId, IReadOnlyList<StudentRepoCheckRun> runs, CancellationToken ct);
+
     /// <summary>Elevens redan skapade repon. Används när eleven kopplar GitHub efter utdelningen.</summary>
     Task<List<StudentRepo>> GetReposForStudentAsync(Guid studentId, CancellationToken ct);
 

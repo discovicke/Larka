@@ -39,6 +39,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/webhooks/github": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/login": {
         parameters: {
             query?: never;
@@ -1037,6 +1070,71 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["GitHubTemplateCommitDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/github/templates/{owner}/{repo}/tests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    owner: string;
+                    repo: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string[];
                     };
                 };
                 /** @description Bad Request */
@@ -5202,6 +5300,21 @@ export interface components {
             groupId: null | string;
             groupName: null | string;
         };
+        AssignmentRequirementDto: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            testPattern: null | string;
+            isManual: boolean;
+            /** Format: int32 */
+            position: number;
+        };
+        AssignmentRequirementInput: {
+            title: string;
+            testPattern?: null | string;
+            /** @default false */
+            isManual: boolean;
+        };
         AssignmentSpecDto: {
             gradeScale: components["schemas"]["GradeScale"];
             submissionModes: components["schemas"]["SubmissionMode"][];
@@ -5211,6 +5324,7 @@ export interface components {
             lockAtDeadline: boolean;
             feedbackPullRequest: boolean;
             allowLate: boolean;
+            requirements: components["schemas"]["AssignmentRequirementDto"][];
         };
         /** @description Url är en tidsbegränsad länk som skapas när bilagan läses, inte något som sparas. */
         AttachmentDto: {
@@ -5396,6 +5510,7 @@ export interface components {
             lockAtDeadline?: null | boolean;
             feedbackPullRequest?: null | boolean;
             allowLate?: null | boolean;
+            requirements?: null | components["schemas"]["AssignmentRequirementInput"][];
         };
         CreateContentLinkDto: {
             /** Format: uuid */
@@ -5469,6 +5584,12 @@ export interface components {
         };
         GitHubAuthorizeDto: {
             url: string;
+        };
+        GitHubCheckRunDto: {
+            id: string;
+            name: string;
+            status: string;
+            conclusion: null | string;
         };
         /** @description GitHub-anslutningen som admin kan se i klienten. Inga hemligheter. */
         GitHubConnectionDto: {
@@ -5831,6 +5952,7 @@ export interface components {
             gradeLevel: null | components["schemas"]["GradeLevel"];
             hasRepoMode: boolean;
             submissionModes: components["schemas"]["SubmissionMode"][];
+            requirements: components["schemas"]["AssignmentRequirementDto"][];
             repo: null | components["schemas"]["StudentRepoDto"];
         };
         StudentHelpStatusDto: {
@@ -5885,6 +6007,7 @@ export interface components {
             provisionedAt: null | string;
             /** Format: date-time */
             checkStatusChangedAt: null | string;
+            checkRuns: components["schemas"]["GitHubCheckRunDto"][];
         };
         /** @description Stödsignaler som läraren ser i trackingtabellen. Beräknas alltid från aktuell data. */
         StudentSupportDto: {
@@ -6141,6 +6264,7 @@ export interface components {
             lockAtDeadline?: null | boolean;
             feedbackPullRequest?: null | boolean;
             allowLate?: null | boolean;
+            requirements?: null | components["schemas"]["AssignmentRequirementInput"][];
         };
         UpdateContentLinkDto: {
             /** Format: date-time */

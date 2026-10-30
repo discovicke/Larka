@@ -32,11 +32,22 @@ function settingsBackend(
   role: 'Admin' | 'Student',
   github: GitHubConnection = connectedGitHub,
   gitHubLogin: string | null = null,
-  options: {muted?: string[], saveStatus?: number, groups?: {id: string, name: string}[]} = {},
+  options: {
+    muted?: string[]
+    saveStatus?: number
+    groups?: {id: string, name: string}[]
+    gitHubEnabled?: boolean
+  } = {},
 ) {
   mockApi((method, path, body) => {
     if (path === '/api/me') {
-      return {status: 200, body: {...meAs(role, [], 'Anna', gitHubLogin), groups: options.groups ?? []}}
+      return {
+        status: 200,
+        body: {
+          ...meAs(role, [], 'Anna', gitHubLogin, options.gitHubEnabled ?? true),
+          groups: options.groups ?? [],
+        },
+      }
     }
     if (path === '/api/me/notification-settings') {
       return method === 'PUT'
@@ -318,13 +329,23 @@ describe('SettingsView', () => {
     })
   })
 
+  it('döljer GitHub-kontot när utbildningen inte använder GitHub', async () => {
+    settingsBackend('Student', connectedGitHub, null, {gitHubEnabled: false})
+
+    const {wrapper} = await mountSettings()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="user-github"]').exists()).toBe(false)
+    expect(wrapper.find('nav[aria-label="Inställningar"]').text()).not.toContain('Anslutna konton')
+  })
+
   it('visar användarens GitHub-konto som inte kopplad för elev', async () => {
     const {wrapper} = await mountSettings()
     await flushPromises()
 
     expect(wrapper.find('[data-test="integrations"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="user-github"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="user-github-status"]').text()).toBe('Inte kopplad')
+    expect(wrapper.find('[data-test="user-github-status"]').text()).toBe('Inte ansluten')
     expect(wrapper.find('[data-test="user-github-connect"]').exists()).toBe(true)
   })
 
@@ -334,7 +355,7 @@ describe('SettingsView', () => {
     const {wrapper} = await mountSettings()
     await flushPromises()
 
-    expect(wrapper.find('[data-test="user-github-status"]').text()).toBe('Kopplad')
+    expect(wrapper.find('[data-test="user-github-status"]').text()).toBe('Ansluten')
     expect(wrapper.find('[data-test="user-github-login"]').text()).toBe('@elev-kalle')
     const unlinkButton = wrapper.find('[data-test="user-github-disconnect"]')
     expect(unlinkButton.exists()).toBe(true)
@@ -418,7 +439,7 @@ describe('SettingsView', () => {
     const {wrapper: student} = await mountSettings()
     await flushPromises()
     expect(student.find('nav[aria-label="Inställningar"]').text()).not.toContain('Integrationer')
-    expect(student.find('nav[aria-label="Inställningar"]').text()).toContain('Kopplade konton')
+    expect(student.find('nav[aria-label="Inställningar"]').text()).toContain('Anslutna konton')
 
     useCurrentUser().resetCurrentUser()
     settingsBackend('Admin')

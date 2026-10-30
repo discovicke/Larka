@@ -172,8 +172,11 @@ public static class DependencyInjection
             .Bind(config.GetSection(GitHubDeadlineLockOptions.SectionName));
         services.AddOptions<GitHubSupportOptions>()
             .Bind(config.GetSection(GitHubSupportOptions.SectionName));
+        services.AddOptions<GitHubChecksOptions>()
+            .Bind(config.GetSection(GitHubChecksOptions.SectionName));
         services.AddHostedService<GitHubProvisioningJob>();
         services.AddHostedService<GitHubDeadlineLockJob>();
+        services.AddHostedService<GitHubChecksJob>();
 
         // Utan app-credentials ska lokal utveckling och tester fortsätta med fake-repon.
         var githubOptions = config.GetSection(GitHubOptions.SectionName).Get<GitHubOptions>();

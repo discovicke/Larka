@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {PhUsersThree} from '@phosphor-icons/vue'
-import {computed, ref, watch} from 'vue'
+import {computed, onMounted, onUnmounted, ref, watch} from 'vue'
 import {RouterLink, useRoute, useRouter} from 'vue-router'
 
 import SubmissionsPanel from '@/components/course/SubmissionsPanel.vue'
@@ -105,6 +105,10 @@ function isStudentOfCourse(): boolean {
 }
 
 async function load(showSkeleton = true) {
+  if (!showSkeleton && loading.value) {
+    return
+  }
+
   // Rollen avgör vad sidan visar, så användaren måste vara hämtad först.
   if (status.value !== 'loaded') {
     await loadMe()
@@ -167,6 +171,26 @@ async function publish() {
     publishing.value = false
   }
 }
+
+function reloadIfVisible() {
+  if (document.visibilityState === 'visible') {
+    void load(false)
+  }
+}
+
+let refreshTimer: number | undefined
+
+onMounted(() => {
+  refreshTimer = window.setInterval(reloadIfVisible, 30_000)
+  window.addEventListener('focus', reloadIfVisible)
+})
+
+onUnmounted(() => {
+  if (refreshTimer !== undefined) {
+    window.clearInterval(refreshTimer)
+  }
+  window.removeEventListener('focus', reloadIfVisible)
+})
 
 watch([courseId, linkId], () => {
   load()

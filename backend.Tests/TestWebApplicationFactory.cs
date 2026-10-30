@@ -43,6 +43,7 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
         builder.UseSetting("Notifications:Job:Enabled", "false");
         builder.UseSetting("GitHub:ProvisioningJob:Enabled", "false");
         builder.UseSetting("GitHub:DeadlineLockJob:Enabled", "false");
+        builder.UseSetting("GitHub:ChecksJob:Enabled", "false");
         builder.UseSetting("Auth:Jwt:Key", "test-only-key-0123456789abcdef0123456789");
         // User-secrets kan peka på sandbox-org:en. Testerna ska vara oberoende av lokal GitHub-konfiguration.
         // FakeLabProvisioner använder Org för reponamn. InstallationId=0 gör att det inte räknas som legacy.
@@ -51,6 +52,7 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
         builder.UseSetting("GitHub:AppSlug", "test-app");
         builder.UseSetting("GitHub:InstallationId", "0");
         builder.UseSetting("GitHub:PrivateKey", "test-key");
+        builder.UseSetting("GitHub:WebhookSecret", "test-webhook-secret");
         builder.UseSetting("GitHub:PrivateKeyPath", "");
         builder.ConfigureTestServices(services =>
         {

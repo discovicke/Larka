@@ -185,7 +185,18 @@ public class CourseCopyService(
                 WorkMode = original.Assignment.WorkMode,
                 LockAtDeadline = original.Assignment.LockAtDeadline,
                 FeedbackPullRequest = original.Assignment.FeedbackPullRequest,
-                AllowLate = original.Assignment.AllowLate
+                AllowLate = original.Assignment.AllowLate,
+                Requirements = original.Assignment.Requirements
+                    .OrderBy(requirement => requirement.Position)
+                    .Select(requirement => new AssignmentRequirement
+                    {
+                        ContentId = content.Id,
+                        Title = requirement.Title,
+                        TestPattern = requirement.TestPattern,
+                        IsManual = requirement.IsManual,
+                        Position = requirement.Position
+                    })
+                    .ToList()
             };
         }
 

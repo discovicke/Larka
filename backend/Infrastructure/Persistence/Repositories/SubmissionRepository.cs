@@ -171,6 +171,25 @@ public class SubmissionRepository(AppDb db) : ISubmissionRepository
          select new RepoLockContext(repo, submission, student.SchoolId, link.DueAt ?? now))
         .ToListAsync(ct);
 
+    public Task<StudentRepoContext?> GetRepoContextByFullNameAsync(
+        string repoFullName, CancellationToken ct) =>
+        (from repo in db.StudentRepos
+         join submission in db.Submissions on repo.SubmissionId equals submission.Id
+         join student in db.Users on submission.StudentId equals student.Id
+         where repo.RepoFullName == repoFullName
+         select new StudentRepoContext(repo, student.SchoolId))
+        .FirstOrDefaultAsync(ct);
+
+    public async Task ReplaceCheckRunsAsync(
+        Guid submissionId, IReadOnlyList<StudentRepoCheckRun> runs, CancellationToken ct)
+    {
+        var existing = await db.StudentRepoCheckRuns
+            .Where(checkRun => checkRun.SubmissionId == submissionId)
+            .ToListAsync(ct);
+        db.StudentRepoCheckRuns.RemoveRange(existing);
+        db.StudentRepoCheckRuns.AddRange(runs);
+    }
+
     public Task<List<StudentRepo>> GetReposForStudentAsync(Guid studentId, CancellationToken ct) =>
         (from repo in db.StudentRepos
          join submission in db.Submissions on repo.SubmissionId equals submission.Id
@@ -188,5 +207,6 @@ public class SubmissionRepository(AppDb db) : ISubmissionRepository
         db.Submissions
             .Include(submission => submission.Files)
             .Include(submission => submission.Repo)
+                .ThenInclude(repo => repo!.CheckRuns)
             .Include(submission => submission.Grade);
 }

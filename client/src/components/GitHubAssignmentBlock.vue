@@ -11,7 +11,7 @@ import {computed, ref} from 'vue'
 
 import {Badge} from '@/components/ui/badge'
 import {Button} from '@/components/ui/button'
-import {errorMessage} from '@/lib/api'
+import {errorMessage, type Schema} from '@/lib/api'
 import {fetchGitHubAuthorizeUrl} from '@/lib/integrations'
 
 const props = withDefaults(
@@ -23,6 +23,8 @@ const props = withDefaults(
     checkStatus?: 'Pending' | 'Green' | 'Red' | null
     repoProvisioningState?: 'Pending' | 'Creating' | 'Ready' | 'Failed' | null
     repoProvisioningError?: string | null
+    requirements?: Schema<'AssignmentRequirementDto'>[]
+    checkRuns?: Schema<'GitHubCheckRunDto'>[]
     authorizeUrl?: string | null
     redirectTo?: string | null
   }>(),
@@ -34,6 +36,8 @@ const props = withDefaults(
     checkStatus: null,
     repoProvisioningState: null,
     repoProvisioningError: null,
+    requirements: () => [],
+    checkRuns: () => [],
     authorizeUrl: null,
     redirectTo: null,
   },
@@ -59,6 +63,39 @@ const statusBadge = computed<{
   }
   return {label: 'Tester körs / väntar', variant: 'outline', icon: PhClock}
 })
+
+const requirementRows = computed(() => props.requirements.map((requirement) => {
+  if (requirement.isManual) {
+    return {requirement, label: 'Bedöms av lärare', variant: 'outline' as const}
+  }
+
+  const pattern = requirement.testPattern ?? ''
+  const matches = props.checkRuns.filter((run) => wildcardMatch(pattern, run.name))
+  if (matches.length === 0) {
+    return {requirement, label: 'Väntar på test', variant: 'outline' as const}
+  }
+
+  const failed = matches.some((run) =>
+    run.status !== 'completed'
+    || (run.conclusion !== 'success'
+      && run.conclusion !== 'neutral'
+      && run.conclusion !== 'skipped'))
+  return failed
+    ? {requirement, label: 'Underkänd', variant: 'destructive' as const}
+    : {requirement, label: 'Godkänd', variant: 'default' as const}
+}))
+
+function wildcardMatch(pattern: string, value: string): boolean {
+  if (!pattern.trim()) {
+    return false
+  }
+
+  const expression = pattern
+    .split('*')
+    .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('.*')
+  return new RegExp(`^${expression}$`, 'i').test(value)
+}
 
 async function handleConnect() {
   emit('connect')
@@ -161,7 +198,7 @@ async function handleConnect() {
       data-test="github-pending-repo"
     >
       <p class="font-medium">
-        Kopplad som <span class="font-mono text-xs">@{{ gitHubLogin }}</span>
+        Ansluten som <span class="font-mono text-xs">@{{ gitHubLogin }}</span>
       </p>
       <p class="text-muted-foreground text-xs">
         Ditt personliga uppgiftsrepo skapas i skolans organisation. Detta kan ta några sekunder.
@@ -192,6 +229,17 @@ async function handleConnect() {
         <PhGitCommit class="size-3.5 shrink-0"/>
         <span>Senaste commit: <code class="font-mono">{{ latestCommit.slice(0, 7) }}</code></span>
       </div>
+
+      <ul v-if="requirementRows.length > 0" class="flex flex-col gap-1.5" data-test="student-requirements">
+        <li
+          v-for="row in requirementRows"
+          :key="row.requirement.id"
+          class="flex items-center justify-between gap-3 rounded-md border px-2.5 py-1.5"
+        >
+          <span>{{ row.requirement.title }}</span>
+          <Badge :variant="row.variant">{{ row.label }}</Badge>
+        </li>
+      </ul>
     </div>
   </section>
 </template>

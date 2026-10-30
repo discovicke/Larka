@@ -44,6 +44,10 @@ public sealed class GitHubAppService(
 
     private sealed record InstallationRepositoriesResponse(List<RepositoryResponse> Repositories);
 
+    private sealed record ContentEntryResponse(string Name, string Path, string Type);
+
+    private sealed record ContentFileResponse(string? Content, string? Encoding);
+
     private sealed record RepositoryResponse(
         string FullName,
         string HtmlUrl,
@@ -60,7 +64,7 @@ public sealed class GitHubAppService(
 
     private sealed record CheckRunsResponse(List<CheckRunResponse>? CheckRuns);
 
-    private sealed record CheckRunResponse(string Status, string? Conclusion);
+    private sealed record CheckRunResponse(long Id, string Name, string Status, string? Conclusion);
 
     private sealed record CreateRepositoryRequest(
         string Owner,
@@ -134,6 +138,65 @@ public sealed class GitHubAppService(
             .Where(repository => repository.IsTemplate)
             .OrderBy(repository => repository.FullName, StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
+
+    public async Task<IReadOnlyList<string>> ListWorkflowNamesAsync(
+        long installationId, string owner, string name, CancellationToken ct)
+    {
+        EnsurePathPart(owner, nameof(owner));
+        EnsurePathPart(name, nameof(name));
+
+        var token = await GetInstallationTokenAsync(installationId, ct);
+        using var response = await SendAsync(
+            HttpMethod.Get,
+            $"repos/{owner}/{name}/contents/.github/workflows",
+            token.Token,
+            null,
+            ct);
+        var entries = await ReadAsync<List<ContentEntryResponse>>(response, ct) ?? [];
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in entries.Where(entry =>
+                     entry.Type == "file"
+                     && (entry.Name.EndsWith(".yml", StringComparison.OrdinalIgnoreCase)
+                         || entry.Name.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase))))
+        {
+            using var fileResponse = await SendAsync(
+                HttpMethod.Get,
+                $"repos/{owner}/{name}/contents/.github/workflows/{Uri.EscapeDataString(entry.Name)}",
+                token.Token,
+                null,
+                ct);
+            var file = await ReadAsync<ContentFileResponse>(fileResponse, ct);
+            if (file?.Content is null)
+            {
+                continue;
+            }
+
+            string yaml;
+            try
+            {
+                yaml = Encoding.UTF8.GetString(Convert.FromBase64String(
+                    file.Content.Replace("\n", "", StringComparison.Ordinal)));
+            }
+            catch (FormatException)
+            {
+                continue;
+            }
+
+            foreach (Match match in Regex.Matches(
+                         yaml,
+                         @"^\s*name:\s*['""]?(?<name>[^'""\r\n]+)['""]?\s*$",
+                         RegexOptions.Multiline))
+            {
+                var value = match.Groups["name"].Value.Trim();
+                if (value.Length > 0)
+                {
+                    names.Add(value);
+                }
+            }
+        }
+
+        return names.OrderBy(value => value, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     public async Task<GitHubRepository> GetRepositoryAsync(
@@ -233,7 +296,14 @@ public sealed class GitHubAppService(
             MapCheckStatus(checkRuns),
             checkRuns.Count(checkRun =>
                 string.Equals(checkRun.Conclusion, "success", StringComparison.OrdinalIgnoreCase)),
-            checkRuns.Count);
+            checkRuns.Count,
+            checkRuns
+                .Select(checkRun => new GitHubCheckRun(
+                    checkRun.Id,
+                    checkRun.Name,
+                    checkRun.Status,
+                    checkRun.Conclusion))
+                .ToList());
     }
 
     public async Task<GitHubRepository> CreateRepositoryFromTemplateAsync(
