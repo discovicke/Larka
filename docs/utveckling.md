@@ -23,6 +23,8 @@ dotnet ef migrations add <VadSomÄndrats> --project backend
 
 Testet `Migrations_match_the_model` faller i CI om en ändring saknar migration. Migrationerna ligger i `backend/Infrastructure/Persistence/Migrations/` och ska inte ändras för hand.
 
+Alla tidigare migrationer är hopslagna till en baslinje, `Baseline`. Dess id är den sista migrationen före sammanslagningen, `20261030134646_RemovePushSubscriptions`, så att prod räknar den som redan körd. Id:t får inte ändras. Nya migrationer läggs till som vanligt ovanpå baslinjen.
+
 Börja om från en tom lokal databas: `docker compose down -v && npm run db`.
 
 Vill du köra mot en annan databas, t.ex. Supabase, lägg connection string i user-secrets så att den aldrig hamnar i repot. Stäng av exempeldatan, annars läggs den in om databasen saknar grupper:
