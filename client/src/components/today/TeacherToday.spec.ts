@@ -65,8 +65,8 @@ const full = {
     },
   ],
   courses: [
-    {courseId: 'c1', code: 'DEVOPS', title: 'DevOps', students: 12, toGrade: 11},
-    {courseId: 'c2', code: 'TEST', title: 'Testning', students: 1, toGrade: 0},
+    {courseId: 'c1', code: 'DEVOPS', title: 'DevOps', students: 12, toGrade: 11, needsPreparation: false},
+    {courseId: 'c2', code: 'TEST', title: 'Testning', students: 1, toGrade: 0, needsPreparation: true},
   ],
 }
 
@@ -158,6 +158,27 @@ describe('TeacherToday', () => {
     expect(cards[0].text()).toContain('11 att bedöma')
     expect(cards[1].text()).toContain('1 elev')
     expect(cards[1].text()).not.toContain('att bedöma')
+  })
+
+  it('pekar ut kurser som behöver förberedas med en länk till kursen', async () => {
+    backend()
+
+    const {wrapper} = await renderApp('/')
+
+    const prompt = wrapper.find('[data-test="needs-preparation"]')
+    expect(prompt.find('h2').text()).toBe('Behöver förberedas')
+    const items = prompt.findAll('[data-test="needs-preparation-item"]')
+    expect(items).toHaveLength(1)
+    expect(items[0].text()).toContain('Testning')
+    expect(items[0].find('a').attributes('href')).toBe('/courses/c2/content')
+  })
+
+  it('visar ingen uppmaning när alla kurser är förberedda', async () => {
+    backend({...full, courses: full.courses.map((course) => ({...course, needsPreparation: false}))})
+
+    const {wrapper} = await renderApp('/')
+
+    expect(wrapper.find('[data-test="needs-preparation"]').exists()).toBe(false)
   })
 
   it('visar tomma lägen', async () => {

@@ -115,6 +115,49 @@ public class CourseTeacherEndpointTests(TestWebApplicationFactory factory) : ICl
     }
 
     [Fact]
+    public async Task ClassTeacher_SeesOnlyTheCoursesTheyTeach_NotEveryCourseTheClassReads()
+    {
+        var scenario = await AddScenarioAsync();
+
+        var teacherCourses = await GetAsync<List<CourseResponse>>("/api/courses", scenario.Teacher);
+        var teacherMe = await GetAsync<MeResponse>("/api/me", scenario.Teacher);
+        var classOnlyCourses = await GetAsync<List<CourseResponse>>("/api/courses", scenario.ClassOnlyTeacher);
+        var classOnlyMe = await GetAsync<MeResponse>("/api/me", scenario.ClassOnlyTeacher);
+        var studentCourses = await GetAsync<List<CourseResponse>>("/api/courses", scenario.Student);
+
+        Assert.Equal([scenario.CourseA], teacherCourses.Select(course => course.Id));
+        Assert.Equal([scenario.CourseA], teacherMe.Courses.Select(course => course.CourseId));
+        Assert.Empty(classOnlyCourses);
+        Assert.Empty(classOnlyMe.Courses);
+        Assert.Equal(
+            new[] { scenario.CourseA, scenario.CourseB }.Order(),
+            studentCourses.Select(course => course.Id).Order());
+    }
+
+    [Fact]
+    public async Task ClassTeacher_KeepsTheGroup_ButTheCalendarOnlyHasTheCoursesTheyTeach()
+    {
+        var scenario = await AddScenarioAsync();
+        var due = DateTimeOffset.UtcNow.AddDays(3);
+        var linkA = await LinkOnSiteAssignmentAsync(scenario.CourseA, due);
+        var linkB = await LinkOnSiteAssignmentAsync(scenario.CourseB, due);
+
+        var calendarPath = "/api/calendar?from=" + Uri.EscapeDataString(DateTimeOffset.UtcNow.AddDays(-1).ToString("O"))
+            + "&to=" + Uri.EscapeDataString(DateTimeOffset.UtcNow.AddDays(10).ToString("O"));
+        var groups = await GetAsync<List<GroupResponse>>("/api/groups", scenario.ClassOnlyTeacher);
+        var calendar = await GetAsync<System.Text.Json.JsonElement>(
+            calendarPath, scenario.ClassOnlyTeacher);
+        var teacherCalendar = await GetAsync<System.Text.Json.JsonElement>(
+            calendarPath, scenario.Teacher);
+
+        Assert.Equal([scenario.GroupId], groups.Select(group => group.Id));
+        Assert.DoesNotContain(linkA.ToString(), calendar.GetRawText());
+        Assert.DoesNotContain(linkB.ToString(), calendar.GetRawText());
+        Assert.Contains(linkA.ToString(), teacherCalendar.GetRawText());
+        Assert.DoesNotContain(linkB.ToString(), teacherCalendar.GetRawText());
+    }
+
+    [Fact]
     public async Task Roster_IsOpenToTheTeacherOfACourseTheGroupReads_AndToNobodyElseOutsideTheGroup()
     {
         var scenario = await AddScenarioAsync();
@@ -323,7 +366,7 @@ public class CourseTeacherEndpointTests(TestWebApplicationFactory factory) : ICl
     }
 
     // En uppgift som bedöms på plats, delad ut till kursen. Utdelningen ger en inlämningsrad per elev i klassen.
-    private async Task<Guid> LinkOnSiteAssignmentAsync(Guid courseId)
+    private async Task<Guid> LinkOnSiteAssignmentAsync(Guid courseId, DateTimeOffset? dueAt = null)
     {
         var created = await _client.PostAsJsonAsync("/api/content", new
         {
@@ -335,7 +378,7 @@ public class CourseTeacherEndpointTests(TestWebApplicationFactory factory) : ICl
         });
         created.EnsureSuccessStatusCode();
         var contentId = (await created.Content.ReadFromJsonAsync<IdResponse>())!.Id;
-        var link = await _client.PostAsJsonAsync($"/api/content/{contentId}/links", new { courseId });
+        var link = await _client.PostAsJsonAsync($"/api/content/{contentId}/links", new { courseId, dueAt });
         link.EnsureSuccessStatusCode();
         return (await link.Content.ReadFromJsonAsync<IdResponse>())!.Id;
     }

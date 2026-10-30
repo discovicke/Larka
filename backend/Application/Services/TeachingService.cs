@@ -1,5 +1,6 @@
 using Backend.Application.Abstractions;
 using Backend.Application.Dtos;
+using Backend.Domain.Entities;
 using Backend.Domain.Enums;
 
 namespace Backend.Application.Services;
@@ -44,6 +45,7 @@ public class TeachingService(
 
         var toGradeCounts = (await submissions.GetToGradeCountsAsync(teachingCourseIds, ct))
             .ToDictionary(count => count.CourseId, count => count.Count);
+        var preparedCourseIds = await contents.GetCourseIdsWithPublishedPartsAsync(teachingCourseIds, ct);
         var toGrade = await submissions.GetToGradeAsync(teachingCourseIds, _toGradeLength, ct);
 
         return new TeachingDto(
@@ -67,8 +69,18 @@ public class TeachingService(
                     course.Code,
                     course.Title,
                     studentsByCourse.GetValueOrDefault(course.Id)?.Count ?? 0,
-                    toGradeCounts.GetValueOrDefault(course.Id)))
+                    toGradeCounts.GetValueOrDefault(course.Id),
+                    NeedsPreparation(course, preparedCourseIds, now)))
                 .ToList());
+    }
+
+    // Beskrivningen är lärarens text. Saknas den, eller saknas publicerade delar i en kurs som ännu inte har börjat,
+    // är kursen inte förberedd.
+    private static bool NeedsPreparation(Course course, HashSet<Guid> preparedCourseIds, DateTimeOffset now)
+    {
+        var upcoming = course.StartsOn is not null && course.StartsOn.Value > DateOnly.FromDateTime(now.UtcDateTime);
+        return string.IsNullOrWhiteSpace(course.Description)
+            || (upcoming && !preparedCourseIds.Contains(course.Id));
     }
 
     // Deadlinen räknas bland eleverna som fortfarande läser kursen, så att antalet aldrig överstiger dem.

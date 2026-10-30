@@ -4,6 +4,7 @@ using Backend.Domain.Entities;
 using Backend.Domain.Enums;
 using Backend.Infrastructure.Persistence;
 using Backend.Infrastructure.Persistence.Configurations;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace backend.Tests;
@@ -520,6 +521,89 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
         Assert.Equal(HttpStatusCode.NoContent, first.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, second.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, unknownRole.StatusCode);
+    }
+
+    private record ImportLineResponse(string Name, string Email, string Outcome);
+
+    private record ImportResponse(List<ImportLineResponse> Lines, List<GroupMemberResponse> Added);
+
+    [Fact]
+    public async Task ImportStudents_CreatesNewAndAddsExistingStudents_AndReportsEachLine()
+    {
+        var group = await CreateGroupAsync();
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var existing = await TestData.AddUserAsync(db, group.SchoolId);
+        var member = await TestData.AddMemberAsync(db, await db.Groups.SingleAsync(row => row.Id == group.Id));
+        var teacher = await TestData.AddUserAsync(db, group.SchoolId, UserRole.Teacher);
+        var otherSchoolUser = await TestData.AddUserAsync(db, (await TestData.AddSchoolAsync(db)).Id);
+        var fresh = $"ny-{Guid.NewGuid():N}@skola.se";
+
+        var response = await _client.PostAsJsonAsync($"/api/groups/{group.Id}/members/import", new
+        {
+            lines = new[]
+            {
+                new { name = "Ny Elev", email = $" {fresh.ToUpperInvariant()} " },
+                new { name = "Befintlig", email = existing.Email },
+                new { name = "Redan med", email = member.Email },
+                new { name = "Lärare", email = teacher.Email },
+                new { name = "Annan skola", email = otherSchoolUser.Email },
+                new { name = "Dubbel", email = fresh },
+                new { name = "Utan adress", email = "inte-en-adress" },
+                new { name = "", email = $"namnlos-{Guid.NewGuid():N}@skola.se" },
+            }
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var result = (await response.Content.ReadFromJsonAsync<ImportResponse>())!;
+        Assert.Equal(
+            ["Created", "Added", "AlreadyMember", "NotStudent", "Invalid", "Duplicate", "Invalid", "Invalid"],
+            result.Lines.Select(line => line.Outcome));
+        Assert.Equal(2, result.Added.Count);
+        Assert.All(result.Added, added => Assert.Equal("Student", added.Role));
+        var members = await _client.GetFromJsonAsync<List<GroupMemberResponse>>($"/api/groups/{group.Id}/members");
+        Assert.Equal(3, members!.Count);
+        var created = await db.Users.SingleAsync(user => user.Email == fresh);
+        Assert.Equal((UserRole.Student, null), (created.Role, created.PasswordHash));
+        Assert.Equal(0, await db.Users.CountAsync(user => user.Name == "Utan adress"));
+    }
+
+    [Fact]
+    public async Task ImportStudents_WithNoLines_ReturnsBadRequest()
+    {
+        var group = await CreateGroupAsync();
+
+        var response = await _client.PostAsJsonAsync(
+            $"/api/groups/{group.Id}/members/import", new { lines = Array.Empty<object>() });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ImportStudents_ToGroupThatDoesNotExist_Returns404()
+    {
+        var response = await _client.PostAsJsonAsync(
+            $"/api/groups/{Guid.NewGuid()}/members/import",
+            new { lines = new[] { new { name = "A", email = "a@b.se" } } });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ImportStudents_AsTeacher_IsForbidden()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
+        var teacher = await TestData.AddMemberAsync(db, group, GroupRole.Teacher, UserRole.Teacher);
+
+        var response = await SendAsync(
+            HttpMethod.Post,
+            $"/api/groups/{group.Id}/members/import",
+            teacher.Id,
+            new { lines = new[] { new { name = "A", email = "a@b.se" } } });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     [Fact]

@@ -1,6 +1,7 @@
 import {flushPromises} from '@vue/test-utils'
 import {describe, expect, it, vi} from 'vitest'
 
+import DatePicker from '@/components/DatePicker.vue'
 import {mockApi, requests, sent} from '@/test/mockApi'
 import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
@@ -14,6 +15,8 @@ const java = {id: 'c2', schoolId: 's1', code: 'JAVA', title: 'Java'}
 
 const users = [
   {id: 'u1', schoolId: 's1', name: 'Siv Student', email: 'siv@example.com', role: 'Student'},
+  {id: 'u2', schoolId: 's1', name: 'Lars Lärare', email: 'lars@example.com', role: 'Teacher'},
+  {id: 'u6', schoolId: 's1', name: 'Tina Tränare', email: 'tina@example.com', role: 'Teacher'},
   {id: 'u5', schoolId: 's1', name: 'Nils Ny', email: 'nils@example.com', role: 'Student'},
 ]
 
@@ -30,24 +33,41 @@ interface Backend {
   members?: unknown[]
   membersStatus?: number
   role?: 'Teacher' | 'Admin'
+  // Lärarna per kurs-id. Utan post har kursen inga lärare.
+  teachers?: Record<string, {userId: string, name: string, email: string}[]>
+  importResult?: unknown
   // Status för skrivande anrop, som POST, PUT och DELETE.
   writeStatus?: number
 }
 
 function backend(options: Backend = {}) {
   const group = options.group ?? classGroup
-  mockApi((method, path) => {
+  mockApi((method, path, body) => {
     if (path === '/api/me') {
       return {status: 200, body: meAs(options.role ?? 'Teacher', ['c1'])}
     }
     if (path === '/api/users') {
       return {status: 200, body: users}
     }
+    if (method === 'POST' && path === '/api/courses') {
+      return {status: 201, body: {...java, id: 'c9', code: (body as {code: string}).code, title: (body as {title: string}).title}}
+    }
     if (path === '/api/courses') {
       return {status: 200, body: [devops, java]}
     }
+    const teachersPath = /^\/api\/courses\/([^/]+)\/teachers/.exec(path)
+    if (teachersPath && method === 'GET') {
+      return {status: 200, body: options.teachers?.[teachersPath[1]] ?? []}
+    }
     if (method !== 'GET' && options.writeStatus) {
       return {status: options.writeStatus, body: 'fel'}
+    }
+    if (teachersPath && method === 'POST') {
+      const user = users.find((found) => found.id === (body as {userId: string}).userId)!
+      return {status: 201, body: {userId: user.id, name: user.name, email: user.email}}
+    }
+    if (method === 'POST' && path === `/api/groups/${group.id}/members/import`) {
+      return {status: 200, body: options.importResult}
     }
     if (method === 'POST' && path === `/api/groups/${group.id}/members`) {
       return {status: 201, body: {}}
@@ -362,6 +382,249 @@ describe('GroupView', () => {
       expect(requests.some((request) => request.method === 'DELETE' && request.path === '/api/groups/g1/courses/c1')).toBe(true)
       expect(wrapper.findAll('[data-test="course-row"]')).toHaveLength(0)
       expect(wrapper.text()).toContain('Gruppen har inga kurser ännu.')
+    })
+
+    function pick(element: Element | null, value: string) {
+      const select = element as HTMLSelectElement
+      select.value = value
+      select.dispatchEvent(new Event('change'))
+      return flushPromises()
+    }
+
+    function type(selector: string, value: string) {
+      const input = modal().querySelector(selector) as HTMLInputElement | HTMLTextAreaElement
+      input.value = value
+      input.dispatchEvent(new Event('input'))
+      return flushPromises()
+    }
+
+    it('har Ny kurs som primär knapp och Koppla kurs som kontur', async () => {
+      backend({role: 'Admin'})
+
+      const {wrapper} = await renderApp('/groups/g1')
+
+      const create = wrapper.find('[data-test="new-course-button"]')
+      expect(create.text()).toBe('Ny kurs')
+      expect(create.attributes('data-variant')).toBeUndefined()
+      expect(wrapper.find('[data-test="link-course-button"]').attributes('data-variant')).toBe('outline')
+    })
+
+    it('visar kursens lärare, eller Ingen lärare som varning', async () => {
+      backend({
+        role: 'Admin',
+        courses: [devops, java],
+        teachers: {c1: [{userId: 'u2', name: 'Lars Lärare', email: 'lars@example.com'}]},
+      })
+
+      const {wrapper} = await renderApp('/groups/g1')
+
+      const rows = wrapper.findAll('[data-test="course-row"]')
+      expect(rows[0].find('[data-test="course-teacher-names"]').text()).toBe('Lärare: Lars Lärare')
+      expect(rows[0].find('[data-status="course.noTeacher"]').exists()).toBe(false)
+      const flag = rows[1].find('[data-status="course.noTeacher"]')
+      expect(flag.text()).toBe('Ingen lärare')
+      expect(flag.attributes('data-tone')).toBe('warning')
+    })
+
+    it('visar inga lärare på kursraden för en lärare', async () => {
+      backend()
+
+      const {wrapper} = await renderApp('/groups/g1')
+
+      expect(wrapper.find('[data-test="course-teachers"]').exists()).toBe(false)
+      expect(requests.some((request) => request.path.endsWith('/teachers'))).toBe(false)
+    })
+
+    it('lägger till och tar bort en lärare på kursraden', async () => {
+      backend({role: 'Admin', teachers: {c1: [{userId: 'u2', name: 'Lars Lärare', email: 'lars@example.com'}]}})
+      const {wrapper} = await renderApp('/groups/g1')
+
+      await wrapper.find('[data-test="edit-teachers"]').trigger('click')
+      await flushPromises()
+      const options = [...modal().querySelectorAll('[data-test="add-teacher-select"] option')]
+      // Lars undervisar redan och eleverna är inga lärare.
+      expect(options.map((option) => (option as HTMLOptionElement).value)).toEqual(['', 'u6'])
+      await pick(modal().querySelector('[data-test="add-teacher-select"]'), 'u6')
+      await click(modal().querySelector('[data-test="add-teacher"]'))
+
+      expect(sent('POST', '/api/courses/c1/teachers')).toEqual({userId: 'u6'})
+      expect(wrapper.find('[data-test="course-teacher-names"]').text()).toBe('Lärare: Lars Lärare, Tina Tränare')
+
+      await click(modal().querySelectorAll('[data-test="remove-teacher"]')[0])
+      await click(modal().querySelectorAll('[data-test="remove-teacher"]')[0])
+
+      expect(requests.filter((request) => request.method === 'DELETE').map((request) => request.path))
+        .toEqual(['/api/courses/c1/teachers/u2', '/api/courses/c1/teachers/u6'])
+      expect(wrapper.find('[data-status="course.noTeacher"]').exists()).toBe(true)
+    })
+
+    it('utser en mentor som redan är med i klassen och tar bort den förra', async () => {
+      backend({role: 'Admin'})
+      const {wrapper} = await renderApp('/groups/g1')
+
+      expect(wrapper.find('[data-test="set-mentor"]').text()).toBe('Byt mentor')
+      await wrapper.find('[data-test="set-mentor"]').trigger('click')
+      await flushPromises()
+      await pick(modal().querySelector('[data-test="mentor-user"]'), 'u2')
+      expect(modal().querySelector('[data-test="mentor-leaves"]')?.textContent).toContain('Malin Mentor lämnar klassen')
+      await click(modal().querySelector('[data-test="confirm-mentor"]'))
+
+      expect(sent('PUT', '/api/groups/g1/members/u2')).toEqual({role: 'Mentor'})
+      expect(requests.some((request) => request.method === 'DELETE' && request.path === '/api/groups/g1/members/u3')).toBe(true)
+      expect(modal()).toBeNull()
+    })
+
+    it('utser en mentor som inte är med i klassen när klassen saknar mentor', async () => {
+      backend({role: 'Admin', members: [members[0]]})
+      const {wrapper} = await renderApp('/groups/g1')
+
+      expect(wrapper.find('[data-test="no-mentor"]').text()).toBe('Klassen har ingen mentor ännu.')
+      expect(wrapper.find('[data-test="set-mentor"]').text()).toBe('Utse mentor')
+      await wrapper.find('[data-test="set-mentor"]').trigger('click')
+      await flushPromises()
+      await pick(modal().querySelector('[data-test="mentor-user"]'), 'u6')
+      await click(modal().querySelector('[data-test="confirm-mentor"]'))
+
+      expect(sent('POST', '/api/groups/g1/members')).toEqual({userId: 'u6', role: 'Mentor'})
+      expect(requests.some((request) => request.method === 'DELETE')).toBe(false)
+    })
+
+    it('visar ingen mentorsrad för en kommitté', async () => {
+      backend({role: 'Admin', group: committee, members: [], courses: []})
+
+      const {wrapper} = await renderApp('/groups/g2')
+
+      expect(wrapper.find('[data-test="set-mentor"]').exists()).toBe(false)
+    })
+
+    it('förhandsvisar en inklistrad lista och lägger till eleverna', async () => {
+      backend({
+        role: 'Admin',
+        importResult: {
+          lines: [
+            {name: 'Nils Ny', email: 'nils@example.com', outcome: 'Added'},
+            {name: 'Olle Ovan', email: 'olle@example.com', outcome: 'Created'},
+          ],
+          added: [
+            {userId: 'u5', name: 'Nils Ny', role: 'Student'},
+            {userId: 'u7', name: 'Olle Ovan', role: 'Student'},
+          ],
+        },
+      })
+      const {wrapper} = await renderApp('/groups/g1')
+
+      await click(wrapper.find('[data-test="add-member"]').element)
+      await click(modal().querySelector('[data-test="show-paste"]'))
+      await type('[data-test="import-text"]', [
+        'Nils Ny, nils@example.com',
+        'Olle Ovan\tolle@example.com',
+        'Siv Student, siv@example.com',
+        'Lars Lärare, lars@example.com',
+        'bara ett namn',
+      ].join('\n'))
+
+      const titles = [...modal().querySelectorAll('[data-test="import-preview"] h3')].map((heading) => heading.textContent)
+      expect(titles).toEqual([
+        'Finns redan, läggs till i klassen (1)',
+        'Nya, skapas utan lösenord (1)',
+        'Hoppas över (2)',
+        'Går inte att läsa (1)',
+      ])
+      expect(requests.some((request) => request.method === 'POST')).toBe(false)
+      const confirm = modal().querySelector('[data-test="confirm-import"]') as HTMLButtonElement
+      expect(confirm.textContent?.trim()).toBe('Lägg till 2 elever')
+      await click(confirm)
+
+      expect(sent('POST', '/api/groups/g1/members/import')).toEqual({
+        lines: [
+          {name: 'Nils Ny', email: 'nils@example.com'},
+          {name: 'Olle Ovan', email: 'olle@example.com'},
+          {name: 'Siv Student', email: 'siv@example.com'},
+          {name: 'Lars Lärare', email: 'lars@example.com'},
+          {name: 'bara ett namn', email: ''},
+        ],
+      })
+      expect(modal().querySelector('[data-test="import-summary"]')?.textContent).toContain('2 av 2 rader')
+      expect(modal().querySelectorAll('[data-test="import-report-row"]')).toHaveLength(2)
+      expect(roleOf(wrapper, 'Olle Ovan')).toBe('Elev')
+    })
+
+    async function fillNewCourse(wrapper: Awaited<ReturnType<typeof renderApp>>['wrapper'], title: string, code: string) {
+      await click(wrapper.find('[data-test="new-course-button"]').element)
+      await type('[data-test="new-course-title"]', title)
+      await type('[data-test="new-course-code"]', code)
+      const pickers = wrapper.findAllComponents(DatePicker)
+      pickers[0].vm.$emit('update:modelValue', '2026-11-02')
+      pickers[1].vm.$emit('update:modelValue', '2026-12-18')
+      await flushPromises()
+    }
+
+    it('skapar kursen, kopplar den till klassen och lägger till lärarna i ordning', async () => {
+      backend({role: 'Admin', courses: []})
+      const {wrapper} = await renderApp('/groups/g1')
+
+      await fillNewCourse(wrapper, 'Testning', 'TEST25')
+      const teachers = modal().querySelectorAll('[data-test="new-course-teacher"]')
+      await click(teachers[0])
+      await click(teachers[1])
+      await click(modal().querySelector('[data-test="save-new-course"]'))
+
+      expect(requests.filter((request) => request.method === 'POST').map((request) => request.path)).toEqual([
+        '/api/courses',
+        '/api/groups/g1/courses/c9',
+        '/api/courses/c9/teachers',
+        '/api/courses/c9/teachers',
+      ])
+      expect(sent('POST', '/api/courses')).toEqual({
+        schoolId: 's1', title: 'Testning', code: 'TEST25', points: null, startsOn: '2026-11-02', endsOn: '2026-12-18',
+      })
+      expect(modal()).toBeNull()
+    })
+
+    it('kräver namn, kod, datum och lärare innan något skickas', async () => {
+      backend({role: 'Admin'})
+      const {wrapper} = await renderApp('/groups/g1')
+
+      await click(wrapper.find('[data-test="new-course-button"]').element)
+      await click(modal().querySelector('[data-test="save-new-course"]'))
+
+      for (const name of ['title', 'code', 'dates', 'teacher']) {
+        expect(modal().querySelector(`[data-test="new-course-${name}-error"]`)).not.toBeNull()
+      }
+      expect(requests.some((request) => request.method === 'POST')).toBe(false)
+    })
+
+    it('säger vilket steg som misslyckades och fortsätter vid nytt försök utan att skapa kursen igen', async () => {
+      backend({role: 'Admin', courses: [], writeStatus: undefined})
+      const {wrapper} = await renderApp('/groups/g1')
+      let fail = true
+      const original = globalThis.fetch
+      vi.stubGlobal('fetch', async (input: Request | string, init?: RequestInit) => {
+        const request = input instanceof Request
+          ? input
+          : new Request(new URL(input, window.location.origin), init)
+        if (fail && request.method === 'POST' && request.url.endsWith('/api/courses/c9/teachers')) {
+          fail = false
+          return new Response(JSON.stringify('Servern svarade inte'), {
+            status: 500, headers: {'Content-Type': 'application/json'},
+          })
+        }
+        return original(input, init)
+      })
+
+      await fillNewCourse(wrapper, 'Java', 'JAVA25')
+      await click(modal().querySelectorAll('[data-test="new-course-teacher"]')[0])
+      await click(modal().querySelector('[data-test="save-new-course"]'))
+
+      const message = modal().querySelector('[data-test="new-course-error"]')?.textContent ?? ''
+      expect(message).toContain('Kursen Java skapades och kopplades till TE22A, men Lars Lärare kunde inte läggas till som lärare.')
+
+      await click(modal().querySelector('[data-test="save-new-course"]'))
+
+      expect(requests.filter((request) => request.method === 'POST' && request.path === '/api/courses')).toHaveLength(1)
+      expect(requests.filter((request) => request.path === '/api/groups/g1/courses/c9')).toHaveLength(1)
+      expect(requests.filter((request) => request.method === 'POST' && request.path === '/api/courses/c9/teachers')).toHaveLength(1)
+      expect(modal()).toBeNull()
     })
   })
 })

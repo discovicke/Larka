@@ -56,13 +56,50 @@ public class TeachingEndpointTests(TestWebApplicationFactory factory) : IClassFi
         DateTimeOffset PublishAt,
         string Kind);
 
-    private record CourseResponse(Guid CourseId, string Code, string Title, int Students, int ToGrade);
+    private record CourseResponse(
+        Guid CourseId, string Code, string Title, int Students, int ToGrade, bool NeedsPreparation);
 
     private record ContentResponse(Guid Id);
 
     private record LinkResponse(Guid Id);
 
     private record ModuleResponse(Guid Id);
+
+    [Fact]
+    public async Task NeedsPreparation_IsTrue_WhenTheDescriptionIsEmpty()
+    {
+        var setup = await AddSetupAsync();
+
+        var teaching = await GetTeachingAsync(setup.TeacherId);
+
+        Assert.True(teaching.Courses.Single().NeedsPreparation);
+    }
+
+    [Fact]
+    public async Task NeedsPreparation_IsFalse_ForARunningCourseWithADescription()
+    {
+        var setup = await AddSetupAsync();
+        await SetCourseAsync(setup.CourseId, "Beskrivning", DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-7));
+
+        var teaching = await GetTeachingAsync(setup.TeacherId);
+
+        Assert.False(teaching.Courses.Single().NeedsPreparation);
+    }
+
+    [Fact]
+    public async Task NeedsPreparation_IsTrue_ForAnUpcomingCourseWithoutPublishedParts_UntilOneIsPublished()
+    {
+        var setup = await AddSetupAsync();
+        await SetCourseAsync(setup.CourseId, "Beskrivning", DateOnly.FromDateTime(DateTime.UtcNow).AddDays(14));
+        var week = await CreateModuleAsync(setup.CourseId);
+
+        var before = await GetTeachingAsync(setup.TeacherId);
+        await CreateTheoryLinkAsync("Del 1", new { courseId = setup.CourseId, moduleId = week.Id });
+        var after = await GetTeachingAsync(setup.TeacherId);
+
+        Assert.True(before.Courses.Single().NeedsPreparation);
+        Assert.False(after.Courses.Single().NeedsPreparation);
+    }
 
     [Fact]
     public async Task ToGrade_ListsUngradedSubmissionsInOwnCourses_OldestFirst()
@@ -214,6 +251,16 @@ public class TeachingEndpointTests(TestWebApplicationFactory factory) : IClassFi
             otherStudent.Id,
             otherGroupStudent.Id,
             teacher.Id);
+    }
+
+    private async Task SetCourseAsync(Guid courseId, string description, DateOnly startsOn)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var course = await db.Courses.SingleAsync(row => row.Id == courseId);
+        course.Description = description;
+        course.StartsOn = startsOn;
+        await db.SaveChangesAsync();
     }
 
     private async Task<Guid> SetSubmissionAsync(

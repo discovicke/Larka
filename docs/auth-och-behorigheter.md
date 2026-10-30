@@ -110,6 +110,8 @@ E-post och global roll (`User.Role`) lämnas bara ut till admin, och bara för a
 | `GET /api/users/{id}`          | Användare i skolan, med e-post och roll | `403`                                        | `403`           | `404` för admin (en annan skola), andra `403` |
 | `GET /api/groups/{id}/members` | Hela listan                             | Hela listan                                  | `403`           | `404`                                         |
 
+`POST /api/groups/{id}/members/import` tar en inklistrad elevlista (`{lines: [{name, email}]}`, högst 500 rader) och är bara för admin (`403` för alla andra, `404` för en annan skolas grupp). Nya elever skapas utan lösenord, alla läggs till som elever i klassen i ett enda sparsteg, och svaret redovisar varje rad: `Created`, `Added`, `AlreadyMember`, `NotStudent`, `Duplicate` eller `Invalid`. Lärare och admin läggs inte till på det här sättet.
+
 Lärare i en kurs som gruppen läser får också medlemslistan, utan att vara medlemmar i gruppen. Övriga i skolan får `403`.
 
 Medlemslistan (`GroupMemberDto`) har bara id, namn och personens roll i just den gruppen, aldrig e-post eller global roll. En elev ser alltså klasskamraterna med namn och grupproll. Det finns ingen profilbild i datamodellen. Lärare, mentorer och admin får samma lista.

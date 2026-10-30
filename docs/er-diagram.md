@@ -11,6 +11,7 @@ erDiagram
     School ||--o{ User : "har"
     School ||--o{ Group : "har"
     School ||--o{ Course : "har"
+    School ||--o| SchoolGitHubInstallation : "kopplad till"
     Group ||--o{ GroupCourse : "läser"
     Course ||--o{ GroupCourse : "läses av"
     Group ||--o{ Enrollment : "har medlemmar"
@@ -33,12 +34,14 @@ erDiagram
     ContentLink ||--o{ ContentLinkDependency : "låser upp"
     ContentLink ||--o{ PartCompletion : "klarmarkeras"
     User ||--o{ PartCompletion : "klarmarkerar"
+    ContentLink ||--o{ ChecklistTick : "bockas av"
+    User ||--o{ ChecklistTick : "bockar av"
     ContentLink ||--o{ Submission : "tar emot"
     User ||--o{ Submission : "lämnar in"
     Submission ||--o{ SubmissionFile : "har"
     Submission ||--o| StudentRepo : "om repo-läge"
     Submission ||--o| Grade : "får"
-    User ||--o{ Grade : "rättar"
+    User ||--o{ Grade : "bedömer"
 
     User ||--o{ Notification : "får"
     Content |o--o{ Notification : "gäller"
@@ -54,12 +57,15 @@ erDiagram
         uuid SchoolId FK
         string Name
         string Email UK
-        UserRole Role "Admin | Teacher | Student"
+        string PasswordHash "nullable"
+        UserRole Role "Admin, Teacher, Student"
+        string GitHubLogin UK "nullable"
+        NotificationKind[] MutedNotificationKinds
     }
     Group {
         uuid Id PK
         uuid SchoolId FK
-        GroupType Type "Class | Committee | Other"
+        GroupType Type "Class, Committee, Other"
         string Name
         string Term
     }
@@ -68,6 +74,10 @@ erDiagram
         uuid SchoolId FK
         string Title
         string Code
+        string Description
+        int Points "nullable"
+        date StartsOn "nullable"
+        date EndsOn "nullable"
     }
     Module {
         uuid Id PK
@@ -88,15 +98,15 @@ erDiagram
     Enrollment {
         uuid UserId PK, FK
         uuid GroupId PK, FK
-        GroupRole Role "Student | Teacher | Mentor"
+        GroupRole Role "Student, Teacher, Mentor"
     }
     Content {
         uuid Id PK
         uuid AuthorId FK
-        ContentType Type "News | Theory | Assignment"
+        ContentType Type "News, Theory, Assignment"
         string Title
         string BodyMd
-        ContentStatus Status "Draft | Published"
+        ContentStatus Status "Draft, Published"
         timestamptz CreatedAt
     }
     ContentLink {
@@ -105,17 +115,22 @@ erDiagram
         uuid GroupId FK "nullable"
         uuid CourseId FK "nullable"
         uuid ModuleId FK "nullable, kräver CourseId"
-        int Position "ordning i modulen, 0 utan modul"
+        int Position "ordning i modulen"
         timestamptz PublishAt
         timestamptz DueAt "nullable"
         bool IsPinned
     }
     AssignmentSpec {
         uuid ContentId PK, FK
-        GradeScale GradeScale "None | PassFail | PassFailDistinction"
-        SubmissionMode[] SubmissionModes "Text | File | Repo | OnSite, tom = ingen inlämning"
-        CompletionRule CompletionRule "Submitted | Approved, standard Submitted"
+        GradeScale GradeScale "None, PassFail, PassFailDistinction"
+        SubmissionMode[] SubmissionModes "Text, File, Repo, OnSite"
+        CompletionRule CompletionRule "Submitted, Approved"
         string TemplateRepo "nullable"
+        string RepoNamePattern "nullable"
+        RepoWorkMode WorkMode "Individual, Group"
+        bool AllowLate
+        bool LockAtDeadline
+        bool FeedbackPullRequest
     }
     ContentLinkDependency {
         uuid BlockedLinkId PK, FK
@@ -126,6 +141,13 @@ erDiagram
         uuid ContentLinkId FK
         uuid StudentId FK
         timestamptz CompletedAt
+    }
+    ChecklistTick {
+        uuid Id PK
+        uuid ContentLinkId FK
+        uuid StudentId FK
+        int ItemIndex
+        timestamptz CheckedAt
     }
     Attachment {
         uuid Id PK
@@ -145,7 +167,7 @@ erDiagram
         uuid Id PK
         uuid ContentLinkId FK
         uuid StudentId FK
-        SubmissionStatus Status "NotStarted | Submitted | NeedsWork | Graded"
+        SubmissionStatus Status "NotStarted, Submitted, NeedsWork, Graded"
         string BodyMd "nullable"
         timestamptz SubmittedAt "nullable"
     }
@@ -159,21 +181,32 @@ erDiagram
     StudentRepo {
         uuid SubmissionId PK, FK
         string RepoFullName
+        string DesiredRepoName
+        string RepoNamePattern
+        string TemplateRepo
+        string AssignmentTitle
+        RepoProvisioningState ProvisioningState "Pending, Creating, Ready, Failed"
+        int ProvisioningAttempts
+        string ProvisioningError "nullable"
+        timestamptz NextProvisioningAttemptAt "nullable"
+        CheckStatus CheckStatus "Pending, Green, Red"
         string LastSha "nullable"
-        CheckStatus CheckStatus "Pending | Green | Red"
+        string SubmissionSha "nullable"
+        timestamptz LockedAt "nullable"
+        string LockError "nullable"
         timestamptz UpdatedAt
     }
     Grade {
         uuid SubmissionId PK, FK
         uuid GradedById FK
-        GradeLevel Level "nullable, Fail | Pass | Distinction (IG | G | VG)"
+        GradeLevel Level "nullable, Fail, Pass, Distinction"
         string Feedback
         timestamptz GradedAt
     }
     Notification {
         uuid Id PK
         uuid UserId FK
-        NotificationKind Kind "NewsPublished | AssignmentPublished | DeadlineSoon | SubmissionNeedsWork | SubmissionGraded"
+        NotificationKind Kind
         uuid ContentId FK "nullable"
         uuid SubmissionId FK "nullable"
         timestamptz CreatedAt
@@ -186,6 +219,21 @@ erDiagram
         string P256dh
         string Auth
         timestamptz CreatedAt
+    }
+    SchoolGitHubInstallation {
+        uuid Id PK
+        uuid SchoolId FK, UK
+        long InstallationId
+        string Org
+        bool Connected
+        bool Enabled
+        timestamptz ConnectedAt
+        timestamptz DisconnectedAt "nullable"
+        timestamptz LastVerifiedAt "nullable"
+    }
+    DataPatch {
+        string Id PK
+        timestamptz AppliedAt
     }
 ```
 
@@ -225,6 +273,8 @@ erDiagram
 - **Veckans ordning följer roadmapen.** När roadmapen sparas sorteras länkarna om så att en del alltid ligger efter sina förutsättningar, oavsett i vilken ordning delarna skapades. Delar utan inbördes beroende behåller sin ordning. Nyheter ligger kvar i veckan men ingår inte i beroendena.
 - **Utkast i veckan publiceras när läraren sparar roadmapen.** Roadmapen omfattar veckans alla delar, och då får inget utkast ligga kvar och göra veckan omöjlig att slutföra. `PublishAt` lämnas orörd, så en schemalagd del publiceras fortfarande vid sitt datum.
 - **PartCompletion** är elevens egen klarmarkering av en teori-del eller en uppgift utan inlämningssätt. En rad per elev och länk (unik). Uppgifter med inlämningssätt blir aldrig klarmarkerade manuellt; de räknas som klara via `Submission` och `AssignmentSpec.CompletionRule`.
+- **ChecklistTick** är en elevs avbockning av en punkt i checklistan på en del. En rad per elev, länk och punkt, så att eleven ser sina egna bockar och läraren kan se var klassen är.
+- **DataPatch** är en markering att en engångsändring av data redan är körd, så att den inte körs igen vid nästa start. Den hör inte till något i skolan och har inga relationer.
 - **En del är tillgänglig** när veckan är öppen, innehållet är publicerat, delens eget `PublishAt` har passerat och alla delar som pekar på den via `BlockedLinkId` är klara. En låst del visas med lås och sina förutsättningar, men `BodyMd` skickas inte till eleven. En framtida vecka skickas som ett tomt skal med titel och öppningsdatum; varken delar, beskrivning eller innehåll läcker ut. Veckans datum gäller även flöden och nyheter.
 - **Flytt av en del** behåller länkens id och deadline, lägger delen sist i målveckan och tar bort beroenden på båda sidor. Källveckan komprimeras. Riktig elevaktivitet (inlämning, betyg eller klarmarkering) blockerar flytten, och svaret räknar upp de länkar vars beroenden påverkades.
 - **Vecka kan byta namn eller raderas.** Radering kräver att klienten bekräftar veckans titel. En publicerad inlämning utan elevaktivitet får raderas tillsammans med veckan; `NotStarted`-inlämningar städas bort. Finns riktig elevaktivitet blockeras raderingen. Delat content raderas inte, och bilagor tas bara bort när contentet självt raderas.

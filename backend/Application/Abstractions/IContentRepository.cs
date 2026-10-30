@@ -70,6 +70,10 @@ public interface IContentRepository
     Task<List<CalendarLink>> GetCalendarLinksAsync(
         Guid userId, DateTimeOffset from, DateTimeOffset to, CancellationToken ct);
 
+    /// <summary>Id:n på kurserna som har minst en publicerad (eller schemalagd) del i en vecka.</summary>
+    Task<HashSet<Guid>> GetCourseIdsWithPublishedPartsAsync(
+        IReadOnlyCollection<Guid> courseIds, CancellationToken ct);
+
     /// <summary>Publicerade uppgifter med deadline i intervallet [fromAt, toAt] i kurserna.</summary>
     Task<List<CourseDeadline>> GetCourseDeadlinesAsync(
         IReadOnlyCollection<Guid> courseIds, DateTimeOffset fromAt, DateTimeOffset toAt, CancellationToken ct);

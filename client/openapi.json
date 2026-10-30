@@ -1659,6 +1659,76 @@
         }
       }
     },
+    "/api/groups/{id}/members/import": {
+      "post": {
+        "tags": [
+          "Groups"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportStudentsDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportStudentsResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/groups/{id}/members/{userId}": {
       "put": {
         "tags": [
@@ -6108,6 +6178,93 @@
           "$ref": "#/components/schemas/IFormFile"
         }
       },
+      "ImportStudentLineDto": {
+        "required": [
+          "name",
+          "email"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "email": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "description": "En rad i en inklistrad elevlista."
+      },
+      "ImportStudentOutcome": {
+        "enum": [
+          "Created",
+          "Added",
+          "AlreadyMember",
+          "NotStudent",
+          "Duplicate",
+          "Invalid"
+        ],
+        "description": "Vad som hände med en rad: Created (ny elev utan lösenord, lagd i klassen), Added (befintlig elev lagd i\nklassen), AlreadyMember, NotStudent (användaren är lärare eller admin), Duplicate (samma adress två gånger)\neller Invalid (namn eller adress saknas eller går inte att läsa, eller adressen hör till en annan skola)."
+      },
+      "ImportStudentResultDto": {
+        "required": [
+          "name",
+          "email",
+          "outcome"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/ImportStudentOutcome"
+          }
+        }
+      },
+      "ImportStudentsDto": {
+        "required": [
+          "lines"
+        ],
+        "type": "object",
+        "properties": {
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportStudentLineDto"
+            }
+          }
+        }
+      },
+      "ImportStudentsResultDto": {
+        "required": [
+          "lines",
+          "added"
+        ],
+        "type": "object",
+        "properties": {
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportStudentResultDto"
+            }
+          },
+          "added": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupMemberDto"
+            }
+          }
+        }
+      },
       "LinkGitHubRequest": {
         "required": [
           "code"
@@ -7538,7 +7695,8 @@
           "code",
           "title",
           "students",
-          "toGrade"
+          "toGrade",
+          "needsPreparation"
         ],
         "type": "object",
         "properties": {
@@ -7559,9 +7717,12 @@
           "toGrade": {
             "type": "integer",
             "format": "int32"
+          },
+          "needsPreparation": {
+            "type": "boolean"
           }
         },
-        "description": "En kurs användaren undervisar i, med antal elever och inlämningar att bedöma."
+        "description": "En kurs användaren undervisar i, med antal elever och inlämningar att bedöma. NeedsPreparation är sant när\nbeskrivningen är tom, eller när kursen ännu inte har börjat och saknar publicerade delar."
       },
       "TeachingDeadlineDto": {
         "required": [

@@ -18,7 +18,7 @@ import {api, errorMessage, unwrap, type Schema} from '@/lib/api'
 import {groupRoles} from '@/lib/groupRoles'
 
 const props = defineProps<{groupId: string, groupName: string, schoolId: string, memberIds: string[]}>()
-const emit = defineEmits<{added: [member: Schema<'GroupMemberDto'>]}>()
+const emit = defineEmits<{added: [member: Schema<'GroupMemberDto'>], paste: []}>()
 
 const open = defineModel<boolean>('open', {required: true})
 
@@ -288,6 +288,16 @@ async function addToGroup(user: Schema<'UserDto'> | null | undefined) {
             >
               Skapa användare
             </Button>
+            eller
+            <Button
+              type="button"
+              variant="link"
+              class="h-auto p-0"
+              data-test="show-paste"
+              @click="emit('paste')"
+            >
+              klistra in en lista med elever
+            </Button>.
           </p>
         </template>
 

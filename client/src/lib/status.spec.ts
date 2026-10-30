@@ -33,6 +33,7 @@ describe('statuses', () => {
     ['course.upcoming', 'Kommande', 'neutral'],
     ['course.running', 'Pågår', 'neutral'],
     ['course.finished', 'Avslutad', 'neutral'],
+    ['course.noTeacher', 'Ingen lärare', 'warning'],
     ['publishing.draft', 'Utkast', 'neutral'],
     ['publishing.published', 'Publicerad', 'neutral'],
     ['publishing.scheduled', 'Schemalagd', 'info'],

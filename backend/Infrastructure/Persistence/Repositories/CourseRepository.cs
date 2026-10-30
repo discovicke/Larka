@@ -1,5 +1,6 @@
 using Backend.Application.Abstractions;
 using Backend.Domain.Entities;
+using Backend.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace Backend.Infrastructure.Persistence.Repositories;
@@ -12,12 +13,14 @@ public class CourseRepository(AppDb db) : ICourseRepository
     public Task<List<Course>> GetForSchoolAsync(Guid schoolId, CancellationToken ct) =>
         db.Courses.Where(course => course.SchoolId == schoolId).OrderBy(course => course.Code).ToListAsync(ct);
 
+    // Lärarrollen i en klass ger ingen kurs. Kurserna kommer från CourseTeachers och från elev- och mentorsrollen.
     public Task<List<Course>> GetForMemberAsync(Guid schoolId, Guid userId, CancellationToken ct) =>
         db.Courses
             .Where(course => course.SchoolId == schoolId
                 && (db.GroupCourses.Any(groupCourse => groupCourse.CourseId == course.Id
                         && db.Enrollments.Any(enrollment =>
-                            enrollment.GroupId == groupCourse.GroupId && enrollment.UserId == userId))
+                            enrollment.GroupId == groupCourse.GroupId && enrollment.UserId == userId
+                            && enrollment.Role != GroupRole.Teacher))
                     || db.CourseTeachers.Any(courseTeacher =>
                         courseTeacher.CourseId == course.Id && courseTeacher.UserId == userId)))
             .OrderBy(course => course.Code)

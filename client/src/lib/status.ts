@@ -53,6 +53,8 @@ const definitions = {
   'course.upcoming': {family: 'course', label: courseStatusLabels.upcoming, tone: 'neutral'},
   'course.running': {family: 'course', label: courseStatusLabels.running, tone: 'neutral'},
   'course.finished': {family: 'course', label: courseStatusLabels.finished, tone: 'neutral'},
+  // Saknad inställning: admin ska utse en lärare, och ingen annan kan göra det åt kursen.
+  'course.noTeacher': {family: 'course', label: 'Ingen lärare', tone: 'warning'},
 
   'publishing.draft': {family: 'publishing', label: 'Utkast', tone: 'neutral'},
   'publishing.scheduled': {family: 'publishing', label: 'Schemalagd', tone: 'info', icon: PhCalendarBlank},

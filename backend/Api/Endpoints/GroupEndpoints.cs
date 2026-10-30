@@ -66,6 +66,11 @@ public static class GroupEndpoints
                 (await service.AddMemberAsync(id, memberDto, ct)).ToHttp(member =>
                     TypedResults.Created($"/api/groups/{id}/members", member)));
 
+        // Klistrad elevlista, bara admin. Svarar med vad som hände med varje rad.
+        groups.MapPost("/{id:guid}/members/import",
+            async (Guid id, ImportStudentsDto importDto, GroupService service, CancellationToken ct) =>
+                (await service.ImportStudentsAsync(id, importDto, ct)).ToHttp(result => TypedResults.Ok(result)));
+
         groups.MapPut("/{id:guid}",
             async (Guid id, UpdateGroupDto groupDto, GroupService service, CancellationToken ct) =>
                 (await service.UpdateAsync(id, groupDto, ct)).ToHttp(group => TypedResults.Ok(group)));

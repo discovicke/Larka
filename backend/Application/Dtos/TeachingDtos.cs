@@ -42,10 +42,14 @@ public record TeachingScheduledDto(
     DateTimeOffset PublishAt,
     string Kind);
 
-/// <summary>En kurs användaren undervisar i, med antal elever och inlämningar att bedöma.</summary>
+/// <summary>
+/// En kurs användaren undervisar i, med antal elever och inlämningar att bedöma. NeedsPreparation är sant när
+/// beskrivningen är tom, eller när kursen ännu inte har börjat och saknar publicerade delar.
+/// </summary>
 public record TeachingCourseDto(
     Guid CourseId,
     string Code,
     string Title,
     int Students,
-    int ToGrade);
+    int ToGrade,
+    bool NeedsPreparation);

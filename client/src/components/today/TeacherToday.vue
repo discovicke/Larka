@@ -35,6 +35,7 @@ const loading = ref(true)
 const loadFailed = ref(false)
 
 const name = computed(() => firstName(me.value?.name))
+const needsPreparation = computed(() => teaching.value?.courses.filter((course) => course.needsPreparation) ?? [])
 const mobileGreeting = computed(() => name.value
   ? `Hej ${name.value}`
   : 'Hej')
@@ -206,7 +207,7 @@ load()
             class="flex flex-col gap-1.5"
           >
             <span class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-              <span class="min-w-32 flex-1 truncate font-medium">{{ item.title }}</span>
+              <span class="basis-full font-medium break-words">{{ item.title }}</span>
               <span class="text-muted-foreground flex shrink-0 items-center gap-2 text-[13px]">
                 <StatusBadge v-if="deadlineStatusKey(item.dueAt, false, now)" :status="deadlineStatusKey(item.dueAt, false, now)!"/>
                 {{ deadlineText(item.dueAt) }}
@@ -257,6 +258,27 @@ load()
         </section>
       </div>
     </div>
+
+    <section
+      v-if="needsPreparation.length"
+      aria-labelledby="t-prepare-heading"
+      class="flex flex-col gap-1.5"
+      data-test="needs-preparation"
+    >
+      <h2 id="t-prepare-heading" class="text-base">Behöver förberedas</h2>
+      <p class="text-muted-foreground text-sm">Beskrivning eller delar saknas.</p>
+      <ul class="flex flex-col">
+        <li v-for="course in needsPreparation" :key="course.courseId" data-test="needs-preparation-item">
+          <RouterLink
+            :to="courseLink(course.courseId)"
+            class="inline-flex min-h-11 items-center gap-2 font-medium underline underline-offset-3 decoration-border hover:decoration-foreground"
+          >
+            {{ course.title }}
+            <span class="text-muted-foreground font-mono text-xs font-normal">{{ course.code }}</span>
+          </RouterLink>
+        </li>
+      </ul>
+    </section>
 
     <section aria-labelledby="t-courses-heading" class="flex flex-col gap-3">
       <h2 id="t-courses-heading" class="text-base">Mina kurser</h2>

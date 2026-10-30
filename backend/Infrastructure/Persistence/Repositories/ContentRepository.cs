@@ -140,8 +140,12 @@ public class ContentRepository(AppDb db) : IContentRepository
         var groupIds = db.Enrollments
             .Where(enrollment => enrollment.UserId == userId)
             .Select(enrollment => enrollment.GroupId);
+        // Lärarrollen i en klass ger bara klassens egna nyheter, inte kursernas innehåll.
+        var courseGroupIds = db.Enrollments
+            .Where(enrollment => enrollment.UserId == userId && enrollment.Role != GroupRole.Teacher)
+            .Select(enrollment => enrollment.GroupId);
         var courseIds = db.GroupCourses
-            .Where(groupCourse => groupIds.Contains(groupCourse.GroupId))
+            .Where(groupCourse => courseGroupIds.Contains(groupCourse.GroupId))
             .Select(groupCourse => groupCourse.CourseId);
         var taughtCourseIds = db.CourseTeachers
             .Where(courseTeacher => courseTeacher.UserId == userId)
@@ -150,7 +154,8 @@ public class ContentRepository(AppDb db) : IContentRepository
         // Kursens lärare ser kursens alla länkar, även de riktade till en enskild klass, utan att vara med i klassen.
         return db.ContentLinks
             .Where(link =>
-                (link.GroupId != null && groupIds.Contains(link.GroupId.Value))
+                (link.CourseId == null && link.GroupId != null && groupIds.Contains(link.GroupId.Value))
+                || (link.CourseId != null && link.GroupId != null && courseGroupIds.Contains(link.GroupId.Value))
                 || (link.GroupId == null && link.CourseId != null && courseIds.Contains(link.CourseId.Value))
                 || (link.CourseId != null && taughtCourseIds.Contains(link.CourseId.Value)))
             .Where(link => link.ModuleId != null || link.DueAt != null)
@@ -179,6 +184,19 @@ public class ContentRepository(AppDb db) : IContentRepository
                         .FirstOrDefault()))
             .ToListAsync(ct);
     }
+
+    public async Task<HashSet<Guid>> GetCourseIdsWithPublishedPartsAsync(
+        IReadOnlyCollection<Guid> courseIds, CancellationToken ct) =>
+        (await (from link in db.ContentLinks
+                join content in db.Content on link.ContentId equals content.Id
+                where link.CourseId != null
+                    && courseIds.Contains(link.CourseId.Value)
+                    && link.ModuleId != null
+                    && content.Status == ContentStatus.Published
+                select link.CourseId!.Value)
+            .Distinct()
+            .ToListAsync(ct))
+        .ToHashSet();
 
     public Task<List<CourseDeadline>> GetCourseDeadlinesAsync(
         IReadOnlyCollection<Guid> courseIds, DateTimeOffset fromAt, DateTimeOffset toAt, CancellationToken ct) =>

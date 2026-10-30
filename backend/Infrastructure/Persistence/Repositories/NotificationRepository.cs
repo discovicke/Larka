@@ -102,7 +102,11 @@ public class NotificationRepository(AppDb db) : INotificationRepository
         // Innehållets länkar som användaren själv nås av, eller länken inlämningen gäller.
         var groupIds = db.Enrollments.Where(enrollment => enrollment.UserId == userId)
             .Select(enrollment => enrollment.GroupId);
-        var courseIds = db.GroupCourses.Where(groupCourse => groupIds.Contains(groupCourse.GroupId))
+        // Lärarrollen i en klass ger bara klassens egna länkar, inte kursernas.
+        var courseGroupIds = db.Enrollments
+            .Where(enrollment => enrollment.UserId == userId && enrollment.Role != GroupRole.Teacher)
+            .Select(enrollment => enrollment.GroupId);
+        var courseIds = db.GroupCourses.Where(groupCourse => courseGroupIds.Contains(groupCourse.GroupId))
             .Select(groupCourse => groupCourse.CourseId)
             .Concat(db.CourseTeachers.Where(courseTeacher => courseTeacher.UserId == userId)
                 .Select(courseTeacher => courseTeacher.CourseId));
