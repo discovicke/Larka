@@ -369,6 +369,34 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
     }
 
     [Fact]
+    public async Task DeleteModule_WithRepoAssignmentWithoutStudentWork_IsAllowed()
+    {
+        var courseId = await AddCourseAsync();
+        await AddStudentToCourseAsync(courseId);
+        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var assignment = await _client.PostAsJsonAsync("/api/content", new
+        {
+            type = "assignment",
+            title = "Labb",
+            bodyMd = "",
+            status = "published",
+            gradeScale = "passFail",
+            submissionModes = new[] { "repo" },
+            templateRepo = "org/template"
+        });
+        var content = (await assignment.Content.ReadFromJsonAsync<ContentResponse>())!;
+        var link = await LinkAsync(content.Id, new { courseId, moduleId = week.Id });
+        var linkId = (await link.Content.ReadFromJsonAsync<LinkResponse>())!.Id;
+        Assert.Equal(1, await CountSubmissionsAsync(linkId));
+
+        var response = await _client.DeleteAsync($"/api/courses/{courseId}/modules/{week.Id}");
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Empty(await GetModulesAsync(courseId));
+        Assert.Equal(0, await CountSubmissionsAsync(linkId));
+    }
+
+    [Fact]
     public async Task DeleteModule_WithStudentActivity_ReturnsConflict()
     {
         var courseId = await AddCourseAsync();

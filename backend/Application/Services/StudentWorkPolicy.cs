@@ -11,8 +11,36 @@ public static class StudentWorkPolicy
         submission.Status != SubmissionStatus.NotStarted
         || submission.SubmittedAt is not null
         || submission.Files.Count > 0
-        || submission.Repo is not null
-        || submission.Grade is not null;
+        || submission.Grade is not null
+        || HasRepoActivity(submission.Repo);
+
+    // Ett repo skapas när uppgiften delas ut. Det är först när eleven har en egen commit,
+    // har lämnat in eller fått en inlämnad commit som repot räknas som elevarbete.
+    private static bool HasRepoActivity(StudentRepo? repo)
+    {
+        if (repo is null)
+        {
+            return false;
+        }
+
+        if (repo.SubmissionSha is not null)
+        {
+            return true;
+        }
+
+        if (repo.InitialSha is not null)
+        {
+            return repo.LastSha is not null
+                && !string.Equals(repo.LastSha, repo.InitialSha, StringComparison.Ordinal);
+        }
+
+        if (repo.LastCommitAt is not null && repo.ProvisionedAt is not null)
+        {
+            return repo.LastCommitAt > repo.ProvisionedAt.Value;
+        }
+
+        return repo.CommitCount > 1;
+    }
 
     // En publicerad inlämning (uppgift med betygsskala) får inte raderas innan den avpublicerats.
     public static bool IsPublishedGradedAssignment(Content content)

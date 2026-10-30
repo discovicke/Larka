@@ -654,6 +654,54 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     }
 
     [Fact]
+    public async Task DeleteLink_WithRepoAssignmentWithoutStudentWork_IsAllowed()
+    {
+        var (groupId, _) = await AddGroupWithStudentAsync();
+        var content = await CreateAssignmentAsync(
+            "Labb", submissionModes: ["repo"], templateRepo: "org/template");
+        var link = await LinkToGroupAsync(content.Id, groupId);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            var submissionId = await db.Submissions
+                .Where(submission => submission.ContentLinkId == link.Id)
+                .Select(submission => submission.Id)
+                .SingleAsync();
+            Assert.True(await db.StudentRepos.AnyAsync(repo => repo.SubmissionId == submissionId));
+        }
+
+        var response = await _client.DeleteAsync($"/api/content/{content.Id}/links/{link.Id}");
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Equal(0, await CountSubmissionsAsync(link.Id));
+    }
+
+    [Fact]
+    public async Task DeleteLink_WithStudentRepoCommit_ReturnsConflict()
+    {
+        var (groupId, _) = await AddGroupWithStudentAsync();
+        var content = await CreateAssignmentAsync(
+            "Labb", submissionModes: ["repo"], templateRepo: "org/template");
+        var link = await LinkToGroupAsync(content.Id, groupId);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            var submissionId = await db.Submissions
+                .Where(submission => submission.ContentLinkId == link.Id)
+                .Select(submission => submission.Id)
+                .SingleAsync();
+            var repo = await db.StudentRepos.SingleAsync(candidate => candidate.SubmissionId == submissionId);
+            repo.InitialSha = "initial";
+            repo.LastSha = "student";
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _client.DeleteAsync($"/api/content/{content.Id}/links/{link.Id}");
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
     public async Task DeletePublishedGradedAssignment_ReturnsConflict_UntilUnpublished()
     {
         var courseId = await AddCourseAsync();
