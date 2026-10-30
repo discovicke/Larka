@@ -31,8 +31,9 @@ const route = useRoute()
 const courseId = computed(() => String(route.params.courseId))
 const {can} = useCurrentUser()
 const {takePendingNotice} = useCourses()
-// Eleven ser delarna men inga redigeringskontroller.
+// Bara kursens lärare redigerar. Admin och mentorn läser, och eleven har en egen vy.
 const canEdit = computed(() => can('editContent', courseId.value))
+const canReadSubmissions = computed(() => can('readSubmissions', courseId.value))
 
 const modules = ref<Schema<'ModuleWithContentDto'>[]>([])
 const loading = ref(true)
@@ -240,6 +241,7 @@ watch(courseId, async () => {
         :can-move-up="index > 0"
         :can-move-down="index < modules.length - 1"
         :can-edit="canEdit"
+        :can-read-submissions="canReadSubmissions"
         @move="(direction) => move(index, direction)"
         @move-part="(item, direction) => movePart(module, item, direction)"
         @move-part-to-week="askMovePartToWeek(module, $event)"

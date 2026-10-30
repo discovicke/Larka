@@ -221,7 +221,7 @@ public class FileUploadTests(TestWebApplicationFactory factory) : IClassFixture<
         using (var scope = factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDb>();
-            var group = await TestData.AddGroupAsync(db);
+            var group = await TestData.AddGroupAsync(db, placeholderTeaches: true);
             groupId = group.Id;
             for (var i = 0; i < studentCount; i++)
             {

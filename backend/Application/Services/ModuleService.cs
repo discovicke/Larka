@@ -2,6 +2,7 @@ using Backend.Application.Abstractions;
 using Backend.Application.Dtos;
 using Backend.Application.Results;
 using Backend.Domain.Entities;
+using Backend.Domain.Enums;
 
 namespace Backend.Application.Services;
 
@@ -15,35 +16,54 @@ public class ModuleService(
     IPermissions permissions,
     IFileStorage storage,
     IUnitOfWork unitOfWork,
+    TimeProvider time,
     ILogger<ModuleService> logger)
 {
-    /// <summary>Returnerar null om kursen inte finns.</summary>
-    public async Task<List<ModuleWithContentDto>?> GetForCourseAsync(Guid courseId, CancellationToken ct)
+    /// <summary>
+    /// Kursens veckor med innehåll. Läraren ser allt, med utkast, schemalagt och antal inlämningar. Admin i skolan
+    /// läser också allt, men utan inlämningar. Mentor och elev ser bara det som är publicerat och öppet.
+    /// Övriga får 403.
+    /// </summary>
+    public async Task<ServiceResult<List<ModuleWithContentDto>>> GetForCourseAsync(Guid courseId, CancellationToken ct)
     {
         if (await courses.GetAsync(courseId, ct) is null)
         {
-            return null;
+            return ServiceResult<List<ModuleWithContentDto>>.NotFound("course not found");
         }
 
+        if (!await permissions.CanReadCourseAsync(courseId, ct))
+        {
+            return ServiceResult<List<ModuleWithContentDto>>.Forbidden();
+        }
+
+        var teaches = await permissions.CanTeachCourseAsync(courseId, ct);
+        var seesEverything = teaches || await permissions.IsAdminAsync(ct);
+        var now = time.GetUtcNow();
         var courseModules = await modules.GetForCourseAsync(courseId, ct);
-        var content = await modules.GetContentByModuleAsync(
-            courseId, await permissions.CanTeachCourseAsync(courseId, ct), ct);
-        return courseModules
-            .Select(module => ModuleWithContentDto.From(module, content[module.Id].ToList()))
-            .ToList();
+        var content = await modules.GetContentByModuleAsync(courseId, teaches, ct);
+        return ServiceResult<List<ModuleWithContentDto>>.Ok(
+            courseModules
+                .Where(module => seesEverything || ContentVisibility.IsModuleAvailable(module.PublishAt, now))
+                .Select(module => ModuleWithContentDto.From(
+                    module,
+                    content[module.Id]
+                        .Where(item => seesEverything
+                            || (item.Status == ContentStatus.Published && item.PublishAt <= now))
+                        .ToList()))
+                .ToList());
     }
 
     /// <summary>Den nya modulen hamnar sist i kursen.</summary>
     public async Task<ServiceResult<ModuleDto>> CreateAsync(Guid courseId, CreateModuleDto dto, CancellationToken ct)
     {
-        if (!await permissions.CanTeachCourseAsync(courseId, ct))
-        {
-            return ServiceResult<ModuleDto>.Forbidden();
-        }
-
         if (await courses.GetAsync(courseId, ct) is null)
         {
             return ServiceResult<ModuleDto>.NotFound("course not found");
+        }
+
+        if (!await permissions.CanTeachCourseAsync(courseId, ct))
+        {
+            return ServiceResult<ModuleDto>.Forbidden();
         }
 
         if (string.IsNullOrWhiteSpace(dto.Title))
@@ -68,14 +88,14 @@ public class ModuleService(
     public async Task<ServiceResult<ModuleDto>> UpdateAsync(
         Guid courseId, Guid moduleId, UpdateModuleDto dto, CancellationToken ct)
     {
-        if (!await permissions.CanTeachCourseAsync(courseId, ct))
-        {
-            return ServiceResult<ModuleDto>.Forbidden();
-        }
-
         if (await courses.GetAsync(courseId, ct) is null)
         {
             return ServiceResult<ModuleDto>.NotFound("course not found");
+        }
+
+        if (!await permissions.CanTeachCourseAsync(courseId, ct))
+        {
+            return ServiceResult<ModuleDto>.Forbidden();
         }
 
         var module = await modules.GetAsync(moduleId, ct);
@@ -102,14 +122,14 @@ public class ModuleService(
     /// </summary>
     public async Task<ServiceResult<bool>> DeleteAsync(Guid courseId, Guid moduleId, CancellationToken ct)
     {
-        if (!await permissions.CanTeachCourseAsync(courseId, ct))
-        {
-            return ServiceResult<bool>.Forbidden();
-        }
-
         if (await courses.GetAsync(courseId, ct) is null)
         {
             return ServiceResult<bool>.NotFound("course not found");
+        }
+
+        if (!await permissions.CanTeachCourseAsync(courseId, ct))
+        {
+            return ServiceResult<bool>.Forbidden();
         }
 
         var module = await modules.GetAsync(moduleId, ct);
@@ -191,14 +211,14 @@ public class ModuleService(
     public async Task<ServiceResult<List<ModuleDto>>> ReorderAsync(
         Guid courseId, ReorderModulesDto dto, CancellationToken ct)
     {
-        if (!await permissions.CanTeachCourseAsync(courseId, ct))
-        {
-            return ServiceResult<List<ModuleDto>>.Forbidden();
-        }
-
         if (await courses.GetAsync(courseId, ct) is null)
         {
             return ServiceResult<List<ModuleDto>>.NotFound("course not found");
+        }
+
+        if (!await permissions.CanTeachCourseAsync(courseId, ct))
+        {
+            return ServiceResult<List<ModuleDto>>.Forbidden();
         }
 
         var courseModules = (await modules.GetForCourseAsync(courseId, ct)).ToDictionary(module => module.Id);

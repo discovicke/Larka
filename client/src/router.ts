@@ -166,7 +166,7 @@ export const routes: RouteRecordRaw[] = [
         component: SubmissionsView,
         meta: {
           title: 'Inlämningar',
-          requires: 'grade',
+          requires: 'readSubmissions',
           breadcrumbs: (route) => assignmentBreadcrumbs(route, {label: 'Inlämningar'}),
         },
       },
@@ -178,7 +178,7 @@ export const routes: RouteRecordRaw[] = [
         meta: {
           title: 'Bedöm',
           fullBleed: true,
-          requires: 'grade',
+          requires: 'readSubmissions',
           breadcrumbs: (route) => assignmentBreadcrumbs(
             route,
             {

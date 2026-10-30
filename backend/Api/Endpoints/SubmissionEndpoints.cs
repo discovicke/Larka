@@ -1,7 +1,6 @@
 using Backend.Application.Dtos;
 using Backend.Application.Files;
 using Backend.Application.Services;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Backend.Api.Endpoints;
@@ -14,7 +13,7 @@ public static class SubmissionEndpoints
         var links = app.MapGroup("/links/{id:guid}/submissions").WithTags("Submissions");
 
         links.MapGet("", async (Guid id, SubmissionService service, CancellationToken ct) =>
-            TypedResults.Ok(await service.GetByLinkAsync(id, ct)));
+            (await service.GetByLinkAsync(id, ct)).ToHttp(TypedResults.Ok));
 
         // Text och filer i samma form (multipart/form-data), som formuläret skickar dem.
         links.MapPost("", async (
@@ -30,14 +29,8 @@ public static class SubmissionEndpoints
 
         var submissions = app.MapGroup("/submissions").WithTags("Submissions");
 
-        submissions.MapGet("/{id:guid}", async Task<Results<Ok<SubmissionDto>, NotFound>> (
-            Guid id, SubmissionService service, CancellationToken ct) =>
-        {
-            var submission = await service.GetAsync(id, ct);
-            return submission is null
-                ? TypedResults.NotFound()
-                : TypedResults.Ok(submission);
-        });
+        submissions.MapGet("/{id:guid}", async (Guid id, SubmissionService service, CancellationToken ct) =>
+            (await service.GetAsync(id, ct)).ToHttp(TypedResults.Ok));
 
         submissions.MapPost("/{id:guid}/grade",
             async (Guid id, GradeSubmissionDto gradeDto, SubmissionService service, CancellationToken ct) =>

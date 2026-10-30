@@ -190,6 +190,48 @@ describe('CourseAboutView', () => {
       .toContain('points must be between 1 and 400')
   })
 
+  it('admin ändrar kursens fakta men inte beskrivningen, som är lärarens', async () => {
+    backend({me: meAs('Admin')})
+
+    const {wrapper} = await renderApp('/courses/c1/about')
+
+    await wrapper.find('[data-test="edit-course"]').trigger('click')
+    await flushPromises()
+    expect(document.querySelector('#course-edit-description')).toBeNull()
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Beskrivningen är lärarens')
+    await fill('#course-edit-title', 'DevOps 2')
+    await fill('#course-edit-points', '30')
+    await submitDialogForm()
+
+    expect(sent('PUT', '/api/courses/c1')).toEqual({
+      title: 'DevOps 2',
+      description: 'Kursen handlar om **CI/CD** och drift.',
+      points: 30,
+      startsOn: '2026-10-12',
+      endsOn: '2026-11-13',
+    })
+    expect(wrapper.find('h1').text()).toBe('DevOps 2')
+  })
+
+  it('admin som också undervisar i kursen redigerar beskrivningen', async () => {
+    backend({me: meAs('Admin', ['c1'])})
+
+    const {wrapper} = await renderApp('/courses/c1/about')
+
+    await wrapper.find('[data-test="edit-course"]').trigger('click')
+    await flushPromises()
+
+    expect(document.querySelector('#course-edit-description, [aria-label="Beskrivning"]')).not.toBeNull()
+  })
+
+  it('en lärare i en annan kurs ser ingen Redigera-knapp', async () => {
+    backend({me: meAs('Teacher', ['c2'])})
+
+    const {wrapper} = await renderApp('/courses/c1/about')
+
+    expect(wrapper.find('[data-test="edit-course"]').exists()).toBe(false)
+  })
+
   it('en elev ser ingen Redigera-knapp', async () => {
     backend({me: meAs('Student', ['c1'], 'Bo Elev')})
 

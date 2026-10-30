@@ -1,14 +1,13 @@
 using Backend.Application.Abstractions;
 using Backend.Application.Dtos;
-using Backend.Domain.Enums;
 
 namespace Backend.Application.Services;
 
-// GET /api/me: vem användaren är och vilken roll hen har per kurs. Admin får alla skolans kurser som Teacher.
+// GET /api/me: vem användaren är och vilken roll hen har per kurs. Bara riktiga roller: admin är inte lärare i en
+// kurs förrän hen står i CourseTeachers, som alla andra.
 public class MeService(
     IUserRepository users,
     ISchoolRepository schools,
-    ICourseRepository courses,
     IGroupRepository groups,
     ISchoolGitHubInstallationRepository installations,
     IUnitOfWork unitOfWork,
@@ -29,13 +28,9 @@ public class MeService(
             return null;
         }
 
-        var courseRoles = user.Role == UserRole.Admin
-            ? (await courses.GetForSchoolAsync(user.SchoolId, ct))
-                .Select(course => new CourseRoleDto(course.Id, GroupRole.Teacher))
-                .ToList()
-            : (await groups.GetCourseRolesAsync(user.Id, ct))
-                .Select(courseRole => new CourseRoleDto(courseRole.CourseId, courseRole.Role))
-                .ToList();
+        var courseRoles = (await groups.GetCourseRolesAsync(user.Id, ct))
+            .Select(courseRole => new CourseRoleDto(courseRole.CourseId, courseRole.Role))
+            .ToList();
 
         var github = await installations.GetForSchoolAsync(user.SchoolId, ct);
         return new MeDto(

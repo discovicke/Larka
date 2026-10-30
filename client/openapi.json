@@ -413,6 +413,55 @@
         }
       }
     },
+    "/api/me/admin-overview": {
+      "get": {
+        "tags": [
+          "Me"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminOverviewDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/me/notification-settings": {
       "get": {
         "tags": [
@@ -553,6 +602,36 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -590,6 +669,36 @@
                   "items": {
                     "$ref": "#/components/schemas/ContentFeedItem"
                   }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -2491,8 +2600,35 @@
               }
             }
           },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       },
@@ -3911,6 +4047,36 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       },
@@ -4010,8 +4176,35 @@
               }
             }
           },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -4849,6 +5042,149 @@
             "$ref": "#/components/schemas/GroupRole"
           }
         }
+      },
+      "AdminCourseCountsDto": {
+        "required": [
+          "upcoming",
+          "running",
+          "finished",
+          "undated"
+        ],
+        "type": "object",
+        "properties": {
+          "upcoming": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "running": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "finished": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "undated": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "description": "Antal kurser per läge, räknat på datumen som i klienten. Kurser utan datum ingår i Undated."
+      },
+      "AdminCourseWithoutTeacherDto": {
+        "required": [
+          "courseId",
+          "code",
+          "title",
+          "groupId"
+        ],
+        "type": "object",
+        "properties": {
+          "courseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "groupId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        },
+        "description": "En kurs utan lärare. GroupId är en klass som läser kursen, där admin lägger till läraren."
+      },
+      "AdminGroupRefDto": {
+        "required": [
+          "groupId",
+          "name",
+          "term"
+        ],
+        "type": "object",
+        "properties": {
+          "groupId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "term": {
+            "type": "string"
+          }
+        },
+        "description": "En klass."
+      },
+      "AdminOverviewDto": {
+        "required": [
+          "courses",
+          "coursesWithoutTeacher",
+          "classesWithoutMentor",
+          "usersWithoutPassword"
+        ],
+        "type": "object",
+        "properties": {
+          "courses": {
+            "$ref": "#/components/schemas/AdminCourseCountsDto"
+          },
+          "coursesWithoutTeacher": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminCourseWithoutTeacherDto"
+            }
+          },
+          "classesWithoutMentor": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminGroupRefDto"
+            }
+          },
+          "usersWithoutPassword": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminUserWithoutPasswordDto"
+            }
+          }
+        },
+        "description": "Adminens Idag-sida: skolans kurser per läge och det som saknar något. Varje rad pekar på klassen eller kursen\ndär admin ordnar det."
+      },
+      "AdminUserWithoutPasswordDto": {
+        "required": [
+          "userId",
+          "name",
+          "groupId",
+          "groupName"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "groupId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "groupName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "description": "En användare som inte kan logga in. GroupId är en klass hen går i, om hen går i någon."
       },
       "AssignmentSpecDto": {
         "required": [

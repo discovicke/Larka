@@ -17,6 +17,9 @@ public interface ICourseRepository
     Task<List<Course>> GetByIdsAsync(IReadOnlyCollection<Guid> courseIds, CancellationToken ct);
     Task<bool> CodeExistsAsync(Guid schoolId, string code, CancellationToken ct);
 
+    /// <summary>Id:n på skolans kurser som har minst en lärare.</summary>
+    Task<HashSet<Guid>> GetCourseIdsWithTeachersAsync(Guid schoolId, CancellationToken ct);
+
     /// <summary>Lärarna i kursen, sorterade på namn.</summary>
     Task<List<CourseTeacherInfo>> GetTeachersAsync(Guid courseId, CancellationToken ct);
     Task<CourseTeacher?> GetTeacherAsync(Guid courseId, Guid userId, CancellationToken ct);

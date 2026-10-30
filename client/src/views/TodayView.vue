@@ -5,12 +5,13 @@ import {RouterLink, type RouteLocationRaw} from 'vue-router'
 
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import StatusBadge from '@/components/StatusBadge.vue'
+import AdminToday from '@/components/today/AdminToday.vue'
 import TeacherToday from '@/components/today/TeacherToday.vue'
 import {Skeleton} from '@/components/ui/skeleton'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {api, type Schema} from '@/lib/api'
 import {formatDate} from '@/lib/content'
-import {isStudentEverywhere} from '@/lib/permissions'
+import {isStudentEverywhere, teachesAnywhere} from '@/lib/permissions'
 import {deadlineStatusKey, submissionStatusKey} from '@/lib/status'
 import {gradeText} from '@/lib/studyPlan'
 import {
@@ -43,7 +44,9 @@ const today = ref<Today | null>(null)
 const loading = ref(true)
 const loadFailed = ref(false)
 const tab = ref<Tab>('upcoming')
-// Den som är lärare någonstans, i skolan eller i en kurs, ser lärarens översikt, som hämtar sin egen data.
+// Idag följer relationen: admin ser skolans översikt, den som undervisar i en kurs ser lärarens, och alla andra,
+// eleven och mentorn, ser elevens. Båda hämtar sin egen data. En admin som också undervisar ser båda.
+const isAdmin = ref(false)
 const isTeacher = ref(false)
 
 const name = computed(() => firstName(me.value?.name))
@@ -153,8 +156,9 @@ async function load() {
   loadFailed.value = false
   try {
     await loadMe()
+    isAdmin.value = me.value?.role === 'Admin'
+    isTeacher.value = teachesAnywhere(me.value)
     if (!isStudentEverywhere(me.value)) {
-      isTeacher.value = true
       loading.value = false
       return
     }
@@ -175,7 +179,12 @@ load()
 </script>
 
 <template>
-  <TeacherToday v-if="isTeacher"/>
+  <div v-if="isAdmin" class="flex flex-col gap-6" data-test="admin-today">
+    <AdminToday/>
+    <TeacherToday v-if="isTeacher" embedded/>
+  </div>
+
+  <TeacherToday v-else-if="isTeacher"/>
 
   <Alert v-else-if="loadFailed" variant="destructive">
     <AlertDescription>Kunde inte hämta din översikt.</AlertDescription>

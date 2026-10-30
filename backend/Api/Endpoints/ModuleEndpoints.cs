@@ -1,6 +1,5 @@
 using Backend.Application.Dtos;
 using Backend.Application.Services;
-using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace Backend.Api.Endpoints;
 
@@ -10,14 +9,8 @@ public static class ModuleEndpoints
     {
         var modules = app.MapGroup("/courses/{id:guid}/modules").WithTags("Modules");
 
-        modules.MapGet("", async Task<Results<Ok<List<ModuleWithContentDto>>, NotFound>> (
-            Guid id, ModuleService service, CancellationToken ct) =>
-        {
-            var courseModules = await service.GetForCourseAsync(id, ct);
-            return courseModules is null
-                ? TypedResults.NotFound()
-                : TypedResults.Ok(courseModules);
-        });
+        modules.MapGet("", async (Guid id, ModuleService service, CancellationToken ct) =>
+            (await service.GetForCourseAsync(id, ct)).ToHttp(TypedResults.Ok));
 
         modules.MapPost("", async (Guid id, CreateModuleDto moduleDto, ModuleService service, CancellationToken ct) =>
             (await service.CreateAsync(id, moduleDto, ct)).ToHttp(module =>

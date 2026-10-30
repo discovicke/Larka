@@ -32,6 +32,7 @@ import {Input} from '@/components/ui/input'
 import {Skeleton} from '@/components/ui/skeleton'
 import {Textarea} from '@/components/ui/textarea'
 import {useCrumbLabels} from '@/composables/useCrumbLabels'
+import {useCurrentUser} from '@/composables/useCurrentUser'
 import {api, type Schema} from '@/lib/api'
 import {formatDate, partOf} from '@/lib/content'
 import {lockGitHubRepos, refreshGitHubRepos} from '@/lib/integrations'
@@ -61,6 +62,9 @@ const {setCrumbLabel} = useCrumbLabels()
 const router = useRouter()
 const courseId = computed(() => String(route.params.courseId))
 const linkId = computed(() => String(route.params.linkId))
+// Mentorn läser inlämningarna men bedömer inte.
+const {can} = useCurrentUser()
+const canGrade = computed(() => can('grade', courseId.value))
 
 const weekTitle = ref('')
 const assignment = ref<Schema<'ModuleContentItem'> | null>(null)
@@ -672,9 +676,16 @@ watch([courseId, linkId], () => {
                     <Button
                       v-if="submission.status === 'Submitted' || submission.status === 'NeedsWork'"
                       as-child
+                      :variant="canGrade
+                        ? 'default'
+                        : 'outline'"
                       class="h-7 px-2.5 text-[13px]"
                     >
-                      <RouterLink :to="reviewRoute(submission)">Bedöm</RouterLink>
+                      <RouterLink :to="reviewRoute(submission)">
+                        {{ canGrade
+                          ? 'Bedöm'
+                          : 'Visa' }}
+                      </RouterLink>
                     </Button>
                     <RouterLink
                       v-else-if="submission.status === 'Graded'"

@@ -106,7 +106,7 @@ public class RoadmapService(
 
         var courseModules = await moduleService.GetForCourseAsync(courseId, ct);
         return ServiceResult<ModuleWithContentDto>.Ok(
-            courseModules!.Single(savedModule => savedModule.Id == moduleId));
+            courseModules.Value!.Single(savedModule => savedModule.Id == moduleId));
     }
 
     // Tar fram veckans ordning utifrån beroendena. Algoritmen tar hela tiden den tidigaste

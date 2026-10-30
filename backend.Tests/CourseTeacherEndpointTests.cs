@@ -196,7 +196,7 @@ public class CourseTeacherEndpointTests(TestWebApplicationFactory factory) : ICl
     [Fact]
     public async Task ListTeachers_AsAdmin_ListsTheCourseTeachersByName()
     {
-        var scenario = await AddScenarioAsync();
+        var scenario = await AddScenarioAsync(placeholderTeaches: false);
         var outside = await AddCourseTeacherOutsideAsync(scenario.CourseA);
 
         var teachers = await GetAsync<List<TeacherResponse>>($"/api/courses/{scenario.CourseA}/teachers", Guid.Empty);
@@ -333,12 +333,14 @@ public class CourseTeacherEndpointTests(TestWebApplicationFactory factory) : ICl
     }
 
     // Klassen läser kurs A och B. Läraren undervisar bara i A, klasslärare är lärare i klassen och inte i någon kurs.
-    private async Task<Scenario> AddScenarioAsync()
+    // Med placeholderTeaches undervisar testernas standardanvändare (admin) i kurserna och i klassen, så att
+    // innehåll kan publiceras som placeholder. Utan är admin bara admin.
+    private async Task<Scenario> AddScenarioAsync(bool placeholderTeaches = true)
     {
         await using var db = OpenDb();
-        var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
-        var courseA = await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId, group.Id);
-        var courseB = await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId, group.Id);
+        var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId, placeholderTeaches);
+        var courseA = await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId, group.Id, placeholderTeaches);
+        var courseB = await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId, group.Id, placeholderTeaches);
         var student = await TestData.AddMemberAsync(db, group);
         var teacher = await TestData.AddMemberAsync(db, group, GroupRole.Teacher, UserRole.Teacher);
         var classOnly = await TestData.AddMemberAsync(db, group, GroupRole.Teacher, UserRole.Teacher);

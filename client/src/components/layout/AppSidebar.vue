@@ -49,7 +49,7 @@ import {exampleSchool, exampleUser} from '@/data/exampleData'
 import {auth} from '@/lib/auth'
 import {courseStatus} from '@/lib/courseStatus'
 import {initials} from '@/lib/news'
-import type {Action} from '@/lib/permissions'
+import {isMentorOnly, type Action} from '@/lib/permissions'
 
 interface NavItem {
   label: string
@@ -89,6 +89,16 @@ watch(() => can('grade'), (canGrade) => {
     loadGradingCount()
   }
 }, {immediate: true})
+
+// Admin ser skolans alla kurser, mentorn klassens kurser och övriga sina egna.
+const coursesLabel = computed(() => {
+  if (me.value?.role === 'Admin') {
+    return 'Skolans kurser'
+  }
+  return isMentorOnly(me.value)
+    ? 'Klassens kurser'
+    : 'Mina kurser'
+})
 
 const isStudent = computed(() => (me.value?.courses ?? []).some((course) => course.role === 'Student'))
 const navItems = computed(() => mainNav
@@ -224,7 +234,7 @@ function courseLabel(course: SidebarCourse): string {
       </SidebarGroup>
 
       <SidebarGroup>
-        <SidebarGroupLabel>Mina kurser</SidebarGroupLabel>
+        <SidebarGroupLabel>{{ coursesLabel }}</SidebarGroupLabel>
         <SidebarMenu>
           <SidebarMenuItem v-for="course in currentCourses" :key="course.id">
             <SidebarMenuButton

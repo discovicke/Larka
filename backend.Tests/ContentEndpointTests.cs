@@ -761,7 +761,7 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     {
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
-        var group = await TestData.AddGroupAsync(db);
+        var group = await TestData.AddGroupAsync(db, placeholderTeaches: true);
         var student = await TestData.AddMemberAsync(db, group);
         return (group.Id, student.Id);
     }
@@ -826,6 +826,18 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
         var course = await PostAsync("/api/courses", new { schoolId, title = "Kurs", code = $"KURS-{unique}" });
         var link = await _client.PostAsync($"/api/groups/{group.Id}/courses/{course.Id}", null);
         link.EnsureSuccessStatusCode();
+
+        // Admin undervisar inte av sig själv: placeholder blir lärare i kursen och i gruppen.
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        await TestData.MakePlaceholderTeacherAsync(db, course.Id);
+        db.Enrollments.Add(new Enrollment
+        {
+            UserId = PlaceholderIds.UserId,
+            GroupId = group.Id,
+            Role = GroupRole.Teacher
+        });
+        await db.SaveChangesAsync();
         return (group.Id, course.Id);
     }
 

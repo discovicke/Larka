@@ -1,6 +1,8 @@
 using Backend.Domain.Entities;
 using Backend.Domain.Enums;
 using Backend.Infrastructure.Persistence;
+using Backend.Infrastructure.Persistence.Configurations;
+using Microsoft.EntityFrameworkCore;
 
 namespace backend.Tests;
 
@@ -31,7 +33,11 @@ public static class TestData
         return user;
     }
 
-    public static async Task<Group> AddGroupAsync(AppDb db, Guid? schoolId = null)
+    /// <summary>
+    /// Skapar en grupp. Med placeholderTeaches är placeholder-admin lärare i gruppen, vilket krävs för att
+    /// publicera till bara gruppen (utan kurs). Admin gör inte det av sig själv.
+    /// </summary>
+    public static async Task<Group> AddGroupAsync(AppDb db, Guid? schoolId = null, bool placeholderTeaches = false)
     {
         var group = new Group
         {
@@ -40,6 +46,16 @@ public static class TestData
             Term = "HT26"
         };
         db.Groups.Add(group);
+        if (placeholderTeaches)
+        {
+            db.Enrollments.Add(new Enrollment
+            {
+                UserId = PlaceholderIds.UserId,
+                GroupId = group.Id,
+                Role = GroupRole.Teacher
+            });
+        }
+
         await db.SaveChangesAsync();
         return group;
     }
@@ -68,8 +84,13 @@ public static class TestData
         return user;
     }
 
-    /// <summary>Skapar en kurs. Skickas groupId med läser den gruppen kursen (GroupCourse).</summary>
-    public static async Task<Course> AddCourseAsync(AppDb db, Guid schoolId, Guid? groupId = null)
+    /// <summary>
+    /// Skapar en kurs. Skickas groupId läser den gruppen kursen (GroupCourse). Testernas standardanvändare är
+    /// placeholder-admin, som bara undervisar där hen står i CourseTeachers, så den läggs in som lärare om inte
+    /// placeholderTeaches är false. Tester av admin utan lärarroll skickar false.
+    /// </summary>
+    public static async Task<Course> AddCourseAsync(
+        AppDb db, Guid schoolId, Guid? groupId = null, bool placeholderTeaches = true)
     {
         var course = new Course { SchoolId = schoolId, Title = "Kurs", Code = $"K-{Guid.NewGuid():N}"[..10] };
         db.Courses.Add(course);
@@ -78,7 +99,34 @@ public static class TestData
             db.GroupCourses.Add(new GroupCourse { GroupId = groupId.Value, CourseId = course.Id });
         }
 
+        if (placeholderTeaches)
+        {
+            db.CourseTeachers.Add(new CourseTeacher { CourseId = course.Id, UserId = PlaceholderIds.UserId });
+        }
+
         await db.SaveChangesAsync();
         return course;
+    }
+
+    /// <summary>
+    /// Låter placeholder-admin undervisa i en kurs i en annan skola, så att hen får skapa innehåll. Gör ingenting
+    /// om det redan är gjort.
+    /// </summary>
+    public static async Task EnsurePlaceholderTeachesAsync(AppDb db)
+    {
+        if (await db.CourseTeachers.AnyAsync(courseTeacher => courseTeacher.UserId == PlaceholderIds.UserId))
+        {
+            return;
+        }
+
+        var school = await AddSchoolAsync(db);
+        await AddCourseAsync(db, school.Id);
+    }
+
+    /// <summary>Gör placeholder-admin till lärare i en kurs som skapats via API:et.</summary>
+    public static async Task MakePlaceholderTeacherAsync(AppDb db, Guid courseId)
+    {
+        db.CourseTeachers.Add(new CourseTeacher { CourseId = courseId, UserId = PlaceholderIds.UserId });
+        await db.SaveChangesAsync();
     }
 }

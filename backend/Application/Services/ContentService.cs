@@ -18,16 +18,18 @@ public class ContentService(
     SubmissionService submissions,
     NotificationService notifications,
     IPermissions permissions,
+    ICurrentSchool currentSchool,
     IFileStorage storage,
     IUnitOfWork unitOfWork,
     ICurrentUser currentUser,
     TimeProvider time,
     ILogger<ContentService> logger)
 {
+    // Ett utkast syns bara för dem som får ändra det, och för admin i skolan som läser det.
     public async Task<ContentDto?> GetAsync(Guid id, CancellationToken ct)
     {
         var content = await contents.GetAsync(id, ct);
-        return content is null
+        return content is null || !await MayReadAsync(content, ct)
             ? null
             : ContentDto.From(content);
     }
@@ -470,15 +472,55 @@ public class ContentService(
         return ServiceResult<bool>.Ok(true);
     }
 
-    /// <summary>Filtrerar på typ (news|theory|assignment) om den går att tolka, annars returneras alla.</summary>
-    public Task<List<ContentFeedItem>> GetGroupFeedAsync(Guid groupId, string? type, CancellationToken ct) =>
-        contents.GetGroupFeedAsync(groupId, ParseType(type), time.GetUtcNow(), ct);
+    /// <summary>
+    /// Filtrerar på typ (news|theory|assignment) om den går att tolka, annars returneras alla. Bara gruppens
+    /// medlemmar, lärare i en kurs gruppen läser och admin i skolan får läsa. Utkast ingår aldrig i flödet.
+    /// </summary>
+    public async Task<ServiceResult<List<ContentFeedItem>>> GetGroupFeedAsync(
+        Guid groupId, string? type, CancellationToken ct)
+    {
+        if (!await groups.ExistsAsync(groupId, ct))
+        {
+            return ServiceResult<List<ContentFeedItem>>.NotFound("group not found");
+        }
 
-    public Task<List<ContentFeedItem>> GetCourseFeedAsync(Guid courseId, string? type, CancellationToken ct) =>
-        contents.GetCourseFeedAsync(courseId, ParseType(type), time.GetUtcNow(), ct);
+        if (!await permissions.CanReadGroupAsync(groupId, ct))
+        {
+            return ServiceResult<List<ContentFeedItem>>.Forbidden();
+        }
+
+        return ServiceResult<List<ContentFeedItem>>.Ok(
+            await contents.GetGroupFeedAsync(groupId, ParseType(type), time.GetUtcNow(), ct));
+    }
+
+    /// <summary>
+    /// Som gruppens flöde, men för kursen: lärare, mentor och elev i kursen, och admin i skolan får läsa.
+    /// </summary>
+    public async Task<ServiceResult<List<ContentFeedItem>>> GetCourseFeedAsync(
+        Guid courseId, string? type, CancellationToken ct)
+    {
+        if (!await groups.CourseExistsAsync(courseId, ct))
+        {
+            return ServiceResult<List<ContentFeedItem>>.NotFound("course not found");
+        }
+
+        if (!await permissions.CanReadCourseAsync(courseId, ct))
+        {
+            return ServiceResult<List<ContentFeedItem>>.Forbidden();
+        }
+
+        return ServiceResult<List<ContentFeedItem>>.Ok(
+            await contents.GetCourseFeedAsync(courseId, ParseType(type), time.GetUtcNow(), ct));
+    }
 
     public async Task<List<CommentDto>> GetCommentsAsync(Guid contentId, CancellationToken ct)
     {
+        var content = await contents.GetAsync(contentId, ct);
+        if (content is null || !await MayReadAsync(content, ct))
+        {
+            return [];
+        }
+
         var comments = await contents.GetCommentsAsync(contentId, ct);
         var names = await users.GetNamesAsync(comments.Select(comment => comment.AuthorId).Distinct().ToList(), ct);
         return comments
@@ -548,7 +590,8 @@ public class ContentService(
     /// <summary>Länkarna skapas här, när bilagorna läses. Returnerar null om innehållet inte finns.</summary>
     public async Task<List<AttachmentDto>?> GetAttachmentsAsync(Guid contentId, CancellationToken ct)
     {
-        if (!await contents.ExistsAsync(contentId, ct))
+        var content = await contents.GetAsync(contentId, ct);
+        if (content is null || !await MayReadAsync(content, ct))
         {
             return null;
         }
@@ -795,9 +838,23 @@ public class ContentService(
         spec.AllowLate = allowLate;
     }
 
-    // Lärare på någon av innehållets länkar, admin, eller den som skrev innehållet.
+    // Lärare på någon av innehållets länkar, eller den som skrev innehållet. Admin har ingen genväg hit.
     private async Task<bool> MayEditAsync(Content content, CancellationToken ct) =>
         content.AuthorId == currentUser.UserId || await permissions.CanTeachContentAsync(content.Id, ct);
+
+    // Publicerat innehåll läses av alla inloggade, ett utkast bara av dem som får ändra det och av admin i skolan.
+    private async Task<bool> MayReadAsync(Content content, CancellationToken ct)
+    {
+        if (content.Status != ContentStatus.Draft || await MayEditAsync(content, ct))
+        {
+            return true;
+        }
+
+        var author = await users.GetAsync(content.AuthorId, ct);
+        return author is not null
+            && await permissions.IsAdminAsync(ct)
+            && await currentSchool.OwnsAsync(author.SchoolId, ct);
+    }
 
     // En länk till en kurs kräver lärare på kursen, en länk till bara en grupp lärare i gruppen.
     // CheckLinkAsync har redan kontrollerat att minst en av dem finns.

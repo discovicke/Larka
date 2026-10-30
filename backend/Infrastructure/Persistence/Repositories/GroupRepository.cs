@@ -76,6 +76,35 @@ public class GroupRepository(AppDb db) : IGroupRepository
         db.CourseTeachers.AnyAsync(
             courseTeacher => courseTeacher.CourseId == courseId && courseTeacher.UserId == userId, ct);
 
+    public async Task<bool> TeachesAnythingAsync(Guid userId, CancellationToken ct) =>
+        await db.CourseTeachers.AnyAsync(courseTeacher => courseTeacher.UserId == userId, ct)
+        || await db.Enrollments.AnyAsync(
+            enrollment => enrollment.UserId == userId && enrollment.Role == GroupRole.Teacher, ct);
+
+    public async Task<HashSet<Guid>> GetMentoredStudentIdsAsync(Guid userId, CancellationToken ct)
+    {
+        var mentoredGroupIds = db.Enrollments
+            .Where(enrollment => enrollment.UserId == userId && enrollment.Role == GroupRole.Mentor)
+            .Select(enrollment => enrollment.GroupId);
+        return (await db.Enrollments
+                .Where(enrollment => enrollment.Role == GroupRole.Student
+                    && mentoredGroupIds.Contains(enrollment.GroupId))
+                .Select(enrollment => enrollment.UserId)
+                .Distinct()
+                .ToListAsync(ct))
+            .ToHashSet();
+    }
+
+    public Task<List<Enrollment>> GetEnrollmentsForSchoolAsync(Guid schoolId, CancellationToken ct) =>
+        db.Enrollments
+            .Where(enrollment => db.Groups.Any(group => group.Id == enrollment.GroupId && group.SchoolId == schoolId))
+            .ToListAsync(ct);
+
+    public Task<List<GroupCourse>> GetGroupCoursesForSchoolAsync(Guid schoolId, CancellationToken ct) =>
+        db.GroupCourses
+            .Where(groupCourse => db.Groups.Any(group => group.Id == groupCourse.GroupId && group.SchoolId == schoolId))
+            .ToListAsync(ct);
+
     public Task<bool> TeachesCourseOfGroupAsync(Guid groupId, Guid userId, CancellationToken ct) =>
         db.GroupCourses.AnyAsync(
             groupCourse => groupCourse.GroupId == groupId

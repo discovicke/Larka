@@ -26,8 +26,9 @@ const route = useRoute()
 const {status, findCourse} = useCourses()
 const course = computed(() => findCourse(String(route.params.courseId)))
 const {can} = useCurrentUser()
-// Admin och lärarna i kursen får skapa en ny omgång av den.
-const canCreateRun = computed(() => course.value !== undefined && can('editContent', course.value.id))
+// Admin får skapa en ny omgång av vilken kurs som helst, läraren bara av en kurs hen undervisar i.
+const canCreateRun = computed(() => course.value !== undefined
+  && (can('manageCourse') || can('editContent', course.value.id)))
 const runOpen = ref(false)
 // Layouten återanvänds när man byter kurs, så dialogen får inte följa med.
 watch(() => route.params.courseId, () => {

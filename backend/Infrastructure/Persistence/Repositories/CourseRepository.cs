@@ -26,6 +26,15 @@ public class CourseRepository(AppDb db) : ICourseRepository
             .OrderBy(course => course.Code)
             .ToListAsync(ct);
 
+    public async Task<HashSet<Guid>> GetCourseIdsWithTeachersAsync(Guid schoolId, CancellationToken ct) =>
+        (await db.CourseTeachers
+                .Where(courseTeacher => db.Courses.Any(course =>
+                    course.Id == courseTeacher.CourseId && course.SchoolId == schoolId))
+                .Select(courseTeacher => courseTeacher.CourseId)
+                .Distinct()
+                .ToListAsync(ct))
+            .ToHashSet();
+
     public Task<List<Course>> GetByIdsAsync(IReadOnlyCollection<Guid> courseIds, CancellationToken ct) =>
         db.Courses.Where(course => courseIds.Contains(course.Id)).ToListAsync(ct);
 

@@ -24,22 +24,37 @@ public class MeEndpointTests(TestWebApplicationFactory factory) : IClassFixture<
     private record CourseRoleResponse(Guid CourseId, string Role);
 
     [Fact]
-    public async Task Me_ForAdmin_HasEveryCourseInTheSchoolAsTeacher()
+    public async Task Me_ForAdmin_HasNoCourseRoleOnTheSchoolsCourses()
     {
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
         var school = await TestData.AddSchoolAsync(db);
         var admin = await TestData.AddUserAsync(db, school.Id, UserRole.Admin);
-        var first = await TestData.AddCourseAsync(db, school.Id);
-        var second = await TestData.AddCourseAsync(db, school.Id);
+        await TestData.AddCourseAsync(db, school.Id, placeholderTeaches: false);
+        await TestData.AddCourseAsync(db, school.Id, placeholderTeaches: false);
 
         var me = await GetMeAsync(admin.Id);
 
         Assert.Equal(("Admin", admin.Name, admin.Email), (me!.Role, me.Name, me.Email));
         Assert.Equal((school.Id, school.Name), (me.School.Id, me.School.Name));
-        Assert.Equal(2, me.Courses.Count);
-        Assert.Contains(me.Courses, course => course.CourseId == first.Id && course.Role == "Teacher");
-        Assert.Contains(me.Courses, course => course.CourseId == second.Id && course.Role == "Teacher");
+        Assert.Empty(me.Courses);
+    }
+
+    [Fact]
+    public async Task Me_ForAdminWhoAlsoTeaches_IsTeacherOnlyInThatCourse()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var school = await TestData.AddSchoolAsync(db);
+        var admin = await TestData.AddUserAsync(db, school.Id, UserRole.Admin);
+        var taught = await TestData.AddCourseAsync(db, school.Id, placeholderTeaches: false);
+        await TestData.AddCourseAsync(db, school.Id, placeholderTeaches: false);
+        await TestData.AddCourseTeacherAsync(db, taught, admin);
+
+        var me = await GetMeAsync(admin.Id);
+
+        var course = Assert.Single(me!.Courses);
+        Assert.Equal((taught.Id, "Teacher"), (course.CourseId, course.Role));
     }
 
     [Fact]

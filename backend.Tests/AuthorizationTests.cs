@@ -9,7 +9,8 @@ using Microsoft.Extensions.DependencyInjection;
 namespace backend.Tests;
 
 // Behörigheterna prövas i API:et: eleven får 403, läraren på kursen får göra det, läraren på en annan
-// kurs får 403 och admin får göra allt. Anropen görs som användaren i X-Test-User.
+// kurs får 403 och admin får inte undervisa (förrän hen också står som lärare i kursen). Anropen görs som
+// användaren i X-Test-User. Admin bestämmer vem som undervisar, läraren bestämmer vad som händer i kursen.
 public class AuthorizationTests(TestWebApplicationFactory factory) : IClassFixture<TestWebApplicationFactory>
 {
     private readonly HttpClient _client = factory.CreateClient();
@@ -23,10 +24,12 @@ public class AuthorizationTests(TestWebApplicationFactory factory) : IClassFixtu
         Guid OtherCourseId,
         Guid StudentId,
         Guid TeacherId,
-        Guid OtherTeacherId);
+        Guid OtherTeacherId,
+        Guid AdminId,
+        Guid AdminTeacherId);
 
     [Fact]
-    public async Task CreateModule_StudentIsForbidden_TeacherOfTheCourseSucceeds_OtherTeacherIsForbidden()
+    public async Task CreateModule_OnlyTheTeacherOfTheCourseSucceeds_AdminOnlyWithATeacherRow()
     {
         var scenario = await AddScenarioAsync();
 
@@ -37,29 +40,34 @@ public class AuthorizationTests(TestWebApplicationFactory factory) : IClassFixtu
         var byTeacher = await PostJsonAsync(
             $"/api/courses/{scenario.CourseId}/modules", scenario.TeacherId, new { title = "Vecka 1" });
         var byAdmin = await PostJsonAsync(
-            $"/api/courses/{scenario.CourseId}/modules", Guid.Empty, new { title = "Vecka 2" });
+            $"/api/courses/{scenario.CourseId}/modules", scenario.AdminId, new { title = "Vecka 2" });
+        var byAdminWhoTeaches = await PostJsonAsync(
+            $"/api/courses/{scenario.CourseId}/modules", scenario.AdminTeacherId, new { title = "Vecka 3" });
 
         Assert.Equal(HttpStatusCode.Forbidden, byStudent.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, byOtherTeacher.StatusCode);
         Assert.Equal(HttpStatusCode.Created, byTeacher.StatusCode);
-        Assert.Equal(HttpStatusCode.Created, byAdmin.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, byAdmin.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, byAdminWhoTeaches.StatusCode);
         Assert.Equal("application/problem+json", byStudent.Content.Headers.ContentType?.MediaType);
         Assert.Contains("Du har inte behörighet", await byStudent.Content.ReadAsStringAsync());
     }
 
     [Fact]
-    public async Task CreateContent_StudentIsForbidden_TeacherAndAdminSucceed()
+    public async Task CreateContent_OnlyWhoTeachesSomethingSucceeds_NotAdminAsSuch()
     {
         var scenario = await AddScenarioAsync();
         var content = new { type = "theory", title = "Teori", bodyMd = "Text" };
 
         var byStudent = await PostJsonAsync("/api/content", scenario.StudentId, content);
         var byTeacher = await PostJsonAsync("/api/content", scenario.TeacherId, content);
-        var byAdmin = await PostJsonAsync("/api/content", Guid.Empty, content);
+        var byAdmin = await PostJsonAsync("/api/content", scenario.AdminId, content);
+        var byAdminWhoTeaches = await PostJsonAsync("/api/content", scenario.AdminTeacherId, content);
 
         Assert.Equal(HttpStatusCode.Forbidden, byStudent.StatusCode);
         Assert.Equal(HttpStatusCode.Created, byTeacher.StatusCode);
-        Assert.Equal(HttpStatusCode.Created, byAdmin.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, byAdmin.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, byAdminWhoTeaches.StatusCode);
     }
 
     [Fact]
@@ -218,7 +226,7 @@ public class AuthorizationTests(TestWebApplicationFactory factory) : IClassFixtu
     }
 
     [Fact]
-    public async Task Grade_StudentAndOtherTeacherAreForbidden_TeacherOfTheLinkAndAdminSucceed()
+    public async Task Grade_StudentOtherTeacherAndAdminAreForbidden_TeacherOfTheLinkSucceeds()
     {
         var scenario = await AddScenarioAsync();
         var assignmentId = await CreateOnSiteAssignmentAsync();
@@ -235,13 +243,13 @@ public class AuthorizationTests(TestWebApplicationFactory factory) : IClassFixtu
         var byStudent = await PostJsonAsync($"/api/submissions/{submissionId}/grade", scenario.StudentId, body);
         var byOtherTeacher = await PostJsonAsync(
             $"/api/submissions/{submissionId}/grade", scenario.OtherTeacherId, body);
+        var byAdmin = await PostJsonAsync($"/api/submissions/{submissionId}/grade", scenario.AdminId, body);
         var byTeacher = await PostJsonAsync($"/api/submissions/{submissionId}/grade", scenario.TeacherId, body);
-        var byAdmin = await PostJsonAsync($"/api/submissions/{submissionId}/grade", Guid.Empty, body);
 
         Assert.Equal(HttpStatusCode.Forbidden, byStudent.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, byOtherTeacher.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, byAdmin.StatusCode);
         Assert.Equal(HttpStatusCode.OK, byTeacher.StatusCode);
-        Assert.Equal(HttpStatusCode.OK, byAdmin.StatusCode);
     }
 
     [Fact]
@@ -361,11 +369,16 @@ public class AuthorizationTests(TestWebApplicationFactory factory) : IClassFixtu
     {
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
-        var school = await TestData.AddSchoolAsync(db);
+        // Admin ser bara sin egen skola, så scenariot ligger i den. Placeholder är lärare i kurserna, för att kunna
+        // förbereda innehållet. AdminId är en admin som inte undervisar, AdminTeacherId en som står som lärare.
+        var school = await db.Schools.SingleAsync(found => found.Id == PlaceholderIds.SchoolId);
         var group = await TestData.AddGroupAsync(db, school.Id);
         var otherGroup = await TestData.AddGroupAsync(db, school.Id);
         var course = await TestData.AddCourseAsync(db, school.Id, group.Id);
         var otherCourse = await TestData.AddCourseAsync(db, school.Id, otherGroup.Id);
+        var admin = await TestData.AddUserAsync(db, school.Id, UserRole.Admin);
+        var adminTeacher = await TestData.AddUserAsync(db, school.Id, UserRole.Admin);
+        await TestData.AddCourseTeacherAsync(db, course, adminTeacher);
 
         var student = await TestData.AddMemberAsync(db, group);
         var teacher = await TestData.AddMemberAsync(db, group, GroupRole.Teacher, UserRole.Teacher);
@@ -375,6 +388,7 @@ public class AuthorizationTests(TestWebApplicationFactory factory) : IClassFixtu
         await TestData.AddCourseTeacherAsync(db, otherCourse, otherTeacher);
 
         return new Scenario(
-            school.Id, group.Id, course.Id, otherCourse.Id, student.Id, teacher.Id, otherTeacher.Id);
+            school.Id, group.Id, course.Id, otherCourse.Id, student.Id, teacher.Id, otherTeacher.Id, admin.Id,
+            adminTeacher.Id);
     }
 }

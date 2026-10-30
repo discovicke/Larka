@@ -530,6 +530,68 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/admin-overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AdminOverviewDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/notification-settings": {
         parameters: {
             query?: never;
@@ -678,6 +740,33 @@ export interface paths {
                         "application/json": components["schemas"]["ContentFeedItem"][];
                     };
                 };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
             };
         };
         put?: never;
@@ -715,6 +804,33 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["ContentFeedItem"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
                     };
                 };
             };
@@ -2668,12 +2784,32 @@ export interface paths {
                         "application/json": components["schemas"]["ModuleWithContentDto"][];
                     };
                 };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
                 /** @description Not Found */
                 404: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
                 };
             };
         };
@@ -3997,6 +4133,33 @@ export interface paths {
                         "application/json": components["schemas"]["SubmissionDto"][];
                     };
                 };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
             };
         };
         put?: never;
@@ -4086,12 +4249,32 @@ export interface paths {
                         "application/json": components["schemas"]["SubmissionDto"];
                     };
                 };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
                 /** @description Not Found */
                 404: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
                 };
             };
         };
@@ -4972,6 +5155,52 @@ export interface components {
             /** Format: uuid */
             userId: string;
             role?: components["schemas"]["GroupRole"];
+        };
+        /** @description Antal kurser per läge, räknat på datumen som i klienten. Kurser utan datum ingår i Undated. */
+        AdminCourseCountsDto: {
+            /** Format: int32 */
+            upcoming: number;
+            /** Format: int32 */
+            running: number;
+            /** Format: int32 */
+            finished: number;
+            /** Format: int32 */
+            undated: number;
+        };
+        /** @description En kurs utan lärare. GroupId är en klass som läser kursen, där admin lägger till läraren. */
+        AdminCourseWithoutTeacherDto: {
+            /** Format: uuid */
+            courseId: string;
+            code: string;
+            title: string;
+            /** Format: uuid */
+            groupId: null | string;
+        };
+        /** @description En klass. */
+        AdminGroupRefDto: {
+            /** Format: uuid */
+            groupId: string;
+            name: string;
+            term: string;
+        };
+        /**
+         * @description Adminens Idag-sida: skolans kurser per läge och det som saknar något. Varje rad pekar på klassen eller kursen
+         *     där admin ordnar det.
+         */
+        AdminOverviewDto: {
+            courses: components["schemas"]["AdminCourseCountsDto"];
+            coursesWithoutTeacher: components["schemas"]["AdminCourseWithoutTeacherDto"][];
+            classesWithoutMentor: components["schemas"]["AdminGroupRefDto"][];
+            usersWithoutPassword: components["schemas"]["AdminUserWithoutPasswordDto"][];
+        };
+        /** @description En användare som inte kan logga in. GroupId är en klass hen går i, om hen går i någon. */
+        AdminUserWithoutPasswordDto: {
+            /** Format: uuid */
+            userId: string;
+            name: string;
+            /** Format: uuid */
+            groupId: null | string;
+            groupName: null | string;
         };
         AssignmentSpecDto: {
             gradeScale: components["schemas"]["GradeScale"];

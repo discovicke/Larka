@@ -94,7 +94,11 @@ public class CourseService(
         return ServiceResult<CourseDto>.Ok(CourseDto.From(course));
     }
 
-    /// <summary>Ändrar kursens uppgifter. Koden är låst, eftersom den är unik per skola.</summary>
+    /// <summary>
+    /// Ändrar kursens uppgifter. Koden är låst, eftersom den är unik per skola. Admin ändrar titel, datum och poäng.
+    /// Beskrivningen är lärarens: skickar en admin som inte är kursens lärare en beskrivning ignoreras den, och den
+    /// som finns kvar sparad.
+    /// </summary>
     public async Task<ServiceResult<CourseDto>> UpdateAsync(Guid id, UpdateCourseDto dto, CancellationToken ct)
     {
         var course = await GetOwnAsync(id, ct);
@@ -103,7 +107,8 @@ public class CourseService(
             return ServiceResult<CourseDto>.NotFound("course not found");
         }
 
-        if (!await permissions.CanTeachCourseAsync(id, ct))
+        var teaches = await permissions.CanTeachCourseAsync(id, ct);
+        if (!teaches && !await permissions.CanManageCourseAsync(id, ct))
         {
             return ServiceResult<CourseDto>.Forbidden();
         }
@@ -113,7 +118,7 @@ public class CourseService(
             return ServiceResult<CourseDto>.Invalid("title is required");
         }
 
-        if (dto.Description is null || dto.Description.Length > 20000)
+        if (teaches && (dto.Description is null || dto.Description.Length > 20000))
         {
             return ServiceResult<CourseDto>.Invalid("description can be at most 20000 characters");
         }
@@ -125,7 +130,11 @@ public class CourseService(
         }
 
         course.Title = dto.Title.Trim();
-        course.Description = dto.Description;
+        if (teaches)
+        {
+            course.Description = dto.Description!;
+        }
+
         course.Points = dto.Points;
         course.StartsOn = dto.StartsOn;
         course.EndsOn = dto.EndsOn;

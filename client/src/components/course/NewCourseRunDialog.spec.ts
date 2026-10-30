@@ -17,6 +17,7 @@ const groups = [
   {id: 'g2', schoolId: 's1', type: 'Class', name: 'NET26', term: 'HT26'},
   {id: 'g3', schoolId: 's1', type: 'Committee', name: 'Elevråd', term: ''},
   {id: 'g4', schoolId: 's2', type: 'Class', name: 'Annan skola', term: ''},
+  {id: 'g5', schoolId: 's1', type: 'Class', name: 'NET27', term: 'HT27'},
 ]
 
 const part = {
@@ -40,6 +41,15 @@ function backend(role: 'Teacher' | 'Student' | 'Admin' = 'Teacher', teaches: str
     }
     if (path === '/api/groups') {
       return {status: 200, body: groups}
+    }
+    if (method === 'GET' && path === '/api/groups/g1/courses') {
+      return {status: 200, body: [courses[0]]}
+    }
+    if (method === 'GET' && path === '/api/groups/g2/courses') {
+      return {status: 200, body: [courses[0]]}
+    }
+    if (method === 'GET' && path === '/api/groups/g5/courses') {
+      return {status: 200, body: [courses[1]]}
     }
     if (method === 'GET' && path === '/api/courses/c1/modules') {
       return {status: 200, body: weeks}
@@ -97,6 +107,14 @@ describe('NewCourseRunDialog', () => {
     backend('Admin', [])
     const admin = await renderApp('/courses/c1/content')
     expect(admin.wrapper.find('[data-test="course-menu"]').exists()).toBe(true)
+  })
+
+  it('en lärare får bara klasser som läser en kurs hen undervisar i, admin alla klasser i skolan', async () => {
+    backend('Admin', [])
+    await openDialog()
+
+    expect([...dialog().querySelectorAll('option')].map((option) => option.textContent?.trim()))
+      .toEqual(['Välj klass…', 'NET25 · HT25', 'NET26 · HT26', 'NET27 · HT27'])
   })
 
   it('visar titeln, bara klasser i skolan och hur mycket som kopieras', async () => {

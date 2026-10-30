@@ -2,7 +2,7 @@ import {flushPromises} from '@vue/test-utils'
 import {describe, expect, it} from 'vitest'
 
 import {mockApi, requests, sent} from '@/test/mockApi'
-import {meAs} from '@/test/me'
+import {mentorAs, meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
 const course = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps'}
@@ -84,10 +84,10 @@ const content = {
   assignment: {gradeScale: 'PassFail', submissionModes: ['Text', 'Repo'], templateRepo: null},
 }
 
-function backend(options: {scale?: string, submission?: unknown} = {}) {
+function backend(options: {scale?: string, submission?: unknown, me?: ReturnType<typeof meAs>} = {}) {
   mockApi((method, path) => {
     if (path === '/api/me') {
-      return {status: 200, body: meAs('Teacher', ['c1'])}
+      return {status: 200, body: options.me ?? meAs('Teacher', ['c1'])}
     }
     if (path === '/api/courses') {
       return {status: 200, body: [course]}
@@ -132,6 +132,31 @@ function radios(wrapper: Awaited<ReturnType<typeof renderApp>>['wrapper']): stri
 }
 
 describe('ReviewView', () => {
+  it('mentorn läser inlämningen och betyget men kan inte bedöma', async () => {
+    backend({me: mentorAs(['c1']), submission: gradedSubmission})
+
+    const {wrapper} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
+
+    expect(wrapper.find('h1').text()).toBe('Anna Andersson')
+    expect(wrapper.find('strong').text()).toBe('lösning')
+    expect(wrapper.find('[data-test="read-only-grade"]').text()).toBe('G · Godkänt')
+    expect(wrapper.text()).toContain('Tidigare kommentar')
+    expect(wrapper.findAll('[role="radio"]')).toHaveLength(0)
+    expect(wrapper.find('textarea').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Publicera bedömning')
+    expect(wrapper.text()).not.toContain('Begär komplettering')
+  })
+
+  it('läraren ser bedömningsformuläret', async () => {
+    backend()
+
+    const {wrapper} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
+
+    expect(wrapper.find('[data-test="read-only-grade"]').exists()).toBe(false)
+    expect(wrapper.find('textarea').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Publicera bedömning')
+  })
+
   it('visar eleven, svaret, filerna och repot', async () => {
     backend()
 

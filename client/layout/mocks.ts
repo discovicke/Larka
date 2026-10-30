@@ -163,6 +163,10 @@ export async function signInAndMockApi(page: Page, role: 'Admin' | 'Teacher' | '
         return json([course, previousCourse])
       case '/api/groups':
         return json(groups)
+      // Klasserna läser kurserna läraren undervisar i, så nya kursomgångar kan läggas i dem.
+      case '/api/groups/g1/courses':
+      case '/api/groups/g2/courses':
+        return json([course, previousCourse])
       case '/api/courses/c1/modules':
         return json(modules)
       case '/api/courses/c1/student-modules':

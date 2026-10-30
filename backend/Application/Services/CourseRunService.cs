@@ -14,6 +14,8 @@ public class CourseRunService(
     IModuleRepository modules,
     IGroupRepository groups,
     IPermissions permissions,
+    ICurrentUser currentUser,
+    ICurrentSchool currentSchool,
     CourseCopyService copyService,
     IUnitOfWork unitOfWork)
 {
@@ -21,13 +23,14 @@ public class CourseRunService(
         Guid sourceCourseId, CreateCourseRunDto dto, CancellationToken ct)
     {
         var source = await courses.GetAsync(sourceCourseId, ct);
-        if (source is null)
+        if (source is null || !await currentSchool.OwnsAsync(source.SchoolId, ct))
         {
             return ServiceResult<CourseRunResultDto>.NotFound("course not found");
         }
 
-        // Admin från vilken kurs som helst, lärare bara från en kurs hen undervisar i.
-        if (!await permissions.CanTeachCourseAsync(sourceCourseId, ct))
+        // Admin från vilken kurs som helst i skolan, lärare bara från en kurs hen undervisar i.
+        var isAdmin = await permissions.IsAdminAsync(ct);
+        if (!isAdmin && !await permissions.CanTeachCourseAsync(sourceCourseId, ct))
         {
             return ServiceResult<CourseRunResultDto>.Forbidden();
         }
@@ -62,6 +65,12 @@ public class CourseRunService(
         if (group.Type != GroupType.Class)
         {
             return ServiceResult<CourseRunResultDto>.Invalid("the group must be a class");
+        }
+
+        // En lärare lägger omgången bara i en klass som läser en kurs hen undervisar i.
+        if (!isAdmin && !await groups.TeachesCourseOfGroupAsync(group.Id, currentUser.UserId, ct))
+        {
+            return ServiceResult<CourseRunResultDto>.Forbidden();
         }
 
         if (await courses.CodeExistsAsync(source.SchoolId, code, ct))

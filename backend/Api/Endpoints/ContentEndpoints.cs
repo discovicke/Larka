@@ -102,12 +102,12 @@ public static class ContentEndpoints
         // --- flöden: ?type=news|theory|assignment ---
         app.MapGet("/groups/{id:guid}/content",
                 async (Guid id, string? type, ContentService service, CancellationToken ct) =>
-                    TypedResults.Ok(await service.GetGroupFeedAsync(id, type, ct)))
+                    (await service.GetGroupFeedAsync(id, type, ct)).ToHttp(TypedResults.Ok))
             .WithTags("Content");
 
         app.MapGet("/courses/{id:guid}/content",
                 async (Guid id, string? type, ContentService service, CancellationToken ct) =>
-                    TypedResults.Ok(await service.GetCourseFeedAsync(id, type, ct)))
+                    (await service.GetCourseFeedAsync(id, type, ct)).ToHttp(TypedResults.Ok))
             .WithTags("Content");
 
         return app;

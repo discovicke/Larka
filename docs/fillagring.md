@@ -11,7 +11,7 @@ Uppladdning sker med `multipart/form-data`:
 
 Högst 20 MB per fil, 10 filer och 50 MB per anrop, och bara filtyper som finns i `FileUploadPolicy` (pdf, bilder, txt, md, Office-filer och zip). Typen sätts från filändelsen, inte från vad klienten skickar.
 
-Eleven ser sina egna filer. Lärarna på kursen och admin ser alla inlämningars filer.
+Eleven ser sina egna filer. Lärarna på kursen ser alla inlämningars filer, och mentorn ser filerna för eleverna i sin klass. Admin ser dem inte, och en fil nås bara via en kortlivad länk som skapas när inlämningen läses.
 
 ## Inställningar
 

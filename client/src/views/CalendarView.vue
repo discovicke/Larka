@@ -98,7 +98,7 @@ function linkFor(item: Item): RouteLocationRaw | null {
   if (!item.courseId) {
     return null
   }
-  if (item.contentType === 'Assignment' && can('grade', item.courseId)) {
+  if (item.contentType === 'Assignment' && can('readSubmissions', item.courseId)) {
     return {name: 'assignment-submissions', params: {courseId: item.courseId, linkId: item.linkId}}
   }
   // Eleven (och läraren, som ignorerar ?del=) landar på delen själv.

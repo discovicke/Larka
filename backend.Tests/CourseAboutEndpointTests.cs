@@ -223,9 +223,9 @@ public class CourseAboutEndpointTests(TestWebApplicationFactory factory) : IClas
         var otherGroup = new Group { SchoolId = school.Id, Name = "Klass C", Term = "HT26" };
         db.Groups.AddRange(firstGroup, secondGroup, otherGroup);
 
-        var course = await TestData.AddCourseAsync(db, school.Id, firstGroup.Id);
+        var course = await TestData.AddCourseAsync(db, school.Id, firstGroup.Id, placeholderTeaches: false);
         db.GroupCourses.Add(new GroupCourse { GroupId = secondGroup.Id, CourseId = course.Id });
-        var otherCourse = await TestData.AddCourseAsync(db, school.Id, otherGroup.Id);
+        var otherCourse = await TestData.AddCourseAsync(db, school.Id, otherGroup.Id, placeholderTeaches: false);
 
         var anna = new User
         {
@@ -309,7 +309,7 @@ public class CourseAboutEndpointTests(TestWebApplicationFactory factory) : IClas
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
         // Adminen i testerna ser bara sin egen skola, så kursen ligger i den.
         var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
-        var course = await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId, group.Id);
+        var course = await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId, group.Id, placeholderTeaches: false);
         var teacher = await TestData.AddMemberAsync(db, group, GroupRole.Teacher, UserRole.Teacher);
         await TestData.AddCourseTeacherAsync(db, course, teacher);
         var student = await TestData.AddMemberAsync(db, group, GroupRole.Student, UserRole.Student);

@@ -39,6 +39,18 @@ public interface IGroupRepository
     /// <summary>Användaren är lärare i kursen (en rad i CourseTeachers).</summary>
     Task<bool> IsTeacherOfCourseAsync(Guid courseId, Guid userId, CancellationToken ct);
 
+    /// <summary>Användaren är lärare i minst en kurs, eller har lärarrollen i minst en grupp.</summary>
+    Task<bool> TeachesAnythingAsync(Guid userId, CancellationToken ct);
+
+    /// <summary>Eleverna i grupperna där användaren är mentor.</summary>
+    Task<HashSet<Guid>> GetMentoredStudentIdsAsync(Guid userId, CancellationToken ct);
+
+    /// <summary>Medlemskapen i skolans grupper, för adminöversikten.</summary>
+    Task<List<Enrollment>> GetEnrollmentsForSchoolAsync(Guid schoolId, CancellationToken ct);
+
+    /// <summary>Vilka kurser skolans grupper läser, för adminöversikten.</summary>
+    Task<List<GroupCourse>> GetGroupCoursesForSchoolAsync(Guid schoolId, CancellationToken ct);
+
     /// <summary>Användaren är lärare i en kurs som gruppen läser.</summary>
     Task<bool> TeachesCourseOfGroupAsync(Guid groupId, Guid userId, CancellationToken ct);
 

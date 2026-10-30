@@ -26,6 +26,9 @@ type Deadline = Schema<'TeachingDeadlineDto'>
 type Scheduled = Schema<'TeachingScheduledDto'>
 type Course = Schema<'TeachingCourseDto'>
 
+// Embedded: en admin som också undervisar ser lärarens delar under adminens översikt, utan egen rubrik.
+defineProps<{embedded?: boolean}>()
+
 const now = new Date()
 const {me} = useCurrentUser()
 const {setGradingCount} = useGradingCount()
@@ -138,7 +141,7 @@ load()
     class="flex flex-col gap-5 max-md:-mt-3 max-md:-mb-10 md:gap-6"
     data-test="teacher-dashboard"
   >
-    <div class="flex flex-col gap-0.5 md:gap-1">
+    <div v-if="!embedded" class="flex flex-col gap-0.5 md:gap-1">
       <h1 class="hidden text-[30px] leading-[1.15] md:block">
         {{ greeting(now) }}<template v-if="name">, {{ name }}</template>
       </h1>

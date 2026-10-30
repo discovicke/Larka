@@ -211,8 +211,8 @@ public class TodayEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
         var school = await TestData.AddSchoolAsync(db);
-        var group = await TestData.AddGroupAsync(db, school.Id);
-        var otherGroup = await TestData.AddGroupAsync(db, school.Id);
+        var group = await TestData.AddGroupAsync(db, school.Id, placeholderTeaches: true);
+        var otherGroup = await TestData.AddGroupAsync(db, school.Id, placeholderTeaches: true);
         var course = await TestData.AddCourseAsync(db, school.Id, group.Id);
         var otherCourse = await TestData.AddCourseAsync(db, school.Id, otherGroup.Id);
         var student = await TestData.AddMemberAsync(db, group);

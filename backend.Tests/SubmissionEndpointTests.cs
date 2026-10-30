@@ -624,7 +624,7 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     {
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
-        var group = await TestData.AddGroupAsync(db);
+        var group = await TestData.AddGroupAsync(db, placeholderTeaches: true);
         for (var i = 0; i < students; i++)
         {
             await TestData.AddMemberAsync(db, group);

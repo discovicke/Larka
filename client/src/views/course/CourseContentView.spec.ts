@@ -2,7 +2,7 @@ import {flushPromises} from '@vue/test-utils'
 import {describe, expect, it} from 'vitest'
 
 import {mockApi, requests, sent} from '@/test/mockApi'
-import {meAs} from '@/test/me'
+import {mentorAs, meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
 // Eleverna får elevvyn på samma sida. Den skrivskyddade listan visas för mentorer, som kan läsa kursen men inte ändra den.
@@ -295,6 +295,60 @@ describe('CourseContentView', () => {
 
     expect(wrapper.text()).toContain('Release-pipeline')
     expect(wrapper.text()).not.toContain('inlämnade')
+  })
+
+  it('en mentor får en länk till inlämningarna, men bara för uppgifter med inlämning', async () => {
+    mockApi((_method, path) => {
+      if (path === '/api/me') {
+        return {status: 200, body: mentorAs(['c1'])}
+      }
+      if (path === '/api/courses') {
+        return {status: 200, body: [course]}
+      }
+      if (path === '/api/courses/c1/modules') {
+        const handIn = {...submission, completionRule: 'Submitted'}
+        return {status: 200, body: [week('m1', 'Vecka 1', [handIn, draft])]}
+      }
+      return {status: 200, body: []}
+    })
+
+    const {wrapper} = await renderApp('/courses/c1/content')
+
+    const items = wrapper.findAll('[data-test="module-item"]')
+    expect(items[0]!.find('[data-test="submissions-link"]').attributes('href')).toBe('/courses/c1/assignments/l1')
+    expect(items[1]!.find('[data-test="submissions-link"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="add-module"]').exists()).toBe(false)
+    expect(wrapper.find('[aria-label="Fler val för Release-pipeline"]').exists()).toBe(false)
+  })
+
+  it('admin läser kursen, med utkast, men utan redigera, publicera eller bedöma', async () => {
+    mockApi((_method, path) => {
+      if (path === '/api/me') {
+        return {status: 200, body: meAs('Admin', [])}
+      }
+      if (path === '/api/courses') {
+        return {status: 200, body: [course]}
+      }
+      if (path === '/api/courses/c1/modules') {
+        const handIn = {...submission, completionRule: 'Submitted'}
+        return {status: 200, body: [week('m1', 'Vecka 1', [handIn, draft])]}
+      }
+      return {status: 200, body: []}
+    })
+
+    const {wrapper} = await renderApp('/courses/c1/content')
+
+    const items = wrapper.findAll('[data-test="module-item"]').map((item) => item.text())
+    expect(items[0]).toContain('Release-pipeline')
+    expect(items[1]).toContain('Changelog')
+    expect(items[1]).toContain('Utkast')
+    expect(wrapper.find('[data-test="add-module"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="add-part-menu"]').exists()).toBe(false)
+    expect(wrapper.find('[aria-label="Fler val för veckan"]').exists()).toBe(false)
+    expect(wrapper.find('[aria-label="Fler val för Release-pipeline"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="submissions-link"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="submission-count"]').exists()).toBe(false)
+    expect(wrapper.find('a[href="/courses/c1/modules/m1/content/l1/edit"]').exists()).toBe(false)
   })
 
   it('en lärare ser knapparna som skapar veckor och delar', async () => {

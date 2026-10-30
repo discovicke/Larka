@@ -28,7 +28,7 @@ const open = defineModel<boolean>('open', {required: true})
 
 const router = useRouter()
 const {loadCourses, setPendingNotice} = useCourses()
-const {refreshMe} = useCurrentUser()
+const {me, can, refreshMe} = useCurrentUser()
 
 const code = ref('')
 const groupId = ref('')
@@ -68,8 +68,21 @@ watch(open, async (isOpen) => {
       api.GET('/api/courses/{id}/modules', {params: {path: {id: props.course.id}}}),
     ])
     // Bara klasser i kursens skola kan läsa kursen.
-    classes.value = (groups.data ?? []).filter((group) => group.type === 'Class'
+    const inSchool = (groups.data ?? []).filter((group) => group.type === 'Class'
       && group.schoolId === props.course.schoolId)
+    // Admin får välja vilken klass som helst. En lärare bara klasser som läser en kurs hen undervisar i.
+    if (can('manageCourse')) {
+      classes.value = inSchool
+    } else {
+      const taught = new Set((me.value?.courses ?? [])
+        .filter((role) => role.role === 'Teacher')
+        .map((role) => role.courseId))
+      const reads = await Promise.all(inSchool.map(async (group) => {
+        const result = await api.GET('/api/groups/{id}/courses', {params: {path: {id: group.id}}})
+        return (result.data ?? []).some((course) => taught.has(course.id))
+      }))
+      classes.value = inSchool.filter((_group, index) => reads[index])
+    }
     weeks.value = modules.data ?? []
   } catch (exception) {
     error.value = errorMessage(exception)

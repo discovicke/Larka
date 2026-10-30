@@ -1,9 +1,10 @@
 import {describe, expect, it} from 'vitest'
 
 import type {Me} from './me'
-import {canDo, isStudentEverywhere, type Action} from './permissions'
+import {actions, canDo, isMentorOnly, isStudentEverywhere, teachesAnywhere, type Action} from './permissions'
 
-const allActions: Action[] = ['editContent', 'editCourse', 'grade', 'publishNews', 'manageAttachments', 'admin']
+const teacherActions: Action[] = ['editContent', 'editCourse', 'grade', 'publishNews', 'manageAttachments']
+const adminActions: Action[] = ['admin', 'manageCourse']
 
 function user(role: Me['role'], courses: Me['courses']): Me {
   return {
@@ -19,49 +20,78 @@ function user(role: Me['role'], courses: Me['courses']): Me {
   }
 }
 
-const admin = user('Admin', [{courseId: 'a', role: 'Teacher'}])
+// /api/me ger en admin inga kursroller av sig själv. Roller kommer av CourseTeacher och klasserna.
+const admin = user('Admin', [])
+const adminWhoTeachesA = user('Admin', [{courseId: 'a', role: 'Teacher'}])
 const teacherOfA = user('Teacher', [{courseId: 'a', role: 'Teacher'}])
 const student = user('Student', [{courseId: 'a', role: 'Student'}])
-const mentor = user('Student', [{courseId: 'a', role: 'Mentor'}])
+// Seedade mentorer har den globala rollen Teacher, men bara mentorrollen i klassens kurser.
+const mentor = user('Teacher', [{courseId: 'a', role: 'Mentor'}])
 
 describe('canDo', () => {
-  it('admin får allt, både med och utan kurs', () => {
-    for (const action of allActions) {
+  it('admin får administrera och ändra kursens fakta, i alla kurser', () => {
+    for (const action of adminActions) {
       expect(canDo(admin, action)).toBe(true)
       expect(canDo(admin, action, 'a')).toBe(true)
       expect(canDo(admin, action, 'annan-kurs')).toBe(true)
     }
   })
 
-  it('lärare i kurs A får ändra A men inte B', () => {
-    expect(canDo(teacherOfA, 'editContent', 'a')).toBe(true)
-    expect(canDo(teacherOfA, 'grade', 'a')).toBe(true)
-    expect(canDo(teacherOfA, 'publishNews', 'a')).toBe(true)
-    expect(canDo(teacherOfA, 'manageAttachments', 'a')).toBe(true)
-
-    expect(canDo(teacherOfA, 'editContent', 'b')).toBe(false)
-    expect(canDo(teacherOfA, 'grade', 'b')).toBe(false)
+  it('admin har ingen genväg in i undervisningen', () => {
+    for (const action of [...teacherActions, 'readSubmissions' as const]) {
+      expect(canDo(admin, action)).toBe(false)
+      expect(canDo(admin, action, 'a')).toBe(false)
+    }
   })
 
-  it('lärare utan kurs får bedöma men inte administrera', () => {
+  it('admin som också undervisar får lärarrätt bara i den kursen', () => {
+    for (const action of teacherActions) {
+      expect(canDo(adminWhoTeachesA, action, 'a')).toBe(true)
+      expect(canDo(adminWhoTeachesA, action, 'b')).toBe(false)
+    }
+    expect(canDo(adminWhoTeachesA, 'grade')).toBe(true)
+    expect(canDo(adminWhoTeachesA, 'manageCourse', 'b')).toBe(true)
+  })
+
+  it('lärare i kurs A får ändra A men inte B', () => {
+    for (const action of teacherActions) {
+      expect(canDo(teacherOfA, action, 'a')).toBe(true)
+      expect(canDo(teacherOfA, action, 'b')).toBe(false)
+    }
+  })
+
+  it('lärare får bedöma utan kurs, men inte administrera eller ändra kursens fakta', () => {
     expect(canDo(teacherOfA, 'grade')).toBe(true)
-    expect(canDo(teacherOfA, 'admin')).toBe(false)
+    for (const action of adminActions) {
+      expect(canDo(teacherOfA, action)).toBe(false)
+      expect(canDo(teacherOfA, action, 'a')).toBe(false)
+    }
   })
 
   it('elev får inget, varken i kursen eller utan', () => {
-    for (const action of allActions) {
+    for (const action of actions) {
       expect(canDo(student, action, 'a')).toBe(false)
       expect(canDo(student, action)).toBe(false)
     }
   })
 
-  it('mentor räknas inte som lärare i kursen', () => {
-    expect(canDo(mentor, 'editContent', 'a')).toBe(false)
-    expect(canDo(mentor, 'grade', 'a')).toBe(false)
+  it('mentor får läsa inlämningar i klassens kurs men inte bedöma, trots rollen Teacher i skolan', () => {
+    expect(canDo(mentor, 'readSubmissions', 'a')).toBe(true)
+    expect(canDo(mentor, 'readSubmissions')).toBe(true)
+    expect(canDo(mentor, 'readSubmissions', 'b')).toBe(false)
+    for (const action of [...teacherActions, ...adminActions]) {
+      expect(canDo(mentor, action, 'a')).toBe(false)
+      expect(canDo(mentor, action)).toBe(false)
+    }
+  })
+
+  it('läraren får läsa inlämningar i sin kurs', () => {
+    expect(canDo(teacherOfA, 'readSubmissions', 'a')).toBe(true)
+    expect(canDo(teacherOfA, 'readSubmissions', 'b')).toBe(false)
   })
 
   it('nekas allt medan användaren inte är hämtad', () => {
-    for (const action of allActions) {
+    for (const action of actions) {
       expect(canDo(null, action)).toBe(false)
       expect(canDo(null, action, 'a')).toBe(false)
     }
@@ -69,11 +99,34 @@ describe('canDo', () => {
 })
 
 describe('isStudentEverywhere', () => {
-  it('är sant bara för den som inte har någon lärarroll', () => {
+  it('är sant för den som varken är admin eller lärare i någon kurs', () => {
     expect(isStudentEverywhere(student)).toBe(true)
     expect(isStudentEverywhere(mentor)).toBe(true)
+    expect(isStudentEverywhere(user('Teacher', []))).toBe(true)
     expect(isStudentEverywhere(teacherOfA)).toBe(false)
     expect(isStudentEverywhere(admin)).toBe(false)
+    expect(isStudentEverywhere(adminWhoTeachesA)).toBe(false)
     expect(isStudentEverywhere(null)).toBe(false)
+  })
+})
+
+describe('teachesAnywhere', () => {
+  it('följer lärarrollen i en kurs, inte den globala rollen', () => {
+    expect(teachesAnywhere(teacherOfA)).toBe(true)
+    expect(teachesAnywhere(adminWhoTeachesA)).toBe(true)
+    expect(teachesAnywhere(admin)).toBe(false)
+    expect(teachesAnywhere(mentor)).toBe(false)
+    expect(teachesAnywhere(user('Teacher', []))).toBe(false)
+    expect(teachesAnywhere(null)).toBe(false)
+  })
+})
+
+describe('isMentorOnly', () => {
+  it('är sant för den som bara är mentor', () => {
+    expect(isMentorOnly(mentor)).toBe(true)
+    expect(isMentorOnly(student)).toBe(false)
+    expect(isMentorOnly(teacherOfA)).toBe(false)
+    expect(isMentorOnly(admin)).toBe(false)
+    expect(isMentorOnly(null)).toBe(false)
   })
 })

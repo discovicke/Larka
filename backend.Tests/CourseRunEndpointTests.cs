@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Backend.Domain.Entities;
 using Backend.Domain.Enums;
 using Backend.Infrastructure.Persistence;
+using Backend.Infrastructure.Persistence.Configurations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -24,7 +25,9 @@ public class CourseRunEndpointTests(TestWebApplicationFactory factory) : IClassF
         Guid ClassTeacherId,
         Guid StudentId,
         Guid NewGroupId,
-        Guid SourceAssignmentLink);
+        Guid SourceAssignmentLink,
+        Guid OldGroupId,
+        string RunCode);
 
     private static readonly DateTimeOffset _due = new(2026, 2, 10, 12, 0, 0, TimeSpan.Zero);
 
@@ -40,7 +43,7 @@ public class CourseRunEndpointTests(TestWebApplicationFactory factory) : IClassF
         await using var db = OpenDb();
         var course = await db.Courses.SingleAsync(found => found.Id == run.CourseId);
         Assert.Equal(
-            ("Källkurs", "NET26-DEVOPS", "Beskrivning", 25),
+            ("Källkurs", scenario.RunCode, "Beskrivning", 25),
             (course.Title, course.Code, course.Description, course.Points));
         Assert.Equal(scenario.SchoolId, course.SchoolId);
         Assert.Equal(new DateOnly(2027, 1, 4), course.StartsOn);
@@ -52,7 +55,8 @@ public class CourseRunEndpointTests(TestWebApplicationFactory factory) : IClassF
     {
         var scenario = await AddScenarioAsync();
 
-        var response = await RunAsync(scenario, scenario.TeacherId);
+        // Läraren lägger omgången i en klass som läser en kurs hen undervisar i.
+        var response = await RunAsync(scenario, scenario.TeacherId, groupId: scenario.OldGroupId);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var run = (await response.Content.ReadFromJsonAsync<RunResponse>())!;
@@ -83,7 +87,36 @@ public class CourseRunEndpointTests(TestWebApplicationFactory factory) : IClassF
 
         await using var check = OpenDb();
         Assert.False(await check.Courses.AnyAsync(
-            course => course.SchoolId == scenario.SchoolId && course.Code == "NET26-DEVOPS"));
+            course => course.SchoolId == scenario.SchoolId && course.Code == scenario.RunCode));
+    }
+
+    [Fact]
+    public async Task Run_AsTeacher_IntoAClassThatReadsNoCourseTheyTeach_IsForbidden_AndCreatesNothing()
+    {
+        var scenario = await AddScenarioAsync();
+
+        var response = await RunAsync(scenario, scenario.TeacherId);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        await using var db = OpenDb();
+        Assert.False(await db.Courses.AnyAsync(
+            course => course.SchoolId == scenario.SchoolId && course.Code == scenario.RunCode));
+        Assert.False(await db.GroupCourses.AnyAsync(groupCourse => groupCourse.GroupId == scenario.NewGroupId));
+    }
+
+    [Fact]
+    public async Task Run_AsAdminOfAnotherSchool_ReturnsNotFound()
+    {
+        var scenario = await AddScenarioAsync();
+        Guid otherAdminId;
+        await using (var db = OpenDb())
+        {
+            otherAdminId = (await TestData.AddUserAsync(db, role: UserRole.Admin)).Id;
+        }
+
+        var response = await RunAsync(scenario, otherAdminId);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Fact]
@@ -107,7 +140,7 @@ public class CourseRunEndpointTests(TestWebApplicationFactory factory) : IClassF
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.False(await db.Courses.AnyAsync(
-            course => course.SchoolId == scenario.SchoolId && course.Code == "NET26-DEVOPS"));
+            course => course.SchoolId == scenario.SchoolId && course.Code == scenario.RunCode));
         Assert.False(await db.GroupCourses.AnyAsync(groupCourse => groupCourse.GroupId == foreign.Id));
     }
 
@@ -175,7 +208,6 @@ public class CourseRunEndpointTests(TestWebApplicationFactory factory) : IClassF
             .ToListAsync());
         Assert.True(await db.CourseTeachers.AnyAsync(courseTeacher =>
             courseTeacher.CourseId == scenario.CourseId && courseTeacher.UserId == scenario.TeacherId));
-        // Kursen ligger i en annan skola än adminen, så läraren hämtar listan.
         var request = new HttpRequestMessage(HttpMethod.Get, $"/api/courses/{run.CourseId}/staff");
         request.Headers.Add(TestAuthHandler.Header, scenario.TeacherId.ToString());
         var staffResponse = await _client.SendAsync(request);
@@ -273,12 +305,19 @@ public class CourseRunEndpointTests(TestWebApplicationFactory factory) : IClassF
     }
 
     private static object Body(
-        Scenario scenario, string code = "NET26-DEVOPS", Guid? groupId = null, string startsOn = "2027-01-04",
+        Scenario scenario, string? code = null, Guid? groupId = null, string startsOn = "2027-01-04",
         string endsOn = "2027-03-01", bool copyContent = true) =>
-        new { code, groupId = groupId ?? scenario.NewGroupId, startsOn, endsOn, copyContent };
+        new
+        {
+            code = code ?? scenario.RunCode,
+            groupId = groupId ?? scenario.NewGroupId,
+            startsOn,
+            endsOn,
+            copyContent
+        };
 
     private Task<HttpResponseMessage> RunAsync(
-        Scenario scenario, Guid asUser, string code = "NET26-DEVOPS", Guid? groupId = null,
+        Scenario scenario, Guid asUser, string? code = null, Guid? groupId = null,
         string startsOn = "2027-01-04", string endsOn = "2027-03-01", bool copyContent = true) =>
         SendAsync(HttpMethod.Post, $"/api/courses/{scenario.CourseId}/runs", asUser,
             Body(scenario, code, groupId, startsOn, endsOn, copyContent));
@@ -300,13 +339,14 @@ public class CourseRunEndpointTests(TestWebApplicationFactory factory) : IClassF
     private async Task<Scenario> AddScenarioAsync()
     {
         await using var db = OpenDb();
-        var school = await TestData.AddSchoolAsync(db);
+        // Admin ser bara sin egen skola. Admin är inte lärare i källkursen, så admin kan inte undervisa i den.
+        var school = await db.Schools.SingleAsync(found => found.Id == PlaceholderIds.SchoolId);
         var oldGroup = await TestData.AddGroupAsync(db, school.Id);
         var newGroup = await TestData.AddGroupAsync(db, school.Id);
         var teacher = await TestData.AddUserAsync(db, school.Id, UserRole.Teacher);
         var classTeacher = await TestData.AddMemberAsync(db, oldGroup, GroupRole.Teacher, UserRole.Teacher);
         var student = await TestData.AddMemberAsync(db, oldGroup);
-        var course = await TestData.AddCourseAsync(db, school.Id, oldGroup.Id);
+        var course = await TestData.AddCourseAsync(db, school.Id, oldGroup.Id, placeholderTeaches: false);
         await TestData.AddCourseTeacherAsync(db, course, teacher);
         course.Title = "Källkurs";
         course.Description = "Beskrivning";
@@ -368,6 +408,7 @@ public class CourseRunEndpointTests(TestWebApplicationFactory factory) : IClassF
         db.PartCompletions.Add(new PartCompletion { ContentLinkId = theoryLink.Id, StudentId = student.Id });
         await db.SaveChangesAsync();
         return new Scenario(
-            school.Id, course.Id, teacher.Id, classTeacher.Id, student.Id, newGroup.Id, assignmentLink.Id);
+            school.Id, course.Id, teacher.Id, classTeacher.Id, student.Id, newGroup.Id, assignmentLink.Id, oldGroup.Id,
+            $"RUN-{Guid.NewGuid():N}"[..12]);
     }
 }

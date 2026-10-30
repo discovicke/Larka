@@ -2,7 +2,7 @@ import {flushPromises} from '@vue/test-utils'
 import {describe, expect, it, vi} from 'vitest'
 
 import {mockApi, requests} from '@/test/mockApi'
-import {meAs} from '@/test/me'
+import {mentorAs, meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
 const course = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps'}
@@ -86,7 +86,7 @@ const needsWork = makeSubmission('s3', 'u3', 'NeedsWork', {submittedAt: '2026-10
 const notStarted = makeSubmission('s4', 'u4', 'NotStarted')
 const roster = [notStarted, graded, needsWork, submitted]
 
-function backend(options: {submissions?: unknown[], fail?: boolean} = {}) {
+function backend(options: {submissions?: unknown[], fail?: boolean, me?: ReturnType<typeof meAs>} = {}) {
   mockApi((method, path) => {
     if (method === 'POST' && path === '/api/links/l1/repos/refresh') {
       return {status: 204}
@@ -98,7 +98,7 @@ function backend(options: {submissions?: unknown[], fail?: boolean} = {}) {
       return {status: 204}
     }
     if (path === '/api/me') {
-      return {status: 200, body: meAs('Teacher', ['c1'])}
+      return {status: 200, body: options.me ?? meAs('Teacher', ['c1'])}
     }
     if (path === '/api/courses') {
       return {status: 200, body: [course]}
@@ -131,6 +131,29 @@ function rowNames(wrapper: Awaited<ReturnType<typeof renderApp>>['wrapper']): st
 }
 
 describe('SubmissionsView', () => {
+  it('mentorn läser listan och får Visa i stället för Bedöm', async () => {
+    backend({me: mentorAs(['c1'])})
+
+    const {wrapper} = await renderApp('/courses/c1/assignments/l1')
+
+    expect(rowNames(wrapper)).toContain('Bo Berg')
+    const row = wrapper.findAll('[data-test="submission-row"]')
+      .find((candidate) => candidate.text().includes('Bo Berg'))!
+    expect(text(row.find('a'))).toBe('Visa')
+    const actions = wrapper.findAll('[data-test="submission-row"] a').map(text)
+    expect(actions).not.toContain('Bedöm')
+  })
+
+  it('läraren får Bedöm', async () => {
+    backend()
+
+    const {wrapper} = await renderApp('/courses/c1/assignments/l1')
+
+    const row = wrapper.findAll('[data-test="submission-row"]')
+      .find((candidate) => candidate.text().includes('Bo Berg'))!
+    expect(text(row.find('a'))).toBe('Bedöm')
+  })
+
   it('visar uppgiften, veckan, betygsskalan och antalet elever', async () => {
     backend()
 

@@ -1,11 +1,14 @@
 using Backend.Application.Abstractions;
 using Backend.Infrastructure.Labs;
+using Backend.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 
 namespace backend.Tests;
 
@@ -76,6 +79,24 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
             services.RemoveAll<ICurrentUser>();
             services.AddScoped<ICurrentUser, TestCurrentUser>();
         });
+    }
+
+    // Testernas standardanvändare är placeholder-admin. Admin undervisar inte av sig själv, och bara den som
+    // undervisar får skapa innehåll, så placeholder står som lärare i en kurs i en annan skola. Där syns den inte i
+    // placeholder-skolans listor. Kurser som testerna skapar får placeholder som lärare via TestData.AddCourseAsync.
+    protected override IHost CreateHost(IHostBuilder builder)
+    {
+        var host = base.CreateHost(builder);
+        // Demodatans test räknar kurserna i skolan, så där lämnas databasen som seeden gjorde den.
+        var seedsDemoData = host.Services.GetRequiredService<IConfiguration>()["Database:SeedDemoData"] == "true";
+        if (UseTestAuthentication && !seedsDemoData)
+        {
+            using var scope = host.Services.CreateScope();
+            TestData.EnsurePlaceholderTeachesAsync(scope.ServiceProvider.GetRequiredService<AppDb>())
+                .GetAwaiter().GetResult();
+        }
+
+        return host;
     }
 
     protected override void Dispose(bool disposing)

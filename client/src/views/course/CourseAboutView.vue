@@ -34,8 +34,10 @@ const {findCourse, updateCourse, removeCourse} = useCourses()
 const {can} = useCurrentUser()
 
 const course = computed(() => findCourse(courseId.value))
-const canEdit = computed(() => can('editCourse', courseId.value))
-const canDelete = computed(() => can('admin'))
+// Beskrivningen är lärarens text. Admin ändrar kursens fakta (titel, datum, poäng) och tar bort kursen.
+const canEditDescription = computed(() => can('editCourse', courseId.value))
+const canDelete = computed(() => can('manageCourse'))
+const canEdit = computed(() => canEditDescription.value || canDelete.value)
 const deleteOpen = ref(false)
 
 // Kursen finns inte längre, så sidan lämnas för listan där den skapades.
@@ -268,7 +270,11 @@ watch(() => route.name, scrollToStaff)
         <form class="flex flex-col gap-4" @submit.prevent="save">
           <DialogHeader>
             <DialogTitle>Redigera kursen</DialogTitle>
-            <DialogDescription>Ändringarna syns på fliken Om kursen.</DialogDescription>
+            <DialogDescription>
+              {{ canEditDescription
+                ? 'Ändringarna syns på fliken Om kursen.'
+                : 'Beskrivningen är lärarens och ändras inte här.' }}
+            </DialogDescription>
           </DialogHeader>
 
           <FieldGroup>
@@ -277,7 +283,7 @@ watch(() => route.name, scrollToStaff)
               <Input id="course-edit-title" v-model="form.title" required/>
               <p v-if="titleMissing" class="text-destructive text-sm">Skriv en rubrik.</p>
             </Field>
-            <Field>
+            <Field v-if="canEditDescription">
               <FieldLabel for="course-edit-description">Beskrivning</FieldLabel>
               <MarkdownEditor
                 id="course-edit-description"

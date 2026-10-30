@@ -13,6 +13,7 @@ import {Button} from '@/components/ui/button'
 import {Skeleton} from '@/components/ui/skeleton'
 import {Textarea} from '@/components/ui/textarea'
 import {useCrumbLabels} from '@/composables/useCrumbLabels'
+import {useCurrentUser} from '@/composables/useCurrentUser'
 import {api, type Schema} from '@/lib/api'
 import {formatDate} from '@/lib/content'
 import {initials} from '@/lib/news'
@@ -24,6 +25,9 @@ const router = useRouter()
 const courseId = computed(() => String(route.params.courseId))
 const linkId = computed(() => String(route.params.linkId))
 const submissionId = computed(() => String(route.params.submissionId))
+// Mentorn läser inlämningen och betyget men bedömer inte.
+const {can} = useCurrentUser()
+const canGrade = computed(() => can('grade', courseId.value))
 
 const submission = ref<Schema<'SubmissionDto'> | null>(null)
 const assignment = ref<Schema<'ModuleContentItem'> | null>(null)
@@ -233,7 +237,7 @@ watch([courseId, linkId, submissionId], () => {
         <section class="flex flex-col gap-2">
           <h2 class="text-sm font-semibold">Betyg</h2>
           <div
-            v-if="hasGrades"
+            v-if="hasGrades && canGrade"
             role="radiogroup"
             class="grid gap-2"
             :class="levels.length === 3
@@ -261,10 +265,15 @@ watch([courseId, linkId, submissionId], () => {
               >{{ gradeName(option) }}</span>
             </button>
           </div>
+          <p v-else-if="hasGrades" class="text-sm" data-test="read-only-grade">
+            {{ level
+              ? `${gradeLabel(level)} · ${gradeName(level)}`
+              : 'Inte bedömd än.' }}
+          </p>
           <p v-else class="text-muted-foreground text-sm">Uppgiften har inget betyg, bara återkoppling.</p>
         </section>
 
-        <div class="flex flex-col gap-2">
+        <div v-if="canGrade" class="flex flex-col gap-2">
           <label for="feedback" class="font-heading text-sm font-semibold">Sammanfattande kommentar</label>
           <Textarea
             id="feedback"
@@ -275,6 +284,11 @@ watch([courseId, linkId, submissionId], () => {
           />
         </div>
 
+        <section v-else-if="feedback" class="flex flex-col gap-2">
+          <h2 class="text-sm font-semibold">Kommentar</h2>
+          <p class="text-sm whitespace-pre-line">{{ feedback }}</p>
+        </section>
+
         <p v-if="formError" class="text-destructive text-[13px]">{{ formError }}</p>
 
         <Alert v-if="saveError" variant="destructive">
@@ -283,19 +297,21 @@ watch([courseId, linkId, submissionId], () => {
 
         <div class="mt-auto flex flex-col gap-2">
           <p v-if="gradedAt" class="text-muted-foreground text-xs">Bedömd {{ gradedAt }}</p>
-          <p class="text-muted-foreground flex items-center gap-1.5 text-xs">
-            <PhInfo class="size-3.5"/>
-            Eleven ser betyget och kommentaren direkt.
-          </p>
-          <Button class="w-full" :disabled="saving" @click="publish">Publicera bedömning</Button>
-          <Button
-            variant="outline"
-            class="w-full"
-            :disabled="saving"
-            @click="requestWork"
-          >
-            Begär komplettering
-          </Button>
+          <template v-if="canGrade">
+            <p class="text-muted-foreground flex items-center gap-1.5 text-xs">
+              <PhInfo class="size-3.5"/>
+              Eleven ser betyget och kommentaren direkt.
+            </p>
+            <Button class="w-full" :disabled="saving" @click="publish">Publicera bedömning</Button>
+            <Button
+              variant="outline"
+              class="w-full"
+              :disabled="saving"
+              @click="requestWork"
+            >
+              Begär komplettering
+            </Button>
+          </template>
         </div>
       </aside>
     </template>

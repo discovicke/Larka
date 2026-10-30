@@ -173,7 +173,8 @@ public class FileStorageTests(TestWebApplicationFactory factory) : IClassFixture
         Guid groupId;
         using (var scope = factory.Services.CreateScope())
         {
-            groupId = (await TestData.AddGroupAsync(scope.ServiceProvider.GetRequiredService<AppDb>())).Id;
+            groupId = (await TestData.AddGroupAsync(
+                scope.ServiceProvider.GetRequiredService<AppDb>(), placeholderTeaches: true)).Id;
         }
 
         var content = await _client.PostAsJsonAsync("/api/content", new

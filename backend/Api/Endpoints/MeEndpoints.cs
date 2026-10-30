@@ -33,6 +33,10 @@ public static class MeEndpoints
         app.MapGet("/me/teaching", async (TeachingService service, CancellationToken ct) =>
             TypedResults.Ok(await service.GetAsync(ct))).WithTags("Me");
 
+        // Adminens Idag-sida: skolans kurser per läge och det som saknar lärare, mentor eller lösenord. Bara admin.
+        app.MapGet("/me/admin-overview", async (AdminOverviewService service, CancellationToken ct) =>
+            (await service.GetAsync(ct)).ToHttp(TypedResults.Ok)).WithTags("Me");
+
         // Vilka notiser användaren inte vill ha i appen.
         app.MapGet("/me/notification-settings", async Task<Results<Ok<NotificationSettingsDto>, NotFound>> (
             MeService service, CancellationToken ct) =>

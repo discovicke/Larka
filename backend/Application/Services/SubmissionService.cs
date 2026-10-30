@@ -75,25 +75,45 @@ public class SubmissionService(
         submissions.AddRange(newSubmissions);
     }
 
-    // Bara eleven själv och lärarna på kursen får läsa en inlämning, och därmed dess filer. Övriga får null (404).
-    public async Task<SubmissionDto?> GetAsync(Guid id, CancellationToken ct)
+    // Eleven själv, lärarna på kursen och elevens mentor får läsa en inlämning, och därmed dess filer och betyg.
+    // Admin som inte är lärare på länken får 403, andra 404.
+    public async Task<ServiceResult<SubmissionDto>> GetAsync(Guid id, CancellationToken ct)
     {
         var submission = await submissions.GetAsync(id, ct);
-        if (submission is null || !await MayReadAsync(submission.ContentLinkId, submission.StudentId, ct))
+        if (submission is null)
         {
-            return null;
+            return ServiceResult<SubmissionDto>.NotFound("submission not found");
         }
 
-        return await ToDtoAsync(submission, ct);
+        if (submission.StudentId != currentUser.UserId
+            && !await MayReadAllAsync(submission.ContentLinkId, ct)
+            && !await permissions.IsMentorOfStudentAsync(submission.StudentId, ct))
+        {
+            return await permissions.IsAdminAsync(ct)
+                ? ServiceResult<SubmissionDto>.Forbidden()
+                : ServiceResult<SubmissionDto>.NotFound("submission not found");
+        }
+
+        return ServiceResult<SubmissionDto>.Ok(await ToDtoAsync(submission, ct));
     }
 
-    // Lärare och admin ser alla inlämningar på utdelningen. Eleven ser bara sin egen.
-    public async Task<List<SubmissionDto>> GetByLinkAsync(Guid linkId, CancellationToken ct)
+    // Lärarna ser alla inlämningar på utdelningen. Mentorn ser dem som tillhör elever i mentorns klass, och
+    // eleven bara sin egen. Admin som inte är lärare på länken får 403: inlämningar och betyg är lärarens.
+    public async Task<ServiceResult<List<SubmissionDto>>> GetByLinkAsync(Guid linkId, CancellationToken ct)
     {
         var linkSubmissions = await submissions.GetByLinkAsync(linkId, ct);
         if (!await MayReadAllAsync(linkId, ct))
         {
-            linkSubmissions = linkSubmissions.Where(submission => submission.StudentId == currentUser.UserId).ToList();
+            if (await permissions.IsAdminAsync(ct))
+            {
+                return ServiceResult<List<SubmissionDto>>.Forbidden();
+            }
+
+            var mentored = await groups.GetMentoredStudentIdsAsync(currentUser.UserId, ct);
+            linkSubmissions = linkSubmissions
+                .Where(submission => submission.StudentId == currentUser.UserId
+                    || mentored.Contains(submission.StudentId))
+                .ToList();
         }
 
         var names = await users.GetNamesAsync(linkSubmissions.Select(submission => submission.StudentId).ToList(), ct);
@@ -108,12 +128,10 @@ public class SubmissionService(
                 ct));
         }
 
-        return dtos;
+        return ServiceResult<List<SubmissionDto>>.Ok(dtos);
     }
 
-    private async Task<bool> MayReadAsync(Guid linkId, Guid studentId, CancellationToken ct) =>
-        studentId == currentUser.UserId || await MayReadAllAsync(linkId, ct);
-
+    // Att bedöma kräver att man är lärare på länken. Mentorn och admin får bara läsa.
     private async Task<bool> MayReadAllAsync(Guid linkId, CancellationToken ct) =>
         await permissions.CanTeachLinkAsync(linkId, ct);
 

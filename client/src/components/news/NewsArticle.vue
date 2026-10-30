@@ -39,7 +39,7 @@ const props = defineProps<{
   post: Schema<'ContentFeedItem'>
   links?: Schema<'ContentFeedItem'>[]
   targets?: string[]
-  // Kursen nyheten visas i. Gruppnyheter i inkorgen har ingen kurs, och då krävs admin.
+  // Kursen nyheten visas i. Gruppnyheter i inkorgen har ingen kurs, och då krävs en lärarroll.
   courseId?: string
 }>()
 
@@ -49,9 +49,7 @@ const emit = defineEmits<{
 }>()
 
 const {can} = useCurrentUser()
-const canPublish = computed(() => props.courseId
-  ? can('publishNews', props.courseId)
-  : can('admin'))
+const canPublish = computed(() => can('publishNews', props.courseId))
 
 // Nyheten kan vara publicerad i flera kurser och grupper; då ändras alla länkar samtidigt.
 const links = computed(() => props.links?.length

@@ -8,7 +8,7 @@ import {auth} from '@/lib/auth'
 import {createAppRouter} from '@/router'
 import {signOutForTests} from '@/test/auth'
 import {mockApi, requests} from '@/test/mockApi'
-import {meAs} from '@/test/me'
+import {mentorAs, meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
 async function render(path: string, router?: Router) {
@@ -216,6 +216,67 @@ describe('AppLayout', () => {
     expect(page.find('[data-test="user-menu"]').text()).toContain('Bo Elev')
     expect(page.find('[data-slot="sidebar"]').text()).toContain('Inkorg')
     expect(page.find('[data-slot="sidebar"]').text()).not.toContain('Att bedöma')
+  })
+
+  it('admin ser skolans kurser och inte Att bedöma, eftersom admin inte undervisar', async () => {
+    meBackend(meAs('Admin', [], 'Ada Admin'))
+
+    const page = await render('/')
+
+    const sidebar = page.find('[data-slot="sidebar"]')
+    expect(sidebar.text()).toContain('Skolans kurser')
+    expect(sidebar.text()).not.toContain('Mina kurser')
+    expect(sidebar.text()).toContain('DevOps')
+    expect(sidebar.text()).not.toContain('Att bedöma')
+  })
+
+  it('admin som också undervisar ser Att bedöma', async () => {
+    meBackend(meAs('Admin', ['c1'], 'Ada Admin'))
+
+    const page = await render('/')
+
+    expect(page.find('[data-slot="sidebar"]').text()).toContain('Att bedöma')
+  })
+
+  it('mentorn ser klassens kurser och inte Att bedöma, trots rollen Teacher i skolan', async () => {
+    meBackend(mentorAs(['c1']))
+
+    const page = await render('/')
+
+    const sidebar = page.find('[data-slot="sidebar"]')
+    expect(sidebar.text()).toContain('Klassens kurser')
+    expect(sidebar.text()).toContain('DevOps')
+    expect(sidebar.text()).not.toContain('Att bedöma')
+  })
+
+  it('läraren ser Mina kurser och Att bedöma', async () => {
+    const page = await render('/')
+
+    const sidebar = page.find('[data-slot="sidebar"]')
+    expect(sidebar.text()).toContain('Mina kurser')
+    expect(sidebar.text()).toContain('Att bedöma')
+  })
+
+  it.each([
+    ['/grading'],
+    ['/courses/c1/assignments/l1'],
+    ['/courses/c1/assignments/l1/submissions/s1'],
+  ])('admin som inte undervisar skickas från %s till Idag', async (path) => {
+    meBackend(meAs('Admin', [], 'Ada Admin'))
+
+    const {router} = await renderApp(path)
+
+    expect(router.currentRoute.value.name).toBe('today')
+  })
+
+  it('mentorn får läsa inlämningarna men inte öppna Att bedöma', async () => {
+    meBackend(mentorAs(['c1']))
+
+    const grading = await renderApp('/grading')
+    expect(grading.router.currentRoute.value.name).toBe('today')
+
+    const submissions = await renderApp('/courses/c1/assignments/l1')
+    expect(submissions.router.currentRoute.value.name).toBe('assignment-submissions')
   })
 
   it('användarmenyn har Logga ut', async () => {
