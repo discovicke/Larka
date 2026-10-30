@@ -44,3 +44,7 @@ Innan du pushar: `npm run format`, `dotnet test Larka.sln` och `npm --prefix cli
 | [Kodstil i C#](docs/code-style-csharp.md)                    | Våra egna analyzer-regler                                   |
 | [ER-modell](docs/er-diagram.md)                              | Datamodellen                                                |
 | [Design](docs/design.md)                                     | Mockupen och designbesluten                                 |
+| [Varumärke](docs/varumarke.md)                               | Namn, logo, ton, färg och typografi                         |
+| [UI-mönster](docs/ui-monster.md)                             | Återkommande lösningar i gränssnittet                       |
+| [Roller och flöden](docs/roller-och-floden.md)               | Vem som gör vad och skolans år                              |
+| [Designhistorik](docs/design-historik.md)                    | Källor och beslut som ersatte något                         |
