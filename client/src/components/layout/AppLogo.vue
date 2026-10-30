@@ -7,26 +7,20 @@ const props = defineProps<{class?: HTMLAttributes['class']}>()
 </script>
 
 <template>
-  <!-- Lärkas märke: ett ä på blyertsgul platta, ena pricken i lärarens rödpenna. Samma färger i båda teman. -->
+  <!-- Lärkas märke: ett kritvitt ä med blyertsgul linje under. Det står utan platta, eftersom ytorna i appen där det visas redan är tavlan. Samma färger i båda teman. -->
   <svg
-    viewBox="0 0 64 64"
+    viewBox="7 7 50 50"
     role="img"
     aria-label="Lärka"
     :class="cn('size-8 shrink-0', props.class)"
   >
-    <rect
-      width="64"
-      height="64"
-      rx="14"
-      fill="#f5c33b"
-    />
-    <g transform="translate(2.3 -2.6)">
+    <g transform="translate(32 31.6) scale(.9) translate(-29 -38.7)">
       <circle
         cx="29"
         cy="40"
         r="11.5"
         fill="none"
-        stroke="#1e3a32"
+        stroke="#e6ece6"
         stroke-width="7"
       />
       <rect
@@ -34,19 +28,27 @@ const props = defineProps<{class?: HTMLAttributes['class']}>()
         y="25"
         width="7"
         height="30"
-        fill="#1e3a32"
+        fill="#e6ece6"
       />
       <circle
         cx="23"
-        cy="15.5"
+        cy="17.6"
         r="4.2"
-        fill="#1e3a32"
+        fill="#e6ece6"
       />
       <circle
         cx="36"
-        cy="15.5"
+        cy="17.6"
         r="4.2"
-        fill="#d2483a"
+        fill="#e6ece6"
+      />
+      <rect
+        x="14"
+        y="59"
+        width="30"
+        height="5"
+        rx="1"
+        fill="#f5c33b"
       />
     </g>
   </svg>

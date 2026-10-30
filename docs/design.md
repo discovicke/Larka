@@ -23,7 +23,7 @@ Färg betyder något. Varje steg har sin egen token, och vi blandar dem inte:
 - **Snart:** `warning` (deadline inom 48 h, saknad inställning). Orange i mörkt läge så att den inte liknar primärgult.
 - **Allvarligt:** `destructive` (försenat, komplettera, IG/misslyckat, fel, radera).
 
-Logons röda prick (#D2483A) är bara varumärke och används aldrig för status.
+Logons gula linje är bara varumärke och används aldrig för status.
 
 Aktiv menypunkt i sidomenyn är "krita": kritvit fyllning med tavelgrön text i ljust läge, 14 % kritvit med vit text i mörkt. Hover och tryck är en svag ton av förgrundsfärgen, så att bara den aktuella sidan får krita.
 

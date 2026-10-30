@@ -15,6 +15,7 @@ Allt här kommer från de här dokumenten och från koden. Äldre dokument finns
 | [Learnpoint – nästa version](https://claude.ai/artifact/PPjCF4RnekzyfrvJrYF8LC) | Mockupen för sidornas layout och mått  | Gäller för layout      |
 | [Ny kursomgång flow](https://claude.ai/artifact/DxQ1BGjwkCSYmcKDYA9zBL)         | Flödet för en ny kursomgång            | Inbyggt i appen        |
 | [Lärka Review Sheet](https://claude.ai/artifact/78d7dtrDjt2WrvhTJLFK5r)         | Bildbevis för UI-ändringar             | Löpande                |
+| [Lärka Logo Concepts](https://claude.ai/artifact/3P8ktLp1nVeVuWiE4HeKGi)        | Logon, med blindtest av alternativen   | Inbyggt i appen        |
 | `docs/design.md`, `client/src/assets/index.css`                                 | Reglerna och tokens i repot            | Facit                  |
 
 ## Beslut som ersatte något
@@ -30,6 +31,8 @@ Allt här kommer från de här dokumenten och från koden. Äldre dokument finns
 | 30 okt | Komplettering är gul                        | Komplettera är röd                              | Eleven måste göra något nu.                          |
 | 30 okt | Klar när uppgiften är inlämnad              | Inlämnad tills den är bedömd                    | Klar ska betyda klar.                                |
 | 30 okt | Lärare hör till klassen                     | Lärare hör till kursen                          | Annars går det inte att skilja på en lärares kurser. |
+| 30 okt | Ä på gul platta med röd prick               | Kritvitt ä med gul linje på tavelgrön platta    | Röda pricken såg ut som ett underkänt prov.          |
+| 30 okt | Ordmärket sätts i Familjen Grotesk          | Egenritat ordmärke                              | Dess ä ska vara samma som i märket.                  |
 
 ## Avvikelser att känna till
 

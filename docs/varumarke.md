@@ -43,13 +43,13 @@ Använd alltid tokens. Hårdkodade Tailwind-färger som `emerald-500` eller `amb
 
 Vad varje färg betyder står under [Färg med avsikt](design.md#färg-med-avsikt) i design.md.
 
-Logons röda prick (`#d2483a`) är bara varumärke. Den betyder aldrig oläst, fel eller något annat i gränssnittet.
+Logons gula linje är bara varumärke. Den betyder aldrig något i gränssnittet. Marginalröd finns inte i logon, eftersom röd betyder fel.
 
 ## Typografi
 
 Appen använder presetets typsnitt: **Inter** för text och **Roboto** för rubriker, med vikt 600 och `tracking -0.01em` på rubriker. Brödtext i uppgifter och nyheter är högst 68 tecken bred.
 
-**Familjen Grotesk** är ordmärkets typsnitt och används bara utanför appen, som på presentationer. Atkinson Hyperlegible och IBM Plex Mono från det första brand kitet används inte.
+**Familjen Grotesk** används bara utanför appen, som på presentationer. Ordmärket är egenritat så att dess ä är samma som i märket, så sätt det aldrig i typsnittet. Atkinson Hyperlegible och IBM Plex Mono från det första brand kitet används inte.
 
 ## Form och avstånd
 
@@ -59,9 +59,20 @@ Inga vänsterkanter eller färgade insidor på rundade rader och kort. Det är e
 
 ## Logo
 
-Logon är ett geometriskt ä på en blyertsgul platta, där ena pricken har lärarens röda penna. Märket är samma i alla storlekar, ner till 16 px som favicon. Ordmärket skrivs med gemener: lärka. Luft runt märket är minst en fjärdedel av plattans bredd.
+Logon är ett kritvitt geometriskt ä med en blyertsgul linje under, på en tavelgrön platta. Det är blyertsunderstrykningen från gränssnittet: pennans spår i stället för en bild av en penna. Ordmärket skrivs med gemener, lärka, med samma linje under _lär_. Luft runt märket är minst en fjärdedel av plattans bredd.
 
-Märket finns i [`docs/assets`](assets/larka-mark.svg). Rita aldrig om det: det är optiskt centrerat med `translate(2.3 -2.6)`, och ett ä som ser rätt ut i ett försök är sällan centrerat. I appen är det `AppLogo.vue`.
+| Fil                                                               | Används för                                                   |
+| ----------------------------------------------------------------- | ------------------------------------------------------------- |
+| [`larka-mark.svg`](assets/larka-mark.svg)                         | Utanför appen, 32 px och större.                              |
+| [`larka-mark-liten.svg`](assets/larka-mark-liten.svg)             | 24 och 16 px, med större bokstav och tjockare linje. Favicon. |
+| [`larka-mark-pa-tavla.svg`](assets/larka-mark-pa-tavla.svg)       | Tavelgrön bakgrund, utan platta. Så står det i appen.         |
+| [`larka-mark-enfarg.svg`](assets/larka-mark-enfarg.svg)           | Tryck och stämplar.                                           |
+| [`larka-ordmark.svg`](assets/larka-ordmark.svg)                   | Ordmärket på papper.                                          |
+| [`larka-ordmark-pa-tavla.svg`](assets/larka-ordmark-pa-tavla.svg) | Ordmärket på tavelgrön bakgrund.                              |
+
+Rita aldrig om märket: det är optiskt centrerat, och ett ä som ser rätt ut i ett försök är sällan centrerat. I appen är det `AppLogo.vue`, utan platta, eftersom sidomenyn och inloggningens panel redan är tavlan.
+
+Den gula linjen är svag på vitt. Ordmärket får aldrig bero på den för att gå att läsa.
 
 ## Ikoner
 
@@ -73,7 +84,7 @@ Phosphor via `@phosphor-icons/vue`, i vikten regular, `size-4` som standard. Iko
 | --------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------- |
 | Betygsstämpeln                    | I appen                | IG, G och VG som en lätt sned stämpel. Badge-varianterna `gradeFail`, `gradePass` och `gradeDistinction`. |
 | Krita                             | I appen                | Aktiv menypunkt är kritvit. Kritvit fyllning i ljust läge, 14 % kritvit i mörkt.                          |
-| Blyertsunderstrykning             | I appen                | Gul understrykning på viktiga ord i en uppgift, en per stycke.                                            |
+| Blyertsunderstrykning             | I appen                | Gul understrykning på viktiga ord i en uppgift, en per stycke. Samma linje som i logon.                   |
 | Marginallinje och linjerat papper | Bara på presentationer | Skulle kräva nya former i appen.                                                                          |
 
 ## Komponenter
