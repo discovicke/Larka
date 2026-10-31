@@ -7,7 +7,7 @@ namespace Backend.Domain.Entities;
 // Deadline och pin ligger här, så samma uppgift kan ha olika deadline för olika klasser.
 // ModuleId lägger innehållet i en av kursens moduler (veckor). Kräver CourseId, och modulen ska höra till kursen.
 // Position är ordningen i modulen: 1, 2, 3 … utan luckor. Länkar utan modul har 0.
-public class ContentLink
+public class ContentLink : IHasPosition
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid ContentId { get; set; }

@@ -173,33 +173,19 @@ public class SubmissionService(
         }
 
         var spec = linked.Content.Assignment;
-        if (spec is null || !StudentSubmits(spec.SubmissionModes))
-        {
-            return ServiceResult<SubmissionDto>.Invalid("this content takes no submissions");
-        }
-
-        var modes = spec.SubmissionModes;
+        var modes = spec?.SubmissionModes ?? [];
         var files = uploads ?? [];
-        if (files.Count > 0 && !modes.Contains(SubmissionMode.File))
+        var inputError = CheckSubmitInput(spec, files);
+        if (inputError is not null)
         {
-            return ServiceResult<SubmissionDto>.Invalid("this assignment does not take files");
+            return ServiceResult<SubmissionDto>.Invalid(inputError);
         }
 
-        var fileError = FileUploadPolicy.Validate(files);
-        if (fileError is not null)
-        {
-            return ServiceResult<SubmissionDto>.Invalid(fileError);
-        }
-
-        // Med repo är repot själva inlämningen. Annars måste det finnas något av det uppgiften tar emot.
-        var hasText = modes.Contains(SubmissionMode.Text) && !string.IsNullOrWhiteSpace(dto.BodyMd);
-        var hasFiles = modes.Contains(SubmissionMode.File) && files.Count > 0;
         var submission = await submissions.GetForStudentAsync(linkId, currentUser.UserId, ct);
         var keptFiles = submission is null || dto.KeepFileIds is null
             ? []
             : submission.Files.Where(file => dto.KeepFileIds.Contains(file.Id)).ToList();
-        if (!UsesRepo(modes) && !hasText && !(modes.Contains(SubmissionMode.File) && keptFiles.Count > 0)
-            && !hasFiles)
+        if (!HasAnswer(modes, dto, files, keptFiles))
         {
             return ServiceResult<SubmissionDto>.Invalid("this assignment needs a text answer or files");
         }
@@ -223,6 +209,37 @@ public class SubmissionService(
             submission.Repo.SubmissionSha = submission.Repo.LastSha;
         }
 
+        await ReplaceFilesAsync(submission, keptFiles, files, ct);
+        return ServiceResult<SubmissionDto>.Ok(await ToDtoAsync(submission, ct));
+    }
+
+    private static string? CheckSubmitInput(AssignmentSpec? spec, IReadOnlyList<FileUpload> files)
+    {
+        if (spec is null || !StudentSubmits(spec.SubmissionModes))
+        {
+            return "this content takes no submissions";
+        }
+
+        if (files.Count > 0 && !spec.SubmissionModes.Contains(SubmissionMode.File))
+        {
+            return "this assignment does not take files";
+        }
+
+        return FileUploadPolicy.Validate(files);
+    }
+
+    // Med repo är repot själva inlämningen. Annars måste det finnas något av det uppgiften tar emot.
+    private static bool HasAnswer(
+        List<SubmissionMode> modes, SubmitDto dto, IReadOnlyList<FileUpload> files, List<SubmissionFile> keptFiles)
+    {
+        var hasText = modes.Contains(SubmissionMode.Text) && !string.IsNullOrWhiteSpace(dto.BodyMd);
+        var hasFiles = modes.Contains(SubmissionMode.File) && files.Count > 0;
+        return UsesRepo(modes) || hasText || (modes.Contains(SubmissionMode.File) && keptFiles.Count > 0) || hasFiles;
+    }
+
+    private async Task ReplaceFilesAsync(
+        Submission submission, List<SubmissionFile> keptFiles, IReadOnlyList<FileUpload> files, CancellationToken ct)
+    {
         // Nya filer ersätter de gamla, och först när allt är sparat tas de gamla bort ur lagringen.
         var removedFiles = submission.Files.Where(file => !keptFiles.Contains(file)).ToList();
         var oldKeys = removedFiles.Select(file => file.StorageKey).ToList();
@@ -249,28 +266,11 @@ public class SubmissionService(
         }
         catch
         {
-            await DeleteQuietlyAsync(newFiles.Select(file => file.StorageKey));
+            await storage.DeleteQuietlyAsync(newFiles.Select(file => file.StorageKey), logger);
             throw;
         }
 
-        await DeleteQuietlyAsync(oldKeys);
-        return ServiceResult<SubmissionDto>.Ok(await ToDtoAsync(submission, ct));
-    }
-
-    // Allt är redan sparat här, så en fil som blir kvar i lagringen ska inte fälla anropet.
-    private async Task DeleteQuietlyAsync(IEnumerable<string> keys)
-    {
-        foreach (var key in keys)
-        {
-            try
-            {
-                await storage.DeleteAsync(key, CancellationToken.None);
-            }
-            catch (Exception exception)
-            {
-                logger.LogWarning(exception, "Could not delete {StorageKey} from file storage", key);
-            }
-        }
+        await storage.DeleteQuietlyAsync(oldKeys, logger);
     }
 
     /// <summary>Sätter betyg, eller begär komplettering (NeedsWork) med bara feedback.</summary>
@@ -292,39 +292,13 @@ public class SubmissionService(
         var linked = await contents.GetLinkWithContentAsync(submission.ContentLinkId, ct);
         var spec = linked!.Content.Assignment!;
 
-        // Vid bedömning på plats finns inget att vänta på: läraren betygsätter i klassrummet.
-        var signedOffOnSite = spec.SubmissionModes.Contains(SubmissionMode.OnSite);
-        if (submission.Status == SubmissionStatus.NotStarted && !signedOffOnSite)
+        var gradeError = CheckGrade(submission, spec, dto);
+        if (gradeError is not null)
         {
-            return ServiceResult<SubmissionDto>.Invalid("nothing has been submitted yet");
+            return ServiceResult<SubmissionDto>.Invalid(gradeError);
         }
 
-        if (dto.NeedsWork && dto.Level is not null)
-        {
-            return ServiceResult<SubmissionDto>.Invalid("a submission that needs work gets feedback, not a grade");
-        }
-
-        var levelError = dto.NeedsWork
-            ? null
-            : CheckLevel(spec.GradeScale, dto.Level);
-        if (levelError is not null)
-        {
-            return ServiceResult<SubmissionDto>.Invalid(levelError);
-        }
-
-        if (submission.Grade is null)
-        {
-            submission.Grade = new Grade { SubmissionId = submission.Id };
-            submissions.AddGrade(submission.Grade);
-        }
-
-        submission.Grade.GradedById = currentUser.UserId;
-        submission.Grade.Level = dto.Level;
-        submission.Grade.Feedback = dto.Feedback;
-        submission.Grade.GradedAt = time.GetUtcNow();
-        submission.Status = dto.NeedsWork
-            ? SubmissionStatus.NeedsWork
-            : SubmissionStatus.Graded;
+        ApplyGrade(submission, dto);
 
         // En begärd komplettering ska öppna ett arkiverat repo igen, men får inte fälla betygsättningen.
         if (dto.NeedsWork && submission.Repo is not null)
@@ -361,6 +335,42 @@ public class SubmissionService(
             ct);
         await unitOfWork.SaveChangesAsync(ct);
         return ServiceResult<SubmissionDto>.Ok(await ToDtoAsync(submission, ct));
+    }
+
+    private static string? CheckGrade(Submission submission, AssignmentSpec spec, GradeSubmissionDto dto)
+    {
+        // Vid bedömning på plats finns inget att vänta på: läraren betygsätter i klassrummet.
+        var signedOffOnSite = spec.SubmissionModes.Contains(SubmissionMode.OnSite);
+        if (submission.Status == SubmissionStatus.NotStarted && !signedOffOnSite)
+        {
+            return "nothing has been submitted yet";
+        }
+
+        if (dto.NeedsWork && dto.Level is not null)
+        {
+            return "a submission that needs work gets feedback, not a grade";
+        }
+
+        return dto.NeedsWork
+            ? null
+            : CheckLevel(spec.GradeScale, dto.Level);
+    }
+
+    private void ApplyGrade(Submission submission, GradeSubmissionDto dto)
+    {
+        if (submission.Grade is null)
+        {
+            submission.Grade = new Grade { SubmissionId = submission.Id };
+            submissions.AddGrade(submission.Grade);
+        }
+
+        submission.Grade.GradedById = currentUser.UserId;
+        submission.Grade.Level = dto.Level;
+        submission.Grade.Feedback = dto.Feedback;
+        submission.Grade.GradedAt = time.GetUtcNow();
+        submission.Status = dto.NeedsWork
+            ? SubmissionStatus.NeedsWork
+            : SubmissionStatus.Graded;
     }
 
     // Null om betyget passar skalan, annars varför inte.

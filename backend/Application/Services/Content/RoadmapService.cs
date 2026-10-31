@@ -42,22 +42,10 @@ public class RoadmapService(
 
         var parts = await contents.GetLinksWithContentForModuleAsync(moduleId, ct);
         var partsById = parts.ToDictionary(part => part.Link.Id);
-        var listsEveryPartOnce = dto.Links.Count == parts.Count
-            && dto.Links.Select(link => link.LinkId).Distinct().Count() == parts.Count
-            && dto.Links.All(link => partsById.ContainsKey(link.LinkId));
-        if (!listsEveryPartOnce)
+        var linksError = CheckLinks(dto.Links, parts, partsById);
+        if (linksError is not null)
         {
-            return ServiceResult<ModuleWithContentDto>.Invalid(
-                "links must list every part in the week once");
-        }
-
-        foreach (var link in dto.Links)
-        {
-            var error = CheckLink(link, partsById);
-            if (error is not null)
-            {
-                return ServiceResult<ModuleWithContentDto>.Invalid(error);
-            }
+            return ServiceResult<ModuleWithContentDto>.Invalid(linksError);
         }
 
         var blockedBy = dto.Links.ToDictionary(link => link.LinkId, link => link.BlockedByLinkIds);
@@ -68,8 +56,51 @@ public class RoadmapService(
             return ServiceResult<ModuleWithContentDto>.Invalid($"cycle: {string.Join(" → ", titles)}");
         }
 
+        await SaveDependenciesAsync(moduleId, dto.Links, partsById, ct);
+
+        // Listan ska följa roadmapen, oavsett i vilken ordning delarna skapades. En del hamnar
+        // alltid efter sina förutsättningar, och i övrigt behålls lärarens ordning.
+        var ordered = OrderByDependencies(parts, blockedBy);
+        PositionOrder.Renumber(ordered.Select(part => part.Link));
+
+        await unitOfWork.SaveChangesAsync(ct);
+
+        var courseModules = await moduleService.GetForCourseAsync(courseId, ct);
+        return ServiceResult<ModuleWithContentDto>.Ok(
+            courseModules.Value!.Single(savedModule => savedModule.Id == moduleId));
+    }
+
+    private static string? CheckLinks(
+        List<RoadmapLinkDto> links, List<LinkedContent> parts, Dictionary<Guid, LinkedContent> partsById)
+    {
+        var listsEveryPartOnce = links.Count == parts.Count
+            && links.Select(link => link.LinkId).Distinct().Count() == parts.Count
+            && links.All(link => partsById.ContainsKey(link.LinkId));
+        if (!listsEveryPartOnce)
+        {
+            return "links must list every part in the week once";
+        }
+
+        foreach (var link in links)
+        {
+            var error = CheckLink(link, partsById);
+            if (error is not null)
+            {
+                return error;
+            }
+        }
+
+        return null;
+    }
+
+    private async Task SaveDependenciesAsync(
+        Guid moduleId,
+        List<RoadmapLinkDto> links,
+        Dictionary<Guid, LinkedContent> partsById,
+        CancellationToken ct)
+    {
         contents.RemoveDependencies(await contents.GetDependenciesForModuleAsync(moduleId, ct));
-        foreach (var link in dto.Links)
+        foreach (var link in links)
         {
             foreach (var blockingId in link.BlockedByLinkIds)
             {
@@ -93,20 +124,6 @@ public class RoadmapService(
                 content.Assignment!.CompletionRule = link.CompletionRule.Value;
             }
         }
-
-        // Listan ska följa roadmapen, oavsett i vilken ordning delarna skapades. En del hamnar
-        // alltid efter sina förutsättningar, och i övrigt behålls lärarens ordning.
-        var ordered = OrderByDependencies(parts, blockedBy);
-        for (var i = 0; i < ordered.Count; i++)
-        {
-            ordered[i].Link.Position = i + 1;
-        }
-
-        await unitOfWork.SaveChangesAsync(ct);
-
-        var courseModules = await moduleService.GetForCourseAsync(courseId, ct);
-        return ServiceResult<ModuleWithContentDto>.Ok(
-            courseModules.Value!.Single(savedModule => savedModule.Id == moduleId));
     }
 
     // Tar fram veckans ordning utifrån beroendena. Algoritmen tar hela tiden den tidigaste

@@ -34,7 +34,7 @@ public static class ModuleEndpoints
                 (await service.ReorderAsync(id, reorderDto, ct)).ToHttp(TypedResults.Ok));
 
         modules.MapPut("/{moduleId:guid}/content/order", async (
-            Guid id, Guid moduleId, ReorderContentDto reorderDto, ContentService service, CancellationToken ct) =>
+            Guid id, Guid moduleId, ReorderContentDto reorderDto, ContentLinkService service, CancellationToken ct) =>
             (await service.ReorderModuleContentAsync(id, moduleId, reorderDto, ct))
                 .ToHttp(_ => TypedResults.NoContent()));
 

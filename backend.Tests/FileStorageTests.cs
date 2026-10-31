@@ -32,7 +32,7 @@ public class FileStorageTests(TestWebApplicationFactory factory) : IClassFixture
     {
         var contentId = await CreateContentAsync("theory");
 
-        var result = await WithServiceAsync<ContentService, ServiceResult<AttachmentDto>>(
+        var result = await WithServiceAsync<ContentAttachmentService, ServiceResult<AttachmentDto>>(
             service => service.AddAttachmentAsync(contentId, Upload("slides.pdf"), CancellationToken.None));
 
         Assert.Equal(ResultStatus.Ok, result.Status);
@@ -47,7 +47,7 @@ public class FileStorageTests(TestWebApplicationFactory factory) : IClassFixture
     {
         var before = Storage.Keys.Count;
 
-        var result = await WithServiceAsync<ContentService, ServiceResult<AttachmentDto>>(
+        var result = await WithServiceAsync<ContentAttachmentService, ServiceResult<AttachmentDto>>(
             service => service.AddAttachmentAsync(Guid.NewGuid(), Upload("x.pdf"), CancellationToken.None));
 
         Assert.Equal(ResultStatus.NotFound, result.Status);
@@ -58,7 +58,7 @@ public class FileStorageTests(TestWebApplicationFactory factory) : IClassFixture
     public async Task GetAttachments_ReturnsFreshSignedUrls_AndNeverTheStorageKeyAsUrl()
     {
         var contentId = await CreateContentAsync("theory");
-        await WithServiceAsync<ContentService, ServiceResult<AttachmentDto>>(
+        await WithServiceAsync<ContentAttachmentService, ServiceResult<AttachmentDto>>(
             service => service.AddAttachmentAsync(contentId, Upload("a.pdf"), CancellationToken.None));
 
         var attachments = await _client.GetFromJsonAsync<List<AttachmentResponse>>(
@@ -81,7 +81,7 @@ public class FileStorageTests(TestWebApplicationFactory factory) : IClassFixture
     public async Task DeleteAttachment_RemovesRowAndFile()
     {
         var contentId = await CreateContentAsync("theory");
-        var result = await WithServiceAsync<ContentService, ServiceResult<AttachmentDto>>(
+        var result = await WithServiceAsync<ContentAttachmentService, ServiceResult<AttachmentDto>>(
             service => service.AddAttachmentAsync(contentId, Upload("a.pdf"), CancellationToken.None));
         Assert.Single(Storage.Keys, key => key.StartsWith($"content/{contentId}/"));
 

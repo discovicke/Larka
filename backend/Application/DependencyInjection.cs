@@ -19,6 +19,10 @@ public static class DependencyInjection
         services.AddScoped<CourseTeacherService>();
         services.AddScoped<StudentContentService>();
         services.AddScoped<ContentService>();
+        services.AddScoped<ContentAccess>();
+        services.AddScoped<ContentLinkService>();
+        services.AddScoped<ContentCommentService>();
+        services.AddScoped<ContentAttachmentService>();
         services.AddScoped<MeService>();
         services.AddScoped<IntegrationService>();
         services.AddScoped<GitHubTemplateService>();

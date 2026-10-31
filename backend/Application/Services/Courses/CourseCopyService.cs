@@ -1,5 +1,6 @@
 using Backend.Application.Abstractions;
 using Backend.Application.Dtos;
+using Backend.Application.Files;
 using Backend.Application.Results;
 using Backend.Domain.Entities;
 using Backend.Domain.Enums;
@@ -151,7 +152,7 @@ public class CourseCopyService(
     {
         foreach (var key in plan.CopiedFiles)
         {
-            await DeleteQuietlyAsync(key);
+            await storage.DeleteQuietlyAsync(key, logger);
         }
     }
 
@@ -218,18 +219,6 @@ public class CourseCopyService(
                 StorageKey = key,
                 SizeBytes = attachment.SizeBytes
             });
-        }
-    }
-
-    private async Task DeleteQuietlyAsync(string key)
-    {
-        try
-        {
-            await storage.DeleteAsync(key, CancellationToken.None);
-        }
-        catch (Exception exception)
-        {
-            logger.LogWarning(exception, "Could not delete {StorageKey} from file storage", key);
         }
     }
 }

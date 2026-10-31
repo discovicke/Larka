@@ -1,5 +1,6 @@
 using Backend.Application.Abstractions;
 using Backend.Application.Dtos;
+using Backend.Application.Files;
 using Backend.Application.Results;
 using Backend.Domain.Entities;
 
@@ -164,8 +165,7 @@ public class CourseService(
         foreach (var part in parts)
         {
             var linkSubmissions = await submissions.GetByLinkAsync(part.Link.Id, ct);
-            if (linkSubmissions.Any(StudentWorkPolicy.HasStudentActivity)
-                || await completions.AnyForLinkAsync(part.Link.Id, ct))
+            if (await StudentWorkPolicy.LinkHasStudentWorkAsync(linkSubmissions, completions, part.Link.Id, ct))
             {
                 return ServiceResult<bool>.Conflict(
                     $"the course has student work in \"{part.Content.Title}\" and cannot be deleted");
@@ -218,7 +218,7 @@ public class CourseService(
         await unitOfWork.SaveChangesAsync(ct);
         foreach (var attachment in attachments)
         {
-            await DeleteStorageFileQuietlyAsync(attachment.StorageKey);
+            await storage.DeleteQuietlyAsync(attachment.StorageKey, logger);
         }
 
         return ServiceResult<bool>.Ok(true);
@@ -285,17 +285,5 @@ public class CourseService(
         return startsOn is not null && endsOn is not null && endsOn.Value < startsOn.Value
             ? "endsOn must be on or after startsOn"
             : null;
-    }
-
-    private async Task DeleteStorageFileQuietlyAsync(string key)
-    {
-        try
-        {
-            await storage.DeleteAsync(key, CancellationToken.None);
-        }
-        catch (Exception exception)
-        {
-            logger.LogWarning(exception, "Could not delete {StorageKey} from file storage", key);
-        }
     }
 }

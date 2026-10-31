@@ -1,5 +1,6 @@
 using Backend.Application.Abstractions;
 using Backend.Application.Dtos;
+using Backend.Application.Files;
 using Backend.Application.Results;
 using Backend.Domain.Entities;
 using Backend.Domain.Enums;
@@ -142,8 +143,7 @@ public class ModuleService(
         foreach (var part in parts)
         {
             var linkSubmissions = await submissions.GetByLinkAsync(part.Link.Id, ct);
-            if (linkSubmissions.Any(StudentWorkPolicy.HasStudentActivity)
-                || await completions.AnyForLinkAsync(part.Link.Id, ct))
+            if (await StudentWorkPolicy.LinkHasStudentWorkAsync(linkSubmissions, completions, part.Link.Id, ct))
             {
                 return ServiceResult<bool>.Conflict(
                     $"the week contains student activity in \"{part.Content.Title}\" and cannot be deleted");
@@ -193,16 +193,13 @@ public class ModuleService(
             .Where(courseModule => courseModule.Id != moduleId)
             .OrderBy(courseModule => courseModule.Position)
             .ToList();
-        for (var i = 0; i < remaining.Count; i++)
-        {
-            remaining[i].Position = i + 1;
-        }
+        PositionOrder.Renumber(remaining);
 
         modules.Remove(module);
         await unitOfWork.SaveChangesAsync(ct);
         foreach (var attachment in attachments)
         {
-            await DeleteStorageFileQuietlyAsync(attachment.StorageKey);
+            await storage.DeleteQuietlyAsync(attachment.StorageKey, logger);
         }
 
         return ServiceResult<bool>.Ok(true);
@@ -230,25 +227,10 @@ public class ModuleService(
             return ServiceResult<List<ModuleDto>>.Invalid("moduleIds must list every module in the course once");
         }
 
-        for (var i = 0; i < dto.ModuleIds.Count; i++)
-        {
-            courseModules[dto.ModuleIds[i]].Position = i + 1;
-        }
+        PositionOrder.Renumber(dto.ModuleIds.Select(moduleId => courseModules[moduleId]));
 
         await unitOfWork.SaveChangesAsync(ct);
         return ServiceResult<List<ModuleDto>>.Ok(
             dto.ModuleIds.Select(id => ModuleDto.From(courseModules[id])).ToList());
-    }
-
-    private async Task DeleteStorageFileQuietlyAsync(string key)
-    {
-        try
-        {
-            await storage.DeleteAsync(key, CancellationToken.None);
-        }
-        catch (Exception exception)
-        {
-            logger.LogWarning(exception, "Could not delete {StorageKey} from file storage", key);
-        }
     }
 }

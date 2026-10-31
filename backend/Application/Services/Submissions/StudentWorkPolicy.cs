@@ -1,3 +1,4 @@
+using Backend.Application.Abstractions;
 using Backend.Domain.Entities;
 using Backend.Domain.Enums;
 
@@ -13,6 +14,14 @@ public static class StudentWorkPolicy
         || submission.Files.Count > 0
         || submission.Grade is not null
         || HasRepoActivity(submission.Repo);
+
+    // Elevarbete på delen: i en inlämning, eller en markering som klar utan inlämning.
+    public static async Task<bool> LinkHasStudentWorkAsync(
+        IReadOnlyCollection<Submission> linkSubmissions,
+        IPartCompletionRepository completions,
+        Guid linkId,
+        CancellationToken ct) =>
+        linkSubmissions.Any(HasStudentActivity) || await completions.AnyForLinkAsync(linkId, ct);
 
     // Ett repo skapas när uppgiften delas ut. Det är först när eleven har en egen commit,
     // har lämnat in eller fått en inlämnad commit som repot räknas som elevarbete.
