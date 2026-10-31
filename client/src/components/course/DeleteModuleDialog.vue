@@ -14,7 +14,8 @@ import {
 } from '@/components/ui/dialog'
 import {Field, FieldGroup, FieldLabel} from '@/components/ui/field'
 import {Input} from '@/components/ui/input'
-import {api, errorMessage, type Schema} from '@/lib/api'
+import {useAsync} from '@/composables/useAsync'
+import {api, type Schema} from '@/lib/api'
 
 const props = defineProps<{
   courseId: string
@@ -25,8 +26,6 @@ const open = defineModel<boolean>('open', {required: true})
 const emit = defineEmits<{deleted: []}>()
 
 const typed = ref('')
-const deleting = ref(false)
-const error = ref('')
 
 const activityParts = computed(() =>
   props.module.content.filter((part) => part.hasStudentActivity))
@@ -46,25 +45,17 @@ watch(open, (isOpen) => {
   }
 })
 
-async function remove() {
+const {run: remove, loading: deleting, error} = useAsync(async () => {
   if (!canDelete.value) {
     return
   }
 
-  deleting.value = true
-  error.value = ''
-  try {
-    await api.DELETE('/api/courses/{id}/modules/{moduleId}', {
-      params: {path: {id: props.courseId, moduleId: props.module.id}},
-    })
-    emit('deleted')
-    open.value = false
-  } catch (exception) {
-    error.value = errorMessage(exception)
-  } finally {
-    deleting.value = false
-  }
-}
+  await api.DELETE('/api/courses/{id}/modules/{moduleId}', {
+    params: {path: {id: props.courseId, moduleId: props.module.id}},
+  })
+  emit('deleted')
+  open.value = false
+})
 </script>
 
 <template>

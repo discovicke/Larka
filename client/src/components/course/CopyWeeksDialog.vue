@@ -17,8 +17,10 @@ import {FieldLabel} from '@/components/ui/field'
 import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
 import {useCourses} from '@/composables/useCourses'
 import {useCurrentUser} from '@/composables/useCurrentUser'
+import {useAsync} from '@/composables/useAsync'
 import {api, errorMessage, type Schema} from '@/lib/api'
 import {countLabel} from '@/lib/content'
+import {fetchCourseModules} from '@/lib/modulesApi'
 
 const props = defineProps<{courseId: string}>()
 
@@ -31,9 +33,9 @@ const {can} = useCurrentUser()
 const sourceId = ref('')
 const weeks = ref<Schema<'ModuleWithContentDto'>[]>([])
 const selected = ref<string[]>([])
-const loadingWeeks = ref(false)
 const saving = ref(false)
-const error = ref('')
+// Samma felruta visar felet från hämtningen och från kopieringen.
+const {run: loadWeeks, loading: loadingWeeks, error} = useAsync(fetchCourseModules)
 
 // Kurser läraren kan undervisa i, förutom den som veckorna ska in i.
 const sources = computed(() => courses.value
@@ -59,18 +61,10 @@ watch(sourceId, async (id) => {
     return
   }
 
-  loadingWeeks.value = true
-  error.value = ''
-  try {
-    const {data} = await api.GET('/api/courses/{id}/modules', {params: {path: {id}}})
-    // Hann läraren byta kurs under tiden är svaret inaktuellt.
-    if (sourceId.value === id) {
-      weeks.value = data ?? []
-    }
-  } catch (exception) {
-    error.value = errorMessage(exception)
-  } finally {
-    loadingWeeks.value = false
+  const loaded = await loadWeeks(id)
+  // Hann läraren byta kurs under tiden är svaret inaktuellt.
+  if (loaded && sourceId.value === id) {
+    weeks.value = loaded
   }
 })
 

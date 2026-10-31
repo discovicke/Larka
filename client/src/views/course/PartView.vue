@@ -13,10 +13,13 @@ import {Skeleton} from '@/components/ui/skeleton'
 import {useCrumbLabels} from '@/composables/useCrumbLabels'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {useFlash} from '@/composables/useFlash'
-import {api, errorMessage, type Schema} from '@/lib/api'
+import {errorMessage, type Schema} from '@/lib/api'
 import {parseChecklist} from '@/lib/checklist'
 import {formatDate, partOf} from '@/lib/content'
+import {fetchContent, setContentStatus} from '@/lib/contentApi'
+import {fetchCourseModules} from '@/lib/modulesApi'
 import {handInLabel} from '@/lib/submissions'
+import {fetchLinkSubmissions} from '@/lib/submissionsApi'
 
 // Delens sida för den som inte är elev: läraren, mentorn och admin läser delen här och går vidare till
 // redigeraren eller inlämningarna. Eleven har sin egen vy av samma del på kurssidan.
@@ -130,8 +133,8 @@ async function load(showSkeleton = true) {
   error.value = ''
   notFound.value = false
   try {
-    const {data: weeks} = await api.GET('/api/courses/{id}/modules', {params: {path: {id: courseId.value}}})
-    const week = (weeks ?? []).find((candidate) => candidate.content.some((item) => item.linkId === linkId.value))
+    const weeks = await fetchCourseModules(courseId.value)
+    const week = weeks.find((candidate) => candidate.content.some((item) => item.linkId === linkId.value))
     const item = week?.content.find((candidate) => candidate.linkId === linkId.value)
     if (!week || !item) {
       notFound.value = true
@@ -142,14 +145,14 @@ async function load(showSkeleton = true) {
     weekTitle.value = week.title
     part.value = item
     setCrumbLabel(`assignment:${linkId.value}`, item.title)
-    const [contentResult, submissionResult] = await Promise.all([
-      api.GET('/api/content/{id}', {params: {path: {id: item.contentId}}}),
+    const [loadedContent, loadedSubmissions] = await Promise.all([
+      fetchContent(item.contentId),
       canReadSubmissions.value && item.completionRule != null
-        ? api.GET('/api/links/{id}/submissions', {params: {path: {id: linkId.value}}})
-        : Promise.resolve({data: []}),
+        ? fetchLinkSubmissions(linkId.value)
+        : Promise.resolve([]),
     ])
-    content.value = contentResult.data ?? null
-    submissions.value = submissionResult.data ?? []
+    content.value = loadedContent
+    submissions.value = loadedSubmissions
   } catch {
     error.value = 'Kunde inte hämta delen.'
   } finally {
@@ -164,10 +167,7 @@ async function publish() {
   publishing.value = true
   error.value = ''
   try {
-    await api.PUT('/api/content/{id}/status', {
-      params: {path: {id: part.value.contentId}},
-      body: {status: 'Published'},
-    })
+    await setContentStatus(part.value.contentId, 'Published')
     await load(false)
   } catch (exception) {
     error.value = errorMessage(exception)

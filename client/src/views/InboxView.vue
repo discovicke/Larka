@@ -23,8 +23,10 @@ import {Skeleton} from '@/components/ui/skeleton'
 import {useCourses} from '@/composables/useCourses'
 import {useMobileDetail} from '@/composables/useMobileDetail'
 import {useNotifications} from '@/composables/useNotifications'
-import {api, type Schema} from '@/lib/api'
+import {type Schema} from '@/lib/api'
 import {formatDate} from '@/lib/content'
+import {fetchCourseContent} from '@/lib/coursesApi'
+import {fetchGroupContent, fetchGroups} from '@/lib/groupsApi'
 import {
   type InboxFilter,
   type InboxKind,
@@ -181,20 +183,14 @@ async function load(showSkeleton = true) {
   }
   loadFailed.value = false
   try {
-    const groupResult = await api.GET('/api/groups')
-    groups.value = groupResult.data ?? []
+    groups.value = await fetchGroups()
 
     // Alla flöden hämtas samtidigt; ett fel räcker för att visa felmeddelandet.
-    const [courseResults, groupResults] = await Promise.all([
-      Promise.all(courses.value.map((course) => api.GET('/api/courses/{id}/content', {
-        params: {path: {id: course.id}, query: {type: 'news'}},
-      }))),
-      Promise.all(groups.value.map((group) => api.GET('/api/groups/{id}/content', {
-        params: {path: {id: group.id}, query: {type: 'news'}},
-      }))),
+    const [courseFeeds, groupFeeds] = await Promise.all([
+      Promise.all(courses.value.map((course) => fetchCourseContent(course.id, 'news'))),
+      Promise.all(groups.value.map((group) => fetchGroupContent(group.id, 'news'))),
     ])
-    posts.value = [...courseResults, ...groupResults]
-      .flatMap((result) => result.data ?? [])
+    posts.value = [...courseFeeds, ...groupFeeds].flat()
     await loadNotifications()
   } catch {
     loadFailed.value = true

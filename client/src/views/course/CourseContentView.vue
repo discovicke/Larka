@@ -23,9 +23,12 @@ import {
 import {Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty'
 import {Skeleton} from '@/components/ui/skeleton'
 import {useCourses} from '@/composables/useCourses'
+import {useAsync} from '@/composables/useAsync'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {api, errorMessage, type Schema} from '@/lib/api'
 import {countLabel} from '@/lib/content'
+import {deleteContentLink, setContentStatus} from '@/lib/contentApi'
+import {fetchCourseModules} from '@/lib/modulesApi'
 
 const route = useRoute()
 const courseId = computed(() => String(route.params.courseId))
@@ -40,8 +43,6 @@ const loading = ref(true)
 const error = ref('')
 const deleteOpen = ref(false)
 const partToDelete = ref<Schema<'ModuleContentItem'> | null>(null)
-const deleting = ref(false)
-const deleteError = ref('')
 const roadmapOpen = ref(false)
 const roadmapModule = ref<Schema<'ModuleWithContentDto'> | null>(null)
 const movePartOpen = ref(false)
@@ -57,8 +58,7 @@ const notice = ref('')
 async function load() {
   error.value = ''
   try {
-    const {data} = await api.GET('/api/courses/{id}/modules', {params: {path: {id: courseId.value}}})
-    modules.value = data ?? []
+    modules.value = await fetchCourseModules(courseId.value)
   } catch (exception) {
     error.value = errorMessage(exception)
   } finally {
@@ -107,10 +107,7 @@ async function togglePartStatus(item: Schema<'ModuleContentItem'>) {
     ? 'Published'
     : 'Draft'
   try {
-    await api.PUT('/api/content/{id}/status', {
-      params: {path: {id: item.contentId}},
-      body: {status},
-    })
+    await setContentStatus(item.contentId, status)
     await load()
   } catch (exception) {
     error.value = errorMessage(exception)
@@ -173,27 +170,17 @@ async function moduleDeleted() {
   notice.value = 'Veckan togs bort.'
 }
 
-async function deletePart() {
+const {run: deletePart, loading: deleting, error: deleteError} = useAsync(async () => {
   const part = partToDelete.value
   if (!part) {
     return
   }
 
-  deleting.value = true
-  deleteError.value = ''
-  try {
-    await api.DELETE('/api/content/{id}/links/{linkId}', {
-      params: {path: {id: part.contentId, linkId: part.linkId}},
-    })
-    deleteOpen.value = false
-    partToDelete.value = null
-    await load()
-  } catch (exception) {
-    deleteError.value = errorMessage(exception)
-  } finally {
-    deleting.value = false
-  }
-}
+  await deleteContentLink(part.contentId, part.linkId)
+  deleteOpen.value = false
+  partToDelete.value = null
+  await load()
+})
 
 watch(courseId, async () => {
   loading.value = true

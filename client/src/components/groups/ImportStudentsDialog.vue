@@ -13,8 +13,10 @@ import {
 } from '@/components/ui/dialog'
 import {FieldDescription, FieldLabel} from '@/components/ui/field'
 import {Textarea} from '@/components/ui/textarea'
+import {useAsync} from '@/composables/useAsync'
 import {api, errorMessage, unwrap, type Schema} from '@/lib/api'
 import {importOutcomeLabels, parseStudentLines, previewLines, wasAdded} from '@/lib/importStudents'
+import {fetchUsers} from '@/lib/usersApi'
 
 const props = defineProps<{groupId: string, groupName: string, memberIds: string[]}>()
 const emit = defineEmits<{added: [members: Schema<'GroupMemberDto'>[]]}>()
@@ -23,9 +25,9 @@ const open = defineModel<boolean>('open', {required: true})
 
 const users = ref<Schema<'UserDto'>[]>([])
 const text = ref('')
-const loading = ref(false)
 const saving = ref(false)
-const error = ref('')
+// Samma felruta visar felet från hämtningen och från sparandet.
+const {run: loadUsers, loading, error} = useAsync(fetchUsers)
 const result = ref<Schema<'ImportStudentsResultDto'> | null>(null)
 
 const lines = computed(() => parseStudentLines(text.value))
@@ -70,15 +72,10 @@ watch(open, async (isOpen) => {
   }
 
   text.value = ''
-  error.value = ''
   result.value = null
-  loading.value = true
-  try {
-    users.value = unwrap(await api.GET('/api/users'))
-  } catch (exception) {
-    error.value = errorMessage(exception)
-  } finally {
-    loading.value = false
+  const loaded = await loadUsers()
+  if (loaded) {
+    users.value = loaded
   }
 })
 

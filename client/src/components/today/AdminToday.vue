@@ -4,8 +4,9 @@ import {RouterLink, type RouteLocationRaw} from 'vue-router'
 
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Skeleton} from '@/components/ui/skeleton'
+import {useAsync} from '@/composables/useAsync'
 import {useCurrentUser} from '@/composables/useCurrentUser'
-import {api, type Schema} from '@/lib/api'
+import {api, type Schema, unwrap} from '@/lib/api'
 import {countLabel} from '@/lib/content'
 import {dateLine, firstName, greeting} from '@/lib/today'
 
@@ -21,8 +22,6 @@ const now = new Date()
 const {me} = useCurrentUser()
 
 const overview = ref<Overview | null>(null)
-const loading = ref(true)
-const loadFailed = ref(false)
 
 const name = computed(() => firstName(me.value?.name))
 const mobileGreeting = computed(() => name.value
@@ -79,22 +78,10 @@ function courseLink(course: Schema<'AdminCourseWithoutTeacherDto'>): RouteLocati
     : {name: 'course-content', params: {courseId: course.courseId}}
 }
 
-async function load() {
-  loading.value = true
-  loadFailed.value = false
-  try {
-    const result = await api.GET('/api/me/admin-overview')
-    if (result.error || !result.data) {
-      loadFailed.value = true
-    } else {
-      overview.value = result.data
-    }
-  } catch {
-    loadFailed.value = true
-  } finally {
-    loading.value = false
-  }
-}
+const {run: load, loading, error} = useAsync(async () => {
+  overview.value = unwrap(await api.GET('/api/me/admin-overview'))
+})
+const loadFailed = computed(() => error.value !== '')
 
 const linkClass = 'inline-flex min-h-11 items-center gap-2 font-medium underline underline-offset-3 decoration-border hover:decoration-foreground'
 

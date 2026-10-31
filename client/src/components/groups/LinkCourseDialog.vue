@@ -13,7 +13,10 @@ import {
 } from '@/components/ui/dialog'
 import {FieldLabel} from '@/components/ui/field'
 import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
-import {ApiError, api, errorMessage, type Schema} from '@/lib/api'
+import {useAsync} from '@/composables/useAsync'
+import {ApiError, errorMessage, type Schema} from '@/lib/api'
+import {fetchCourses} from '@/lib/coursesApi'
+import {linkCourseToGroup} from '@/lib/groupsApi'
 
 const props = defineProps<{groupId: string, groupName: string, linkedIds: string[]}>()
 const emit = defineEmits<{linked: [course: Schema<'CourseDto'>]}>()
@@ -22,9 +25,9 @@ const open = defineModel<boolean>('open', {required: true})
 
 const courses = ref<Schema<'CourseDto'>[]>([])
 const courseId = ref('')
-const loading = ref(false)
 const saving = ref(false)
-const error = ref('')
+// Samma felruta visar felet från hämtningen och från sparandet.
+const {run: loadCourses, loading, error} = useAsync(fetchCourses)
 
 const available = computed(() => courses.value.filter((course) => !props.linkedIds.includes(course.id)))
 
@@ -34,15 +37,9 @@ watch(open, async (isOpen) => {
   }
 
   courseId.value = ''
-  error.value = ''
-  loading.value = true
-  try {
-    const {data} = await api.GET('/api/courses')
-    courses.value = data ?? []
-  } catch (exception) {
-    error.value = errorMessage(exception)
-  } finally {
-    loading.value = false
+  const loaded = await loadCourses()
+  if (loaded) {
+    courses.value = loaded
   }
 })
 
@@ -55,9 +52,7 @@ async function link() {
   saving.value = true
   error.value = ''
   try {
-    await api.POST('/api/groups/{id}/courses/{courseId}', {
-      params: {path: {id: props.groupId, courseId: course.id}},
-    })
+    await linkCourseToGroup(props.groupId, course.id)
     emit('linked', course)
     open.value = false
   } catch (exception) {

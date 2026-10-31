@@ -35,6 +35,7 @@ import {Skeleton} from '@/components/ui/skeleton'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {ApiError, api, errorMessage, type Schema} from '@/lib/api'
 import {partTypeOf, partTypes} from '@/lib/content'
+import {createContentWithLink, fetchContent, updateContent, updateContentLink} from '@/lib/contentApi'
 import {
   defaultRepoNamePattern,
   emptyForm,
@@ -56,6 +57,7 @@ import {
   type GitHubTemplateRepo,
   type UnlinkedGitHubStudent,
 } from '@/lib/integrations'
+import {fetchCourseModules} from '@/lib/modulesApi'
 import NotFoundView from '@/views/NotFoundView.vue'
 
 const submissionModes: {value: Schema<'SubmissionMode'>, label: string, description: string, icon: Component}[] = [
@@ -289,8 +291,7 @@ async function load() {
   notFound.value = false
   loadError.value = ''
   try {
-    const {data} = await api.GET('/api/courses/{id}/modules', {params: {path: {id: courseId}}})
-    const foundModule = data?.find((candidate) => candidate.id === moduleId)
+    const foundModule = (await fetchCourseModules(courseId)).find((candidate) => candidate.id === moduleId)
     if (!foundModule) {
       notFound.value = true
       return
@@ -308,9 +309,7 @@ async function load() {
     }
 
     part.value = foundPart
-    const {data: content} = await api.GET('/api/content/{id}', {
-      params: {path: {id: foundPart.contentId}},
-    })
+    const content = await fetchContent(foundPart.contentId)
     if (!content) {
       notFound.value = true
       return
@@ -379,17 +378,11 @@ async function save(status: Schema<'ContentStatus'> = 'Published') {
       }
 
       const {content, link} = toUpdateRequests(form)
-      await api.PUT('/api/content/{id}', {
-        params: {path: {id: current.contentId}},
-        body: content,
-      })
-      await api.PUT('/api/content/{id}/links/{linkId}', {
-        params: {path: {id: current.contentId, linkId: current.linkId}},
-        body: link,
-      })
+      await updateContent(current.contentId, content)
+      await updateContentLink(current.contentId, current.linkId, link)
     } else {
       const {content, link} = toRequests(form, status, {courseId, moduleId})
-      await api.POST('/api/content/with-link', {body: {content, link}})
+      await createContentWithLink({content, link})
     }
 
     await router.push(backRoute.value)

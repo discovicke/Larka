@@ -14,7 +14,8 @@ import {
 } from '@/components/ui/dialog'
 import {FieldLabel} from '@/components/ui/field'
 import {RadioGroup, RadioGroupItem} from '@/components/ui/radio-group'
-import {api, errorMessage, type Schema} from '@/lib/api'
+import {useAsync} from '@/composables/useAsync'
+import {api, type Schema} from '@/lib/api'
 import {countLabel, formatDate} from '@/lib/content'
 
 const props = defineProps<{
@@ -28,8 +29,6 @@ const open = defineModel<boolean>('open', {required: true})
 const emit = defineEmits<{moved: [result: Schema<'MoveContentLinkResultDto'>]}>()
 
 const targetId = ref('')
-const saving = ref(false)
-const error = ref('')
 
 const targets = computed(() => props.modules.filter((module) => module.id !== props.module.id))
 const hasActivity = computed(() => props.item.hasStudentActivity)
@@ -52,28 +51,20 @@ watch(open, (isOpen) => {
   }
 })
 
-async function move() {
+const {run: move, loading: saving, error} = useAsync(async () => {
   if (!targetId.value || hasActivity.value) {
     return
   }
 
-  saving.value = true
-  error.value = ''
-  try {
-    const {data} = await api.PUT('/api/content/{id}/links/{linkId}/module', {
-      params: {path: {id: props.item.contentId, linkId: props.item.linkId}},
-      body: {moduleId: targetId.value},
-    })
-    if (data) {
-      emit('moved', data)
-    }
-    open.value = false
-  } catch (exception) {
-    error.value = errorMessage(exception)
-  } finally {
-    saving.value = false
+  const {data} = await api.PUT('/api/content/{id}/links/{linkId}/module', {
+    params: {path: {id: props.item.contentId, linkId: props.item.linkId}},
+    body: {moduleId: targetId.value},
+  })
+  if (data) {
+    emit('moved', data)
   }
-}
+  open.value = false
+})
 </script>
 
 <template>

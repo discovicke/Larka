@@ -15,7 +15,11 @@ import {
 } from '@/components/ui/dialog'
 import {Field, FieldDescription, FieldError, FieldGroup, FieldLabel} from '@/components/ui/field'
 import {Input} from '@/components/ui/input'
-import {api, errorMessage, unwrap, type Schema} from '@/lib/api'
+import {useAsync} from '@/composables/useAsync'
+import {errorMessage, type Schema} from '@/lib/api'
+import {addCourseTeacher, createCourse} from '@/lib/coursesApi'
+import {linkCourseToGroup} from '@/lib/groupsApi'
+import {fetchUsers} from '@/lib/usersApi'
 
 const props = defineProps<{groupId: string, groupName: string, schoolId: string}>()
 // created kommer när något har sparats, också om ett senare steg misslyckades, så att sidan visar det som finns.
@@ -24,9 +28,11 @@ const emit = defineEmits<{created: []}>()
 const open = defineModel<boolean>('open', {required: true})
 
 const teachers = ref<Schema<'UserDto'>[]>([])
-const loading = ref(false)
 const saving = ref(false)
-const error = ref('')
+// Samma felruta visar felet från hämtningen och från sparandet.
+const {run: loadTeachers, loading, error} = useAsync(async () => (await fetchUsers())
+  .filter((user) => user.role !== 'Student')
+  .sort((first, second) => first.name.localeCompare(second.name, 'sv')))
 const submitted = ref(false)
 const form = reactive({title: '', code: '', startsOn: '', endsOn: ''})
 const selected = ref<string[]>([])
@@ -56,21 +62,13 @@ watch(open, async (isOpen) => {
 
   Object.assign(form, {title: '', code: '', startsOn: '', endsOn: ''})
   selected.value = []
-  error.value = ''
   submitted.value = false
   course = null
   linked = false
   assigned = []
-  loading.value = true
-  try {
-    const users = unwrap(await api.GET('/api/users'))
-    teachers.value = users
-      .filter((user) => user.role !== 'Student')
-      .sort((first, second) => first.name.localeCompare(second.name, 'sv'))
-  } catch (exception) {
-    error.value = errorMessage(exception)
-  } finally {
-    loading.value = false
+  const loaded = await loadTeachers()
+  if (loaded) {
+    teachers.value = loaded
   }
 })
 
@@ -99,33 +97,26 @@ async function save() {
   let step = 'Kursen kunde inte skapas.'
   try {
     // Beskrivningen skriver läraren själv, så den följer inte med.
-    course ??= unwrap(await api.POST('/api/courses', {
-      body: {
-        schoolId: props.schoolId,
-        title: form.title.trim(),
-        code: form.code.trim(),
-        points: null,
-        startsOn: form.startsOn,
-        endsOn: form.endsOn,
-      },
-    }))
+    course ??= await createCourse({
+      schoolId: props.schoolId,
+      title: form.title.trim(),
+      code: form.code.trim(),
+      points: null,
+      startsOn: form.startsOn,
+      endsOn: form.endsOn,
+    })
     const created = course
 
     step = `Kursen ${created.title} skapades men kunde inte kopplas till ${props.groupName}.`
     if (!linked) {
-      await api.POST('/api/groups/{id}/courses/{courseId}', {
-        params: {path: {id: props.groupId, courseId: created.id}},
-      })
+      await linkCourseToGroup(props.groupId, created.id)
       linked = true
     }
 
     for (const userId of selected.value.filter((id) => !assigned.includes(id))) {
       const name = teachers.value.find((teacher) => teacher.id === userId)?.name ?? 'läraren'
       step = `Kursen ${created.title} skapades och kopplades till ${props.groupName}, men ${name} kunde inte läggas till som lärare.`
-      await api.POST('/api/courses/{id}/teachers', {
-        params: {path: {id: created.id}},
-        body: {userId},
-      })
+      await addCourseTeacher(created.id, userId)
       assigned.push(userId)
     }
 

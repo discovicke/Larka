@@ -13,7 +13,10 @@ import {
 } from '@/components/ui/dialog'
 import {FieldLabel} from '@/components/ui/field'
 import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
-import {api, errorMessage, unwrap, type Schema} from '@/lib/api'
+import {useAsync} from '@/composables/useAsync'
+import {errorMessage, type Schema} from '@/lib/api'
+import {addGroupMember, changeMemberRole, removeGroupMember} from '@/lib/groupsApi'
+import {fetchUsers} from '@/lib/usersApi'
 
 const props = defineProps<{groupId: string, groupName: string, members: Schema<'GroupMemberDto'>[]}>()
 // changed kommer när mentorn är satt, också om den förra mentorn inte kunde tas bort, så att sidan visar läget.
@@ -23,9 +26,9 @@ const open = defineModel<boolean>('open', {required: true})
 
 const users = ref<Schema<'UserDto'>[]>([])
 const userId = ref('')
-const loading = ref(false)
 const saving = ref(false)
-const error = ref('')
+// Samma felruta visar felet från hämtningen och från sparandet.
+const {run: loadUsers, loading, error} = useAsync(fetchUsers)
 
 const mentors = computed(() => props.members.filter((member) => member.role === 'Mentor'))
 // Mentorn är en lärare eller admin i skolan. En som redan är mentor väljs inte igen.
@@ -41,14 +44,9 @@ watch(open, async (isOpen) => {
   }
 
   userId.value = ''
-  error.value = ''
-  loading.value = true
-  try {
-    users.value = unwrap(await api.GET('/api/users'))
-  } catch (exception) {
-    error.value = errorMessage(exception)
-  } finally {
-    loading.value = false
+  const loaded = await loadUsers()
+  if (loaded) {
+    users.value = loaded
   }
 })
 
@@ -63,14 +61,8 @@ async function save() {
     // Mentor är en roll i klassen. Är läraren redan med byter rollen, annars läggs hen till.
     const isMember = props.members.some((member) => member.userId === chosen.value!.id)
     await (isMember
-      ? api.PUT('/api/groups/{id}/members/{userId}', {
-          params: {path: {id: props.groupId, userId: chosen.value.id}},
-          body: {role: 'Mentor'},
-        })
-      : api.POST('/api/groups/{id}/members', {
-          params: {path: {id: props.groupId}},
-          body: {userId: chosen.value.id, role: 'Mentor'},
-        }))
+      ? changeMemberRole(props.groupId, chosen.value.id, 'Mentor')
+      : addGroupMember(props.groupId, chosen.value.id, 'Mentor'))
   } catch (exception) {
     error.value = `Kunde inte utse ${chosen.value.name} till mentor. ${errorMessage(exception)}`
     saving.value = false
@@ -80,9 +72,7 @@ async function save() {
   try {
     // En klass har en mentor, så den förra lämnar klassen.
     for (const mentor of mentors.value) {
-      await api.DELETE('/api/groups/{id}/members/{userId}', {
-        params: {path: {id: props.groupId, userId: mentor.userId}},
-      })
+      await removeGroupMember(props.groupId, mentor.userId)
     }
     emit('changed')
     open.value = false

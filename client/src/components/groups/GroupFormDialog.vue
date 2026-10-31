@@ -14,7 +14,8 @@ import {
 import {Field, FieldDescription, FieldError, FieldGroup, FieldLabel} from '@/components/ui/field'
 import {Input} from '@/components/ui/input'
 import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
-import {api, errorMessage, unwrap, type Schema} from '@/lib/api'
+import {useAsync} from '@/composables/useAsync'
+import {api, unwrap, type Schema} from '@/lib/api'
 import {groupTypeLabels} from '@/lib/groups'
 
 // Utan group skapas en ny grupp i skolan, med group ändras den.
@@ -26,8 +27,6 @@ const props = defineProps<{
 const open = defineModel<boolean>('open', {required: true})
 const emit = defineEmits<{saved: [group: Schema<'GroupDto'>]}>()
 
-const saving = ref(false)
-const error = ref('')
 const submitted = ref(false)
 const form = reactive({name: '', type: 'Class' as Schema<'GroupType'>, term: ''})
 
@@ -35,6 +34,19 @@ const isEdit = computed(() => props.group !== undefined)
 const nameError = computed(() => submitted.value && !form.name.trim()
   ? 'Ange ett namn.'
   : '')
+
+const {run: send, loading: saving, error} = useAsync(async (name: string, term: string | null) => {
+  const saved = props.group
+    ? unwrap(await api.PUT('/api/groups/{id}', {
+        params: {path: {id: props.group.id}},
+        body: {type: form.type, name, term},
+      }))
+    : unwrap(await api.POST('/api/groups', {
+        body: {schoolId: props.schoolId, type: form.type, name, term},
+      }))
+  emit('saved', saved)
+  open.value = false
+})
 
 watch(open, (isOpen) => {
   if (isOpen) {
@@ -53,25 +65,7 @@ async function save() {
     return
   }
 
-  saving.value = true
-  error.value = ''
-  const term = form.term.trim() || null
-  try {
-    const saved = props.group
-      ? unwrap(await api.PUT('/api/groups/{id}', {
-          params: {path: {id: props.group.id}},
-          body: {type: form.type, name, term},
-        }))
-      : unwrap(await api.POST('/api/groups', {
-          body: {schoolId: props.schoolId, type: form.type, name, term},
-        }))
-    emit('saved', saved)
-    open.value = false
-  } catch (exception) {
-    error.value = errorMessage(exception)
-  } finally {
-    saving.value = false
-  }
+  await send(name, form.term.trim() || null)
 }
 </script>
 

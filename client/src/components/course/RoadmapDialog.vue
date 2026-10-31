@@ -16,7 +16,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
-import {api, errorMessage, type Schema} from '@/lib/api'
+import {useAsync} from '@/composables/useAsync'
+import {api, type Schema} from '@/lib/api'
 import {countLabel, formatDate, partOf} from '@/lib/content'
 import {
   cycleLabel,
@@ -39,8 +40,6 @@ const props = defineProps<{
 const open = defineModel<boolean>('open', {required: true})
 const emit = defineEmits<{saved: [module: Schema<'ModuleWithContentDto'>]}>()
 
-const saving = ref(false)
-const error = ref('')
 const preview = ref(false)
 const blockedBy = ref<Record<string, string[]>>({})
 const rules = ref<Record<string, Schema<'CompletionRule'> | null>>({})
@@ -172,33 +171,25 @@ function isSubmission(part: Schema<'ModuleContentItem'>): boolean {
   return Boolean(part.completionRule) && part.gradeScale !== null && part.gradeScale !== 'None'
 }
 
-async function save() {
+const {run: save, loading: saving, error} = useAsync(async () => {
   if (cycle.value) {
     return
   }
-  saving.value = true
-  error.value = ''
-  try {
-    const {data} = await api.PUT('/api/courses/{id}/modules/{moduleId}/roadmap', {
-      params: {path: {id: props.courseId, moduleId: props.module.id}},
-      body: {
-        links: props.module.content.map((part) => ({
-          linkId: part.linkId,
-          blockedByLinkIds: blockedBy.value[part.linkId] ?? [],
-          completionRule: rules.value[part.linkId] ?? null,
-        })),
-      },
-    })
-    if (data) {
-      emit('saved', data)
-    }
-    open.value = false
-  } catch (exception) {
-    error.value = errorMessage(exception)
-  } finally {
-    saving.value = false
+  const {data} = await api.PUT('/api/courses/{id}/modules/{moduleId}/roadmap', {
+    params: {path: {id: props.courseId, moduleId: props.module.id}},
+    body: {
+      links: props.module.content.map((part) => ({
+        linkId: part.linkId,
+        blockedByLinkIds: blockedBy.value[part.linkId] ?? [],
+        completionRule: rules.value[part.linkId] ?? null,
+      })),
+    },
+  })
+  if (data) {
+    emit('saved', data)
   }
-}
+  open.value = false
+})
 
 watch(open, (isOpen) => {
   if (isOpen) {

@@ -14,7 +14,9 @@ import {
 } from '@/components/ui/dialog'
 import {Field, FieldDescription, FieldError, FieldGroup, FieldLabel} from '@/components/ui/field'
 import {Input} from '@/components/ui/input'
-import {api, errorMessage, unwrap, type Schema} from '@/lib/api'
+import {useAsync} from '@/composables/useAsync'
+import {type Schema} from '@/lib/api'
+import {createCourse, updateCourse} from '@/lib/coursesApi'
 
 // Utan course skapas en ny kurs i skolan, med course ändras den. Koden är låst efter att kursen skapats.
 const props = defineProps<{
@@ -25,8 +27,6 @@ const props = defineProps<{
 const open = defineModel<boolean>('open', {required: true})
 const emit = defineEmits<{saved: [course: Schema<'CourseDto'>]}>()
 
-const saving = ref(false)
-const error = ref('')
 const submitted = ref(false)
 const form = reactive({title: '', code: '', points: '', startsOn: '', endsOn: ''})
 
@@ -45,6 +45,23 @@ const pointsError = computed(() => {
   return Number.isInteger(points) && points >= 1 && points <= 400
     ? ''
     : 'Omfattningen ska vara mellan 1 och 400 poäng.'
+})
+
+interface CourseFields {
+  title: string
+  code: string
+  points: number | null
+  startsOn: string | null
+  endsOn: string | null
+}
+
+const {run: send, loading: saving, error} = useAsync(async ({title, code, points, startsOn, endsOn}: CourseFields) => {
+  const saved = props.course
+    // Beskrivningen skrivs på kursens egen sida, så den följer med oförändrad.
+    ? await updateCourse(props.course.id, {title, description: props.course.description, points, startsOn, endsOn})
+    : await createCourse({schoolId: props.schoolId, title, code, points, startsOn, endsOn})
+  emit('saved', saved)
+  open.value = false
 })
 
 watch(open, (isOpen) => {
@@ -69,30 +86,10 @@ async function save() {
     return
   }
 
-  saving.value = true
-  error.value = ''
   const points = form.points === ''
     ? null
     : Number(form.points)
-  const startsOn = form.startsOn || null
-  const endsOn = form.endsOn || null
-  try {
-    const saved = props.course
-      // Beskrivningen skrivs på kursens egen sida, så den följer med oförändrad.
-      ? unwrap(await api.PUT('/api/courses/{id}', {
-          params: {path: {id: props.course.id}},
-          body: {title, description: props.course.description, points, startsOn, endsOn},
-        }))
-      : unwrap(await api.POST('/api/courses', {
-          body: {schoolId: props.schoolId, title, code, points, startsOn, endsOn},
-        }))
-    emit('saved', saved)
-    open.value = false
-  } catch (exception) {
-    error.value = errorMessage(exception)
-  } finally {
-    saving.value = false
-  }
+  await send({title, code, points, startsOn: form.startsOn || null, endsOn: form.endsOn || null})
 }
 </script>
 

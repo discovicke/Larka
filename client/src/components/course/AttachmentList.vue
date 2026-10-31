@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {PhTrash, PhUploadSimple} from '@phosphor-icons/vue'
-import {ref, watch} from 'vue'
+import {computed, ref, watch} from 'vue'
 
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Button} from '@/components/ui/button'
@@ -12,7 +12,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {useAsync} from '@/composables/useAsync'
 import {api, multipart, type Schema} from '@/lib/api'
+import {fetchAttachments} from '@/lib/contentApi'
 import {fileIcon, formatSize} from '@/lib/material'
 
 const props = defineProps<{
@@ -22,28 +24,35 @@ const props = defineProps<{
 }>()
 
 const attachments = ref<Schema<'AttachmentDto'>[]>([])
-const loading = ref(true)
-const uploading = ref(false)
-const uploadFailed = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
 const deleteOpen = ref(false)
 const fileToDelete = ref<Schema<'AttachmentDto'> | null>(null)
-const deleting = ref(false)
-const deleteError = ref('')
+
+const {run: fetchFiles, loading, error: loadError} = useAsync(() => fetchAttachments(props.contentId))
 
 async function load() {
-  loading.value = true
-  try {
-    const {data} = await api.GET('/api/content/{id}/attachments', {
-      params: {path: {id: props.contentId}},
-    })
-    attachments.value = data ?? []
-  } catch {
+  const loaded = await fetchFiles()
+  if (loaded) {
+    attachments.value = loaded
+  } else if (loadError.value) {
     attachments.value = []
-  } finally {
-    loading.value = false
   }
 }
+
+const {run: upload, loading: uploading, error: uploadError} = useAsync(async (file: File) => {
+  const body = new FormData()
+  body.append('file', file, file.name)
+
+  // Formuläret skickas som multipart. OpenAPI-typen beskriver filen som en sträng, så FormData läggs in här.
+  const {data} = await api.POST('/api/content/{id}/attachments', {
+    params: {path: {id: props.contentId}},
+    body: multipart<{file: Schema<'IFormFile'>}>(body),
+  })
+  if (data) {
+    attachments.value = [...attachments.value, data]
+  }
+}, 'Kunde inte ladda upp filen.')
+const uploadFailed = computed(() => uploadError.value !== '')
 
 async function onFileChanged(event: Event) {
   const input = event.target as HTMLInputElement
@@ -52,26 +61,8 @@ async function onFileChanged(event: Event) {
     return
   }
 
-  const body = new FormData()
-  body.append('file', file, file.name)
-
-  uploading.value = true
-  uploadFailed.value = false
-  try {
-    // Formuläret skickas som multipart. OpenAPI-typen beskriver filen som en sträng, så FormData läggs in här.
-    const {data} = await api.POST('/api/content/{id}/attachments', {
-      params: {path: {id: props.contentId}},
-      body: multipart<{file: Schema<'IFormFile'>}>(body),
-    })
-    if (data) {
-      attachments.value = [...attachments.value, data]
-    }
-  } catch {
-    uploadFailed.value = true
-  } finally {
-    uploading.value = false
-    input.value = ''
-  }
+  await upload(file)
+  input.value = ''
 }
 
 function askDelete(attachment: Schema<'AttachmentDto'>) {
@@ -80,27 +71,19 @@ function askDelete(attachment: Schema<'AttachmentDto'>) {
   deleteOpen.value = true
 }
 
-async function remove() {
+const {run: remove, loading: deleting, error: deleteError} = useAsync(async () => {
   const attachment = fileToDelete.value
   if (!attachment) {
     return
   }
 
-  deleting.value = true
-  deleteError.value = ''
-  try {
-    await api.DELETE('/api/content/{id}/attachments/{attachmentId}', {
-      params: {path: {id: props.contentId, attachmentId: attachment.id}},
-    })
-    attachments.value = attachments.value.filter((item) => item.id !== attachment.id)
-    deleteOpen.value = false
-    fileToDelete.value = null
-  } catch {
-    deleteError.value = 'Kunde inte ta bort filen.'
-  } finally {
-    deleting.value = false
-  }
-}
+  await api.DELETE('/api/content/{id}/attachments/{attachmentId}', {
+    params: {path: {id: props.contentId, attachmentId: attachment.id}},
+  })
+  attachments.value = attachments.value.filter((item) => item.id !== attachment.id)
+  deleteOpen.value = false
+  fileToDelete.value = null
+}, 'Kunde inte ta bort filen.')
 
 watch(() => props.contentId, load, {immediate: true})
 </script>

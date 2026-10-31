@@ -6,9 +6,12 @@ import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Button} from '@/components/ui/button'
 import {Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty'
 import {Skeleton} from '@/components/ui/skeleton'
+import {useAsync} from '@/composables/useAsync'
 import {useCourses} from '@/composables/useCourses'
-import {api, type Schema} from '@/lib/api'
+import {type Schema} from '@/lib/api'
 import {formatDate} from '@/lib/content'
+import {fetchCourseModules} from '@/lib/modulesApi'
+import {fetchLinkSubmissions} from '@/lib/submissionsApi'
 
 interface GradingRow {
   submission: Schema<'SubmissionDto'>
@@ -22,8 +25,6 @@ interface GradingRow {
 const {courses, status} = useCourses()
 
 const rows = ref<GradingRow[]>([])
-const loading = ref(false)
-const error = ref('')
 
 const orderedRows = computed(() => [...rows.value]
   .sort((left, right) => Date.parse(left.submission.submittedAt ?? '')
@@ -35,39 +36,34 @@ function rowBorder(index: number) {
     : ''
 }
 
+const {run: loadRows, loading, error} = useAsync(async () => {
+  const moduleResults = await Promise.all(courses.value.map((course) => fetchCourseModules(course.id)))
+
+  const assignments = moduleResults.flatMap((weeks, index) => {
+    const course = courses.value[index]
+    return weeks.flatMap((week) => week.content
+      .filter((item) => item.type === 'Assignment')
+      .map((item) => ({course, item})))
+  })
+
+  const submissionResults = await Promise.all(assignments.map(({item}) => fetchLinkSubmissions(item.linkId)))
+
+  return assignments.flatMap(({course, item}, index) => submissionResults[index]
+    .filter((submission) => submission.status === 'Submitted')
+    .map((submission) => ({
+      submission,
+      courseId: course.id,
+      courseTitle: course.title,
+      linkId: item.linkId,
+      title: item.title,
+      name: submission.studentName,
+    })))
+}, 'Kunde inte hämta inlämningarna.')
+
 async function load() {
-  loading.value = true
-  error.value = ''
-  try {
-    const moduleResults = await Promise.all(courses.value.map((course) => api.GET('/api/courses/{id}/modules', {
-      params: {path: {id: course.id}},
-    })))
-
-    const assignments = moduleResults.flatMap((result, index) => {
-      const course = courses.value[index]
-      return (result.data ?? []).flatMap((week) => week.content
-        .filter((item) => item.type === 'Assignment')
-        .map((item) => ({course, item})))
-    })
-
-    const submissionResults = await Promise.all(assignments.map(({item}) => api.GET('/api/links/{id}/submissions', {
-      params: {path: {id: item.linkId}},
-    })))
-
-    rows.value = assignments.flatMap(({course, item}, index) => (submissionResults[index].data ?? [])
-      .filter((submission) => submission.status === 'Submitted')
-      .map((submission) => ({
-        submission,
-        courseId: course.id,
-        courseTitle: course.title,
-        linkId: item.linkId,
-        title: item.title,
-        name: submission.studentName,
-      })))
-  } catch {
-    error.value = 'Kunde inte hämta inlämningarna.'
-  } finally {
-    loading.value = false
+  const loaded = await loadRows()
+  if (loaded) {
+    rows.value = loaded
   }
 }
 

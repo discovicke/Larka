@@ -16,38 +16,29 @@ import {
 } from '@/components/ui/dialog'
 import {Field, FieldDescription, FieldGroup, FieldLabel} from '@/components/ui/field'
 import {Input} from '@/components/ui/input'
-import {api, errorMessage} from '@/lib/api'
+import {useAsync} from '@/composables/useAsync'
+import {api} from '@/lib/api'
 import {isoOrNull, orNull} from '@/lib/form'
 
 const props = defineProps<{courseId: string}>()
 const emit = defineEmits<{created: []}>()
 
 const open = ref(false)
-const saving = ref(false)
-const error = ref('')
 const form = reactive({title: '', description: '', publishAt: ''})
 
-async function save() {
-  saving.value = true
-  error.value = ''
-  try {
-    await api.POST('/api/courses/{id}/modules', {
-      params: {path: {id: props.courseId}},
-      body: {
-        title: form.title,
-        description: orNull(form.description),
-        publishAt: isoOrNull(form.publishAt),
-      },
-    })
-    Object.assign(form, {title: '', description: '', publishAt: ''})
-    open.value = false
-    emit('created')
-  } catch (exception) {
-    error.value = errorMessage(exception)
-  } finally {
-    saving.value = false
-  }
-}
+const {run: save, loading: saving, error} = useAsync(async () => {
+  await api.POST('/api/courses/{id}/modules', {
+    params: {path: {id: props.courseId}},
+    body: {
+      title: form.title,
+      description: orNull(form.description),
+      publishAt: isoOrNull(form.publishAt),
+    },
+  })
+  Object.assign(form, {title: '', description: '', publishAt: ''})
+  open.value = false
+  emit('created')
+})
 </script>
 
 <template>

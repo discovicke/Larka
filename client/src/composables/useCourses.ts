@@ -1,6 +1,7 @@
 import {ref} from 'vue'
 
-import {api, type Schema} from '@/lib/api'
+import {type Schema} from '@/lib/api'
+import {fetchCourses} from '@/lib/coursesApi'
 
 type Course = Schema<'CourseDto'>
 
@@ -12,7 +13,7 @@ const status = ref<'loading' | 'loaded' | 'failed'>('loading')
 async function loadCourses() {
   status.value = 'loading'
   try {
-    courses.value = (await api.GET('/api/courses')).data ?? []
+    courses.value = await fetchCourses()
     status.value = 'loaded'
   } catch {
     status.value = 'failed'

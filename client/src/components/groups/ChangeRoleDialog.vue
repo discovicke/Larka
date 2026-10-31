@@ -13,8 +13,9 @@ import {
 } from '@/components/ui/dialog'
 import {FieldLabel} from '@/components/ui/field'
 import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
-import {api, errorMessage, type Schema} from '@/lib/api'
+import {errorMessage, type Schema} from '@/lib/api'
 import {groupRoles} from '@/lib/groupRoles'
+import {changeMemberRole, removeGroupMember} from '@/lib/groupsApi'
 
 const props = defineProps<{
   groupId: string
@@ -52,10 +53,7 @@ async function save() {
   saving.value = true
   error.value = ''
   try {
-    await api.PUT('/api/groups/{id}/members/{userId}', {
-      params: {path: {id: props.groupId, userId: member.userId}},
-      body: {role: role.value},
-    })
+    await changeMemberRole(props.groupId, member.userId, role.value)
   } catch (exception) {
     error.value = `Kunde inte ändra rollen för ${member.name}. ${errorMessage(exception)}`
     saving.value = false
@@ -64,9 +62,7 @@ async function save() {
 
   try {
     for (const mentor of leavingMentors.value) {
-      await api.DELETE('/api/groups/{id}/members/{userId}', {
-        params: {path: {id: props.groupId, userId: mentor.userId}},
-      })
+      await removeGroupMember(props.groupId, mentor.userId)
     }
     emit('changed')
     open.value = false

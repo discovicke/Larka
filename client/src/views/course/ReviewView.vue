@@ -17,13 +17,17 @@ import {Skeleton} from '@/components/ui/skeleton'
 import {Textarea} from '@/components/ui/textarea'
 import {useCrumbLabels} from '@/composables/useCrumbLabels'
 import {useCurrentUser} from '@/composables/useCurrentUser'
+import {useAsync} from '@/composables/useAsync'
 import {useFlash} from '@/composables/useFlash'
 import {api, type Schema} from '@/lib/api'
 import {parseChecklist} from '@/lib/checklist'
 import {formatDate} from '@/lib/content'
+import {fetchContent} from '@/lib/contentApi'
 import {formatSize} from '@/lib/material'
+import {fetchCourseModules} from '@/lib/modulesApi'
 import {initials} from '@/lib/person'
 import {checkClass, checkLabel, gradeLabel, gradeName, levelsFor, nextInQueue} from '@/lib/submissions'
+import {fetchLinkSubmissions} from '@/lib/submissionsApi'
 
 const route = useRoute()
 const {setCrumbLabel} = useCrumbLabels()
@@ -38,13 +42,9 @@ const {setFlash, takeFlash} = useFlash()
 
 const submission = ref<Schema<'SubmissionDto'> | null>(null)
 const assignment = ref<Schema<'ModuleContentItem'> | null>(null)
-const loading = ref(true)
-const loadError = ref('')
 const feedback = ref('')
 const level = ref<Schema<'GradeLevel'> | null>(null)
 const formError = ref('')
-const saveError = ref('')
-const saving = ref(false)
 const notice = ref('')
 // Uppgiftstexten och kön hämtas med sidan. Uppgiften är hopfälld tills läraren öppnar den,
 // och ligger kvar öppen när läraren går vidare till nästa inlämning.
@@ -96,60 +96,50 @@ const hasHandedIn = computed(() => Boolean(submission.value?.bodyMd)
   || (submission.value?.files.length ?? 0) > 0
   || Boolean(submission.value?.repo))
 
-async function load() {
-  loading.value = true
-  loadError.value = ''
+const {run: load, loading, error: loadError} = useAsync(async () => {
   leaving = false
-  try {
-    notice.value = takeFlash()
-    const [submissionResult, moduleResult, queueResult] = await Promise.all([
-      api.GET('/api/submissions/{id}', {params: {path: {id: submissionId.value}}}),
-      api.GET('/api/courses/{id}/modules', {params: {path: {id: courseId.value}}}),
-      canGrade.value
-        ? api.GET('/api/links/{id}/submissions', {params: {path: {id: linkId.value}}})
-        : Promise.resolve({data: []}),
-    ])
-    queue.value = queueResult.data ?? []
-    const found = submissionResult.data ?? null
-    submission.value = found
-    const week = (moduleResult.data ?? [])
-      .find((candidate) => candidate.content.some((item) => item.linkId === linkId.value))
-    assignment.value = week?.content.find((item) => item.linkId === linkId.value) ?? null
-    task.value = assignment.value
-      ? (await api.GET('/api/content/{id}', {params: {path: {id: assignment.value.contentId}}})).data ?? null
-      : null
-    setCrumbLabel(`assignment:${linkId.value}`, assignment.value?.title)
-    setCrumbLabel(`student:${submissionId.value}`, studentName.value)
-    if (found?.grade) {
-      level.value = found.grade.level
-      feedback.value = found.grade.feedback
-    } else {
-      level.value = null
-      feedback.value = ''
-    }
-    savedFeedback.value = feedback.value
-    savedLevel.value = level.value
-  } catch {
-    loadError.value = 'Kunde inte hämta inlämningen.'
-  } finally {
-    loading.value = false
+  notice.value = takeFlash()
+  const [submissionResult, modules, queueResult] = await Promise.all([
+    api.GET('/api/submissions/{id}', {params: {path: {id: submissionId.value}}}),
+    fetchCourseModules(courseId.value),
+    canGrade.value
+      ? fetchLinkSubmissions(linkId.value)
+      : Promise.resolve([]),
+  ])
+  queue.value = queueResult
+  const found = submissionResult.data ?? null
+  submission.value = found
+  const week = modules
+    .find((candidate) => candidate.content.some((item) => item.linkId === linkId.value))
+  assignment.value = week?.content.find((item) => item.linkId === linkId.value) ?? null
+  task.value = assignment.value
+    ? await fetchContent(assignment.value.contentId)
+    : null
+  setCrumbLabel(`assignment:${linkId.value}`, assignment.value?.title)
+  setCrumbLabel(`student:${submissionId.value}`, studentName.value)
+  if (found?.grade) {
+    level.value = found.grade.level
+    feedback.value = found.grade.feedback
+  } else {
+    level.value = null
+    feedback.value = ''
   }
-}
+  savedFeedback.value = feedback.value
+  savedLevel.value = level.value
+}, 'Kunde inte hämta inlämningen.')
 
-async function save(body: Schema<'GradeSubmissionDto'>) {
+const {run: save, loading: saving, error: saveError} = useAsync(async (body: Schema<'GradeSubmissionDto'>) => {
   const current = submission.value
   if (!current) {
     return
   }
-  saving.value = true
-  saveError.value = ''
   try {
     await api.POST('/api/submissions/{id}/grade', {params: {path: {id: current.id}}, body})
     leaving = true
     setFlash('Bedömningen är sparad.')
     // Listan hämtas igen så att kön speglar det som hände medan läraren bedömde.
     const fresh = inQueue.value
-      ? (await api.GET('/api/links/{id}/submissions', {params: {path: {id: linkId.value}}})).data ?? []
+      ? await fetchLinkSubmissions(linkId.value)
       : []
     const following = inQueue.value
       ? nextInQueue(fresh, current)
@@ -157,13 +147,11 @@ async function save(body: Schema<'GradeSubmissionDto'>) {
     await (following
       ? router.push({name: 'submission-review', params: {courseId: courseId.value, linkId: linkId.value, submissionId: following.id}})
       : router.push({name: 'assignment-submissions', params: {courseId: courseId.value, linkId: linkId.value}}))
-  } catch {
+  } catch (exception) {
     leaving = false
-    saveError.value = 'Kunde inte spara bedömningen.'
-  } finally {
-    saving.value = false
+    throw exception
   }
-}
+}, 'Kunde inte spara bedömningen.')
 
 async function publish() {
   formError.value = ''

@@ -14,8 +14,11 @@ import {
 import {Field, FieldDescription, FieldError, FieldLabel} from '@/components/ui/field'
 import {Input} from '@/components/ui/input'
 import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
+import {useAsync} from '@/composables/useAsync'
 import {api, errorMessage, unwrap, type Schema} from '@/lib/api'
 import {groupRoles} from '@/lib/groupRoles'
+import {addGroupMember} from '@/lib/groupsApi'
+import {fetchUsers} from '@/lib/usersApi'
 
 const props = defineProps<{groupId: string, groupName: string, schoolId: string, memberIds: string[]}>()
 const emit = defineEmits<{added: [member: Schema<'GroupMemberDto'>], paste: []}>()
@@ -26,9 +29,9 @@ const users = ref<Schema<'UserDto'>[]>([])
 const search = ref('')
 const userId = ref('')
 const role = ref<Schema<'GroupRole'>>('Student')
-const loading = ref(false)
 const saving = ref(false)
-const error = ref('')
+// Samma felruta visar felet från hämtningen och från sparandet.
+const {run: loadUsers, loading, error} = useAsync(fetchUsers)
 
 // Fliken Skapa användare: en ny användare skapas och läggs till i gruppen i samma steg.
 const creating = ref(false)
@@ -70,19 +73,13 @@ watch(open, async (isOpen) => {
   search.value = ''
   userId.value = ''
   role.value = 'Student'
-  error.value = ''
   creating.value = false
   submitted.value = false
   createdUser = null
   Object.assign(form, {name: '', email: '', schoolRole: 'Student', password: ''})
-  loading.value = true
-  try {
-    const {data} = await api.GET('/api/users')
-    users.value = data ?? []
-  } catch (exception) {
-    error.value = errorMessage(exception)
-  } finally {
-    loading.value = false
+  const loaded = await loadUsers()
+  if (loaded) {
+    users.value = loaded
   }
 })
 
@@ -148,10 +145,7 @@ async function addToGroup(user: Schema<'UserDto'> | null | undefined) {
     return
   }
 
-  await api.POST('/api/groups/{id}/members', {
-    params: {path: {id: props.groupId}},
-    body: {userId: user.id, role: role.value},
-  })
+  await addGroupMember(props.groupId, user.id, role.value)
   emit('added', {userId: user.id, name: user.name, role: role.value})
   open.value = false
 }

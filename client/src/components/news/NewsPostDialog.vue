@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {PhPlus} from '@phosphor-icons/vue'
-import {reactive, ref} from 'vue'
+import {computed, reactive, ref} from 'vue'
 
 import MarkdownEditor from '@/components/editor/MarkdownEditor.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
@@ -17,16 +17,27 @@ import {
 } from '@/components/ui/dialog'
 import {Field, FieldGroup, FieldLabel} from '@/components/ui/field'
 import {Input} from '@/components/ui/input'
-import {api, unwrap} from '@/lib/api'
+import {useAsync} from '@/composables/useAsync'
+import {createContentWithLink} from '@/lib/contentApi'
 
 const props = defineProps<{courseId: string}>()
 const emit = defineEmits<{created: [linkId: string]}>()
 
 const open = ref(false)
-const saving = ref(false)
-const failed = ref(false)
 const bodyError = ref(false)
 const form = reactive({title: '', bodyMd: '', isPinned: false})
+
+const {run: send, loading: saving, error} = useAsync(async () => {
+  const created = await createContentWithLink({
+    content: {type: 'News', title: form.title, bodyMd: form.bodyMd, status: 'Published'},
+    link: {courseId: props.courseId, isPinned: form.isPinned},
+  })
+  Object.assign(form, {title: '', bodyMd: '', isPinned: false})
+  bodyError.value = false
+  open.value = false
+  emit('created', created.link.id)
+}, 'Kunde inte publicera nyheten.')
+const failed = computed(() => error.value !== '')
 
 async function save() {
   // MarkdownEditor har ingen required, så texten kontrolleras här.
@@ -35,24 +46,7 @@ async function save() {
     return
   }
 
-  saving.value = true
-  failed.value = false
-  try {
-    const created = unwrap(await api.POST('/api/content/with-link', {
-      body: {
-        content: {type: 'News', title: form.title, bodyMd: form.bodyMd, status: 'Published'},
-        link: {courseId: props.courseId, isPinned: form.isPinned},
-      },
-    }))
-    Object.assign(form, {title: '', bodyMd: '', isPinned: false})
-    bodyError.value = false
-    open.value = false
-    emit('created', created.link.id)
-  } catch {
-    failed.value = true
-  } finally {
-    saving.value = false
-  }
+  await send()
 }
 </script>
 

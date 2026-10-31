@@ -8,9 +8,10 @@ import {Button} from '@/components/ui/button'
 import {Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty'
 import {NativeSelect} from '@/components/ui/native-select'
 import {Skeleton} from '@/components/ui/skeleton'
+import {useAsync} from '@/composables/useAsync'
 import {useCourses} from '@/composables/useCourses'
 import {useCurrentUser} from '@/composables/useCurrentUser'
-import {api, type Schema} from '@/lib/api'
+import {api, type Schema, unwrap} from '@/lib/api'
 import {
   addDays,
   dateKey,
@@ -36,8 +37,6 @@ const {can} = useCurrentUser()
 const view = ref<'week' | 'month'>('week')
 const anchor = ref(new Date())
 const items = ref<Item[]>([])
-const loading = ref(true)
-const loadFailed = ref(false)
 const courseFilter = ref('all')
 const today = new Date()
 
@@ -117,42 +116,19 @@ function chipLabel(item: Item): string {
     : 'Publiceras'
 }
 
-let requestId = 0
+const {run: fetchItems, loading, error} = useAsync(async (from: Date, to: Date) => unwrap(await api.GET('/api/calendar', {
+  params: {query: {from: from.toISOString(), to: to.toISOString()}},
+})))
+const loadFailed = computed(() => error.value !== '')
 
 async function load() {
-  const current = ++requestId
-  loading.value = true
-  loadFailed.value = false
   const first = days.value[0]
   const last = days.value[days.value.length - 1]
-  try {
-    const result = await api.GET('/api/calendar', {
-      params: {
-        query: {
-          from: first.toISOString(),
-          to: addDays(last, 1).toISOString(),
-        },
-      },
-    })
-    if (current !== requestId) {
-      return
-    }
-    if (result.error || !result.data) {
-      loadFailed.value = true
-      items.value = []
-    } else {
-      items.value = result.data
-    }
-  } catch {
-    if (current !== requestId) {
-      return
-    }
-    loadFailed.value = true
+  const loaded = await fetchItems(first, addDays(last, 1))
+  if (loaded) {
+    items.value = loaded
+  } else if (error.value) {
     items.value = []
-  } finally {
-    if (current === requestId) {
-      loading.value = false
-    }
   }
 }
 

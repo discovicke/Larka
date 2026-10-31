@@ -17,10 +17,13 @@ import {
 import {FieldLabel} from '@/components/ui/field'
 import {Input} from '@/components/ui/input'
 import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
+import {useAsync} from '@/composables/useAsync'
 import {useCourses} from '@/composables/useCourses'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {api, errorMessage, type Schema} from '@/lib/api'
 import {countLabel} from '@/lib/content'
+import {fetchGroupCourses, fetchGroups} from '@/lib/groupsApi'
+import {fetchCourseModules} from '@/lib/modulesApi'
 
 const props = defineProps<{course: Schema<'CourseDto'>}>()
 
@@ -37,9 +40,7 @@ const endsOn = ref('')
 const copyContent = ref(true)
 const classes = ref<Schema<'GroupDto'>[]>([])
 const weeks = ref<Schema<'ModuleWithContentDto'>[]>([])
-const loading = ref(false)
 const saving = ref(false)
-const error = ref('')
 
 const partTotal = computed(() => weeks.value.reduce((sum, week) => sum + week.content.length, 0))
 const copyLabel = computed(() => `Kopiera alla veckor och delar (${
@@ -49,6 +50,26 @@ const ready = computed(() => code.value.trim() !== ''
   && groupId.value !== ''
   && startsOn.value !== ''
   && endsOn.value !== '')
+
+// Samma felruta visar felet från hämtningen och från skapandet.
+const {run: loadChoices, loading, error} = useAsync(async () => {
+  const [groups, modules] = await Promise.all([fetchGroups(), fetchCourseModules(props.course.id)])
+  // Bara klasser i kursens skola kan läsa kursen.
+  const inSchool = groups.filter((group) => group.type === 'Class'
+    && group.schoolId === props.course.schoolId)
+  // Admin får välja vilken klass som helst. En lärare bara klasser som läser en kurs hen undervisar i.
+  if (can('manageCourse')) {
+    classes.value = inSchool
+  } else {
+    const taught = new Set((me.value?.courses ?? [])
+      .filter((role) => role.role === 'Teacher')
+      .map((role) => role.courseId))
+    const reads = await Promise.all(inSchool.map(async (group) => (await fetchGroupCourses(group.id))
+      .some((course) => taught.has(course.id))))
+    classes.value = inSchool.filter((_group, index) => reads[index])
+  }
+  weeks.value = modules
+})
 
 watch(open, async (isOpen) => {
   if (!isOpen) {
@@ -60,35 +81,7 @@ watch(open, async (isOpen) => {
   startsOn.value = ''
   endsOn.value = ''
   copyContent.value = true
-  error.value = ''
-  loading.value = true
-  try {
-    const [groups, modules] = await Promise.all([
-      api.GET('/api/groups'),
-      api.GET('/api/courses/{id}/modules', {params: {path: {id: props.course.id}}}),
-    ])
-    // Bara klasser i kursens skola kan läsa kursen.
-    const inSchool = (groups.data ?? []).filter((group) => group.type === 'Class'
-      && group.schoolId === props.course.schoolId)
-    // Admin får välja vilken klass som helst. En lärare bara klasser som läser en kurs hen undervisar i.
-    if (can('manageCourse')) {
-      classes.value = inSchool
-    } else {
-      const taught = new Set((me.value?.courses ?? [])
-        .filter((role) => role.role === 'Teacher')
-        .map((role) => role.courseId))
-      const reads = await Promise.all(inSchool.map(async (group) => {
-        const result = await api.GET('/api/groups/{id}/courses', {params: {path: {id: group.id}}})
-        return (result.data ?? []).some((course) => taught.has(course.id))
-      }))
-      classes.value = inSchool.filter((_group, index) => reads[index])
-    }
-    weeks.value = modules.data ?? []
-  } catch (exception) {
-    error.value = errorMessage(exception)
-  } finally {
-    loading.value = false
-  }
+  await loadChoices()
 })
 
 async function create() {

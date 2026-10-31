@@ -9,6 +9,7 @@ import {Badge} from '@/components/ui/badge'
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card'
 import {Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty'
 import {Skeleton} from '@/components/ui/skeleton'
+import {useAsync} from '@/composables/useAsync'
 import {api} from '@/lib/api'
 import {type CourseStatus, courseStatus} from '@/lib/courseStatus'
 import {submissionStatusKey} from '@/lib/status'
@@ -24,8 +25,6 @@ import {
 } from '@/lib/studyPlan'
 
 const plan = ref<StudyPlan | null>(null)
-const loading = ref(true)
-const error = ref('')
 const openFeedback = ref<string | null>(null)
 
 const courses = computed(() => plan.value?.courses ?? [])
@@ -75,17 +74,17 @@ function toggleFeedback(assignment: StudyPlanAssignment) {
     : assignment.linkId
 }
 
+const {run: fetchPlan, loading, error} = useAsync(
+  async () => (await api.GET('/api/me/study-plan')).data ?? null,
+  'Kunde inte hämta studieplanen.',
+)
+
 async function load() {
-  loading.value = true
-  error.value = ''
-  try {
-    const {data} = await api.GET('/api/me/study-plan')
-    plan.value = data ?? null
-  } catch {
-    error.value = 'Kunde inte hämta studieplanen.'
+  const loaded = await fetchPlan()
+  if (loaded !== undefined) {
+    plan.value = loaded
+  } else if (error.value) {
     plan.value = null
-  } finally {
-    loading.value = false
   }
 }
 

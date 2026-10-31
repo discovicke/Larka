@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {ref, watch} from 'vue'
+import {watch} from 'vue'
 
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Button} from '@/components/ui/button'
@@ -11,15 +11,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {ApiError, api, errorMessage, type Schema} from '@/lib/api'
+import {useAsync} from '@/composables/useAsync'
+import {ApiError, api, type Schema} from '@/lib/api'
 
 const props = defineProps<{group: Schema<'GroupDto'>}>()
 
 const open = defineModel<boolean>('open', {required: true})
 const emit = defineEmits<{deleted: [group: Schema<'GroupDto'>]}>()
-
-const deleting = ref(false)
-const error = ref('')
 
 watch(open, (isOpen) => {
   if (isOpen) {
@@ -27,22 +25,18 @@ watch(open, (isOpen) => {
   }
 })
 
-async function remove() {
-  deleting.value = true
-  error.value = ''
+const {run: remove, loading: deleting, error} = useAsync(async () => {
   try {
     await api.DELETE('/api/groups/{id}', {params: {path: {id: props.group.id}}})
-    emit('deleted', props.group)
-    open.value = false
   } catch (exception) {
     // 409: innehåll är publicerat till gruppen, så den får inte tas bort.
-    error.value = exception instanceof ApiError && exception.status === 409
-      ? 'Gruppen har publicerat innehåll och kan inte tas bort.'
-      : errorMessage(exception)
-  } finally {
-    deleting.value = false
+    throw exception instanceof ApiError && exception.status === 409
+      ? new Error('Gruppen har publicerat innehåll och kan inte tas bort.')
+      : exception
   }
-}
+  emit('deleted', props.group)
+  open.value = false
+})
 </script>
 
 <template>

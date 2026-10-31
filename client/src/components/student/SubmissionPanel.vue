@@ -7,9 +7,11 @@ import MarkdownView from '@/components/editor/MarkdownView.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Button} from '@/components/ui/button'
 import {Input} from '@/components/ui/input'
+import {useAsync} from '@/composables/useAsync'
 import {api, errorMessage, multipart, type Schema} from '@/lib/api'
 import {formatDate} from '@/lib/content'
 import {formatSize} from '@/lib/material'
+import {fetchLinkSubmissions} from '@/lib/submissionsApi'
 
 // Elevens inlämning av en uppgift. Formuläret följer uppgiftens inlämningssätt: text och/eller filer.
 // Repo visas av GitHub-blocket i vyn och bedömning på plats har ingen inlämning från eleven.
@@ -21,8 +23,6 @@ const bodyMd = ref('')
 const keptFiles = ref<Schema<'SubmissionFileDto'>[]>([])
 const addedFiles = ref<File[]>([])
 const editing = ref(false)
-const saving = ref(false)
-const error = ref('')
 // Editorn läser bara sitt startvärde, så den monteras om när formuläret fylls i på nytt.
 const editorKey = ref(0)
 
@@ -50,6 +50,32 @@ const canSubmit = computed(() => hasRepo.value
   || (hasText.value && bodyMd.value.trim() !== '')
   || (hasFiles.value && keptFiles.value.length + addedFiles.value.length > 0))
 
+const {run: submit, loading: saving, error} = useAsync(async () => {
+  const body = new FormData()
+  if (hasText.value && bodyMd.value.trim() !== '') {
+    body.append('bodyMd', bodyMd.value)
+  }
+  if (hasFiles.value) {
+    // Utan keepFileIds ersätter backend alla filer, så de som ska vara kvar anges alltid.
+    for (const file of keptFiles.value) {
+      body.append('keepFileIds', file.id)
+    }
+    for (const file of addedFiles.value) {
+      body.append('files', file, file.name)
+    }
+  }
+  const {data} = await api.POST('/api/links/{id}/submissions', {
+    params: {path: {id: props.item.linkId}},
+    body: multipart<Schema<'SubmitForm'>>(body),
+  })
+  if (data) {
+    submission.value = data
+  }
+  editing.value = false
+  fillForm()
+  emit('submitted')
+})
+
 watch(() => props.item.linkId, load, {immediate: true})
 
 async function load() {
@@ -60,8 +86,8 @@ async function load() {
     return
   }
   try {
-    const {data} = await api.GET('/api/links/{id}/submissions', {params: {path: {id: props.item.linkId}}})
-    submission.value = data?.[0] ?? null
+    const submissions = await fetchLinkSubmissions(props.item.linkId)
+    submission.value = submissions[0] ?? null
   } catch (exception) {
     error.value = errorMessage(exception)
   }
@@ -90,39 +116,6 @@ function onFilesChosen(event: Event) {
   input.value = ''
 }
 
-async function submit() {
-  saving.value = true
-  error.value = ''
-  const body = new FormData()
-  if (hasText.value && bodyMd.value.trim() !== '') {
-    body.append('bodyMd', bodyMd.value)
-  }
-  if (hasFiles.value) {
-    // Utan keepFileIds ersätter backend alla filer, så de som ska vara kvar anges alltid.
-    for (const file of keptFiles.value) {
-      body.append('keepFileIds', file.id)
-    }
-    for (const file of addedFiles.value) {
-      body.append('files', file, file.name)
-    }
-  }
-  try {
-    const {data} = await api.POST('/api/links/{id}/submissions', {
-      params: {path: {id: props.item.linkId}},
-      body: multipart<Schema<'SubmitForm'>>(body),
-    })
-    if (data) {
-      submission.value = data
-    }
-    editing.value = false
-    fillForm()
-    emit('submitted')
-  } catch (exception) {
-    error.value = errorMessage(exception)
-  } finally {
-    saving.value = false
-  }
-}
 </script>
 
 <template>

@@ -6,9 +6,11 @@ import {RouterLink, type RouteLocationRaw} from 'vue-router'
 import StatusBadge from '@/components/StatusBadge.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Skeleton} from '@/components/ui/skeleton'
+import {useAsync} from '@/composables/useAsync'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {useGradingCount} from '@/composables/useGradingCount'
-import {api, type Schema} from '@/lib/api'
+import {type Schema} from '@/lib/api'
+import {fetchTeaching} from '@/lib/coursesApi'
 import {deadlineStatusKey} from '@/lib/status'
 import {
   dateLine,
@@ -34,8 +36,6 @@ const {me} = useCurrentUser()
 const {setGradingCount} = useGradingCount()
 
 const teaching = ref<Teaching | null>(null)
-const loading = ref(true)
-const loadFailed = ref(false)
 
 const name = computed(() => firstName(me.value?.name))
 const needsPreparation = computed(() => teaching.value?.courses.filter((course) => course.needsPreparation) ?? [])
@@ -46,23 +46,12 @@ const toGradeLine = computed(() => (teaching.value?.toGradeTotal ?? 0) === 0
   ? 'Inget att bedöma'
   : `${teaching.value!.toGradeTotal} att bedöma`)
 
-async function load() {
-  loading.value = true
-  loadFailed.value = false
-  try {
-    const result = await api.GET('/api/me/teaching')
-    if (result.error || !result.data) {
-      loadFailed.value = true
-    } else {
-      teaching.value = result.data
-      setGradingCount(result.data.toGradeTotal)
-    }
-  } catch {
-    loadFailed.value = true
-  } finally {
-    loading.value = false
-  }
-}
+const {run: load, loading, error} = useAsync(async () => {
+  const loaded = await fetchTeaching()
+  teaching.value = loaded
+  setGradingCount(loaded.toGradeTotal)
+})
+const loadFailed = computed(() => error.value !== '')
 
 // "inlämnad för 2 timmar sedan", "inlämnad igår". Äldre inlämningar visar datum.
 function submittedText(iso: string): string {

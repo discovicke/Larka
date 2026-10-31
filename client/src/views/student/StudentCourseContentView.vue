@@ -32,8 +32,10 @@ import {useCurrentUser} from '@/composables/useCurrentUser'
 import {api, errorMessage, type Schema} from '@/lib/api'
 import {parseChecklist} from '@/lib/checklist'
 import {countLabel, formatDate, partOf} from '@/lib/content'
+import {fetchStudentModules} from '@/lib/modulesApi'
 import {deadlineStatusKey, partStatusKey, statuses, toneTextClasses} from '@/lib/status'
 import {gradeBadgeVariant, gradeLabel, gradeName, handInLabel} from '@/lib/submissions'
+import {fetchLinkSubmissions} from '@/lib/submissionsApi'
 
 // Elevens vy av en kurs: veckor, låsta delar och klarmarkering. Den visas i stället för redigeraren
 // på kursens innehållssida för den som inte kan redigera. Servern vet vilka grupper eleven går i,
@@ -94,10 +96,7 @@ onMounted(loadMe)
 // Efter en inlämning hämtas veckorna om utan skelett, så att vyn och statusen uppdateras på plats.
 async function reload() {
   try {
-    const {data} = await api.GET('/api/courses/{courseId}/student-modules', {
-      params: {path: {courseId: props.courseId}},
-    })
-    modules.value = data ?? []
+    modules.value = await fetchStudentModules(props.courseId)
   } catch (exception) {
     error.value = errorMessage(exception)
   }
@@ -107,10 +106,7 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const {data} = await api.GET('/api/courses/{courseId}/student-modules', {
-      params: {path: {courseId: props.courseId}},
-    })
-    modules.value = data ?? []
+    modules.value = await fetchStudentModules(props.courseId)
   } catch (exception) {
     error.value = errorMessage(exception)
     modules.value = []
@@ -213,9 +209,9 @@ watch(() => {
     return
   }
   try {
-    const {data} = await api.GET('/api/links/{id}/submissions', {params: {path: {id: linkId}}})
+    const submissions = await fetchLinkSubmissions(linkId)
     if (selectedItem.value?.linkId === linkId) {
-      feedback.value = data?.[0]?.grade ?? null
+      feedback.value = submissions[0]?.grade ?? null
     }
   } catch {
     // Kommentaren är ett tillägg; statusen i sidopanelen visas ändå.

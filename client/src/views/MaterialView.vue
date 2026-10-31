@@ -6,9 +6,13 @@ import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty'
 import {Input} from '@/components/ui/input'
 import {Skeleton} from '@/components/ui/skeleton'
+import {useAsync} from '@/composables/useAsync'
 import {useCourses} from '@/composables/useCourses'
-import {api, type Schema} from '@/lib/api'
+import {type Schema} from '@/lib/api'
 import {formatDate} from '@/lib/content'
+import {fetchAttachments} from '@/lib/contentApi'
+import {fetchCourseContent} from '@/lib/coursesApi'
+import {fetchGroupContent, fetchGroups} from '@/lib/groupsApi'
 import {fileIcon, formatSize, isThisWeek, materialRows} from '@/lib/material'
 
 const {courses, status} = useCourses()
@@ -16,8 +20,6 @@ const {courses, status} = useCourses()
 const groups = ref<Schema<'GroupDto'>[]>([])
 const feed = ref<Schema<'ContentFeedItem'>[]>([])
 const attachments = ref<Schema<'AttachmentDto'>[]>([])
-const loading = ref(true)
-const loadFailed = ref(false)
 const search = ref('')
 const target = ref('all')
 const now = new Date()
@@ -75,36 +77,33 @@ function chipClass(name: string) {
     : 'bg-background'
 }
 
+const {run: fetchMaterial, loading: fetching, error} = useAsync(async () => {
+  groups.value = await fetchGroups()
+
+  // Alla flöden hämtas samtidigt, utan typfilter, så att både delar och nyheter kan bära filer.
+  const [courseFeeds, groupFeeds] = await Promise.all([
+    Promise.all(courses.value.map((course) => fetchCourseContent(course.id))),
+    Promise.all(groups.value.map((group) => fetchGroupContent(group.id))),
+  ])
+  const items = [...courseFeeds, ...groupFeeds].flat()
+
+  const contentIds = [...new Set(items.map((item) => item.contentId))]
+  const files = (await Promise.all(contentIds.map((contentId) => fetchAttachments(contentId)))).flat()
+  return {items, files}
+})
+
+// Skelettet visas också medan AppLayout hämtar kurserna, som flödena hämtas efter.
+const loading = computed(() => status.value === 'loading' || fetching.value)
+const loadFailed = computed(() => error.value !== '')
+
 async function load() {
-  loading.value = true
-  loadFailed.value = false
-  try {
-    const groupResult = await api.GET('/api/groups')
-    groups.value = groupResult.data ?? []
-
-    // Alla flöden hämtas samtidigt, utan typfilter, så att både delar och nyheter kan bära filer.
-    const [courseResults, groupResults] = await Promise.all([
-      Promise.all(courses.value.map((course) => api.GET('/api/courses/{id}/content', {
-        params: {path: {id: course.id}},
-      }))),
-      Promise.all(groups.value.map((group) => api.GET('/api/groups/{id}/content', {
-        params: {path: {id: group.id}},
-      }))),
-    ])
-    feed.value = [...courseResults, ...groupResults]
-      .flatMap((result) => result.data ?? [])
-
-    const contentIds = [...new Set(feed.value.map((item) => item.contentId))]
-    const attachmentResults = await Promise.all(contentIds.map((contentId) =>
-      api.GET('/api/content/{id}/attachments', {params: {path: {id: contentId}}})))
-    attachments.value = attachmentResults
-      .flatMap((result) => result.data ?? [])
-  } catch {
-    loadFailed.value = true
+  const loaded = await fetchMaterial()
+  if (loaded) {
+    feed.value = loaded.items
+    attachments.value = loaded.files
+  } else if (error.value) {
     feed.value = []
     attachments.value = []
-  } finally {
-    loading.value = false
   }
 }
 

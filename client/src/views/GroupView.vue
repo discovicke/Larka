@@ -32,6 +32,7 @@ import {periodLabel} from '@/lib/coursePeriod'
 import {courseStatus} from '@/lib/courseStatus'
 import {groupRoles as roles} from '@/lib/groupRoles'
 import {groupTypeLabels} from '@/lib/groups'
+import {fetchGroupCourses, fetchGroupMembers} from '@/lib/groupsApi'
 import {initials} from '@/lib/person'
 import NotFoundView from '@/views/NotFoundView.vue'
 
@@ -107,19 +108,18 @@ async function load() {
   notFound.value = false
   group.value = null
   try {
-    const params = {params: {path: {id}}}
-    const [groupResult, courseResult, memberResult] = await Promise.all([
-      api.GET('/api/groups/{id}', params),
-      api.GET('/api/groups/{id}/courses', params),
-      api.GET('/api/groups/{id}/members', params),
+    const [groupResult, loadedCourses, loadedMembers] = await Promise.all([
+      api.GET('/api/groups/{id}', {params: {path: {id}}}),
+      fetchGroupCourses(id),
+      fetchGroupMembers(id),
     ])
     if (id !== groupId.value) {
       return
     }
     group.value = unwrap(groupResult)
     setCrumbLabel(`group:${id}`, group.value.name)
-    courses.value = courseResult.data ?? []
-    members.value = memberResult.data ?? []
+    courses.value = loadedCourses
+    members.value = loadedMembers
     await loadTeachers(id)
   } catch (exception) {
     if (id !== groupId.value) {
@@ -166,9 +166,9 @@ async function loadTeachers(id: string) {
 async function reloadCourses() {
   const id = groupId.value
   try {
-    const result = await api.GET('/api/groups/{id}/courses', {params: {path: {id}}})
+    const loaded = await fetchGroupCourses(id)
     if (id === groupId.value) {
-      courses.value = result.data ?? []
+      courses.value = loaded
       await loadTeachers(id)
     }
   } catch {
@@ -179,9 +179,9 @@ async function reloadCourses() {
 async function reloadMembers() {
   const id = groupId.value
   try {
-    const result = await api.GET('/api/groups/{id}/members', {params: {path: {id}}})
+    const loaded = await fetchGroupMembers(id)
     if (id === groupId.value) {
-      members.value = result.data ?? []
+      members.value = loaded
     }
   } catch {
     // Listan är kvar som den var. Nästa besök hämtar den igen.

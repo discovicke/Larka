@@ -19,12 +19,14 @@ import {
 import {Empty, EmptyDescription, EmptyHeader, EmptyTitle} from '@/components/ui/empty'
 import {Input} from '@/components/ui/input'
 import {Skeleton} from '@/components/ui/skeleton'
+import {useAsync} from '@/composables/useAsync'
 import {useCourses} from '@/composables/useCourses'
 import {useCurrentUser} from '@/composables/useCurrentUser'
-import {api, type Schema} from '@/lib/api'
+import {type Schema} from '@/lib/api'
 import {periodLabel} from '@/lib/coursePeriod'
 import {type CourseStatus, courseStatus} from '@/lib/courseStatus'
 import {groupTypeLabels} from '@/lib/groups'
+import {fetchGroups} from '@/lib/groupsApi'
 import {fetchMe} from '@/lib/me'
 
 type Group = Schema<'GroupDto'>
@@ -61,8 +63,6 @@ const isAdmin = computed(() => can('admin'))
 // Användarens egen skola, från /api/me. Grupper och kurser är redan avgränsade till den av API:et.
 const school = ref<Schema<'SchoolRefDto'> | null>(null)
 const groups = ref<Group[]>([])
-const loading = ref(true)
-const error = ref('')
 // Filtret ligger i adressen (?filter=courses) så att andra sidor kan länka till en viss lista.
 const filter = computed<Filter>(() => {
   const value = route.query.filter
@@ -238,22 +238,11 @@ function rowBorder(index: number) {
     : ''
 }
 
-async function load() {
-  loading.value = true
-  error.value = ''
-  try {
-    const [me, groupResult] = await Promise.all([
-      fetchMe(),
-      api.GET('/api/groups'),
-    ])
-    school.value = me.school
-    groups.value = groupResult.data ?? []
-  } catch {
-    error.value = 'Kunde inte hämta grupperna.'
-  } finally {
-    loading.value = false
-  }
-}
+const {run: load, loading, error} = useAsync(async () => {
+  const [me, loadedGroups] = await Promise.all([fetchMe(), fetchGroups()])
+  school.value = me.school
+  groups.value = loadedGroups
+}, 'Kunde inte hämta grupperna.')
 
 load()
 </script>

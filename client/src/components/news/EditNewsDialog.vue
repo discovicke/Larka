@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {reactive, ref, watch} from 'vue'
+import {computed, reactive, ref, watch} from 'vue'
 
 import MarkdownEditor from '@/components/editor/MarkdownEditor.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
@@ -14,23 +14,30 @@ import {
 } from '@/components/ui/dialog'
 import {Field, FieldGroup, FieldLabel} from '@/components/ui/field'
 import {Input} from '@/components/ui/input'
-import {api, type Schema} from '@/lib/api'
+import {useAsync} from '@/composables/useAsync'
+import {type Schema} from '@/lib/api'
+import {updateContent} from '@/lib/contentApi'
 
 const props = defineProps<{post: Schema<'ContentFeedItem'>}>()
 const emit = defineEmits<{saved: []}>()
 
 const open = defineModel<boolean>('open', {required: true})
 
-const saving = ref(false)
-const failed = ref(false)
 const bodyError = ref(false)
 const form = reactive({title: '', bodyMd: ''})
+
+const {run: send, loading: saving, error} = useAsync(async () => {
+  await updateContent(props.post.contentId, {title: form.title, bodyMd: form.bodyMd})
+  open.value = false
+  emit('saved')
+}, 'Kunde inte spara nyheten.')
+const failed = computed(() => error.value !== '')
 
 watch(open, (isOpen) => {
   if (isOpen) {
     form.title = props.post.title
     form.bodyMd = props.post.bodyMd
-    failed.value = false
+    error.value = ''
     bodyError.value = false
   }
 })
@@ -42,20 +49,7 @@ async function save() {
     return
   }
 
-  saving.value = true
-  failed.value = false
-  try {
-    await api.PUT('/api/content/{id}', {
-      params: {path: {id: props.post.contentId}},
-      body: {title: form.title, bodyMd: form.bodyMd},
-    })
-    open.value = false
-    emit('saved')
-  } catch {
-    failed.value = true
-  } finally {
-    saving.value = false
-  }
+  await send()
 }
 </script>
 

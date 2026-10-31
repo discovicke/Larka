@@ -21,9 +21,11 @@ import {
 import {Field, FieldGroup, FieldLabel} from '@/components/ui/field'
 import {Input} from '@/components/ui/input'
 import {Skeleton} from '@/components/ui/skeleton'
+import {useAsync} from '@/composables/useAsync'
 import {useCourses} from '@/composables/useCourses'
 import {useCurrentUser} from '@/composables/useCurrentUser'
-import {api, errorMessage, type Schema} from '@/lib/api'
+import {api, type Schema} from '@/lib/api'
+import {updateCourse as saveCourse} from '@/lib/coursesApi'
 import {initials} from '@/lib/person'
 import NotFoundView from '@/views/NotFoundView.vue'
 
@@ -47,8 +49,6 @@ async function onDeleted(removed: Schema<'CourseDto'>) {
 }
 
 const staff = ref<Schema<'CourseStaffDto'>[]>([])
-const loading = ref(true)
-const loadFailed = ref(false)
 
 const hasDescription = computed(() => (course.value?.description ?? '').trim() !== '')
 
@@ -70,24 +70,22 @@ const pointsText = computed(() => {
 })
 
 const editOpen = ref(false)
-const saving = ref(false)
-const saveError = ref('')
 const titleMissing = ref(false)
 const form = reactive({title: '', description: '', points: '', startsOn: '', endsOn: ''})
 
+const {run: fetchStaff, loading, error: staffError} = useAsync(async () => {
+  const {data} = await api.GET('/api/courses/{id}/staff', {params: {path: {id: courseId.value}}})
+  return data ?? []
+})
+const loadFailed = computed(() => staffError.value !== '')
+
 async function loadStaff() {
-  loading.value = true
-  loadFailed.value = false
-  try {
-    const {data} = await api.GET('/api/courses/{id}/staff', {params: {path: {id: courseId.value}}})
-    staff.value = data ?? []
-  } catch {
-    loadFailed.value = true
-  } finally {
-    loading.value = false
-    // Först när personalen har laddats står sektionen på sin slutliga plats.
-    scrollToStaff()
+  const loaded = await fetchStaff()
+  if (loaded) {
+    staff.value = loaded
   }
+  // Först när personalen har laddats står sektionen på sin slutliga plats.
+  scrollToStaff()
 }
 
 function openEdit() {
@@ -106,40 +104,30 @@ function openEdit() {
   editOpen.value = true
 }
 
+const {run: send, loading: saving, error: saveError} = useAsync(async () => {
+  updateCourse(await saveCourse(courseId.value, {
+    title: form.title,
+    description: form.description,
+    points: form.points === ''
+      ? null
+      : Number(form.points),
+    startsOn: form.startsOn === ''
+      ? null
+      : form.startsOn,
+    endsOn: form.endsOn === ''
+      ? null
+      : form.endsOn,
+  }))
+  editOpen.value = false
+})
+
 async function save() {
   titleMissing.value = form.title.trim() === ''
   if (titleMissing.value) {
     return
   }
 
-  saving.value = true
-  saveError.value = ''
-  try {
-    const {data} = await api.PUT('/api/courses/{id}', {
-      params: {path: {id: courseId.value}},
-      body: {
-        title: form.title,
-        description: form.description,
-        points: form.points === ''
-          ? null
-          : Number(form.points),
-        startsOn: form.startsOn === ''
-          ? null
-          : form.startsOn,
-        endsOn: form.endsOn === ''
-          ? null
-          : form.endsOn,
-      },
-    })
-    if (data) {
-      updateCourse(data)
-    }
-    editOpen.value = false
-  } catch (exception) {
-    saveError.value = errorMessage(exception)
-  } finally {
-    saving.value = false
-  }
+  await send()
 }
 
 // Länken till #personal scrollar till personalen. Personalen laddas sist, så scrollen väntar på det.

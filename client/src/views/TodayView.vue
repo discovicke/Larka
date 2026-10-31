@@ -9,8 +9,9 @@ import GitHubOnboardingBanner from '@/components/GitHubOnboardingBanner.vue'
 import AdminToday from '@/components/today/AdminToday.vue'
 import TeacherToday from '@/components/today/TeacherToday.vue'
 import {Skeleton} from '@/components/ui/skeleton'
+import {useAsync} from '@/composables/useAsync'
 import {useCurrentUser} from '@/composables/useCurrentUser'
-import {api, type Schema} from '@/lib/api'
+import {api, type Schema, unwrap} from '@/lib/api'
 import {formatDate} from '@/lib/content'
 import {isStudentEverywhere, teachesAnywhere} from '@/lib/permissions'
 import {deadlineStatusKey, submissionStatusKey} from '@/lib/status'
@@ -42,8 +43,6 @@ const now = new Date()
 const {me, loadMe} = useCurrentUser()
 
 const today = ref<Today | null>(null)
-const loading = ref(true)
-const loadFailed = ref(false)
 const tab = ref<Tab>('upcoming')
 // Idag följer relationen: admin ser skolans översikt, den som undervisar i en kurs ser lärarens, och alla andra,
 // eleven och mentorn, ser elevens. Båda hämtar sin egen data. En admin som också undervisar ser båda.
@@ -152,29 +151,16 @@ function tabClass(value: Tab): string {
     : 'text-muted-foreground'
 }
 
-async function load() {
-  loading.value = true
-  loadFailed.value = false
-  try {
-    await loadMe()
-    isAdmin.value = me.value?.role === 'Admin'
-    isTeacher.value = teachesAnywhere(me.value)
-    if (!isStudentEverywhere(me.value)) {
-      loading.value = false
-      return
-    }
-    const result = await api.GET('/api/me/today')
-    if (result.error || !result.data) {
-      loadFailed.value = true
-    } else {
-      today.value = result.data
-    }
-  } catch {
-    loadFailed.value = true
-  } finally {
-    loading.value = false
+const {run: load, loading, error} = useAsync(async () => {
+  await loadMe()
+  isAdmin.value = me.value?.role === 'Admin'
+  isTeacher.value = teachesAnywhere(me.value)
+  if (!isStudentEverywhere(me.value)) {
+    return
   }
-}
+  today.value = unwrap(await api.GET('/api/me/today'))
+})
+const loadFailed = computed(() => error.value !== '')
 
 load()
 </script>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import DateTimePicker from '@/components/DateTimePicker.vue'
-import {reactive, ref, watch} from 'vue'
+import {reactive, watch} from 'vue'
 
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Button} from '@/components/ui/button'
@@ -14,7 +14,8 @@ import {
 } from '@/components/ui/dialog'
 import {Field, FieldDescription, FieldGroup, FieldLabel} from '@/components/ui/field'
 import {Input} from '@/components/ui/input'
-import {api, errorMessage, type Schema} from '@/lib/api'
+import {useAsync} from '@/composables/useAsync'
+import {api, type Schema} from '@/lib/api'
 import {isoOrNull, orNull, toDateTimeLocal} from '@/lib/form'
 
 const props = defineProps<{
@@ -25,9 +26,22 @@ const props = defineProps<{
 const open = defineModel<boolean>('open', {required: true})
 const emit = defineEmits<{saved: [module: Schema<'ModuleDto'>]}>()
 
-const saving = ref(false)
-const error = ref('')
 const form = reactive({title: '', description: '', publishAt: ''})
+
+const {run: send, loading: saving, error} = useAsync(async () => {
+  const {data} = await api.PUT('/api/courses/{id}/modules/{moduleId}', {
+    params: {path: {id: props.courseId, moduleId: props.module.id}},
+    body: {
+      title: form.title,
+      description: orNull(form.description),
+      publishAt: isoOrNull(form.publishAt),
+    },
+  })
+  if (data) {
+    emit('saved', data)
+  }
+  open.value = false
+})
 
 watch(open, (isOpen) => {
   if (isOpen) {
@@ -44,26 +58,7 @@ async function save() {
     return
   }
 
-  saving.value = true
-  error.value = ''
-  try {
-    const {data} = await api.PUT('/api/courses/{id}/modules/{moduleId}', {
-      params: {path: {id: props.courseId, moduleId: props.module.id}},
-      body: {
-        title: form.title,
-        description: orNull(form.description),
-        publishAt: isoOrNull(form.publishAt),
-      },
-    })
-    if (data) {
-      emit('saved', data)
-    }
-    open.value = false
-  } catch (exception) {
-    error.value = errorMessage(exception)
-  } finally {
-    saving.value = false
-  }
+  await send()
 }
 </script>
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {ref, watch} from 'vue'
+import {watch} from 'vue'
 
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Button} from '@/components/ui/button'
@@ -11,15 +11,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {api, errorMessage, type Schema} from '@/lib/api'
+import {useAsync} from '@/composables/useAsync'
+import {type Schema} from '@/lib/api'
+import {removeGroupMember} from '@/lib/groupsApi'
 
 const props = defineProps<{groupId: string, groupName: string, member: Schema<'GroupMemberDto'> | null}>()
 const emit = defineEmits<{removed: [userId: string]}>()
 
 const open = defineModel<boolean>('open', {required: true})
-
-const removing = ref(false)
-const error = ref('')
 
 watch(open, (isOpen) => {
   if (isOpen) {
@@ -27,25 +26,15 @@ watch(open, (isOpen) => {
   }
 })
 
-async function remove() {
+const {run: remove, loading: removing, error} = useAsync(async () => {
   if (!props.member) {
     return
   }
 
-  removing.value = true
-  error.value = ''
-  try {
-    await api.DELETE('/api/groups/{id}/members/{userId}', {
-      params: {path: {id: props.groupId, userId: props.member.userId}},
-    })
-    emit('removed', props.member.userId)
-    open.value = false
-  } catch (exception) {
-    error.value = errorMessage(exception)
-  } finally {
-    removing.value = false
-  }
-}
+  await removeGroupMember(props.groupId, props.member.userId)
+  emit('removed', props.member.userId)
+  open.value = false
+})
 </script>
 
 <template>

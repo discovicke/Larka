@@ -13,7 +13,10 @@ import {
 } from '@/components/ui/dialog'
 import {FieldLabel} from '@/components/ui/field'
 import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
-import {api, errorMessage, unwrap, type Schema} from '@/lib/api'
+import {useAsync} from '@/composables/useAsync'
+import {api, errorMessage, type Schema} from '@/lib/api'
+import {addCourseTeacher} from '@/lib/coursesApi'
+import {fetchUsers} from '@/lib/usersApi'
 
 const props = defineProps<{course: Schema<'CourseDto'> | null, teachers: Schema<'CourseTeacherDto'>[]}>()
 const emit = defineEmits<{changed: [courseId: string, teachers: Schema<'CourseTeacherDto'>[]]}>()
@@ -22,9 +25,9 @@ const open = defineModel<boolean>('open', {required: true})
 
 const users = ref<Schema<'UserDto'>[]>([])
 const userId = ref('')
-const loading = ref(false)
 const busy = ref('')
-const error = ref('')
+// Samma felruta visar felet från hämtningen och från ändringarna.
+const {run: loadUsers, loading, error} = useAsync(fetchUsers)
 
 // Den som redan undervisar i kursen kan inte läggas till igen, och elever kan inte vara lärare.
 const candidates = computed(() => users.value
@@ -38,14 +41,9 @@ watch(open, async (isOpen) => {
   }
 
   userId.value = ''
-  error.value = ''
-  loading.value = true
-  try {
-    users.value = unwrap(await api.GET('/api/users'))
-  } catch (exception) {
-    error.value = errorMessage(exception)
-  } finally {
-    loading.value = false
+  const loaded = await loadUsers()
+  if (loaded) {
+    users.value = loaded
   }
 })
 
@@ -58,10 +56,7 @@ async function add() {
   busy.value = 'add'
   error.value = ''
   try {
-    const added = unwrap(await api.POST('/api/courses/{id}/teachers', {
-      params: {path: {id: props.course.id}},
-      body: {userId: user.id},
-    }))
+    const added = await addCourseTeacher(props.course.id, user.id)
     userId.value = ''
     emit('changed', props.course.id, [...props.teachers, added])
   } catch (exception) {

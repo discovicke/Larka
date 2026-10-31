@@ -10,8 +10,9 @@ import {Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTit
 import {Skeleton} from '@/components/ui/skeleton'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {useMobileDetail} from '@/composables/useMobileDetail'
-import {api, type Schema} from '@/lib/api'
+import {type Schema} from '@/lib/api'
 import {formatDate} from '@/lib/content'
+import {fetchCourseContent} from '@/lib/coursesApi'
 import {sortNews} from '@/lib/news'
 
 const route = useRoute()
@@ -42,10 +43,7 @@ const selected = computed(() =>
 async function loadPosts() {
   loadFailed.value = false
   try {
-    const {data} = await api.GET('/api/courses/{id}/content', {
-      params: {path: {id: courseId.value}, query: {type: 'news'}},
-    })
-    posts.value = data ?? []
+    posts.value = await fetchCourseContent(courseId.value, 'news')
   } catch {
     loadFailed.value = true
   } finally {

@@ -30,8 +30,10 @@ import {
 } from '@/components/ui/dropdown-menu'
 import {Skeleton} from '@/components/ui/skeleton'
 import {Textarea} from '@/components/ui/textarea'
+import {useAsync} from '@/composables/useAsync'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {api, type Schema} from '@/lib/api'
+import {deleteContentLink, updateContentLink} from '@/lib/contentApi'
 import {formatDate} from '@/lib/content'
 import {initials} from '@/lib/person'
 
@@ -58,10 +60,7 @@ const links = computed(() => props.links?.length
 const isPinned = computed(() => links.value.some((link) => link.isPinned))
 
 const comments = ref<Schema<'CommentDto'>[]>([])
-const commentsLoading = ref(false)
 const commentBody = ref('')
-const sending = ref(false)
-const commentFailed = ref(false)
 
 const editOpen = ref(false)
 const deleteOpen = ref(false)
@@ -72,17 +71,30 @@ const commentCount = computed(() => comments.value.length === 1
   ? '1 kommentar'
   : `${comments.value.length} kommentarer`)
 
+// Kommentarerna är sekundära: går hämtningen fel visas inga kommentarer, och inget fel.
+const {run: fetchComments, loading: commentsLoading} = useAsync(async (contentId: string) => {
+  const {data} = await api.GET('/api/content/{id}/comments', {params: {path: {id: contentId}}})
+  return data ?? []
+})
+
+const {run: sendComment, loading: sending, error: sendError} = useAsync(async (bodyMd: string) => {
+  const {data} = await api.POST('/api/content/{id}/comments', {
+    params: {path: {id: props.post.contentId}},
+    body: {bodyMd},
+  })
+  if (data) {
+    comments.value = [...comments.value, data]
+  }
+  commentBody.value = ''
+}, 'Kunde inte skicka kommentaren.')
+const commentFailed = computed(() => sendError.value !== '')
+
 async function loadComments(contentId: string) {
   comments.value = []
-  commentsLoading.value = true
-  commentFailed.value = false
-  try {
-    const {data} = await api.GET('/api/content/{id}/comments', {params: {path: {id: contentId}}})
-    comments.value = data ?? []
-  } catch {
-    // Kommentarerna är sekundära: går hämtningen fel visas inga kommentarer.
-  } finally {
-    commentsLoading.value = false
+  sendError.value = ''
+  const loaded = await fetchComments(contentId)
+  if (loaded) {
+    comments.value = loaded
   }
 }
 
@@ -92,22 +104,7 @@ async function submitComment() {
     return
   }
 
-  sending.value = true
-  commentFailed.value = false
-  try {
-    const {data} = await api.POST('/api/content/{id}/comments', {
-      params: {path: {id: props.post.contentId}},
-      body: {bodyMd},
-    })
-    if (data) {
-      comments.value = [...comments.value, data]
-    }
-    commentBody.value = ''
-  } catch {
-    commentFailed.value = true
-  } finally {
-    sending.value = false
-  }
+  await sendComment(bodyMd)
 }
 
 async function togglePin() {
@@ -115,10 +112,7 @@ async function togglePin() {
   const pinned = !isPinned.value
   try {
     for (const link of links.value) {
-      await api.PUT('/api/content/{id}/links/{linkId}', {
-        params: {path: {id: link.contentId, linkId: link.linkId}},
-        body: {publishAt: link.publishAt, dueAt: null, isPinned: pinned},
-      })
+      await updateContentLink(link.contentId, link.linkId, {publishAt: link.publishAt, dueAt: null, isPinned: pinned})
     }
     emit('changed')
   } catch {
@@ -131,9 +125,7 @@ async function remove() {
   actionError.value = ''
   try {
     for (const link of links.value) {
-      await api.DELETE('/api/content/{id}/links/{linkId}', {
-        params: {path: {id: link.contentId, linkId: link.linkId}},
-      })
+      await deleteContentLink(link.contentId, link.linkId)
     }
     deleteOpen.value = false
     emit('deleted')
