@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest'
 
-import {dayGroup, initials, mergeNews, sortNews} from './news'
+import {dayGroup, mergeNews, sortNews} from './news'
 
 function post(linkId: string, publishAt: string, isPinned = false) {
   return {linkId, publishAt, isPinned}
@@ -24,21 +24,6 @@ describe('sortNews', () => {
 
     expect(sorted).not.toBe(posts)
     expect(posts.map((item) => item.linkId)).toEqual(['a', 'b'])
-  })
-})
-
-describe('initials', () => {
-  it('tar första bokstaven i för- och efternamn', () => {
-    expect(initials('Anna Lärare')).toBe('AL')
-  })
-
-  it('klarar ett namn och extra mellanslag', () => {
-    expect(initials('Anna')).toBe('A')
-    expect(initials(' Anna  Lärare ')).toBe('AL')
-  })
-
-  it('visar frågetecken när namnet saknas', () => {
-    expect(initials('')).toBe('?')
   })
 })
 

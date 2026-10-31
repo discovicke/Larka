@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace Backend.Infrastructure.Persistence;
+namespace Backend.Infrastructure.Persistence.Seeding;
 
 /// <summary>En person i demodatan. Nyckeln används för att peka ut läraren som skrivit något.</summary>
 internal sealed record DemoPerson(string Key, string Name)

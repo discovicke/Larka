@@ -48,7 +48,7 @@ import {useNotifications} from '@/composables/useNotifications'
 import {exampleSchool, exampleUser} from '@/data/exampleData'
 import {auth} from '@/lib/auth'
 import {courseStatus} from '@/lib/courseStatus'
-import {initials} from '@/lib/news'
+import {initials} from '@/lib/person'
 import {isMentorOnly, type Action} from '@/lib/permissions'
 
 interface NavItem {

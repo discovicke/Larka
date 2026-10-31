@@ -4,7 +4,7 @@ using Backend.Infrastructure.Persistence.Configurations;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
-namespace Backend.Infrastructure.Persistence;
+namespace Backend.Infrastructure.Persistence.Seeding;
 
 /// <summary>
 /// Inloggningskonton: admin, larare och elev, med lösenordet samma som användarnamnet. Körs vid varje start i

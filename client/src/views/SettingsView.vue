@@ -32,7 +32,7 @@ import {
   unlinkGitHub,
   type GitHubConnection,
 } from '@/lib/integrations'
-import {initials} from '@/lib/news'
+import {initials} from '@/lib/person'
 import {fetchNotificationSettings, saveNotificationSettings} from '@/lib/notificationSettings'
 import type {Schema} from '@/lib/api'
 import type {ThemePreference} from '@/lib/theme'

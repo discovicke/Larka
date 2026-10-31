@@ -408,20 +408,20 @@ Det här är inte med än:
 
 ## Kodkarta
 
-| Område                  | Fil                                                        |
-| ----------------------- | ---------------------------------------------------------- |
-| GitHub API              | `backend/Infrastructure/GitHub/GitHubAppService.cs`        |
-| OAuth för elev          | `backend/Infrastructure/GitHub/GitHubOAuthService.cs`      |
-| Skolans anslutning      | `backend/Infrastructure/GitHub/GitHubConnectionService.cs` |
-| Elevrepon               | `backend/Infrastructure/Labs/GitHubLabProvisioner.cs`      |
-| Provisioneringsjobb     | `backend/Infrastructure/GitHub/GitHubProvisioningJob.cs`   |
-| Deadlinejobb            | `backend/Infrastructure/GitHub/GitHubDeadlineLockJob.cs`   |
-| Fallback-poll           | `backend/Infrastructure/GitHub/GitHubChecksJob.cs`         |
-| Webhook                 | `backend/Api/Endpoints/GitHubWebhookEndpoints.cs`          |
-| Elevens GitHub-koppling | `backend/Application/Services/GitHubLinkingService.cs`     |
-| Stödsignaler            | `backend/Application/Services/StudentSupportService.cs`    |
-| Kravmodell              | `backend/Domain/Entities/AssignmentRequirement.cs`         |
-| Elevens GitHub-block    | `client/src/components/GitHubAssignmentBlock.vue`          |
-| Elevens inlämning       | `client/src/components/student/SubmissionPanel.vue`        |
-| Lärartrackingen         | `client/src/components/course/SubmissionsPanel.vue`        |
-| Onboarding              | `client/src/components/GitHubOnboardingBanner.vue`         |
+| Område                  | Fil                                                              |
+| ----------------------- | ---------------------------------------------------------------- |
+| GitHub API              | `backend/Infrastructure/GitHub/GitHubAppService.cs`              |
+| OAuth för elev          | `backend/Infrastructure/GitHub/GitHubOAuthService.cs`            |
+| Skolans anslutning      | `backend/Infrastructure/GitHub/GitHubConnectionService.cs`       |
+| Elevrepon               | `backend/Infrastructure/Labs/GitHubLabProvisioner.cs`            |
+| Provisioneringsjobb     | `backend/Infrastructure/GitHub/GitHubProvisioningJob.cs`         |
+| Deadlinejobb            | `backend/Infrastructure/GitHub/GitHubDeadlineLockJob.cs`         |
+| Fallback-poll           | `backend/Infrastructure/GitHub/GitHubChecksJob.cs`               |
+| Webhook                 | `backend/Api/Endpoints/GitHubWebhookEndpoints.cs`                |
+| Elevens GitHub-koppling | `backend/Application/Services/GitHubLinkingService.cs`           |
+| Stödsignaler            | `backend/Application/Services/Students/StudentSupportService.cs` |
+| Kravmodell              | `backend/Domain/Entities/AssignmentRequirement.cs`               |
+| Elevens GitHub-block    | `client/src/components/GitHubAssignmentBlock.vue`                |
+| Elevens inlämning       | `client/src/components/student/SubmissionPanel.vue`              |
+| Lärartrackingen         | `client/src/components/course/SubmissionsPanel.vue`              |
+| Onboarding              | `client/src/components/GitHubOnboardingBanner.vue`               |

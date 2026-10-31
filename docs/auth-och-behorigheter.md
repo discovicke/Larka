@@ -30,7 +30,7 @@ När demodatan nedan finns skapas varken `Demo-klass` eller `Demo-kurs`, och kon
 
 ### Demodata (prod)
 
-Prod fylls med realistisk data för skolan **Edugrade**, så att varje funktion går att visa. Det gör `DemoSeed` (`backend/Infrastructure/Persistence/DemoSeed.cs`, innehållet i `DemoCatalog.cs`) vid start, när `Database:SeedDemoData` är `true`. Inställningen ligger i `backend/appsettings.Production.json`, så den gäller i prod (Render sätter `ASPNETCORE_ENVIRONMENT=Production`) utan att någon sätter något för hand, och är av i Development och i testerna. Se [konfiguration.md](konfiguration.md#databas).
+Prod fylls med realistisk data för skolan **Edugrade**, så att varje funktion går att visa. Det gör `DemoSeed` (`backend/Infrastructure/Persistence/Seeding/DemoSeed.cs`, innehållet i `DemoCatalog.cs`) vid start, när `Database:SeedDemoData` är `true`. Inställningen ligger i `backend/appsettings.Production.json`, så den gäller i prod (Render sätter `ASPNETCORE_ENVIRONMENT=Production`) utan att någon sätter något för hand, och är av i Development och i testerna. Se [konfiguration.md](konfiguration.md#databas).
 
 Seeden är additiv och idempotent. Finns klassen `.NET25` (markören) gör den ingenting, och den ändrar eller tar aldrig bort något den inte skapat själv. Undantagen: skolan döps om från `Placeholder-skolan` till `Edugrade`, kontona `larare` och `elev` placeras i `.NET25`, och `Demo-klass` med `Demo-kurs` tas bort om ingen har lämnat in något där (annars lämnas de). Allt sparas i en transaktion. Ett fel loggas men stoppar inte starten.
 

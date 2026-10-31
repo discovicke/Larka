@@ -32,7 +32,7 @@ import {periodLabel} from '@/lib/coursePeriod'
 import {courseStatus} from '@/lib/courseStatus'
 import {groupRoles as roles} from '@/lib/groupRoles'
 import {groupTypeLabels} from '@/lib/groups'
-import {initials} from '@/lib/news'
+import {initials} from '@/lib/person'
 import NotFoundView from '@/views/NotFoundView.vue'
 
 const route = useRoute()

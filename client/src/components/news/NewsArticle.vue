@@ -33,7 +33,7 @@ import {Textarea} from '@/components/ui/textarea'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {api, type Schema} from '@/lib/api'
 import {formatDate} from '@/lib/content'
-import {initials} from '@/lib/news'
+import {initials} from '@/lib/person'
 
 const props = defineProps<{
   post: Schema<'ContentFeedItem'>

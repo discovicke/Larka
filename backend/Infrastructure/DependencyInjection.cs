@@ -8,6 +8,7 @@ using Backend.Infrastructure.Labs;
 using Backend.Infrastructure.Notifications;
 using Backend.Infrastructure.Persistence;
 using Backend.Infrastructure.Persistence.Repositories;
+using Backend.Infrastructure.Persistence.Seeding;
 using Backend.Infrastructure.Storage;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;

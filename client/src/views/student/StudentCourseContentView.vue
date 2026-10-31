@@ -33,7 +33,7 @@ import {api, errorMessage, type Schema} from '@/lib/api'
 import {parseChecklist} from '@/lib/checklist'
 import {countLabel, formatDate, partOf} from '@/lib/content'
 import {deadlineStatusKey, partStatusKey, statuses, toneTextClasses} from '@/lib/status'
-import {gradeBadgeVariant, gradeLabel as gradeShort, handInLabel} from '@/lib/submissions'
+import {gradeBadgeVariant, gradeLabel, gradeName, handInLabel} from '@/lib/submissions'
 
 // Elevens vy av en kurs: veckor, låsta delar och klarmarkering. Den visas i stället för redigeraren
 // på kursens innehållssida för den som inte kan redigera. Servern vet vilka grupper eleven går i,
@@ -414,19 +414,6 @@ function missingBlockers(item: Schema<'StudentContentItem'>): Schema<'StudentBlo
   return item.blockedBy.filter((blocker) => !blocker.isSatisfied)
 }
 
-function gradeLabel(level: Schema<'GradeLevel'> | null): string {
-  if (level === 'Pass') {
-    return 'Godkänd (G)'
-  }
-  if (level === 'Distinction') {
-    return 'Väl godkänd (VG)'
-  }
-  if (level === 'Fail') {
-    return 'Icke godkänd (IG)'
-  }
-  return 'Betygsatt'
-}
-
 function statusHeading(item: Schema<'StudentContentItem'>): string {
   return statuses[statusKey(item)].label
 }
@@ -599,7 +586,7 @@ function handInOf(item: Schema<'StudentContentItem'>): string {
                     : 'Lärarens kommentar' }}
                 </h2>
                 <Badge v-if="feedback.level && selectedItem.submissionStatus !== 'NeedsWork'" :variant="gradeBadgeVariant(feedback.level)" data-test="grade-stamp">
-                  {{ gradeShort(feedback.level) }}
+                  {{ gradeLabel(feedback.level) }}
                 </Badge>
               </div>
               <p v-if="feedback.feedback" class="text-sm leading-relaxed whitespace-pre-wrap">
@@ -680,7 +667,7 @@ function handInOf(item: Schema<'StudentContentItem'>): string {
                     <dt class="text-muted-foreground">Betyg</dt>
                     <dd>
                       {{ selectedItem.gradeLevel
-                        ? gradeLabel(selectedItem.gradeLevel)
+                        ? gradeName(selectedItem.gradeLevel)
                         : 'Inte bedömd än' }}
                     </dd>
                   </div>
@@ -843,7 +830,7 @@ function handInOf(item: Schema<'StudentContentItem'>): string {
                             :variant="gradeBadgeVariant(item.gradeLevel)"
                             data-test="row-grade-stamp"
                           >
-                            {{ gradeShort(item.gradeLevel) }}
+                            {{ gradeLabel(item.gradeLevel) }}
                           </Badge>
                           <StatusBadge v-if="dueStatus(item) && !item.isLocked" :status="dueStatus(item)!"/>
                           <span

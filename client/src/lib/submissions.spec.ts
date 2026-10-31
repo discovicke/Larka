@@ -4,7 +4,6 @@ import type {Schema} from './api'
 import {
   checkClass,
   checkLabel,
-  formatSize,
   gradeBadgeVariant,
   gradeLabel,
   gradeName,
@@ -92,19 +91,6 @@ describe('statusLabel', () => {
 
   it('klarar en inlämnad rad utan tidpunkt', () => {
     expect(statusLabel({status: 'Submitted', submittedAt: null})).toBe('Inlämnad')
-  })
-})
-
-describe('formatSize', () => {
-  it('visar byte utan decimal', () => {
-    expect(formatSize(0)).toBe('0 B')
-    expect(formatSize(512)).toBe('512 B')
-  })
-
-  it('visar kilobyte och megabyte med svenskt decimalkomma', () => {
-    expect(formatSize(1500)).toBe('1,5 kB')
-    expect(formatSize(12_500)).toBe('12,5 kB')
-    expect(formatSize(2_345_678)).toBe('2,3 MB')
   })
 })
 

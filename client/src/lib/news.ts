@@ -12,16 +12,6 @@ export function sortNews<T extends {isPinned: boolean, publishAt: string}>(posts
   })
 }
 
-/** Första bokstaven i för- och efternamn, t.ex. "Anna Lärare" -> "AL". */
-export function initials(name: string): string {
-  return name
-    .split(' ')
-    .filter((part) => part !== '')
-    .slice(0, 2)
-    .map((part) => part[0].toUpperCase())
-    .join('') || '?'
-}
-
 /** Det som behövs från ett flödesobjekt för att slå ihop nyheter. */
 export type NewsLink = Pick<Schema<'ContentFeedItem'>, 'linkId' | 'contentId' | 'courseId' | 'groupId' | 'publishAt' | 'isPinned'>
 

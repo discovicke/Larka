@@ -62,17 +62,6 @@ export function statusLabel(submission: {status: Schema<'SubmissionStatus'>, sub
   }
 }
 
-/** Filstorlek med svenskt decimalkomma, t.ex. "1,5 kB". */
-export function formatSize(bytes: number): string {
-  if (bytes < 1000) {
-    return `${Math.round(bytes)} B`
-  }
-  if (bytes < 1_000_000) {
-    return `${oneDecimal(bytes / 1000)} kB`
-  }
-  return `${oneDecimal(bytes / 1_000_000)} MB`
-}
-
 /** Testernas läge i GitHub-repot, t.ex. "Gröna". */
 export function checkLabel(status: Schema<'CheckStatus'>): string {
   if (status === 'Green') {
@@ -91,12 +80,6 @@ export function checkClass(status: Schema<'CheckStatus'>): string {
   return status === 'Red'
     ? 'text-destructive'
     : 'text-muted-foreground'
-}
-
-function oneDecimal(value: number): string {
-  return value
-    .toFixed(1)
-    .replace('.', ',')
 }
 
 const submissionModeLabels: Record<string, string> = {

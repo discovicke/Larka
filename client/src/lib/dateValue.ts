@@ -19,7 +19,7 @@ export function fromCalendarDate(date: {year: number, month: number, day: number
 }
 
 /** Svensk visning, t.ex. '11 okt 2027'. */
-export function formatDate(value: string | undefined | null): string {
+export function formatCalendarDate(value: string | undefined | null): string {
   const date = toCalendarDate(value)
   if (!date) return ''
   return dateFormat.format(new Date(date.year, date.month - 1, date.day)).replace(/\./g, '')
@@ -35,7 +35,7 @@ export function splitDateTime(value: string | undefined | null): {date: string, 
 /** Svensk visning, t.ex. '11 okt 2027 09:00'. */
 export function formatDateTime(value: string | undefined | null): string {
   const {date, time} = splitDateTime(value)
-  const text = formatDate(date)
+  const text = formatCalendarDate(date)
   return text && time
     ? `${text} ${time}`
     : text

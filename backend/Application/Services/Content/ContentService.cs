@@ -530,10 +530,11 @@ public class ContentService(
             .ToList();
     }
 
-    /// <summary>Returnerar null om innehållet inte finns.</summary>
+    /// <summary>Returnerar null om innehållet inte finns eller användaren inte får läsa det.</summary>
     public async Task<CommentDto?> AddCommentAsync(Guid contentId, CreateCommentDto dto, CancellationToken ct)
     {
-        if (!await contents.ExistsAsync(contentId, ct))
+        var content = await contents.GetAsync(contentId, ct);
+        if (content is null || !await MayReadAsync(content, ct))
         {
             return null;
         }

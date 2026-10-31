@@ -1,7 +1,7 @@
 using Backend.Domain.Enums;
-using static Backend.Infrastructure.Persistence.DemoPeople;
+using static Backend.Infrastructure.Persistence.Seeding.DemoPeople;
 
-namespace Backend.Infrastructure.Persistence;
+namespace Backend.Infrastructure.Persistence.Seeding;
 
 internal static partial class DemoCatalog
 {

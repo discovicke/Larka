@@ -4,7 +4,7 @@ import {PhCalendarBlank} from '@phosphor-icons/vue'
 import {Button} from '@/components/ui/button'
 import {Calendar} from '@/components/ui/calendar'
 import {Popover, PopoverContent, PopoverTrigger} from '@/components/ui/popover'
-import {formatDate, fromCalendarDate, toCalendarDate} from '@/lib/dateValue'
+import {formatCalendarDate, fromCalendarDate, toCalendarDate} from '@/lib/dateValue'
 import {cn} from 'cn'
 
 defineOptions({inheritAttrs: false})
@@ -27,7 +27,7 @@ const emit = defineEmits<{'update:modelValue': [value: string]}>()
 
 const open = ref(false)
 const selected = computed(() => toCalendarDate(props.modelValue))
-const label = computed(() => formatDate(props.modelValue))
+const label = computed(() => formatCalendarDate(props.modelValue))
 
 function onSelect(value: unknown) {
   if (!value) return

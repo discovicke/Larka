@@ -1,7 +1,7 @@
 using Backend.Domain.Enums;
-using static Backend.Infrastructure.Persistence.DemoPeople;
+using static Backend.Infrastructure.Persistence.Seeding.DemoPeople;
 
-namespace Backend.Infrastructure.Persistence;
+namespace Backend.Infrastructure.Persistence.Seeding;
 
 /// <summary>
 /// Hur elevernas inlämningar på en uppgift ser ut. Mönstret avgör fördelningen mellan väntar på bedömning,

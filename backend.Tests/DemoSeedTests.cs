@@ -3,6 +3,7 @@ using Backend.Domain.Entities;
 using Backend.Domain.Enums;
 using Backend.Infrastructure;
 using Backend.Infrastructure.Persistence;
+using Backend.Infrastructure.Persistence.Seeding;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;

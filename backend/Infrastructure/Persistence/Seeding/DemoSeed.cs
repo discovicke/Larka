@@ -3,9 +3,9 @@ using Backend.Domain.Enums;
 using Backend.Infrastructure.Persistence.Configurations;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using static Backend.Infrastructure.Persistence.DemoPeople;
+using static Backend.Infrastructure.Persistence.Seeding.DemoPeople;
 
-namespace Backend.Infrastructure.Persistence;
+namespace Backend.Infrastructure.Persistence.Seeding;
 
 /// <summary>
 /// Realistisk demodata för Edugrade: tre klasser och ett klassråd med lärare, mentor och ett tjugotal elever

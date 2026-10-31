@@ -6,7 +6,7 @@
         <Configuration>
           <Format>cobertura</Format>
           <Exclude>[backend.Tests]*,[backend.Analyzers]*,[backend.Analyzers.Tests]*</Exclude>
-          <ExcludeByFile>**/Migrations/*.cs,**/Program.cs,**/DevSeed.cs</ExcludeByFile>
+          <ExcludeByFile>**/Migrations/*.cs,**/Program.cs,**/Seeding/DevSeed.cs</ExcludeByFile>
           <ExcludeByAttribute>GeneratedCodeAttribute,CompilerGeneratedAttribute</ExcludeByAttribute>
           <SkipAutoProps>true</SkipAutoProps>
         </Configuration>

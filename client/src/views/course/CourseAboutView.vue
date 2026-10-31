@@ -24,7 +24,7 @@ import {Skeleton} from '@/components/ui/skeleton'
 import {useCourses} from '@/composables/useCourses'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {api, errorMessage, type Schema} from '@/lib/api'
-import {initials} from '@/lib/news'
+import {initials} from '@/lib/person'
 import NotFoundView from '@/views/NotFoundView.vue'
 
 const route = useRoute()

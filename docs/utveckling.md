@@ -13,7 +13,7 @@ Hur man kör projektet lokalt och vad som måste göras när databasen eller API
 
 Lokalt kör backend mot Postgres i Docker (`npm run db`, data sparas i en Docker-volym). I prod är det Supabase Postgres. Testerna startar en egen Postgres med Testcontainers, se [testing.md](testing.md).
 
-Vid start kör backend de migrationer som saknas (`Database.Migrate()`), både lokalt och i prod. Render free tier har inget pre-deploy-steg, så det sker när appen startar. En tom lokal databas får också exempeldata från [`DevSeed`](../backend/Infrastructure/Persistence/DevSeed.cs), se [inloggningar](auth-och-behorigheter.md#dev-inloggningar).
+Vid start kör backend de migrationer som saknas (`Database.Migrate()`), både lokalt och i prod. Render free tier har inget pre-deploy-steg, så det sker när appen startar. En tom lokal databas får också exempeldata från [`DevSeed`](../backend/Infrastructure/Persistence/Seeding/DevSeed.cs), se [inloggningar](auth-och-behorigheter.md#dev-inloggningar).
 
 **Ändrat en entitet eller en konfiguration?** Skapa en migration och commita den:
 

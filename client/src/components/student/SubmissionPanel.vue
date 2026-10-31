@@ -9,7 +9,7 @@ import {Button} from '@/components/ui/button'
 import {Input} from '@/components/ui/input'
 import {api, errorMessage, multipart, type Schema} from '@/lib/api'
 import {formatDate} from '@/lib/content'
-import {formatSize} from '@/lib/submissions'
+import {formatSize} from '@/lib/material'
 
 // Elevens inlämning av en uppgift. Formuläret följer uppgiftens inlämningssätt: text och/eller filer.
 // Repo visas av GitHub-blocket i vyn och bedömning på plats har ingen inlämning från eleven.

@@ -1,4 +1,5 @@
 import type {Schema} from '@/lib/api'
+import {gradeLabel} from '@/lib/submissions'
 
 /** Svaret från GET /api/me/study-plan: poängsummor och kurserna eleven läser. */
 export type StudyPlan = Schema<'StudyPlanDto'>
@@ -11,12 +12,6 @@ const courseStatusLabels: Record<Schema<'StudyPlanCourseStatus'>, string> = {
   Upcoming: 'Kommande',
 }
 
-const gradeLabels: Record<Schema<'GradeLevel'>, string> = {
-  Fail: 'IG',
-  Pass: 'G',
-  Distinction: 'VG',
-}
-
 const months = ['jan', 'feb', 'mar', 'apr', 'maj', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec']
 
 /** Statusen i kurslistan, t.ex. "Pågår". */
@@ -27,7 +22,7 @@ export function courseStatusLabel(status: Schema<'StudyPlanCourseStatus'>): stri
 /** Betygsbokstaven, eller "Ej satt" när kursdelen inte har något betyg än. */
 export function gradeText(level: Schema<'GradeLevel'> | null): string {
   return level
-    ? gradeLabels[level]
+    ? gradeLabel(level)
     : 'Ej satt'
 }
 
@@ -71,7 +66,7 @@ export function assignmentStatus(assignment: StudyPlanAssignment, now = new Date
   switch (assignment.status) {
     case 'Graded':
       return assignment.grade
-        ? gradeLabels[assignment.grade]
+        ? gradeLabel(assignment.grade)
         : 'Bedömd'
     case 'NeedsWork':
       return 'Komplettera'

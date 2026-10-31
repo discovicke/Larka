@@ -4,7 +4,7 @@ using Backend.Infrastructure.Persistence.Configurations;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
-namespace Backend.Infrastructure.Persistence;
+namespace Backend.Infrastructure.Persistence.Seeding;
 
 /// <summary>
 /// Exempeldata för lokal utveckling: en klass med två kurser (och NET26 att skapa en kursomgång för), två veckor i DevOps, en lärare, två elever

@@ -1,9 +1,9 @@
 using Backend.Domain.Entities;
 using Backend.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
-using static Backend.Infrastructure.Persistence.DemoPeople;
+using static Backend.Infrastructure.Persistence.Seeding.DemoPeople;
 
-namespace Backend.Infrastructure.Persistence;
+namespace Backend.Infrastructure.Persistence.Seeding;
 
 /// <summary>
 /// För in ändringar i DemoCatalog i en databas som redan har demodata. DemoSeed hoppar över allt när klassen .NET25

@@ -765,6 +765,42 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Comment_OnDraft_ReturnsNotFoundForAStudent_AndAddsNothing()
+    {
+        var draft = await CreateTheoryAsync("Utkast", "draft");
+        using var student = await StudentClientAsync();
+
+        var response = await student.PostAsJsonAsync($"/api/content/{draft.Id}/comments", new { bodyMd = "Smyg" });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.DoesNotContain("Smyg", await _client.GetStringAsync($"/api/content/{draft.Id}/comments"));
+    }
+
+    [Fact]
+    public async Task Comment_OnPublishedContent_IsAllowedForAStudent()
+    {
+        var published = await CreateTheoryAsync("Publicerad");
+        using var student = await StudentClientAsync();
+
+        var response = await student.PostAsJsonAsync($"/api/content/{published.Id}/comments", new { bodyMd = "Tack" });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
+    private async Task<HttpClient> StudentClientAsync()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var school = await TestData.AddSchoolAsync(db);
+        var group = await TestData.AddGroupAsync(db, school.Id);
+        var student = await TestData.AddMemberAsync(db, group);
+
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add(TestAuthHandler.Header, student.Id.ToString());
+        return client;
+    }
+
     private async Task<ContentResponse> CreateAsync(string type, string title)
     {
         var response = await _client.PostAsJsonAsync("/api/content", new { type, title, bodyMd = "" });

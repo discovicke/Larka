@@ -21,8 +21,9 @@ import {useFlash} from '@/composables/useFlash'
 import {api, type Schema} from '@/lib/api'
 import {parseChecklist} from '@/lib/checklist'
 import {formatDate} from '@/lib/content'
-import {initials} from '@/lib/news'
-import {checkClass, checkLabel, formatSize, gradeLabel, gradeName, levelsFor, nextInQueue} from '@/lib/submissions'
+import {formatSize} from '@/lib/material'
+import {initials} from '@/lib/person'
+import {checkClass, checkLabel, gradeLabel, gradeName, levelsFor, nextInQueue} from '@/lib/submissions'
 
 const route = useRoute()
 const {setCrumbLabel} = useCrumbLabels()

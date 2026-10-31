@@ -43,6 +43,7 @@ Innan du pushar: `npm run format`, `dotnet test Larka.sln` och `npm --prefix cli
 | [Bidra](docs/bidra.md)                                       | Arbetsflöde, commit-format, PR-kontroller och kodstil       |
 | [Kodstil i C#](docs/code-style-csharp.md)                    | Våra egna analyzer-regler                                   |
 | [ER-modell](docs/er-diagram.md)                              | Datamodellen                                                |
+| [Ordlista](docs/ordlista.md)                                 | Vad orden i gränssnittet heter i koden                      |
 | [Design](docs/design.md)                                     | Mockupen och designbesluten                                 |
 | [Varumärke](docs/varumarke.md)                               | Namn, logo, ton, färg och typografi                         |
 | [UI-mönster](docs/ui-monster.md)                             | Återkommande lösningar i gränssnittet                       |

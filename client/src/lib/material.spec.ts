@@ -92,6 +92,7 @@ describe('isThisWeek', () => {
 
 describe('formatSize', () => {
   it('byter enhet vid tusen och en miljon', () => {
+    expect(formatSize(0)).toBe('0 B')
     expect(formatSize(512)).toBe('512 B')
     expect(formatSize(2048)).toBe('2,0 kB')
     expect(formatSize(1_500_000)).toBe('1,5 MB')
@@ -99,5 +100,6 @@ describe('formatSize', () => {
 
   it('använder svenskt komma med en decimal', () => {
     expect(formatSize(1250)).toBe('1,3 kB')
+    expect(formatSize(12_500)).toBe('12,5 kB')
   })
 })

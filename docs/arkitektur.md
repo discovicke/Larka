@@ -26,7 +26,7 @@ Ett projekt, `backend/`, uppdelat i fyra lager. Beroenden går bara inåt: `Api`
 ### Ett anrop
 
 1. Endpointen tar emot anropet. JSON valideras mot DTO:n: saknade fält som inte är nullbara ger `400`.
-2. Endpointen anropar en tjänst i `Application/Services`. Tjänsten läser användaren från `ICurrentUser`, prövar behörigheten med `IPermissions` och pratar med databasen via repository-gränssnitten och `IUnitOfWork`.
+2. Endpointen anropar en tjänst i `Application/Services`, grupperad per område (Content, Courses, Submissions, Students, Overview, Communication, Users). Namnrymden är `Backend.Application.Services` för alla. Tjänsten läser användaren från `ICurrentUser`, prövar behörigheten med `IPermissions` och pratar med databasen via repository-gränssnitten och `IUnitOfWork`.
 3. Tjänsten returnerar ett `ServiceResult`: `Ok`, `Invalid`, `NotFound`, `Conflict` eller `Forbidden`.
 4. `ToHttp` i `Api/ResultExtensions.cs` gör om det till `200`/`201`, `400`, `404`, `409` eller `403`. Svaren är typade, så statuskoderna hamnar i OpenAPI-dokumentet.
 
@@ -59,6 +59,7 @@ Lokal utveckling och tester fungerar utan externa tjänster. Utan Supabase-inst�
 ## Mer
 
 - Datamodellen: [er-diagram.md](er-diagram.md)
+- Ord i gränssnittet och i koden: [ordlista.md](ordlista.md)
 - Roller och regler: [auth-och-behorigheter.md](auth-och-behorigheter.md)
 - GitHub-integrationen: [github-integration.md](github-integration.md)
 - Designen: [design.md](design.md)
