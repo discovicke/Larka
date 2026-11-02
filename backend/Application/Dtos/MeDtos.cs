@@ -12,7 +12,8 @@ public record MeDto(
     List<CourseRoleDto> Courses,
     List<GroupRefDto> Groups,
     string? GitHubLogin = null,
-    bool GitHubEnabled = false);
+    bool GitHubEnabled = false,
+    bool GitHubInUse = false);
 
 public record SchoolRefDto(Guid Id, string Name);
 

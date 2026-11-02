@@ -201,6 +201,22 @@ public class ContentRepository(AppDb db) : IContentRepository
             .ToListAsync(ct))
         .ToHashSet();
 
+    public Task<bool> AnyRepoAssignmentAsync(
+        IReadOnlyCollection<Guid> courseIds,
+        IReadOnlyCollection<Guid> groupIds,
+        DateTimeOffset now,
+        CancellationToken ct) =>
+        (from link in db.ContentLinks
+         join content in db.Content on link.ContentId equals content.Id
+         where ((link.CourseId != null && courseIds.Contains(link.CourseId.Value))
+                 || (link.GroupId != null && groupIds.Contains(link.GroupId.Value)))
+             && content.Status == ContentStatus.Published
+             && link.PublishAt <= now
+             && content.Assignment != null
+             && content.Assignment.SubmissionModes.Contains(SubmissionMode.Repo)
+         select link.Id)
+        .AnyAsync(ct);
+
     public Task<List<CourseDeadline>> GetCourseDeadlinesAsync(
         IReadOnlyCollection<Guid> courseIds, DateTimeOffset fromAt, DateTimeOffset toAt, CancellationToken ct) =>
         (from link in db.ContentLinks

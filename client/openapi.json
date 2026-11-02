@@ -7696,6 +7696,10 @@
           "gitHubEnabled": {
             "type": "boolean",
             "default": false
+          },
+          "gitHubInUse": {
+            "type": "boolean",
+            "default": false
           }
         },
         "description": "Den inloggade användaren, skolan och rollen per kurs."

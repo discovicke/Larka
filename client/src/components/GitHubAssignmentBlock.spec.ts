@@ -1,5 +1,5 @@
-import {mount} from '@vue/test-utils'
-import {describe, expect, it} from 'vitest'
+import {flushPromises, mount} from '@vue/test-utils'
+import {describe, expect, it, vi} from 'vitest'
 
 import GitHubAssignmentBlock from './GitHubAssignmentBlock.vue'
 
@@ -170,6 +170,29 @@ describe('GitHubAssignmentBlock', () => {
     })
 
     expect(wrapper.find('[data-test="student-requirements"]').text()).toContain('Ingen matchande check')
+  })
+
+  it('kopierar klonkommandot', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      value: {writeText},
+      configurable: true,
+    })
+    const wrapper = mount(GitHubAssignmentBlock, {
+      props: {
+        hasRepoMode: true,
+        gitHubLogin: 'elev-kalle',
+        repoUrl: 'https://github.com/skol-org/kalle-labb-1',
+      },
+    })
+
+    await wrapper.find('[data-test="student-clone-copy"]').trigger('click')
+    await flushPromises()
+
+    expect(writeText).toHaveBeenCalledWith(
+      'git clone https://github.com/skol-org/kalle-labb-1.git',
+    )
+    expect(wrapper.find('[data-test="student-clone-copy"]').text()).toContain('Kopierat')
   })
 
   it('visar gruppens namn och medlemmar', () => {

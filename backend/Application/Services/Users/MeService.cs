@@ -10,9 +10,11 @@ public class MeService(
     IUserRepository users,
     ISchoolRepository schools,
     IGroupRepository groups,
+    IContentRepository contents,
     ISchoolGitHubInstallationRepository installations,
     IUnitOfWork unitOfWork,
-    ICurrentUser currentUser)
+    ICurrentUser currentUser,
+    TimeProvider time)
 {
     /// <summary>Returnerar null om den inloggade användaren inte finns.</summary>
     public async Task<MeDto?> GetAsync(CancellationToken ct)
@@ -33,7 +35,17 @@ public class MeService(
             .Select(courseRole => new CourseRoleDto(courseRole.CourseId, courseRole.Role))
             .ToList();
 
+        var memberGroups = await groups.GetMemberGroupsAsync(user.Id, ct);
         var github = await installations.GetForSchoolAsync(user.SchoolId, ct);
+        var githubEnabled = github?.Connected == true && github.Enabled;
+        // GitHub ska bara synas i elevens UI när någon av användarens kurser eller grupper
+        // faktiskt har en publicerad repo-uppgift.
+        var githubInUse = githubEnabled
+            && await contents.AnyRepoAssignmentAsync(
+                courseRoles.Select(courseRole => courseRole.CourseId).ToList(),
+                memberGroups.Select(group => group.Id).ToList(),
+                time.GetUtcNow(),
+                ct);
         return new MeDto(
             user.Id,
             user.Name,
@@ -41,11 +53,10 @@ public class MeService(
             user.Role,
             new SchoolRefDto(school.Id, school.Name),
             courseRoles,
-            (await groups.GetMemberGroupsAsync(user.Id, ct))
-                .Select(group => new GroupRefDto(group.Id, group.Name))
-                .ToList(),
+            memberGroups.Select(group => new GroupRefDto(group.Id, group.Name)).ToList(),
             user.GitHubLogin,
-            github?.Connected == true && github.Enabled);
+            githubEnabled,
+            githubInUse);
     }
 
     /// <summary>Slagen av notiser användaren stängt av. Null om användaren inte finns.</summary>

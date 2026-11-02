@@ -17,7 +17,7 @@ const error = ref('')
 
 const visible = computed(() => !dismissed.value
   && me.value?.role === 'Student'
-  && me.value.gitHubEnabled === true
+  && me.value.gitHubInUse === true
   && !me.value.gitHubLogin)
 
 function dismiss() {

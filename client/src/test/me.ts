@@ -10,6 +10,7 @@ export function meAs(
   name = 'Anna Lärare',
   gitHubLogin: string | null = null,
   gitHubEnabled = false,
+  gitHubInUse = false,
 ): Me {
   return {
     id: 'u-me',
@@ -26,6 +27,7 @@ export function meAs(
     groups: [],
     gitHubLogin,
     gitHubEnabled,
+    gitHubInUse,
   }
 }
 

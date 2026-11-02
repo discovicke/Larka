@@ -11,7 +11,7 @@ describe('GitHubOnboardingBanner', () => {
   it('visar koppla GitHub för elev när skolan använder GitHub', async () => {
     mockApi((_method, path) =>
       path === '/api/me'
-        ? {status: 200, body: meAs('Student', ['c1'], 'Bo Elev', null, true)}
+        ? {status: 200, body: meAs('Student', ['c1'], 'Bo Elev', null, true, true)}
         : {status: 404},
     )
 
@@ -24,10 +24,22 @@ describe('GitHubOnboardingBanner', () => {
     expect(sessionStorage.getItem('github_onboarding_dismissed')).toBe('1')
   })
 
+  it('visar inte bannern när skolan har GitHub men ingen av elevens kurser använder det', async () => {
+    mockApi((_method, path) =>
+      path === '/api/me'
+        ? {status: 200, body: meAs('Student', ['c1'], 'Bo Elev', null, true, false)}
+        : {status: 404},
+    )
+
+    const {wrapper} = await renderApp('/')
+
+    expect(wrapper.find('[data-test="github-onboarding"]').exists()).toBe(false)
+  })
+
   it('visar inte bannern när eleven redan kopplat GitHub', async () => {
     mockApi((_method, path) =>
       path === '/api/me'
-        ? {status: 200, body: meAs('Student', ['c1'], 'Bo Elev', 'bo-elev', true)}
+        ? {status: 200, body: meAs('Student', ['c1'], 'Bo Elev', 'bo-elev', true, true)}
         : {status: 404},
     )
 

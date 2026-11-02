@@ -38,7 +38,7 @@ public class MeEndpointTests(TestWebApplicationFactory factory) : IClassFixture<
 
     private record MeResponse(
         Guid Id, string Name, string Email, string Role, SchoolResponse School, List<CourseRoleResponse> Courses,
-        List<GroupResponse> Groups);
+        List<GroupResponse> Groups, bool GitHubInUse = false);
 
     private record SchoolResponse(Guid Id, string Name);
 
@@ -145,6 +145,56 @@ public class MeEndpointTests(TestWebApplicationFactory factory) : IClassFixture<
 
         Assert.Equal([first.Id, second.Id], me!.Groups.Select(group => group.Id));
         Assert.Equal([first.Name, second.Name], me.Groups.Select(group => group.Name));
+    }
+
+    [Fact]
+    public async Task Me_GitHubInUse_IsTrueOnlyWhenOneOfTheUsersCoursesHasARepoAssignment()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var school = await TestData.AddSchoolAsync(db);
+        var group = await TestData.AddGroupAsync(db, school.Id);
+        var course = await TestData.AddCourseAsync(db, school.Id, group.Id);
+        var student = await TestData.AddMemberAsync(db, group);
+        db.SchoolGitHubInstallations.Add(new SchoolGitHubInstallation
+        {
+            SchoolId = school.Id,
+            InstallationId = 1,
+            Org = "skol-org",
+            Connected = true,
+            Enabled = true,
+            ConnectedAt = DateTimeOffset.UtcNow,
+        });
+
+        var assignment = new Content
+        {
+            AuthorId = student.Id,
+            Type = ContentType.Assignment,
+            Title = "Grupplabb",
+            Status = ContentStatus.Published,
+            Assignment = new AssignmentSpec
+            {
+                SubmissionModes = [SubmissionMode.Repo],
+                TemplateRepo = "org/template",
+            },
+        };
+        db.Content.Add(assignment);
+        db.ContentLinks.Add(new ContentLink
+        {
+            ContentId = assignment.Id,
+            CourseId = course.Id,
+            PublishAt = DateTimeOffset.UtcNow.AddDays(-1),
+        });
+        await db.SaveChangesAsync();
+
+        var inUse = await GetMeAsync(student.Id);
+        Assert.True(inUse!.GitHubInUse);
+
+        var otherGroup = await TestData.AddGroupAsync(db, school.Id);
+        await TestData.AddCourseAsync(db, school.Id, otherGroup.Id);
+        var noRepo = await TestData.AddMemberAsync(db, otherGroup);
+        var notInUse = await GetMeAsync(noRepo.Id);
+        Assert.False(notInUse!.GitHubInUse);
     }
 
     [Fact]

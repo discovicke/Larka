@@ -2,7 +2,9 @@
 import {
   PhArrowSquareOut,
   PhCheckCircle,
+  PhCheck,
   PhClock,
+  PhCopy,
   PhGitCommit,
   PhGithubLogo,
   PhLock,
@@ -60,6 +62,23 @@ const emit = defineEmits<{
 
 const connecting = ref(false)
 const connectError = ref('')
+const copied = ref(false)
+const copyError = ref('')
+
+const cloneCommand = computed(() => props.repoUrl
+  ? `git clone ${props.repoUrl}.git`
+  : '')
+
+async function copyCloneCommand() {
+  copyError.value = ''
+  try {
+    await navigator.clipboard.writeText(cloneCommand.value)
+    copied.value = true
+  } catch {
+    copied.value = false
+    copyError.value = 'Kunde inte kopiera. Markera kommandot och kopiera manuellt.'
+  }
+}
 
 const statusBadge = computed<{
   label: string
@@ -263,6 +282,32 @@ async function handleConnect() {
           <PhArrowSquareOut class="size-3.5 shrink-0"/>
         </a>
       </div>
+
+      <div class="flex flex-wrap items-center gap-2" data-test="student-clone">
+        <code class="bg-muted text-muted-foreground min-w-0 flex-1 truncate rounded-md px-2 py-1 font-mono text-xs">
+          {{ cloneCommand }}
+        </code>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          data-test="student-clone-copy"
+          @click="copyCloneCommand"
+        >
+          <component
+            :is="copied
+              ? PhCheck
+              : PhCopy"
+            class="size-3.5"
+          />
+          {{ copied
+            ? 'Kopierat'
+            : 'Kopiera klonkommando' }}
+        </Button>
+      </div>
+      <p v-if="copyError" class="text-destructive text-xs" data-test="student-clone-error">
+        {{ copyError }}
+      </p>
 
       <div v-if="latestCommit" class="flex items-center gap-1.5 text-xs text-muted-foreground" data-test="student-repo-commit">
         <PhGitCommit class="size-3.5 shrink-0"/>

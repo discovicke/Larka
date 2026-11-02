@@ -74,6 +74,16 @@ public interface IContentRepository
     Task<HashSet<Guid>> GetCourseIdsWithPublishedPartsAsync(
         IReadOnlyCollection<Guid> courseIds, CancellationToken ct);
 
+    /// <summary>
+    /// Sant om någon av användarens kurser eller grupper har en publicerad repo-uppgift.
+    /// Används för att bara visa GitHub-CTA:n när GitHub faktiskt används i användarens undervisning.
+    /// </summary>
+    Task<bool> AnyRepoAssignmentAsync(
+        IReadOnlyCollection<Guid> courseIds,
+        IReadOnlyCollection<Guid> groupIds,
+        DateTimeOffset now,
+        CancellationToken ct);
+
     /// <summary>Publicerade uppgifter med deadline i intervallet [fromAt, toAt] i kurserna.</summary>
     Task<List<CourseDeadline>> GetCourseDeadlinesAsync(
         IReadOnlyCollection<Guid> courseIds, DateTimeOffset fromAt, DateTimeOffset toAt, CancellationToken ct);

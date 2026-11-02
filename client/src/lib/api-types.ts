@@ -6452,6 +6452,8 @@ export interface components {
             gitHubLogin?: null | string;
             /** @default false */
             gitHubEnabled: boolean;
+            /** @default false */
+            gitHubInUse: boolean;
         };
         MemberDto: {
             /** Format: uuid */

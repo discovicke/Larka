@@ -36,7 +36,7 @@ const router = useRouter()
 const {me, loadMe, reloadMe, can} = useCurrentUser()
 
 const githubInstallStateKey = 'github_install_state'
-const githubEnabled = computed(() => me.value?.gitHubEnabled === true)
+const githubInUse = computed(() => me.value?.gitHubInUse === true)
 
 const isAdmin = computed(() => can('admin'))
 const github = ref<GitHubConnection | null>(null)
@@ -214,7 +214,7 @@ async function handleUnlinkUserGitHub() {
 
 const navItems = computed(() => [
   {id: 'profil', label: 'Profil'},
-  ...(githubEnabled.value
+  ...(githubInUse.value
     ? [{id: 'konton', label: 'Anslutna konton'}]
     : []),
   {id: 'aviseringar', label: 'Aviseringar'},
@@ -284,7 +284,7 @@ onMounted(async () => {
       <div class="flex min-w-0 flex-[999_1_560px] flex-col gap-6">
         <ProfileSection/>
 
-        <section v-if="githubEnabled" id="konton" class="flex scroll-mt-6 flex-col gap-6">
+        <section v-if="githubInUse" id="konton" class="flex scroll-mt-6 flex-col gap-6">
           <!-- Elevens/användarens eget GitHub-konto -->
           <section class="bg-card rounded-xl border p-5" data-test="user-github">
             <header class="flex flex-wrap items-start justify-between gap-3">

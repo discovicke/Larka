@@ -144,7 +144,7 @@ sequenceDiagram
 - Om eleven redan har elevrepon bjuds hen in till dem direkt.
 - När eleven kopplar från tar backend bort collaborator-åtkomsten men raderar aldrig repon.
 
-GitHub-kortet på profilen visas bara när skolan använder GitHub.
+GitHub-kortet på profilen och onboarding-CTA:n visas bara när någon av användarens kurser har en publicerad repo-uppgift.
 
 ---
 
@@ -350,7 +350,7 @@ Elevflaggan är binär: **öppen** eller **löst**. När eleven flaggar skickas 
 | Inställningar, elev  | `SettingsView.vue`                      | Ditt GitHub-konto, ansluten/inte ansluten och koppla från.              |
 | Idag, elev           | `GitHubOnboardingBanner.vue`            | Avvisningsbar CTA om eleven saknar GitHub-koppling.                     |
 | Skapa uppgift        | `CreateContentView.vue`                 | Mallrepo, reponamn, kravtabell och “Läs in från mallen”.                |
-| Elevens uppgift      | `GitHubAssignmentBlock.vue`             | Repo-länk, senaste commit, teststatus och kravstatus.                   |
+| Elevens uppgift      | `GitHubAssignmentBlock.vue`             | Repo-länk, kopiera klonkommando, senaste commit, teststatus och krav.   |
 | Elevens inlämning    | `SubmissionPanel.vue`                   | **Lämna in senaste commit**, inlämnad commit och datum.                 |
 | Lärartrackingen      | `PartView.vue` + `SubmissionsPanel.vue` | Push, commits, tester, stödsignaler, uppdatera, klona alla och lås.     |
 | Granskning           | `ReviewView.vue`                        | Commit, antal commits, tester X/Y och lista med check runs.             |

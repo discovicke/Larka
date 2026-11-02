@@ -37,6 +37,7 @@ function settingsBackend(
     saveStatus?: number
     groups?: {id: string, name: string}[]
     gitHubEnabled?: boolean
+    gitHubInUse?: boolean
   } = {},
 ) {
   mockApi((method, path, body) => {
@@ -44,7 +45,14 @@ function settingsBackend(
       return {
         status: 200,
         body: {
-          ...meAs(role, [], 'Anna', gitHubLogin, options.gitHubEnabled ?? true),
+          ...meAs(
+            role,
+            [],
+            'Anna',
+            gitHubLogin,
+            options.gitHubEnabled ?? true,
+            options.gitHubInUse ?? options.gitHubEnabled ?? true,
+          ),
           groups: options.groups ?? [],
         },
       }
@@ -337,6 +345,15 @@ describe('SettingsView', () => {
 
     expect(wrapper.find('[data-test="user-github"]').exists()).toBe(false)
     expect(wrapper.find('nav[aria-label="Inställningar"]').text()).not.toContain('Anslutna konton')
+  })
+
+  it('döljer GitHub-kontot när skolan är ansluten men elevens kurser inte använder GitHub', async () => {
+    settingsBackend('Student', connectedGitHub, null, {gitHubEnabled: true, gitHubInUse: false})
+
+    const {wrapper} = await mountSettings()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="user-github"]').exists()).toBe(false)
   })
 
   it('visar användarens GitHub-konto som inte kopplad för elev', async () => {

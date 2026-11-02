@@ -17,6 +17,7 @@ function user(role: Me['role'], courses: Me['courses']): Me {
     groups: [],
     gitHubLogin: null,
     gitHubEnabled: false,
+    gitHubInUse: false,
   }
 }
 
