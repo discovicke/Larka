@@ -274,6 +274,42 @@ public sealed class GitHubLabProvisioner(
         }
     }
 
+    public async Task AddRepoCollaboratorAsync(
+        StudentRepo repo, Guid schoolId, User student, CancellationToken ct)
+    {
+        if (!CanSyncCollaborator(repo, student))
+        {
+            return;
+        }
+
+        var connection = await GetConnectionAsync(
+            schoolId, new Dictionary<Guid, SchoolConnection>(), ct);
+        var (owner, name) = ParseRepo(repo.RepoFullName, nameof(repo.RepoFullName));
+        await github.AddCollaboratorAsync(
+            connection.InstallationId, owner, name, student.GitHubLogin!, ct);
+    }
+
+    public async Task RemoveRepoCollaboratorAsync(
+        StudentRepo repo, Guid schoolId, User student, CancellationToken ct)
+    {
+        if (!CanSyncCollaborator(repo, student))
+        {
+            return;
+        }
+
+        var connection = await GetConnectionAsync(
+            schoolId, new Dictionary<Guid, SchoolConnection>(), ct);
+        var (owner, name) = ParseRepo(repo.RepoFullName, nameof(repo.RepoFullName));
+        await github.RemoveCollaboratorAsync(
+            connection.InstallationId, owner, name, student.GitHubLogin!, ct);
+    }
+
+    private bool CanSyncCollaborator(StudentRepo repo, User student) =>
+        _options.IsAppConfigured
+        && repo.ProvisioningState == RepoProvisioningState.Ready
+        && !string.IsNullOrWhiteSpace(repo.RepoFullName)
+        && !string.IsNullOrWhiteSpace(student.GitHubLogin);
+
     public async Task InviteToExistingReposAsync(User student, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(student.GitHubLogin) || !_options.IsAppConfigured)

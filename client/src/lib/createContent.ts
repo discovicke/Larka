@@ -11,6 +11,7 @@ export interface RequirementForm {
 }
 
 export interface GroupForm {
+  id?: string
   name: string
   studentIds: string[]
 }

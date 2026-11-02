@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {PhArrowsClockwise, PhPlus, PhTrash} from '@phosphor-icons/vue'
-import {computed, ref} from 'vue'
+import {computed, ref, watch} from 'vue'
 
 import {Button} from '@/components/ui/button'
 import {FieldError} from '@/components/ui/field'
@@ -13,10 +13,17 @@ const props = defineProps<{
   students: Schema<'CourseStudentDto'>[]
   loading?: boolean
   error?: string
+  lockedCount?: boolean
 }>()
 
 const groups = defineModel<GroupForm[]>({required: true})
 const groupCount = ref(2)
+
+watch(() => [props.lockedCount, groups.value.length] as const, ([locked, length]) => {
+  if (locked) {
+    groupCount.value = Math.max(1, length)
+  }
+}, {immediate: true})
 
 const unassigned = computed(() => props.students.filter((student) => groupIndexOf(student.id) < 0))
 
@@ -91,6 +98,7 @@ function removeGroup(index: number) {
             type="number"
             min="1"
             :max="Math.max(1, students.length)"
+            :disabled="lockedCount"
             class="h-8 w-20"
             data-test="group-count"
           />
@@ -128,6 +136,7 @@ function removeGroup(index: number) {
             data-test="group-name"
           />
           <Button
+            v-if="!lockedCount"
             type="button"
             variant="ghost"
             size="icon-sm"
@@ -151,7 +160,7 @@ function removeGroup(index: number) {
     </div>
 
     <Button
-      v-if="students.length > 0"
+      v-if="students.length > 0 && !lockedCount"
       type="button"
       variant="outline"
       size="sm"

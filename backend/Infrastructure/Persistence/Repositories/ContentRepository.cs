@@ -217,6 +217,15 @@ public class ContentRepository(AppDb db) : IContentRepository
          select link.Id)
         .AnyAsync(ct);
 
+    public Task<List<AssignmentGroup>> GetGroupsForLinkAsync(Guid linkId, CancellationToken ct) =>
+        db.AssignmentGroups
+            .Where(group => group.ContentLinkId == linkId)
+            .Include(group => group.Members)
+                .ThenInclude(member => member.User)
+            .Include(group => group.Repo)
+            .OrderBy(group => group.Position)
+            .ToListAsync(ct);
+
     public Task<List<CourseDeadline>> GetCourseDeadlinesAsync(
         IReadOnlyCollection<Guid> courseIds, DateTimeOffset fromAt, DateTimeOffset toAt, CancellationToken ct) =>
         (from link in db.ContentLinks

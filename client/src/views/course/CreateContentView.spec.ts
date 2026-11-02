@@ -104,6 +104,12 @@ function backend(onPost: Handler = () => ({status: 201, body: {content, link: {i
 function editBackend(
   onWrite: Handler = () => ({status: 200, body: content}),
   attachments: unknown[] = [],
+  options: {
+    content?: unknown
+    part?: unknown
+    groups?: unknown[]
+    students?: unknown[]
+  } = {},
 ) {
   mockApi((method, path, body) => {
     if (method !== 'GET') {
@@ -118,10 +124,22 @@ function editBackend(
       return {status: 200, body: [course]}
     }
     if (path === '/api/courses/c1/modules') {
-      return {status: 200, body: [{...week, content: [part]}]}
+      return {status: 200, body: [{...week, content: [options.part ?? part]}]}
     }
     if (path === '/api/content/x1') {
-      return {status: 200, body: content}
+      return {status: 200, body: options.content ?? content}
+    }
+    if (path === '/api/links/l1/groups') {
+      return {status: 200, body: options.groups ?? []}
+    }
+    if (path === '/api/courses/c1/students') {
+      return {
+        status: 200,
+        body: options.students ?? [
+          {id: 'u1', name: 'Anna Andersson', email: 'anna@example.com', gitHubLogin: 'anna'},
+          {id: 'u2', name: 'Bo Berg', email: 'bo@example.com', gitHubLogin: 'bo'},
+        ],
+      }
     }
     if (path === '/api/content/x1/attachments') {
       return {status: 200, body: attachments}
@@ -311,6 +329,59 @@ describe('CreateContentView', () => {
 
     expect(wrapper.text()).toContain('templateRepo must look like org/name')
     expect(router.currentRoute.value.name).toBe('create-content')
+  })
+
+  it('läser in och sparar gruppindelningen när en gruppuppgift redigeras', async () => {
+    const groupContent = {
+      ...content,
+      assignment: {
+        ...content.assignment,
+        submissionModes: ['Repo'],
+        templateRepo: 'edugrade-net25/mall-lab2',
+        repoNamePattern: 'labb-{groupSlug}',
+        workMode: 'Group',
+      },
+    }
+    const groups = [
+      {
+        id: 'g1',
+        name: 'Grupp 1',
+        members: [{id: 'u1', name: 'Anna Andersson'}, {id: 'u2', name: 'Bo Berg'}],
+      },
+      {
+        id: 'g2',
+        name: 'Grupp 2',
+        members: [{id: 'u3', name: 'Cara Carlsson'}],
+      },
+    ]
+    editBackend(undefined, [], {
+      content: groupContent,
+      groups,
+      students: [
+        {id: 'u1', name: 'Anna Andersson', email: 'anna@example.com', gitHubLogin: 'anna'},
+        {id: 'u2', name: 'Bo Berg', email: 'bo@example.com', gitHubLogin: 'bo'},
+        {id: 'u3', name: 'Cara Carlsson', email: 'cara@example.com', gitHubLogin: null},
+      ],
+    })
+
+    const {wrapper} = await renderApp('/courses/c1/modules/m1/content/l1/edit')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="group-editor"]').exists()).toBe(true)
+    expect(wrapper.findAll('[data-test="group-name"]').map((input) => (input.element as HTMLInputElement).value))
+      .toEqual(['Grupp 1', 'Grupp 2'])
+
+    button('Spara').click()
+    await flushPromises()
+
+    const saveGroups = requests.find((request) =>
+      request.method === 'PUT' && request.path === '/api/links/l1/groups')
+    expect(saveGroups?.body).toMatchObject({
+      groups: [
+        {id: 'g1', name: 'Grupp 1', studentIds: ['u1', 'u2']},
+        {id: 'g2', name: 'Grupp 2', studentIds: ['u3']},
+      ],
+    })
   })
 
   it('redigerar en del med låst typ och sparar direkt', async () => {

@@ -152,5 +152,13 @@ public class GitHubLinkingServiceTests(TestWebApplicationFactory factory)
             Revoked = student;
             return Task.CompletedTask;
         }
+
+        public Task AddRepoCollaboratorAsync(
+            StudentRepo repo, Guid schoolId, User student, CancellationToken ct) =>
+            Task.CompletedTask;
+
+        public Task RemoveRepoCollaboratorAsync(
+            StudentRepo repo, Guid schoolId, User student, CancellationToken ct) =>
+            Task.CompletedTask;
     }
 }

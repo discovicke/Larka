@@ -275,6 +275,62 @@ public class GitHubLabProvisionerTests
     }
 
     [Fact]
+    public async Task AddRepoCollaboratorAsync_AddsTheStudentToTheGroupRepo()
+    {
+        var github = new FakeGitHubAppService();
+        var provisioner = CreateProvisioner(github);
+        var student = new User
+        {
+            Id = Guid.NewGuid(),
+            SchoolId = _schoolId,
+            Name = "Alice",
+            Email = "alice@example.com",
+            GitHubLogin = "alice"
+        };
+        var repo = new StudentRepo
+        {
+            SubmissionId = Guid.NewGuid(),
+            AssignmentGroupId = Guid.NewGuid(),
+            RepoFullName = "EduEdugrade-Sandbox/grupp-ett",
+            ProvisioningState = RepoProvisioningState.Ready
+        };
+
+        await provisioner.AddRepoCollaboratorAsync(repo, _schoolId, student, CancellationToken.None);
+
+        var collaborator = Assert.Single(github.Collaborators);
+        Assert.Equal("grupp-ett", collaborator.Name);
+        Assert.Equal("alice", collaborator.Username);
+    }
+
+    [Fact]
+    public async Task RemoveRepoCollaboratorAsync_RemovesTheStudentFromTheGroupRepo()
+    {
+        var github = new FakeGitHubAppService();
+        var provisioner = CreateProvisioner(github);
+        var student = new User
+        {
+            Id = Guid.NewGuid(),
+            SchoolId = _schoolId,
+            Name = "Alice",
+            Email = "alice@example.com",
+            GitHubLogin = "alice"
+        };
+        var repo = new StudentRepo
+        {
+            SubmissionId = Guid.NewGuid(),
+            AssignmentGroupId = Guid.NewGuid(),
+            RepoFullName = "EduEdugrade-Sandbox/grupp-ett",
+            ProvisioningState = RepoProvisioningState.Ready
+        };
+
+        await provisioner.RemoveRepoCollaboratorAsync(repo, _schoolId, student, CancellationToken.None);
+
+        var removed = Assert.Single(github.RemovedCollaborators);
+        Assert.Equal("grupp-ett", removed.Name);
+        Assert.Equal("alice", removed.Username);
+    }
+
+    [Fact]
     public async Task ReopenForResubmissionAsync_UnarchivesTheRepo()
     {
         var github = new FakeGitHubAppService();
@@ -416,6 +472,10 @@ public class GitHubLabProvisionerTests
 
         public Task<List<Submission>> GetSubmissionsForGroupAsync(
             Guid groupId, CancellationToken ct) =>
+            throw new NotSupportedException();
+
+        public Task<bool> ReassignGroupRepoAsync(
+            Guid groupId, Guid newSubmissionId, CancellationToken ct) =>
             throw new NotSupportedException();
 
         public Task<Submission?> GetAsync(Guid id, CancellationToken ct) =>

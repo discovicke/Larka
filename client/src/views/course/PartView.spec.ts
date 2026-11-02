@@ -376,6 +376,85 @@ describe('PartView', () => {
       request.method === 'POST' && request.path === '/api/links/l1/repos/lock')).toBe(true)
   })
 
+  it('visar en rad per grupp och expanderar medlemmarna', async () => {
+    const groupOne = {
+      id: 'g1',
+      name: 'Grupp 1',
+      members: [{id: 'u1', name: names.u1}, {id: 'u2', name: names.u2}],
+    }
+    const groupTwo = {
+      id: 'g2',
+      name: 'Grupp 2',
+      members: [{id: 'u3', name: names.u3}, {id: 'u4', name: names.u4}],
+    }
+    const groupSubmissions = [
+      makeSubmission('gs1', 'u1', 'Submitted', {
+        repo,
+        group: groupOne,
+        submittedAt: '2026-10-21T10:00:00Z',
+      }),
+      makeSubmission('gs2', 'u2', 'Graded', {
+        repo,
+        group: groupOne,
+        grade: {gradedById: 'u0', level: 'Pass', feedback: 'Bra', gradedAt: '2026-10-24T09:00:00Z'},
+      }),
+      makeSubmission('gs3', 'u3', 'NeedsWork', {repo, group: groupTwo}),
+      makeSubmission('gs4', 'u4', 'NotStarted', {repo, group: groupTwo}),
+    ]
+    backend({submissions: groupSubmissions})
+
+    const {wrapper} = await renderApp('/courses/c1/assignments/l1')
+
+    expect(wrapper.findAll('[data-test="group-row"]')).toHaveLength(2)
+    expect(wrapper.findAll('[data-test="submission-row"]')).toHaveLength(0)
+    expect(wrapper.findAll('[data-test="group-name"]').map(text)).toEqual(['Grupp 1', 'Grupp 2'])
+    expect(wrapper.text()).toContain('Visar 2 av 2 grupper')
+    expect(wrapper.find('[data-test="group-row"] a[href="/courses/c1/assignments/l1/submissions/gs1"]').exists())
+      .toBe(true)
+
+    await wrapper.findAll('[data-test="group-toggle"]')[0].trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findAll('[data-test="member-row"]')).toHaveLength(2)
+    expect(wrapper.findAll('[data-test="member-row"]').map(text).join(' ')).toContain('Anna Andersson')
+  })
+
+  it('filtrerar grupper på aggregerad status', async () => {
+    const groupOne = {
+      id: 'g1',
+      name: 'Grupp 1',
+      members: [{id: 'u1', name: names.u1}, {id: 'u2', name: names.u2}],
+    }
+    const groupTwo = {
+      id: 'g2',
+      name: 'Grupp 2',
+      members: [{id: 'u3', name: names.u3}],
+    }
+    backend({
+      submissions: [
+        makeSubmission('gs1', 'u1', 'Submitted', {repo, group: groupOne}),
+        makeSubmission('gs2', 'u2', 'NotStarted', {repo, group: groupOne}),
+        makeSubmission('gs3', 'u3', 'NeedsWork', {repo, group: groupTwo}),
+      ],
+    })
+
+    const {wrapper} = await renderApp('/courses/c1/assignments/l1')
+    const due = wrapper.findAll('section[aria-label="Elever"] [role="tab"]')
+      .find((tab) => text(tab) === 'Att bedöma 1')
+    await due?.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findAll('[data-test="group-row"]')).toHaveLength(1)
+    expect(wrapper.find('[data-test="group-name"]').text()).toBe('Grupp 1')
+
+    const needsWork = wrapper.findAll('section[aria-label="Elever"] [role="tab"]')
+      .find((tab) => text(tab).startsWith('Komplettering'))
+    await needsWork?.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="group-name"]').text()).toBe('Grupp 2')
+  })
+
   it('visar ett fel när inlämningarna inte kan hämtas', async () => {
     backend({fail: true})
 

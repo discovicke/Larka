@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import {
   PhArrowsClockwise,
+  PhCaretDown,
+  PhCaretRight,
   PhCheck,
   PhCopy,
   PhLock,
@@ -43,10 +45,29 @@ type Filter = 'all'
   | 'supportRedChecks'
   | 'supportHelp'
 
+type Submission = Schema<'SubmissionDto'>
+type Group = Schema<'AssignmentGroupDto'>
+
+interface TrackingRow {
+  key: string
+  name: string
+  group: Group | null
+  submissions: Submission[]
+  primary: Submission
+  status: Schema<'SubmissionStatus'>
+  repo: Submission['repo']
+  submittedAt: string | null
+  files: number
+  grade: Submission['grade']
+  gradedCount: number
+  isMember: boolean
+  supportReasons: string[]
+}
+
 const props = defineProps<{
   courseId: string
   linkId: string
-  submissions: Schema<'SubmissionDto'>[]
+  submissions: Submission[]
 }>()
 
 const emit = defineEmits<{reload: []}>()
@@ -61,57 +82,162 @@ const refreshing = ref(false)
 const locking = ref(false)
 const actionError = ref('')
 const cloneOpen = ref(false)
+const expanded = ref<string[]>([])
 
-function nameOf(submission: Schema<'SubmissionDto'>): string {
-  return submission.studentName
+function aggregateStatus(submissions: Submission[]): Schema<'SubmissionStatus'> {
+  if (submissions.some((submission) => submission.status === 'Submitted')) {
+    return 'Submitted'
+  }
+  if (submissions.some((submission) => submission.status === 'NeedsWork')) {
+    return 'NeedsWork'
+  }
+  return submissions.length > 0 && submissions.every((submission) => submission.status === 'Graded')
+    ? 'Graded'
+    : 'NotStarted'
 }
+
+function reasonsFor(submissions: Submission[]): string[] {
+  const reasons = new Set<string>()
+  for (const submission of submissions) {
+    const support = submission.support
+    if (!support) {
+      continue
+    }
+    if (support.helpRequested) {
+      reasons.add('Elevflagga')
+    }
+    if (support.notStarted) {
+      reasons.add('Inte startat')
+    }
+    if (support.noRecentPush) {
+      reasons.add('Ingen push')
+    }
+    if (support.redChecks) {
+      reasons.add('Röda tester')
+    }
+  }
+  return [...reasons]
+}
+
+function preferredSubmission(submissions: Submission[]): Submission {
+  return submissions.find((submission) => submission.status === 'Submitted')
+    ?? submissions.find((submission) => submission.status === 'NeedsWork')
+    ?? submissions[0]
+}
+
+function submittedAtOf(submissions: Submission[]): string | null {
+  return submissions
+    .map((submission) => submission.submittedAt)
+    .filter((value): value is string => Boolean(value))
+    .sort()
+    .at(-1) ?? null
+}
+
+function sharedGrade(submissions: Submission[]): Submission['grade'] {
+  if (submissions.length === 0 || submissions.some((submission) => submission.grade === null)) {
+    return null
+  }
+  const level = submissions[0].grade?.level ?? null
+  return submissions.every((submission) => (submission.grade?.level ?? null) === level)
+    ? submissions[0].grade
+    : null
+}
+
+function toStudentRow(submission: Submission, isMember = false): TrackingRow {
+  return {
+    key: `student:${submission.id}`,
+    name: submission.studentName,
+    group: null,
+    submissions: [submission],
+    primary: submission,
+    status: submission.status,
+    repo: submission.repo,
+    submittedAt: submission.submittedAt,
+    files: submission.files.length,
+    grade: submission.grade,
+    gradedCount: submission.grade
+      ? 1
+      : 0,
+    isMember,
+    supportReasons: reasonsFor([submission]),
+  }
+}
+
+function toGroupRow(group: Group, submissions: Submission[]): TrackingRow {
+  return {
+    key: `group:${group.id}`,
+    name: group.name,
+    group,
+    submissions,
+    primary: preferredSubmission(submissions),
+    status: aggregateStatus(submissions),
+    repo: submissions.find((submission) => submission.repo)?.repo ?? null,
+    submittedAt: submittedAtOf(submissions),
+    files: submissions.reduce((sum, submission) => sum + submission.files.length, 0),
+    grade: sharedGrade(submissions),
+    gradedCount: submissions.filter((submission) => submission.grade).length,
+    isMember: false,
+    supportReasons: reasonsFor(submissions),
+  }
+}
+
+const rows = computed<TrackingRow[]>(() => {
+  const groups = new Map<string, {group: Group, submissions: Submission[]}>()
+  const students: TrackingRow[] = []
+  for (const submission of props.submissions) {
+    if (submission.group) {
+      const existing = groups.get(submission.group.id)
+      if (existing) {
+        existing.submissions.push(submission)
+      } else {
+        groups.set(submission.group.id, {group: submission.group, submissions: [submission]})
+      }
+    } else {
+      students.push(toStudentRow(submission))
+    }
+  }
+  return [
+    ...students,
+    ...[...groups.values()].map(({group, submissions}) => toGroupRow(group, submissions)),
+  ]
+})
+
+const hasGroups = computed(() => rows.value.some((row) => row.group !== null))
+const unit = computed(() => {
+  const count = rows.value.length
+  if (hasGroups.value) {
+    return count === 1
+      ? 'grupp'
+      : 'grupper'
+  }
+  return count === 1
+    ? 'elev'
+    : 'elever'
+})
+const hasRepos = computed(() => props.submissions.some((submission) => submission.repo !== null))
 
 function countOf(status: Schema<'SubmissionStatus'>): number {
-  return props.submissions.filter((submission) => submission.status === status).length
+  return rows.value.filter((row) => row.status === status).length
 }
 
-function supportReasons(submission: Schema<'SubmissionDto'>): string[] {
-  const support = submission.support
-  if (!support) {
-    return []
-  }
-
-  const reasons: string[] = []
-  if (support.helpRequested) {
-    reasons.push('Elevflagga')
-  }
-  if (support.notStarted) {
-    reasons.push('Inte startat')
-  }
-  if (support.noRecentPush) {
-    reasons.push('Ingen push')
-  }
-  if (support.redChecks) {
-    reasons.push('Röda tester')
-  }
-
-  return reasons
+function needsHelp(row: TrackingRow): boolean {
+  return row.supportReasons.length > 0
 }
 
-function needsHelp(submission: Schema<'SubmissionDto'>): boolean {
-  return supportReasons(submission).length > 0
-}
+const needsHelpCount = computed(() => rows.value.filter(needsHelp).length)
 
-const needsHelpCount = computed(() => props.submissions.filter(needsHelp).length)
-
-function supportCount(filter: Filter): number {
-  return props.submissions.filter((submission) => {
-    const support = submission.support
-    if (filter === 'supportNotStarted') {
-      return support?.notStarted === true
+function supportCount(filterValue: Filter): number {
+  return rows.value.filter((row) => {
+    if (filterValue === 'supportNotStarted') {
+      return row.supportReasons.includes('Inte startat')
     }
-    if (filter === 'supportNoPush') {
-      return support?.noRecentPush === true
+    if (filterValue === 'supportNoPush') {
+      return row.supportReasons.includes('Ingen push')
     }
-    if (filter === 'supportRedChecks') {
-      return support?.redChecks === true
+    if (filterValue === 'supportRedChecks') {
+      return row.supportReasons.includes('Röda tester')
     }
-    return support?.helpRequested === true
+    return row.supportReasons.includes('Elevflagga')
   }).length
 }
 
@@ -121,10 +247,21 @@ function supportReasonClass(reason: string): string {
     : 'border-warning/30 bg-warning/10 text-warning'
 }
 
-async function resolveHelp(submission: Schema<'SubmissionDto'>): Promise<void> {
+function hasHelp(row: TrackingRow): boolean {
+  return row.group
+    ? row.submissions.some((submission) => submission.support?.helpRequested === true)
+    : row.primary.support?.helpRequested === true
+}
+
+async function resolveHelp(row: TrackingRow): Promise<void> {
   actionError.value = ''
+  const targets = row.group
+    ? row.submissions.filter((submission) => submission.support?.helpRequested)
+    : [row.primary]
   try {
-    await resolveStudentHelp(props.linkId, submission.studentId)
+    for (const target of targets) {
+      await resolveStudentHelp(props.linkId, target.studentId)
+    }
     emit('reload')
   } catch {
     actionError.value = 'Kunde inte markera hjälpfrågan som löst.'
@@ -132,11 +269,11 @@ async function resolveHelp(submission: Schema<'SubmissionDto'>): Promise<void> {
 }
 
 const filters = computed<{value: Filter, label: string}[]>(() => [
-  {value: 'all', label: `Alla ${props.submissions.length}`},
+  {value: 'all', label: `Alla ${rows.value.length}`},
   {value: 'due', label: `Att bedöma ${countOf('Submitted')}`},
   {value: 'needsWork', label: `Komplettering ${countOf('NeedsWork')}`},
   {value: 'notStarted', label: `Ej inlämnad ${countOf('NotStarted')}`},
-  ...(props.submissions.some((submission) => submission.repo !== null)
+  ...(hasRepos.value
     ? [
         {value: 'needsHelp' as const, label: `Behöver hjälp ${needsHelpCount.value}`},
         {value: 'supportNotStarted' as const, label: `Inte startat ${supportCount('supportNotStarted')}`},
@@ -154,43 +291,61 @@ const statusOrder: Record<Schema<'SubmissionStatus'>, number> = {
   NotStarted: 3,
 }
 
-const sorted = computed(() => [...props.submissions]
+const sorted = computed(() => [...rows.value]
   .sort((left, right) => statusOrder[left.status] - statusOrder[right.status]
-    || nameOf(left).localeCompare(nameOf(right), 'sv')))
+    || left.name.localeCompare(right.name, 'sv')))
 
-const visible = computed(() => {
+const visibleRows = computed(() => {
   const text = search.value.trim().toLowerCase()
-  return sorted.value.filter((submission) => {
-    if (filter.value === 'due' && submission.status !== 'Submitted') {
+  return sorted.value.filter((row) => {
+    if (filter.value === 'due' && row.status !== 'Submitted') {
       return false
     }
-    if (filter.value === 'needsWork' && submission.status !== 'NeedsWork') {
+    if (filter.value === 'needsWork' && row.status !== 'NeedsWork') {
       return false
     }
-    if (filter.value === 'notStarted' && submission.status !== 'NotStarted') {
+    if (filter.value === 'notStarted' && row.status !== 'NotStarted') {
       return false
     }
-    if (filter.value === 'needsHelp' && !needsHelp(submission)) {
+    if (filter.value === 'needsHelp' && !needsHelp(row)) {
       return false
     }
-    if (filter.value === 'supportNotStarted' && submission.support?.notStarted !== true) {
+    if (filter.value === 'supportNotStarted' && !row.supportReasons.includes('Inte startat')) {
       return false
     }
-    if (filter.value === 'supportNoPush' && submission.support?.noRecentPush !== true) {
+    if (filter.value === 'supportNoPush' && !row.supportReasons.includes('Ingen push')) {
       return false
     }
-    if (filter.value === 'supportRedChecks' && submission.support?.redChecks !== true) {
+    if (filter.value === 'supportRedChecks' && !row.supportReasons.includes('Röda tester')) {
       return false
     }
-    if (filter.value === 'supportHelp' && submission.support?.helpRequested !== true) {
+    if (filter.value === 'supportHelp' && !row.supportReasons.includes('Elevflagga')) {
       return false
     }
     return !text
-      || nameOf(submission).toLowerCase().includes(text)
+      || row.name.toLowerCase().includes(text)
+      || row.submissions.some((submission) => submission.studentName.toLowerCase().includes(text))
   })
 })
 
-const hasRepos = computed(() => props.submissions.some((submission) => submission.repo !== null))
+const displayRows = computed(() => visibleRows.value.flatMap((row) => row.group
+  ? [
+      row,
+      ...(expanded.value.includes(row.key)
+        ? row.submissions.map((submission) => toStudentRow(submission, true))
+        : []),
+    ]
+  : [row]))
+
+function toggleGroup(key: string) {
+  expanded.value = expanded.value.includes(key)
+    ? expanded.value.filter((candidate) => candidate !== key)
+    : [...expanded.value, key]
+}
+
+function isExpanded(key: string): boolean {
+  return expanded.value.includes(key)
+}
 
 function filterClass(value: Filter) {
   return filter.value === value
@@ -234,42 +389,42 @@ async function lockRepos() {
   }
 }
 
-function pushLabel(submission: Schema<'SubmissionDto'>): string {
-  return submission.repo?.lastCommitAt
-    ? formatDate(submission.repo.lastCommitAt, true)
-    : submission.repo
+function pushLabel(row: TrackingRow): string {
+  return row.repo?.lastCommitAt
+    ? formatDate(row.repo.lastCommitAt, true)
+    : row.repo
       ? 'Ingen push'
       : '–'
 }
 
-function repoChecksLabel(submission: Schema<'SubmissionDto'>): string {
-  const repo = submission.repo
+function repoChecksLabel(row: TrackingRow): string {
+  const repo = row.repo
   if (!repo || repo.provisioningState !== 'Ready') {
     return '–'
   }
   return `${repo.checksPassed}/${repo.checksTotal}`
 }
 
-function repoUrl(submission: Schema<'SubmissionDto'>): string | null {
-  return submission.repo?.repoFullName
-    ? `https://github.com/${submission.repo.repoFullName}`
+function repoUrl(row: TrackingRow): string | null {
+  return row.repo?.repoFullName
+    ? `https://github.com/${row.repo.repoFullName}`
     : null
 }
 
 // Komplettera väntar på eleven, så där är det inget att bedöma än.
-function canAssess(submission: Schema<'SubmissionDto'>): boolean {
-  return canGrade.value && submission.status === 'Submitted'
+function canAssess(row: TrackingRow): boolean {
+  return canGrade.value && row.status === 'Submitted'
 }
 
-function reviewRoute(submission: Schema<'SubmissionDto'>) {
+function reviewRoute(row: TrackingRow) {
   return {
     name: 'submission-review',
-    params: {courseId: props.courseId, linkId: props.linkId, submissionId: submission.id},
+    params: {courseId: props.courseId, linkId: props.linkId, submissionId: row.primary.id},
   }
 }
 
 function rowBorder(index: number) {
-  return index < visible.value.length - 1
+  return index < displayRows.value.length - 1
     ? 'border-b'
     : ''
 }
@@ -369,7 +524,7 @@ function rowBorder(index: number) {
         >
           <thead class="max-md:hidden">
             <tr class="bg-muted/50 text-muted-foreground text-left">
-              <th scope="col" class="border-b px-4 py-2.5 font-medium">Elev</th>
+              <th scope="col" class="border-b px-4 py-2.5 font-medium">Elev / grupp</th>
               <template v-if="hasRepos">
                 <th scope="col" class="border-b px-3 py-2.5 font-medium">Senaste push</th>
                 <th scope="col" class="border-b px-3 py-2.5 font-medium">Commits</th>
@@ -383,48 +538,77 @@ function rowBorder(index: number) {
           </thead>
           <tbody class="max-md:block">
             <tr
-              v-for="(submission, index) in visible"
-              :key="submission.id"
+              v-for="(row, index) in displayRows"
+              :key="row.key"
               class="max-md:grid max-md:grid-cols-[minmax(0,1fr)_auto] max-md:gap-x-3 max-md:gap-y-1 max-md:px-4 max-md:py-3"
-              :class="index < visible.length - 1
-                ? 'max-md:border-b'
-                : ''"
-              data-test="submission-row"
+              :class="[
+                row.isMember && 'bg-muted/20',
+                index < displayRows.length - 1
+                  ? 'max-md:border-b'
+                  : '',
+              ]"
+              :data-test="row.group
+                ? 'group-row'
+                : row.isMember
+                  ? 'member-row'
+                  : 'submission-row'"
             >
               <td class="px-4 py-3 max-md:border-b-0 max-md:p-0" :class="rowBorder(index)">
                 <div class="flex flex-wrap items-center gap-1.5">
-                  <span class="font-medium">{{ nameOf(submission) }}</span>
+                  <Button
+                    v-if="row.group"
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    class="h-6 gap-1 px-1.5"
+                    :aria-expanded="isExpanded(row.key)"
+                    data-test="group-toggle"
+                    @click="toggleGroup(row.key)"
+                  >
+                    <component
+                      :is="isExpanded(row.key)
+                        ? PhCaretDown
+                        : PhCaretRight"
+                      class="size-3.5"
+                    />
+                    <span class="font-medium" data-test="group-name">{{ row.name }}</span>
+                  </Button>
+                  <span v-else class="font-medium">{{ row.name }}</span>
                   <Badge
-                    v-if="submission.group"
+                    v-if="row.group || row.isMember"
                     variant="outline"
                     class="h-5 rounded-[4px] px-1.5 text-[11px]"
-                    data-test="group-name"
                   >
-                    {{ submission.group.name }}
+                    {{ row.group
+                      ? `${row.submissions.length} medlemmar`
+                      : 'Gruppmedlem' }}
                   </Badge>
                 </div>
+                <div v-if="row.group" class="text-muted-foreground text-xs">
+                  {{ row.submissions.map((submission) => submission.studentName).join(', ') }}
+                </div>
                 <a
-                  v-if="repoUrl(submission)"
-                  :href="repoUrl(submission)!"
+                  v-if="repoUrl(row)"
+                  :href="repoUrl(row)!"
                   target="_blank"
                   rel="noopener noreferrer"
                   class="font-mono text-xs text-muted-foreground underline underline-offset-3"
-                >{{ submission.repo?.repoFullName }}</a>
-                <div v-else-if="submission.repo" class="text-xs text-muted-foreground">
-                  {{ submission.repo.provisioningState === 'Failed'
+                >{{ row.repo?.repoFullName }}</a>
+                <div v-else-if="row.repo" class="text-xs text-muted-foreground">
+                  {{ row.repo.provisioningState === 'Failed'
                     ? 'Repot kunde inte skapas'
                     : 'Repot skapas' }}
                 </div>
-                <div v-if="submission.repo?.reopenedAt" class="text-xs text-warning">
+                <div v-if="row.repo?.reopenedAt" class="text-xs text-warning">
                   Öppnat för komplettering
                 </div>
                 <div
-                  v-if="supportReasons(submission).length > 0"
+                  v-if="row.supportReasons.length > 0"
                   class="mt-1 flex flex-wrap items-center gap-1"
                   data-test="support-reasons"
                 >
                   <Badge
-                    v-for="reason in supportReasons(submission)"
+                    v-for="reason in row.supportReasons"
                     :key="reason"
                     variant="outline"
                     class="h-5 rounded-[4px] px-1.5 text-[11px]"
@@ -433,13 +617,13 @@ function rowBorder(index: number) {
                     {{ reason }}
                   </Badge>
                   <Button
-                    v-if="submission.support?.helpRequested"
+                    v-if="hasHelp(row)"
                     type="button"
                     variant="ghost"
                     size="sm"
                     class="h-5 px-1.5 text-[11px]"
                     data-test="support-resolve"
-                    @click="resolveHelp(submission)"
+                    @click="resolveHelp(row)"
                   >
                     Markera löst
                   </Button>
@@ -447,60 +631,68 @@ function rowBorder(index: number) {
               </td>
               <template v-if="hasRepos">
                 <td class="px-3 py-3 max-md:border-b-0 max-md:p-0" :class="rowBorder(index)">
-                  {{ pushLabel(submission) }}
+                  {{ row.isMember
+                    ? '–'
+                    : pushLabel(row) }}
                 </td>
                 <td class="px-3 py-3 max-md:border-b-0 max-md:p-0" :class="rowBorder(index)">
-                  {{ submission.repo?.commitCount ?? '–' }}
+                  {{ row.isMember
+                    ? '–'
+                    : row.repo?.commitCount ?? '–' }}
                 </td>
                 <td class="px-3 py-3 max-md:border-b-0 max-md:p-0" :class="rowBorder(index)">
                   <span
-                    v-if="submission.repo"
-                    :class="checkClass(submission.repo.checkStatus)"
-                    :title="checkLabel(submission.repo.checkStatus)"
-                  >{{ repoChecksLabel(submission) }}</span>
+                    v-if="row.repo && !row.isMember"
+                    :class="checkClass(row.repo.checkStatus)"
+                    :title="checkLabel(row.repo.checkStatus)"
+                  >{{ repoChecksLabel(row) }}</span>
                   <span v-else class="text-muted-foreground">–</span>
                 </td>
               </template>
               <td v-else class="px-3 py-3 max-md:hidden" :class="rowBorder(index)">
-                {{ submission.files.length > 0
-                  ? submission.files.length
+                {{ row.files > 0
+                  ? row.files
                   : '–' }}
               </td>
               <td class="px-3 py-3 max-md:border-b-0 max-md:p-0 max-md:text-muted-foreground" :class="rowBorder(index)">
-                {{ submission.submittedAt
-                  ? formatDate(submission.submittedAt, true)
+                {{ row.submittedAt
+                  ? formatDate(row.submittedAt, true)
                   : '–' }}
               </td>
               <td class="px-3 py-3 max-md:border-b-0 max-md:p-0" :class="rowBorder(index)">
                 <StatusBadge
-                  v-if="submission.status === 'Submitted' || submission.status === 'NeedsWork'"
-                  :status="submissionStatusKey(submission.status)"
+                  v-if="row.status === 'Submitted' || row.status === 'NeedsWork'"
+                  :status="submissionStatusKey(row.status)"
                 />
-                <span v-else class="text-muted-foreground">{{ statusLabel(submission) }}</span>
+                <span v-else class="text-muted-foreground">{{ statusLabel(row) }}</span>
               </td>
               <td class="px-4 py-3 text-right max-md:col-start-2 max-md:row-span-2 max-md:row-start-1 max-md:self-center max-md:border-b-0 max-md:p-0" :class="rowBorder(index)">
                 <div class="flex justify-end">
                   <Button
-                    v-if="submission.status === 'Submitted' || submission.status === 'NeedsWork'"
+                    v-if="row.status === 'Submitted' || row.status === 'NeedsWork'"
                     as-child
-                    :variant="canAssess(submission)
+                    :variant="canAssess(row)
                       ? 'default'
                       : 'outline'"
                     class="h-7 px-2.5 text-[13px]"
                   >
-                    <RouterLink :to="reviewRoute(submission)">
-                      {{ canAssess(submission)
+                    <RouterLink :to="reviewRoute(row)">
+                      {{ canAssess(row)
                         ? 'Bedöm'
                         : 'Visa' }}
                     </RouterLink>
                   </Button>
                   <RouterLink
-                    v-else-if="submission.status === 'Graded'"
-                    :to="reviewRoute(submission)"
+                    v-else-if="row.status === 'Graded'"
+                    :to="reviewRoute(row)"
                   >
-                    <Badge v-if="submission.grade?.level" :variant="gradeBadgeVariant(submission.grade.level)">
-                      {{ gradeLabel(submission.grade.level) }}
+                    <Badge v-if="row.grade?.level" :variant="gradeBadgeVariant(row.grade.level)">
+                      {{ gradeLabel(row.grade.level) }}
                     </Badge>
+                    <span
+                      v-else-if="row.group && row.gradedCount > 0"
+                      class="text-muted-foreground text-xs"
+                    >{{ row.gradedCount }}/{{ row.submissions.length }} bedömda</span>
                     <span v-else class="bg-muted text-muted-foreground flex size-7 items-center justify-center rounded-full">
                       <PhCheck class="size-3.5"/>
                     </span>
@@ -509,14 +701,14 @@ function rowBorder(index: number) {
                 </div>
               </td>
             </tr>
-            <tr v-if="visible.length === 0">
+            <tr v-if="visibleRows.length === 0">
               <td
                 :colspan="hasRepos
                   ? 7
                   : 5"
                 class="text-muted-foreground px-4 py-6 text-center"
               >
-                Inga elever matchar sökningen.
+                Inga {{ unit }} matchar sökningen.
               </td>
             </tr>
           </tbody>
@@ -524,7 +716,7 @@ function rowBorder(index: number) {
       </div>
 
       <div class="text-muted-foreground border-t px-4 py-2.5 text-[13px]">
-        Visar {{ visible.length }} av {{ submissions.length }} elever
+        Visar {{ visibleRows.length }} av {{ rows.length }} {{ unit }}
       </div>
     </section>
 

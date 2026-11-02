@@ -40,7 +40,7 @@ public record CreateContentLinkDto(
     List<AssignmentGroupInput>? Groups = null);
 
 /// <summary>Projektgrupp vid skapandet av en gruppuppgift. Alla elev-id:n måste finnas i kursen.</summary>
-public record AssignmentGroupInput(string Name, List<Guid> StudentIds);
+public record AssignmentGroupInput(string Name, List<Guid> StudentIds, Guid? Id = null);
 
 public record CreateCommentDto(string BodyMd);
 
@@ -207,3 +207,6 @@ public record AttachmentDto(Guid Id, Guid ContentId, string FileName, string Url
     public static AttachmentDto From(Attachment attachment, string url) =>
         new(attachment.Id, attachment.ContentId, attachment.FileName, url, attachment.SizeBytes);
 }
+
+/// <summary>Uppdaterar en gruppindelning efter att uppgiften delats ut. Bara befintliga grupper får ändras.</summary>
+public record UpdateAssignmentGroupsDto(List<AssignmentGroupInput> Groups);

@@ -56,4 +56,12 @@ public interface ILabProvisioner
     /// GitHub-fel får inte fälla själva frånkopplingen.
     /// </summary>
     Task RevokeAccessAsync(User student, CancellationToken ct);
+
+    /// <summary>Lägger till en elev som collaborator på ett enskilt grupprepo.</summary>
+    Task AddRepoCollaboratorAsync(
+        StudentRepo repo, Guid schoolId, User student, CancellationToken ct);
+
+    /// <summary>Tar bort en elev som collaborator från ett enskilt grupprepo.</summary>
+    Task RemoveRepoCollaboratorAsync(
+        StudentRepo repo, Guid schoolId, User student, CancellationToken ct);
 }

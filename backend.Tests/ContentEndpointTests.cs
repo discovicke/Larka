@@ -564,6 +564,94 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     }
 
     [Fact]
+    public async Task UpdateAssignmentGroups_MovesStudentAndKeepsGroupRepoOnRemainingMember()
+    {
+        var (courseId, firstId, secondId) = await AddCourseWithTwoStudentsAsync();
+        using var seedScope = factory.Services.CreateScope();
+        var seedDb = seedScope.ServiceProvider.GetRequiredService<AppDb>();
+        var courseGroupId = await seedDb.GroupCourses
+            .Where(groupCourse => groupCourse.CourseId == courseId)
+            .Select(groupCourse => groupCourse.GroupId)
+            .SingleAsync();
+        var third = await TestData.AddMemberAsync(
+            seedDb, await seedDb.Groups.SingleAsync(group => group.Id == courseGroupId));
+        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var created = await CreateGroupAssignmentAsync(courseId, week.Id,
+        [
+            new { name = "Grupp ett", studentIds = new[] { firstId, third.Id } },
+            new { name = "Grupp tva", studentIds = new[] { secondId } }
+        ]);
+        var linkId = created.Link.Id;
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var groups = await db.AssignmentGroups
+            .Where(candidate => candidate.ContentLinkId == linkId)
+            .OrderBy(candidate => candidate.Position)
+            .ToListAsync();
+        var leaderRepo = await db.StudentRepos
+            .SingleAsync(repo => repo.AssignmentGroupId == groups[0].Id);
+        var leader = await db.Submissions.SingleAsync(submission => submission.Id == leaderRepo.SubmissionId);
+        var remaining = await db.Submissions.SingleAsync(submission =>
+            submission.AssignmentGroupId == groups[0].Id && submission.Id != leader.Id);
+
+        var response = await _client.PutAsJsonAsync($"/api/links/{linkId}/groups", new
+        {
+            groups = new[]
+            {
+                new { id = groups[0].Id, name = "Grupp ett", studentIds = new[] { remaining.StudentId } },
+                new
+                {
+                    id = groups[1].Id,
+                    name = "Grupp tva",
+                    studentIds = new[] { secondId, leader.StudentId }
+                }
+            }
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        db.ChangeTracker.Clear();
+        var moved = await db.Submissions.SingleAsync(submission => submission.Id == leader.Id);
+        Assert.Equal(groups[1].Id, moved.AssignmentGroupId);
+        var repoAfter = await db.StudentRepos.SingleAsync(repo => repo.AssignmentGroupId == groups[0].Id);
+        Assert.Equal(remaining.Id, repoAfter.SubmissionId);
+    }
+
+    [Fact]
+    public async Task UpdateAssignmentGroups_RejectsMovingStudentWhoAlreadySubmitted()
+    {
+        var (courseId, firstId, secondId) = await AddCourseWithTwoStudentsAsync();
+        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var created = await CreateGroupAssignmentAsync(courseId, week.Id,
+        [
+            new { name = "Grupp ett", studentIds = new[] { firstId } },
+            new { name = "Grupp tva", studentIds = new[] { secondId } }
+        ]);
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var groups = await db.AssignmentGroups
+            .Where(group => group.ContentLinkId == created.Link.Id)
+            .OrderBy(group => group.Position)
+            .ToListAsync();
+        var submission = await db.Submissions.SingleAsync(candidate =>
+            candidate.ContentLinkId == created.Link.Id && candidate.StudentId == firstId);
+        submission.Status = SubmissionStatus.Submitted;
+        await db.SaveChangesAsync();
+
+        var response = await _client.PutAsJsonAsync($"/api/links/{created.Link.Id}/groups", new
+        {
+            groups = new[]
+            {
+                new { id = groups[0].Id, name = "Grupp ett", studentIds = new[] { secondId } },
+                new { id = groups[1].Id, name = "Grupp tva", studentIds = new[] { firstId } }
+            }
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task PreviewRepoName_UsesSameNamingAsProvisioning()
     {
         var response = await _client.PostAsJsonAsync("/api/content/github/repo-name-preview", new
@@ -1021,6 +1109,29 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
         return (await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId)).Id;
+    }
+
+    private async Task<CreatedWithLink> CreateGroupAssignmentAsync(
+        Guid courseId, Guid moduleId, object[] groups)
+    {
+        var response = await _client.PostAsJsonAsync("/api/content/with-link", new
+        {
+            content = new
+            {
+                type = "assignment",
+                title = "Grupplabb",
+                bodyMd = "",
+                status = "published",
+                gradeScale = "passFail",
+                submissionModes = new[] { "repo" },
+                templateRepo = "org/template",
+                workMode = "group",
+                repoNamePattern = "labb-{groupSlug}"
+            },
+            link = new { courseId, moduleId, groups }
+        });
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<CreatedWithLink>())!;
     }
 
     private async Task<(Guid CourseId, Guid FirstStudentId, Guid SecondStudentId)>

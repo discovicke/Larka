@@ -25,6 +25,7 @@ import {Skeleton} from '@/components/ui/skeleton'
 import {useAssignmentGitHub} from '@/composables/useAssignmentGitHub'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {ApiError, errorMessage, type Schema} from '@/lib/api'
+import {fetchAssignmentGroups, updateAssignmentGroups} from '@/lib/assignmentGroups'
 import {partTypeOf} from '@/lib/content'
 import {createContentWithLink, fetchContent, updateContent, updateContentLink} from '@/lib/contentApi'
 import {
@@ -97,7 +98,7 @@ const availableSubmissionModes = computed(() => submissionModes.filter((mode) =>
 // Felen visas först när läraren försökt spara.
 const triedToSave = ref(false)
 const errors = computed(() => triedToSave.value
-  ? validate(form, !isEditing.value, courseStudents.value.map((student) => student.id))
+  ? validate(form, true, courseStudents.value.map((student) => student.id))
   : {})
 const saving = ref(false)
 const serverError = ref('')
@@ -152,6 +153,13 @@ async function load() {
     form.templateRepo = content.assignment?.templateRepo ?? ''
     form.repoNamePattern = content.assignment?.repoNamePattern ?? defaultRepoNamePattern
     form.workMode = content.assignment?.workMode ?? 'Individual'
+    if (form.workMode === 'Group' && linkId.value) {
+      form.groups = (await fetchAssignmentGroups(linkId.value)).map((group) => ({
+        id: group.id,
+        name: group.name,
+        studentIds: group.members.map((member) => member.id),
+      }))
+    }
     form.requirements = (content.assignment?.requirements ?? []).map((requirement) => ({
       title: requirement.title,
       testPattern: requirement.testPattern ?? '',
@@ -178,7 +186,7 @@ async function save(status: Schema<'ContentStatus'> = 'Published') {
   triedToSave.value = true
   if (Object.keys(validate(
     form,
-    !isEditing.value,
+    true,
     courseStudents.value.map((student) => student.id),
   )).length > 0) {
     return
@@ -201,6 +209,9 @@ async function save(status: Schema<'ContentStatus'> = 'Published') {
       const {content, link} = toUpdateRequests(form)
       await updateContent(current.contentId, content)
       await updateContentLink(current.contentId, current.linkId, link)
+      if (usesGroupRepo(form)) {
+        await updateAssignmentGroups(current.linkId, form.groups)
+      }
     } else {
       const {content, link} = toRequests(form, status, {courseId, moduleId})
       await createContentWithLink({content, link})
@@ -290,18 +301,15 @@ async function save(status: Schema<'ContentStatus'> = 'Published') {
         </Field>
 
         <template v-if="usesGroupRepo(form)">
-          <div v-if="isEditing" class="rounded-lg border border-dashed p-3 text-xs">
-            <p class="font-medium">Gruppindelningen är låst</p>
-            <p class="text-muted-foreground">
-              Grupperna skapades när uppgiften delades ut. Repon och medlemmarna påverkas inte av en
-              redigering här.
-            </p>
-          </div>
+          <p v-if="isEditing" class="text-muted-foreground text-xs">
+            Du kan byta namn och flytta elever. Lägga till eller ta bort grupper går inte efter att
+            uppgiften skapats. Elever som redan lämnat in eller fått betyg kan inte flyttas.
+          </p>
           <AssignmentGroupEditor
-            v-else
             v-model="form.groups"
             :students="courseStudents"
             :loading="courseStudentsLoading"
+            :locked-count="isEditing"
             :error="errors.groups || courseStudentsError"
           />
         </template>

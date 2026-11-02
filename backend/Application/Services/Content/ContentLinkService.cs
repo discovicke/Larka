@@ -310,63 +310,14 @@ public class ContentLinkService(
             return "dueAt is only allowed on assignments";
         }
 
-        return await CheckGroupsAsync(content, dto, ct);
-    }
-
-    // Grupprepon kräver en komplett gruppindelning av länkens elevunderlag. Individuella uppgifter
-    // får inte skicka med grupper.
-    private async Task<string?> CheckGroupsAsync(
-        Content content, CreateContentLinkDto dto, CancellationToken ct)
-    {
-        var workMode = content.Assignment?.WorkMode ?? RepoWorkMode.Individual;
-        if (workMode != RepoWorkMode.Group)
-        {
-            return dto.Groups is not null && dto.Groups.Count > 0
-                ? "groups are only allowed on group repo assignments"
-                : null;
-        }
-
-        if (dto.Groups is null || dto.Groups.Count == 0)
-        {
-            return "groups are required on group repo assignments";
-        }
-
-        var names = dto.Groups.Select(group => group.Name.Trim()).ToList();
-        if (names.Any(string.IsNullOrWhiteSpace))
-        {
-            return "every group needs a name";
-        }
-
-        if (names.Distinct(StringComparer.OrdinalIgnoreCase).Count() != names.Count)
-        {
-            return "group names must be unique";
-        }
-
-        if (dto.Groups.Any(group => group.StudentIds is null || group.StudentIds.Count == 0))
-        {
-            return "every group needs at least one student";
-        }
-
-        var studentIds = dto.Groups.SelectMany(group => group.StudentIds).ToList();
-        if (studentIds.Distinct().Count() != studentIds.Count)
-        {
-            return "a student can only belong to one group";
-        }
-
-        var groupIds = dto.GroupId is not null
-            ? [dto.GroupId.Value]
-            : await groups.GetGroupIdsReadingCourseAsync(dto.CourseId!.Value, ct);
-        var eligible = (await users.GetStudentsInGroupsAsync(groupIds, ct))
-            .Select(student => student.Id)
-            .ToHashSet();
-        if (studentIds.Any(studentId => !eligible.Contains(studentId)))
-        {
-            return "a group contains a student who does not read the course";
-        }
-
-        return eligible.Except(studentIds).Any()
-            ? "every student in the course must belong to a group"
-            : null;
+        return await AssignmentGroupPolicy.ValidateAsync(
+            content.Assignment?.WorkMode ?? RepoWorkMode.Individual,
+            dto.GroupId,
+            dto.CourseId,
+            dto.Groups,
+            groups,
+            users,
+            ct);
     }
 
     /// <summary>Lägger till länken och delar ut uppgiften. Sparar inte.</summary>

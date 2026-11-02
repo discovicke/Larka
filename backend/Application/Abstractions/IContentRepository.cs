@@ -84,6 +84,9 @@ public interface IContentRepository
         DateTimeOffset now,
         CancellationToken ct);
 
+    /// <summary>Projektgrupperna för en utdelning, med medlemmar och eventuellt grupprepo.</summary>
+    Task<List<AssignmentGroup>> GetGroupsForLinkAsync(Guid linkId, CancellationToken ct);
+
     /// <summary>Publicerade uppgifter med deadline i intervallet [fromAt, toAt] i kurserna.</summary>
     Task<List<CourseDeadline>> GetCourseDeadlinesAsync(
         IReadOnlyCollection<Guid> courseIds, DateTimeOffset fromAt, DateTimeOffset toAt, CancellationToken ct);

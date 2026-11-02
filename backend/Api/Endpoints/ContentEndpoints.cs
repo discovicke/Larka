@@ -101,6 +101,15 @@ public static class ContentEndpoints
             Guid id, Guid attachmentId, ContentAttachmentService service, CancellationToken ct) =>
             (await service.DeleteAttachmentAsync(id, attachmentId, ct)).ToHttp(_ => TypedResults.NoContent()));
 
+        // Gruppindelningen för en utdelning. Bara lärare på länken får läsa och ändra.
+        app.MapGet("/links/{id:guid}/groups", async (
+            Guid id, AssignmentGroupService service, CancellationToken ct) =>
+            (await service.GetAsync(id, ct)).ToHttp(TypedResults.Ok));
+
+        app.MapPut("/links/{id:guid}/groups", async (
+            Guid id, UpdateAssignmentGroupsDto dto, AssignmentGroupService service, CancellationToken ct) =>
+            (await service.UpdateAsync(id, dto, ct)).ToHttp(TypedResults.Ok));
+
         // --- flöden: ?type=news|theory|assignment ---
         app.MapGet("/groups/{id:guid}/content",
                 async (Guid id, string? type, ContentService service, CancellationToken ct) =>

@@ -92,6 +92,12 @@ public interface ISubmissionRepository
     /// <summary>Alla inlämningar i en projektgrupp. Används när grupprepot låses.</summary>
     Task<List<Submission>> GetSubmissionsForGroupAsync(Guid groupId, CancellationToken ct);
 
+    /// <summary>
+    /// Flyttar grupprepot till en annan medlems inlämning när gruppens nuvarande ledare byter grupp.
+    /// Repot behåller alla commits, checks och låsdata.
+    /// </summary>
+    Task<bool> ReassignGroupRepoAsync(Guid groupId, Guid newSubmissionId, CancellationToken ct);
+
     /// <summary>Antal elevrepon i skolan, för adminöversikten.</summary>
     Task<int> CountReposForSchoolAsync(Guid schoolId, CancellationToken ct);
 }

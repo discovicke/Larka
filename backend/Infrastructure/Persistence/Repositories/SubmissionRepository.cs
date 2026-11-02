@@ -242,6 +242,47 @@ public class SubmissionRepository(AppDb db) : ISubmissionRepository
             .Where(submission => submission.AssignmentGroupId == groupId)
             .ToListAsync(ct);
 
+    public async Task<bool> ReassignGroupRepoAsync(
+        Guid groupId, Guid newSubmissionId, CancellationToken ct)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        var existing = await db.StudentRepos
+            .Include(repo => repo.CheckRuns)
+            .FirstOrDefaultAsync(repo => repo.AssignmentGroupId == groupId, ct);
+        if (existing is null || existing.SubmissionId == newSubmissionId)
+        {
+            await transaction.CommitAsync(ct);
+            return existing is not null;
+        }
+
+        var checkRuns = existing.CheckRuns.ToList();
+        existing.AssignmentGroupId = null;
+        await db.SaveChangesAsync(ct);
+
+        var replacement = new StudentRepo { SubmissionId = newSubmissionId };
+        db.Entry(replacement).CurrentValues.SetValues(existing);
+        replacement.SubmissionId = newSubmissionId;
+        replacement.AssignmentGroupId = groupId;
+        db.StudentRepos.Remove(existing);
+        db.StudentRepos.Add(replacement);
+        foreach (var checkRun in checkRuns)
+        {
+            db.StudentRepoCheckRuns.Add(new StudentRepoCheckRun
+            {
+                SubmissionId = newSubmissionId,
+                ExternalKey = checkRun.ExternalKey,
+                Name = checkRun.Name,
+                Status = checkRun.Status,
+                Conclusion = checkRun.Conclusion,
+                UpdatedAt = checkRun.UpdatedAt,
+            });
+        }
+
+        await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+        return true;
+    }
+
     public Task<int> CountReposForSchoolAsync(Guid schoolId, CancellationToken ct) =>
         (from repo in db.StudentRepos
          join submission in db.Submissions on repo.SubmissionId equals submission.Id
