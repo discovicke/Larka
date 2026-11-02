@@ -37,4 +37,12 @@ describe('ContentFormFields, kompletteringsdeadlines', () => {
 
     expect(wrapper.find('[data-test="resubmit-field"]').exists()).toBe(false)
   })
+
+  it('ligger i samma grupp som deadlinen, så raderna blir lika breda', () => {
+    const wrapper = show({dueAt: '2026-11-01T10:00'})
+    const group = wrapper.find('[data-test="due-group"]')
+
+    expect(group.find('#due-at').exists()).toBe(true)
+    expect(group.find('[data-test="resubmit-field"]').exists()).toBe(true)
+  })
 })

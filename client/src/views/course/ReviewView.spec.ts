@@ -96,6 +96,7 @@ function backend(options: {
   me?: ReturnType<typeof meAs>
   queue?: unknown[]
   otherAssignment?: unknown[]
+  modes?: string[]
 } = {}) {
   mockApi((method, path) => {
     if (path === '/api/me') {
@@ -114,7 +115,12 @@ function backend(options: {
       }
     }
     if (path === '/api/content/x1') {
-      return {status: 200, body: content}
+      return {
+        status: 200,
+        body: options.modes
+          ? {...content, assignment: {...content.assignment, submissionModes: options.modes}}
+          : content,
+      }
     }
     if (path === '/api/submissions/s1' && method === 'GET') {
       return {status: 200, body: options.submission ?? baseSubmission}
@@ -525,6 +531,48 @@ describe('ReviewView', () => {
 
     expect(sent('POST', '/api/submissions/s1/grade'))
       .toEqual({feedback: '', level: null, outcome: 'NotSubmitted'})
+  })
+
+  it('utan inlämning går det bara att markera ej inlämnat, inte betygsätta eller begära komplettering', async () => {
+    backend({submission: {...baseSubmission, status: 'NotStarted', files: [], repo: null, bodyMd: null}})
+
+    const {wrapper} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
+
+    expect(wrapper.find('[data-test="review-nothing-to-grade"]').text()).toContain('inte lämnat in något')
+    expect(wrapper.find('[role="radiogroup"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="review-save"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="review-request-work"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="review-not-submitted"]').exists()).toBe(true)
+  })
+
+  it('ett ej inlämnat kan få ny kommentar men inget betyg', async () => {
+    backend({submission: {
+      ...baseSubmission,
+      status: 'NotSubmitted',
+      files: [],
+      repo: null,
+      bodyMd: null,
+      grade: {gradedById: 'u0', level: null, feedback: 'Ingen inlämning', gradedAt: '2026-10-24T09:00:00Z'},
+    }})
+
+    const {wrapper} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
+
+    expect(wrapper.find('[data-test="review-save"]').exists()).toBe(false)
+    await button(wrapper, 'Spara kommentaren').trigger('click')
+    await flushPromises()
+
+    expect(sent('POST', '/api/submissions/s1/grade'))
+      .toEqual({feedback: 'Ingen inlämning', level: null, outcome: 'NotSubmitted'})
+  })
+
+  it('bedömning på plats går att betygsätta utan inlämning', async () => {
+    backend({modes: ['OnSite'], submission: {...baseSubmission, status: 'NotStarted', files: [], repo: null, bodyMd: null}})
+
+    const {wrapper} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
+
+    expect(wrapper.find('[role="radiogroup"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="review-save"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="review-nothing-to-grade"]').exists()).toBe(false)
   })
 
   it('visar inte Markera som ej inlämnat när eleven lämnat in', async () => {

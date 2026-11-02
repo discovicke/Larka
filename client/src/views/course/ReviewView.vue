@@ -113,6 +113,13 @@ const canMarkNotSubmitted = computed(() => canGrade.value
     || submission.value?.status === 'NeedsWork'
     || submission.value?.status === 'NotSubmitted'))
 
+// Utan inlämning finns inget att betygsätta eller komplettera, bara Ej inlämnat. Bedömning på plats är undantaget:
+// där sätter läraren betyget i klassrummet utan att eleven lämnat in något.
+const nothingHandedIn = computed(() => submission.value?.status === 'NotStarted'
+  || submission.value?.status === 'NotSubmitted')
+const assessedOnSite = computed(() => task.value?.assignment?.submissionModes.includes('OnSite') ?? false)
+const nothingToGrade = computed(() => nothingHandedIn.value && !assessedOnSite.value)
+
 const hasHandedIn = computed(() => Boolean(submission.value?.bodyMd)
   || (submission.value?.files.length ?? 0) > 0
   || Boolean(submission.value?.repo))
@@ -425,8 +432,13 @@ watch([courseId, linkId, submissionId], () => {
         >
           <section class="flex flex-col gap-2">
             <h2 class="text-sm font-semibold">Betyg</h2>
+            <p v-if="canGrade && nothingToGrade" class="text-muted-foreground text-sm" data-test="review-nothing-to-grade">
+              {{ submission.status === 'NotSubmitted'
+                ? 'Markerad som ej inlämnat. Lämnar eleven in något kan du bedöma det då.'
+                : 'Eleven har inte lämnat in något att bedöma. Har inget kommit in kan du markera uppgiften som ej inlämnad.' }}
+            </p>
             <div
-              v-if="hasGrades && canGrade"
+              v-else-if="hasGrades && canGrade"
               role="radiogroup"
               class="grid gap-2"
               :class="levels.length === 3
@@ -502,6 +514,7 @@ watch([courseId, linkId, submissionId], () => {
                 Skriv en kommentar som förklarar varför eleven får IG.
               </p>
               <Button
+                v-if="!nothingToGrade"
                 class="w-full"
                 :disabled="saving || needsComment"
                 data-test="review-save"
@@ -510,6 +523,7 @@ watch([courseId, linkId, submissionId], () => {
                 {{ saveLabel }}
               </Button>
               <Button
+                v-if="!nothingToGrade"
                 variant="outline"
                 class="w-full"
                 :disabled="saving"
@@ -520,13 +534,17 @@ watch([courseId, linkId, submissionId], () => {
               </Button>
               <Button
                 v-if="canMarkNotSubmitted"
-                variant="outline"
+                :variant="nothingToGrade
+                  ? 'default'
+                  : 'outline'"
                 class="w-full"
                 :disabled="saving"
                 data-test="review-not-submitted"
                 @click="markNotSubmitted"
               >
-                Markera som ej inlämnat
+                {{ submission.status === 'NotSubmitted'
+                  ? 'Spara kommentaren'
+                  : 'Markera som ej inlämnat' }}
               </Button>
               <Button
                 v-if="next"

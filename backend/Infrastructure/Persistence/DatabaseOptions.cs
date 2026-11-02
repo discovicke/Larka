@@ -9,7 +9,7 @@ public class DatabaseOptions
 
     /// <summary>
     /// Lägger in demokontona och realistisk demodata (DemoSeed) vid start. Av som standard. Edugrades demo sätter den
-    /// med DATABASE__SEEDDEMODATA i GitHub-miljön production, som deployen skickar till Render.
+    /// i Infisical (prod).
     /// </summary>
     public bool SeedDemoData { get; set; }
 }

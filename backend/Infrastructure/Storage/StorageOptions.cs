@@ -1,7 +1,6 @@
 namespace Backend.Infrastructure.Storage;
 
-// Storage:Supabase i konfigurationen. ServiceRoleKey är en hemlighet: user-secrets lokalt och miljövariabeln
-// Storage__Supabase__ServiceRoleKey på Render, aldrig i appsettings.
+// Storage:Supabase i konfigurationen. ServiceRoleKey är en hemlighet och ligger i Infisical, aldrig i appsettings.
 public class SupabaseStorageOptions
 {
     public const string SectionName = "Storage:Supabase";

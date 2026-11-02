@@ -3,8 +3,8 @@ using System.Text;
 namespace Backend.Infrastructure.Auth;
 
 /// <summary>
-/// Auth:Jwt i appsettings. Nyckeln är en hemlighet: user-secrets lokalt och Auth__Jwt__Key på Render,
-/// aldrig i appsettings. I Development finns en dev-nyckel i appsettings.Development.json.
+/// Auth:Jwt. Nyckeln är en hemlighet och ligger i Infisical, aldrig i appsettings. I Development finns en dev-nyckel
+/// i appsettings.Development.json.
 /// </summary>
 public sealed class JwtOptions
 {

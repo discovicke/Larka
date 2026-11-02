@@ -109,55 +109,64 @@ function toggleMode(mode: Schema<'SubmissionMode'>, checked: boolean) {
         <DateTimePicker id="publish-at" v-model="form.publishAt" clearable/>
         <FieldDescription class="text-xs">Tomt = direkt.</FieldDescription>
       </Field>
-      <Field v-if="isAssignment(form)" :data-invalid="!!errors.dueAt">
-        <FieldLabel for="due-at">Deadline</FieldLabel>
-        <DateTimePicker
-          id="due-at"
-          v-model="form.dueAt"
-          clearable
-          default-time="23:59"
-          :invalid="!!errors.dueAt"
-        />
-        <FieldError v-if="errors.dueAt">{{ errors.dueAt }}</FieldError>
-      </Field>
-      <Field v-if="isAssignment(form)" :data-invalid="!!errors.resubmitDueAt" data-test="resubmit-field">
-        <FieldLabel>Kompletteringsdeadlines</FieldLabel>
-        <div v-for="(_, index) in form.resubmitDueAt" :key="index" class="flex items-center gap-2">
+      <!-- Kompletteringarna hör till deadlinen: samma cell, så raderna blir lika breda som den. -->
+      <div v-if="isAssignment(form)" class="flex flex-col gap-4" data-test="due-group">
+        <Field :data-invalid="!!errors.dueAt">
+          <FieldLabel for="due-at">Deadline</FieldLabel>
           <DateTimePicker
-            :id="`resubmit-due-at-${index}`"
-            v-model="form.resubmitDueAt[index]"
-            :min="form.dueAt"
-            :invalid="!!errors.resubmitDueAt"
+            id="due-at"
+            v-model="form.dueAt"
+            clearable
+            default-time="23:59"
+            :invalid="!!errors.dueAt"
           />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label="Ta bort kompletteringsdeadline"
-            data-test="resubmit-remove"
-            @click="form.resubmitDueAt.splice(index, 1)"
+          <FieldError v-if="errors.dueAt">{{ errors.dueAt }}</FieldError>
+        </Field>
+        <Field :data-invalid="!!errors.resubmitDueAt" data-test="resubmit-field">
+          <FieldLabel>Kompletteringsdeadlines</FieldLabel>
+          <div
+            v-for="(_, index) in form.resubmitDueAt"
+            :key="index"
+            class="flex items-center gap-2"
+            data-test="resubmit-row"
           >
-            <PhX/>
-          </Button>
-        </div>
-        <div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            :disabled="!form.dueAt || form.resubmitDueAt.length >= maxResubmitDueAt"
-            data-test="resubmit-add"
-            @click="form.resubmitDueAt.push('')"
-          >
-            <PhPlus/>
-            Lägg till kompletteringsdeadline
-          </Button>
-        </div>
-        <FieldDescription class="text-xs">
-          Extra tillfällen att lämna in igen efter sista dagen. Kräver en sista dag.
-        </FieldDescription>
-        <FieldError v-if="errors.resubmitDueAt">{{ errors.resubmitDueAt }}</FieldError>
-      </Field>
+            <DateTimePicker
+              :id="`resubmit-due-at-${index}`"
+              class="min-w-0 flex-1"
+              v-model="form.resubmitDueAt[index]"
+              :min="form.dueAt"
+              :invalid="!!errors.resubmitDueAt"
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Ta bort kompletteringsdeadline"
+              data-test="resubmit-remove"
+              @click="form.resubmitDueAt.splice(index, 1)"
+            >
+              <PhX/>
+            </Button>
+          </div>
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              :disabled="!form.dueAt || form.resubmitDueAt.length >= maxResubmitDueAt"
+              data-test="resubmit-add"
+              @click="form.resubmitDueAt.push('')"
+            >
+              <PhPlus/>
+              Lägg till kompletteringsdeadline
+            </Button>
+          </div>
+          <FieldDescription class="text-xs">
+            Extra tillfällen att lämna in igen efter sista dagen. Kräver en sista dag.
+          </FieldDescription>
+          <FieldError v-if="errors.resubmitDueAt">{{ errors.resubmitDueAt }}</FieldError>
+        </Field>
+      </div>
       <Field v-if="isGraded(form)">
         <FieldLabel for="grade-scale">Betygsskala</FieldLabel>
         <NativeSelect id="grade-scale" v-model="form.gradeScale" class="w-full">

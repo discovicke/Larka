@@ -112,8 +112,8 @@ public static class DependencyInjection
             .Bind(config.GetSection(JwtOptions.SectionName))
             .Validate(
                 options => options.HasValidKey,
-                "Auth:Jwt:Key saknas eller är kortare än 32 byte. Sätt den med user-secrets lokalt och som "
-                + "Auth__Jwt__Key på Render.")
+                "Auth:Jwt:Key saknas eller är kortare än 32 byte. Sätt miljövariabeln Auth__Jwt__Key "
+                + "(i vår prod från Infisical).")
             .Validate(options => options.HasValidLifetime, "Auth:Jwt:LifetimeMinutes måste vara större än 0.");
 
         services.AddScoped<ITokenService, JwtTokenService>();
