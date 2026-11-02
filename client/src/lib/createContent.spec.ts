@@ -107,7 +107,7 @@ describe('toUpdateRequests', () => {
       submissionModes: null,
       templateRepo: null,
     })
-    expect(link).toEqual({publishAt: null, dueAt: null, isPinned: true})
+    expect(link).toEqual({publishAt: null, dueAt: null, isPinned: true, relatedLinkIds: []})
   })
 
   it('en inlämning uppdaterar skala, sätt, mallrepo och deadline', () => {

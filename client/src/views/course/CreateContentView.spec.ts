@@ -66,7 +66,10 @@ function preview(body: Record<string, unknown>) {
   }
 }
 
-function backend(onPost: Handler = () => ({status: 201, body: {content, link: {id: 'l1'}}})) {
+function backend(
+  onPost: Handler = () => ({status: 201, body: {content, link: {id: 'l1'}}}),
+  weekContent: unknown[] = [],
+) {
   mockApi((method, path, body) => {
     if (method !== 'GET') {
       return path === '/api/content/github/repo-name-preview'
@@ -80,7 +83,7 @@ function backend(onPost: Handler = () => ({status: 201, body: {content, link: {i
       return {status: 200, body: [course]}
     }
     if (path === '/api/courses/c1/modules') {
-      return {status: 200, body: [week]}
+      return {status: 200, body: [{...week, content: weekContent}]}
     }
     if (path === '/api/integrations/github/templates') {
       return {status: 200, body: [template]}
@@ -263,6 +266,28 @@ describe('CreateContentView', () => {
 
     expect(wrapper.text()).toContain('Ange en titel.')
     expect(requests.some((request) => request.method === 'POST')).toBe(false)
+  })
+
+  it('lägger till och tar bort relaterat material från en uppgift', async () => {
+    backend(undefined, [{
+      linkId: 'l9',
+      contentId: 'x9',
+      type: 'Theory',
+      title: 'Teori om pipelines',
+      status: 'Published',
+      publishAt: '2026-10-01T08:00:00Z',
+    }])
+    const {wrapper} = await renderApp('/courses/c1/modules/m1/new')
+
+    await wrapper.find('#part-Submission').trigger('click')
+    expect(wrapper.find('[data-test="related-content"]').exists()).toBe(true)
+
+    await wrapper.find('[data-test="related-select"]').setValue('l9')
+    await wrapper.find('[data-test="related-add"]').trigger('click')
+
+    expect(wrapper.find('[data-test="related-list"]').text()).toContain('Teori om pipelines')
+    await wrapper.find('[data-test="related-remove"]').trigger('click')
+    expect(wrapper.find('[data-test="related-list"]').exists()).toBe(false)
   })
 
   it('publicera skapar innehållet och länken i samma anrop och går tillbaka till kursen', async () => {

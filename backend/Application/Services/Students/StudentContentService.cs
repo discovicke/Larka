@@ -223,6 +223,11 @@ public class StudentContentService(
         var linkIds = links.Select(link => link.Link.Id).ToList();
         var studentCompletions = await completions.GetForStudentAsync(currentUser.UserId, linkIds, ct);
         var studentSubmissions = await submissions.GetForStudentAsync(currentUser.UserId, linkIds, ct);
+        var relatedByLinkId = (await contents.GetRelatedLinksForSourcesAsync(linkIds, ct))
+            .GroupBy(row => row.SourceLinkId)
+            .ToDictionary(
+                group => group.Key,
+                group => group.Select(row => row.Link).ToList());
 
         var byLinkId = links.ToDictionary(link => link.Link.Id);
         var completionByLinkId = studentCompletions.ToDictionary(completion => completion.ContentLinkId);
@@ -240,7 +245,13 @@ public class StudentContentService(
                 group => group.Key,
                 group => group
                     .Select(link => ToItem(
-                        link, now, blockersByLinkId, byLinkId, completionByLinkId, submissionByLinkId))
+                        link,
+                        now,
+                        blockersByLinkId,
+                        byLinkId,
+                        completionByLinkId,
+                        submissionByLinkId,
+                        relatedByLinkId))
                     .ToList());
 
         return courseModules
@@ -262,7 +273,8 @@ public class StudentContentService(
         ILookup<Guid, ContentLinkDependency> blockersByLinkId,
         Dictionary<Guid, LinkedContent> byLinkId,
         Dictionary<Guid, PartCompletion> completionByLinkId,
-        Dictionary<Guid, Submission> submissionByLinkId)
+        Dictionary<Guid, Submission> submissionByLinkId,
+        Dictionary<Guid, List<RelatedLinkDto>> relatedByLinkId)
     {
         var blockers = blockersByLinkId[link.Link.Id]
             .Select(blocker => new StudentBlockerDto(
@@ -313,7 +325,8 @@ public class StudentContentService(
             repo is null
                 ? null
                 : StudentRepoDto.From(repo),
-            group);
+            group,
+            relatedByLinkId.GetValueOrDefault(link.Link.Id) ?? []);
     }
 
     // Titeln visas bara om förutsättningen är publicerad och har passerat PublishAt.

@@ -6,6 +6,7 @@ import StudentCourseOverview from '@/components/student/StudentCourseOverview.vu
 import StudentPartDetail from '@/components/student/StudentPartDetail.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Skeleton} from '@/components/ui/skeleton'
+import {useCrumbLabels} from '@/composables/useCrumbLabels'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {api, errorMessage, type Schema} from '@/lib/api'
 import {fetchStudentModules} from '@/lib/modulesApi'
@@ -20,6 +21,7 @@ const props = defineProps<{courseId: string}>()
 const route = useRoute()
 const router = useRouter()
 const {loadMe} = useCurrentUser()
+const {setCrumbLabel} = useCrumbLabels()
 const modules = ref<Schema<'StudentModuleWithContentDto'>[]>([])
 const loading = ref(true)
 const error = ref('')
@@ -36,6 +38,12 @@ const selectedModule = computed(() => availableModules.value.find((module) =>
   module.content.some((item) => item.linkId === selectedLinkId.value)))
 const selectedItem = computed(() => selectedModule.value?.content
   .find((item) => item.linkId === selectedLinkId.value) ?? null)
+
+watch(selectedItem, (item) => {
+  if (item) {
+    setCrumbLabel(`assignment:${item.linkId}`, item.title)
+  }
+}, {immediate: true})
 
 watch(() => props.courseId, async () => {
   selectedLinkId.value = ''
@@ -114,12 +122,15 @@ function syncFromQuery() {
   }
 }
 
-function setQuery(linkId: string) {
+function setQuery(linkId: string, method: 'push' | 'replace' = 'replace') {
   const query = {...route.query}
   delete query.del
-  router.replace({query: linkId
+  const location = {query: linkId
     ? {...query, del: linkId}
-    : query})
+    : query}
+  void (method === 'push'
+    ? router.push(location)
+    : router.replace(location))
 }
 
 function openPart(item: Schema<'StudentContentItem'>) {
@@ -127,11 +138,20 @@ function openPart(item: Schema<'StudentContentItem'>) {
   // En låst del visar bara förklaringen och går inte att länka till.
   setQuery(item.isLocked
     ? ''
-    : item.linkId)
+    : item.linkId, item.isLocked
+    ? 'replace'
+    : 'push')
 }
 
 function closePart() {
   selectedLinkId.value = ''
+  const back = window.history.state?.back
+  const sameCourseView = typeof back === 'string'
+    && new URL(back, window.location.origin).pathname === window.location.pathname
+  if (sameCourseView) {
+    router.back()
+    return
+  }
   setQuery('')
 }
 </script>

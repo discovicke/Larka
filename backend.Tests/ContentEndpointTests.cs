@@ -43,6 +43,9 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
 
     private record RepoNamePreview(string Name, string Pattern);
 
+    private record RelatedLink(
+        Guid LinkId, Guid ContentId, string Title, string Type, Guid? ModuleId, string? ModuleTitle, Guid? CourseId);
+
     private record FeedItem(
         Guid ContentId, string Type, string Title, string AuthorName, Guid? GroupId, Guid? CourseId, bool IsPinned);
 
@@ -647,6 +650,52 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
                 new { id = groups[1].Id, name = "Grupp tva", studentIds = new[] { firstId } }
             }
         });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task RelatedLinks_AreStoredOnTheDeliveryAndCanBeReadBack()
+    {
+        var courseId = await AddCourseAsync();
+        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var theory = await CreateTheoryAsync("Teori om pipelines");
+        var theoryLink = await LinkToModuleAsync(theory.Id, courseId, week.Id);
+        var assignment = await CreateAssignmentAsync(
+            "Labb", submissionModes: ["text"]);
+
+        var response = await _client.PostAsJsonAsync(
+            $"/api/content/{assignment.Id}/links",
+            new { courseId, moduleId = week.Id, relatedLinkIds = new[] { theoryLink.Id } });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var created = await response.Content.ReadFromJsonAsync<LinkResponse>();
+        var related = await _client.GetFromJsonAsync<List<RelatedLink>>(
+            $"/api/links/{created!.Id}/related");
+
+        var link = Assert.Single(related!);
+        Assert.Equal(theoryLink.Id, link.LinkId);
+        Assert.Equal(theory.Id, link.ContentId);
+        Assert.Equal("Teori om pipelines", link.Title);
+        Assert.Equal("Theory", link.Type);
+        Assert.Equal(week.Id, link.ModuleId);
+        Assert.Equal("Vecka 1", link.ModuleTitle);
+    }
+
+    [Fact]
+    public async Task RelatedLinks_RejectPartFromAnotherCourse()
+    {
+        var courseId = await AddCourseAsync();
+        var otherCourseId = await AddCourseAsync();
+        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var otherWeek = await CreateModuleAsync(otherCourseId, "Annan vecka");
+        var theory = await CreateTheoryAsync("Annan teori");
+        var theoryLink = await LinkToModuleAsync(theory.Id, otherCourseId, otherWeek.Id);
+        var assignment = await CreateAssignmentAsync("Labb", submissionModes: ["text"]);
+
+        var response = await _client.PostAsJsonAsync(
+            $"/api/content/{assignment.Id}/links",
+            new { courseId, moduleId = week.Id, relatedLinkIds = new[] { theoryLink.Id } });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }

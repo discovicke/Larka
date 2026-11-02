@@ -1304,6 +1304,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/links/{id}/related": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RelatedLinkDto"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/links/{id}/groups": {
         parameters: {
             query?: never;
@@ -6345,6 +6409,7 @@ export interface components {
             /** @default false */
             isPinned: boolean;
             groups?: null | components["schemas"]["AssignmentGroupInput"][];
+            relatedLinkIds?: null | string[];
         };
         CreateContentWithLinkDto: {
             content: components["schemas"]["CreateContentDto"];
@@ -6714,6 +6779,20 @@ export interface components {
             /** Format: int32 */
             partCount: number;
         };
+        /** @description Förhandsvisning av reponamn. Värdena är exempel som läraren ser i formuläret. */
+        RelatedLinkDto: {
+            /** Format: uuid */
+            linkId: string;
+            /** Format: uuid */
+            contentId: string;
+            title: string;
+            type: components["schemas"]["ContentType"];
+            /** Format: uuid */
+            moduleId: null | string;
+            moduleTitle: null | string;
+            /** Format: uuid */
+            courseId: null | string;
+        };
         ReorderContentDto: {
             linkIds: string[];
         };
@@ -6724,7 +6803,6 @@ export interface components {
             name: string;
             pattern: string;
         };
-        /** @description Förhandsvisning av reponamn. Värdena är exempel som läraren ser i formuläret. */
         RepoNamePreviewRequest: {
             pattern: null | string;
             assignmentTitle: string;
@@ -6819,6 +6897,7 @@ export interface components {
             requirements: components["schemas"]["AssignmentRequirementDto"][];
             repo: null | components["schemas"]["StudentRepoDto"];
             group?: null | components["schemas"]["AssignmentGroupDto"];
+            relatedLinks?: null | components["schemas"]["RelatedLinkDto"][];
         };
         StudentHelpStatusDto: {
             requested: boolean;
@@ -7143,6 +7222,7 @@ export interface components {
             dueAt?: null | string;
             /** @default false */
             isPinned: boolean;
+            relatedLinkIds?: null | string[];
         };
         UpdateContentStatusDto: {
             status: components["schemas"]["ContentStatus"];

@@ -309,7 +309,11 @@ async function handleConnect() {
         {{ copyError }}
       </p>
 
-      <div v-if="latestCommit" class="flex items-center gap-1.5 text-xs text-muted-foreground" data-test="student-repo-commit">
+      <div
+        v-if="latestCommit && latestCommit !== submissionSha"
+        class="flex items-center gap-1.5 text-xs text-muted-foreground"
+        data-test="student-repo-commit"
+      >
         <PhGitCommit class="size-3.5 shrink-0"/>
         <span>Senaste commit: <code class="font-mono">{{ latestCommit.slice(0, 7) }}</code></span>
       </div>
@@ -323,12 +327,10 @@ async function handleConnect() {
           Inlämnad commit:
           <code class="font-mono text-xs">{{ submissionSha.slice(0, 7) }}</code>
         </p>
-        <p v-else-if="lockError" class="text-muted-foreground">
-          {{ lockError }}
-        </p>
-        <p class="text-muted-foreground">
-          Repot låstes vid deadline och går inte att ändra. Kontakta läraren om du behöver komplettera.
-        </p>
+        <template v-else>
+          <p class="text-muted-foreground">{{ lockError || 'Ingen commit registrerades före deadline.' }}</p>
+          <p class="text-muted-foreground">Kontakta läraren om du behöver komplettera.</p>
+        </template>
       </div>
 
       <ul v-if="requirementRows.length > 0" class="flex flex-col gap-1.5" data-test="student-requirements">

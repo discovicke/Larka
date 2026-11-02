@@ -80,6 +80,19 @@ public class AssignmentGroupConfiguration : IEntityTypeConfiguration<AssignmentG
     }
 }
 
+public class AssignmentReferenceConfiguration : IEntityTypeConfiguration<AssignmentReference>
+{
+    public void Configure(EntityTypeBuilder<AssignmentReference> builder)
+    {
+        builder.HasOne<ContentLink>().WithMany()
+            .HasForeignKey(reference => reference.SourceLinkId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<ContentLink>().WithMany()
+            .HasForeignKey(reference => reference.TargetLinkId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasIndex(reference => new { reference.SourceLinkId, reference.TargetLinkId }).IsUnique();
+        builder.HasIndex(reference => new { reference.SourceLinkId, reference.Position });
+    }
+}
+
 public class AssignmentGroupMemberConfiguration : IEntityTypeConfiguration<AssignmentGroupMember>
 {
     public void Configure(EntityTypeBuilder<AssignmentGroupMember> builder)

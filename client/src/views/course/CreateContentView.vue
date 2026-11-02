@@ -26,12 +26,14 @@ import {useAssignmentGitHub} from '@/composables/useAssignmentGitHub'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {ApiError, errorMessage, type Schema} from '@/lib/api'
 import {fetchAssignmentGroups, updateAssignmentGroups} from '@/lib/assignmentGroups'
+import {fetchRelatedLinks} from '@/lib/relatedContent'
 import {partTypeOf} from '@/lib/content'
 import {createContentWithLink, fetchContent, updateContent, updateContentLink} from '@/lib/contentApi'
 import {
   defaultGroupRepoNamePattern,
   defaultRepoNamePattern,
   emptyForm,
+  isAssignment,
   publishSteps,
   toRequests,
   toUpdateRequests,
@@ -92,8 +94,45 @@ const {
   removeRequirement,
 } = useAssignmentGitHub(form, courseId)
 
+const allModules = ref<Schema<'ModuleWithContentDto'>[]>([])
+const relatedSelection = ref('')
+
 const availableSubmissionModes = computed(() => submissionModes.filter((mode) =>
   mode.value !== 'Repo' || githubEnabled.value))
+
+const relatedOptions = computed(() => allModules.value.flatMap((module) => module.content
+  .filter((item) =>
+    item.type === 'Theory'
+    && item.status === 'Published'
+    && item.linkId !== linkId.value
+    && item.contentId !== part.value?.contentId
+    && !form.relatedLinkIds.includes(item.linkId))
+  .map((item) => ({
+    linkId: item.linkId,
+    label: `${item.title} · ${module.title}`,
+  }))))
+
+const selectedRelatedLinks = computed(() => form.relatedLinkIds.map((linkId) => {
+  const module = allModules.value.find((candidate) =>
+    candidate.content.some((item) => item.linkId === linkId))
+  const item = module?.content.find((candidate) => candidate.linkId === linkId)
+  return {
+    linkId,
+    title: item?.title ?? 'Borttagen del',
+    moduleTitle: module?.title ?? '',
+  }
+}))
+
+function addRelatedLink() {
+  if (relatedSelection.value && !form.relatedLinkIds.includes(relatedSelection.value)) {
+    form.relatedLinkIds.push(relatedSelection.value)
+  }
+  relatedSelection.value = ''
+}
+
+function removeRelatedLink(linkId: string) {
+  form.relatedLinkIds = form.relatedLinkIds.filter((candidate) => candidate !== linkId)
+}
 
 // Felen visas först när läraren försökt spara.
 const triedToSave = ref(false)
@@ -119,7 +158,9 @@ async function load() {
   notFound.value = false
   loadError.value = ''
   try {
-    const foundModule = (await fetchCourseModules(courseId)).find((candidate) => candidate.id === moduleId)
+    const courseModules = await fetchCourseModules(courseId)
+    allModules.value = courseModules
+    const foundModule = courseModules.find((candidate) => candidate.id === moduleId)
     if (!foundModule) {
       notFound.value = true
       return
@@ -159,6 +200,9 @@ async function load() {
         name: group.name,
         studentIds: group.members.map((member) => member.id),
       }))
+    }
+    if (linkId.value) {
+      form.relatedLinkIds = (await fetchRelatedLinks(linkId.value)).map((link) => link.linkId)
     }
     form.requirements = (content.assignment?.requirements ?? []).map((requirement) => ({
       title: requirement.title,
@@ -269,6 +313,68 @@ async function save(status: Schema<'ContentStatus'> = 'Published') {
         :errors="errors"
         :submission-modes="availableSubmissionModes"
       />
+
+      <section
+        v-if="isAssignment(form)"
+        class="bg-card flex flex-col gap-4 rounded-[11px] border p-5"
+        data-test="related-content"
+      >
+        <div class="flex flex-col gap-0.5">
+          <h2 class="text-base">Relaterat material</h2>
+          <p class="text-muted-foreground text-[13px]">
+            Teoridelar som eleven kan öppna utan att lämna uppgiften.
+          </p>
+        </div>
+        <ul v-if="selectedRelatedLinks.length > 0" class="flex flex-col gap-1.5" data-test="related-list">
+          <li
+            v-for="link in selectedRelatedLinks"
+            :key="link.linkId"
+            class="flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm"
+          >
+            <span class="min-w-0 flex-1 truncate">
+              {{ link.title }}
+              <span class="text-muted-foreground text-xs">· {{ link.moduleTitle }}</span>
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              :aria-label="`Ta bort ${link.title}`"
+              data-test="related-remove"
+              @click="removeRelatedLink(link.linkId)"
+            >
+              <PhTrash/>
+            </Button>
+          </li>
+        </ul>
+        <div class="flex flex-wrap items-center gap-2">
+          <NativeSelect v-model="relatedSelection" class="min-w-0 flex-1" data-test="related-select">
+            <NativeSelectOption value="">
+              {{ relatedOptions.length === 0
+                ? 'Inga fler teoridelar att lägga till'
+                : 'Välj teoridel…' }}
+            </NativeSelectOption>
+            <NativeSelectOption
+              v-for="option in relatedOptions"
+              :key="option.linkId"
+              :value="option.linkId"
+            >
+              {{ option.label }}
+            </NativeSelectOption>
+          </NativeSelect>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            :disabled="!relatedSelection"
+            data-test="related-add"
+            @click="addRelatedLink"
+          >
+            <PhPlus/>
+            Lägg till
+          </Button>
+        </div>
+      </section>
 
       <!-- Reponamn, arbetssätt, regler och krav kommer i följande GitHub-issues. -->
       <section v-if="usesRepo(form)" class="bg-card flex flex-col gap-4 rounded-[11px] border p-5">

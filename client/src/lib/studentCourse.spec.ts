@@ -61,8 +61,16 @@ describe('sectionsFor', () => {
     expect(linkIds(sections, 'completed')).toEqual(['done'])
   })
 
-  it('Allt döljer tomma sektioner utom nästa steg', () => {
-    expect(keys(sectionsFor(week([done]), 'all'))).toEqual(['next', 'completed'])
+  it('En klar vecka visar bara Klart, utan tomma sektioner', () => {
+    expect(keys(sectionsFor(week([done]), 'all'))).toEqual(['completed'])
+  })
+
+  it('tomt Nästa steg och Klart är hopfällda', () => {
+    const emptyNext = sectionsFor(week([unlocking]), 'all')
+    expect(emptyNext.find((section) => section.key === 'next')?.defaultOpen).toBe(false)
+
+    const complete = sectionsFor(week([done]), 'all')
+    expect(complete.find((section) => section.key === 'completed')?.defaultOpen).toBe(false)
   })
 
   it('Att göra nu visar bara nästa steg', () => {
@@ -78,8 +86,8 @@ describe('sectionsFor', () => {
 
   it.each([
     ['all', week([]), 'Inga publicerade delar i veckan än.'],
-    ['all', week([done]), 'Inga delar att göra just nu.'],
-    ['submissions', week([done]), 'Inga inlämningar att göra just nu.'],
+    ['all', week([unlocking]), 'Inga delar att göra just nu.'],
+    ['submissions', week([open, done]), 'Inga inlämningar att göra just nu.'],
   ] as const)('tomtexten för %s', (filter, module, empty) => {
     expect(sectionsFor(module, filter)[0].empty).toBe(empty)
   })

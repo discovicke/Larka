@@ -111,6 +111,11 @@ describe('brödsmulor', () => {
     expect(trail(await open(path))).toEqual(expected)
   })
 
+  it('en öppnad del i elevvyn blir sista brödsmula', async () => {
+    expect(trail(await open('/courses/c1/content?del=l1')))
+      .toEqual([kurser, devops, {label: 'Del'}])
+  })
+
   it('Kurser länkar till Alla grupper filtrerat på kurser', async () => {
     const [first] = trail(await open('/courses/c1/news'))
     const router = createAppRouter(createMemoryHistory())

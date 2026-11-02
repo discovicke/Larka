@@ -12,19 +12,18 @@ import {
 import {computed} from 'vue'
 
 import StatusBadge from '@/components/StatusBadge.vue'
-import {Badge} from '@/components/ui/badge'
 import {Button} from '@/components/ui/button'
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '@/components/ui/collapsible'
 import {Item, ItemMedia} from '@/components/ui/item'
 import type {Schema} from '@/lib/api'
 import {countLabel, formatDate, partOf} from '@/lib/content'
-import {gradeBadgeVariant, gradeLabel} from '@/lib/submissions'
 import {
   dueLabel,
   dueStatus,
   gradeScaleLabel,
   isAvailable,
   isFinished,
+  isModuleComplete,
   kindOf,
   rowIcon,
   rowIconClass,
@@ -62,6 +61,8 @@ const availableCount = computed(() => allItems.value.filter(isAvailable).length)
 const submissionCount = computed(() => allItems.value.filter((item) => kindOf(item) === 'Inlämning').length)
 const gradedCount = computed(() => allItems.value.filter((item) => item.submissionStatus === 'Graded').length)
 const lockedCount = computed(() => allItems.value.filter((item) => item.isLocked && !isFinished(item)).length)
+const activeModuleId = computed(() => availableModules.value
+  .find((module) => !isModuleComplete(module))?.id ?? null)
 const progressPercent = computed(() => completable.value.length === 0
   ? 0
   : Math.round((completedCount.value / completable.value.length) * 100))
@@ -88,6 +89,10 @@ function moduleProgress(module: Schema<'StudentModuleWithContentDto'>): {done: n
     done: parts.filter(isFinished).length,
     total: parts.length,
   }
+}
+
+function moduleDefaultOpen(module: Schema<'StudentModuleWithContentDto'>): boolean {
+  return module.id === activeModuleId.value
 }
 
 function detailsOf(item: Schema<'StudentContentItem'>): string {
@@ -138,7 +143,7 @@ function rowBadge(item: Schema<'StudentContentItem'>) {
       <template v-for="module in visibleModules" :key="module.id">
         <Collapsible
           v-if="module.isAvailable"
-          :default-open="true"
+          :default-open="moduleDefaultOpen(module)"
           as="section"
           :aria-label="module.title"
           class="bg-card text-card-foreground overflow-hidden rounded-[11px] border"
@@ -247,13 +252,6 @@ function rowBadge(item: Schema<'StudentContentItem'>) {
                     </span>
                     <span class="hidden items-center gap-2 sm:flex">
                       <StatusBadge v-if="rowBadge(item)" :status="rowBadge(item)!"/>
-                      <Badge
-                        v-if="item.submissionStatus === 'Graded' && item.gradeLevel"
-                        :variant="gradeBadgeVariant(item.gradeLevel)"
-                        data-test="row-grade-stamp"
-                      >
-                        {{ gradeLabel(item.gradeLevel) }}
-                      </Badge>
                       <StatusBadge v-if="dueStatus(item) && !item.isLocked" :status="dueStatus(item)!"/>
                       <span
                         v-if="item.dueAt && !item.isLocked"

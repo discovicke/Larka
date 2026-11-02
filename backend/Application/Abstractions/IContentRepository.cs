@@ -23,6 +23,9 @@ public record ScheduledContentLink(
 public record ScheduledCourseModule(
     Guid ModuleId, string Title, Guid CourseId, string CourseTitle, DateTimeOffset PublishAt);
 
+/// <summary>En referens från en utdelning till en annan del.</summary>
+public record RelatedLinkRow(Guid SourceLinkId, RelatedLinkDto Link);
+
 public interface IContentRepository
 {
     Task<Content?> GetAsync(Guid id, CancellationToken ct);
@@ -101,6 +104,12 @@ public interface IContentRepository
 
     void AddDependency(ContentLinkDependency dependency);
     void RemoveDependencies(IEnumerable<ContentLinkDependency> dependencies);
+
+    Task<List<AssignmentReference>> GetReferencesForSourceAsync(Guid sourceLinkId, CancellationToken ct);
+    Task<List<RelatedLinkRow>> GetRelatedLinksForSourcesAsync(
+        IReadOnlyCollection<Guid> sourceLinkIds, CancellationToken ct);
+    void AddReferences(IEnumerable<AssignmentReference> references);
+    void RemoveReferences(IEnumerable<AssignmentReference> references);
 
     Task<int> CountLinksAsync(Guid contentId, CancellationToken ct);
     void RemoveLink(ContentLink link);

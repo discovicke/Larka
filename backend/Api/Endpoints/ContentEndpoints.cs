@@ -101,6 +101,11 @@ public static class ContentEndpoints
             Guid id, Guid attachmentId, ContentAttachmentService service, CancellationToken ct) =>
             (await service.DeleteAttachmentAsync(id, attachmentId, ct)).ToHttp(_ => TypedResults.NoContent()));
 
+        // Teoridelar som uppgiften hänvisar till. Ligger på utdelningen, inte på innehållet.
+        app.MapGet("/links/{id:guid}/related", async (
+            Guid id, ContentLinkService service, CancellationToken ct) =>
+            (await service.GetRelatedLinksAsync(id, ct)).ToHttp(TypedResults.Ok));
+
         // Gruppindelningen för en utdelning. Bara lärare på länken får läsa och ändra.
         app.MapGet("/links/{id:guid}/groups", async (
             Guid id, AssignmentGroupService service, CancellationToken ct) =>

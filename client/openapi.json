@@ -1111,6 +1111,69 @@
         }
       }
     },
+    "/api/links/{id}/related": {
+      "get": {
+        "tags": [
+          "backend"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RelatedLinkDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/links/{id}/groups": {
       "get": {
         "tags": [
@@ -7017,6 +7080,16 @@
             "items": {
               "$ref": "#/components/schemas/AssignmentGroupInput"
             }
+          },
+          "relatedLinkIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         }
       },
@@ -8321,6 +8394,55 @@
           }
         }
       },
+      "RelatedLinkDto": {
+        "required": [
+          "linkId",
+          "contentId",
+          "title",
+          "type",
+          "moduleId",
+          "moduleTitle",
+          "courseId"
+        ],
+        "type": "object",
+        "properties": {
+          "linkId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ContentType"
+          },
+          "moduleId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "moduleTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "courseId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        },
+        "description": "Förhandsvisning av reponamn. Värdena är exempel som läraren ser i formuläret."
+      },
       "ReorderContentDto": {
         "required": [
           "linkIds"
@@ -8430,8 +8552,7 @@
             ],
             "format": "int32"
           }
-        },
-        "description": "Förhandsvisning av reponamn. Värdena är exempel som läraren ser i formuläret."
+        }
       },
       "RepoProvisioningState": {
         "enum": [
@@ -8740,6 +8861,15 @@
                 "$ref": "#/components/schemas/AssignmentGroupDto"
               }
             ]
+          },
+          "relatedLinks": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/RelatedLinkDto"
+            }
           }
         },
         "description": "En del i veckan. BodyMd är null när delen är låst, så att texten inte går att läsa i förväg.\nCanMarkDone är true för teori och uppgifter utan inlämningssätt; uppgifter med inlämning\nblir klara genom Submission och har Submitted/Grade i stället."
@@ -9963,6 +10093,16 @@
           "isPinned": {
             "type": "boolean",
             "default": false
+          },
+          "relatedLinkIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         }
       },

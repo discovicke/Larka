@@ -158,12 +158,17 @@ const {isMobile, open} = useMobileDetail(computed(() => selectedId.value || unde
 
 // Ett öppnat inlägg slås upp bland alla nyheter, inte bara de som matchar fliken: när en nyhet markeras som läst
 // försvinner den ur fliken Olästa, men artikeln ska ligga kvar. På mobil är ingen nyhet vald förrän eleven
-// öppnat en; på desktop visas den första synliga.
-const selected = computed(() =>
-  entries.value.find((entry) => entry.post.contentId === selectedId.value)
-  ?? (isMobile.value
-    ? undefined
-    : visibleNews.value[0]))
+// öppnat en; på desktop visas den första synliga. En öppnad notis går före nyhetsvalet, annars skulle
+// den senaste nyheten se vald ut samtidigt som meddelandet.
+const selected = computed(() => {
+  if (selectedNotification.value) {
+    return undefined
+  }
+  return entries.value.find((entry) => entry.post.contentId === selectedId.value)
+    ?? (isMobile.value
+      ? undefined
+      : visibleNews.value[0])
+})
 const isEmpty = computed(() => !loading.value && !loadFailed.value && rows.value.length === 0)
 
 function tabClass(value: InboxFilter) {

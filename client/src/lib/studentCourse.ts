@@ -32,6 +32,11 @@ export function isAvailable(item: Item): boolean {
   return item.type !== 'News' && !item.isLocked && !isFinished(item)
 }
 
+export function isModuleComplete(module: Module): boolean {
+  const parts = module.content.filter((item) => item.type !== 'News')
+  return parts.length > 0 && parts.every(isFinished)
+}
+
 export function missingBlockers(item: Item): Schema<'StudentBlockerDto'>[] {
   return item.blockedBy.filter((blocker) => !blocker.isSatisfied)
 }
@@ -51,12 +56,13 @@ export function sectionsFor(module: Module, filter: StudentFilter): PartSection[
   const unlockingIds = new Set(unlocking.map((item) => item.linkId))
   const later = locked.filter((item) => !unlockingIds.has(item.linkId))
 
+  const complete = isModuleComplete(module)
   const sections: PartSection[] = [
     {
       key: 'next',
       title: 'Nästa steg',
       items: available,
-      defaultOpen: true,
+      defaultOpen: available.length > 0,
       empty: filter === 'submissions'
         ? 'Inga inlämningar att göra just nu.'
         : module.content.length === 0
@@ -67,7 +73,7 @@ export function sectionsFor(module: Module, filter: StudentFilter): PartSection[
       key: 'unlocking',
       title: 'Låses upp härnäst',
       items: unlocking,
-      defaultOpen: true,
+      defaultOpen: unlocking.length > 0,
       empty: '',
     },
     {
@@ -93,22 +99,29 @@ export function sectionsFor(module: Module, filter: StudentFilter): PartSection[
     },
   ]
 
+  // I en klar vecka är historiken viktigare än en tom "Nästa steg". Därför ligger Klart överst
+  // och tomma sektioner visas inte. I en pågående vecka ligger Klart sist.
+  const ordered = complete
+    ? [sections[4], sections[0], sections[1], sections[2], sections[3]]
+    : sections
+
   if (filter === 'todo') {
-    return sections.slice(0, 1)
+    return complete
+      ? []
+      : [sections[0]]
   }
 
   if (filter === 'submissions') {
-    const withSubmissions = sections.map((section) => ({
-      ...section,
-      items: section.items.filter((item) => kindOf(item) === 'Inlämning'),
-    }))
-    return [
-      withSubmissions[0],
-      ...withSubmissions.slice(1).filter((section) => section.items.length > 0),
-    ]
+    return ordered
+      .map((section) => ({
+        ...section,
+        items: section.items.filter((item) => kindOf(item) === 'Inlämning'),
+      }))
+      .filter((section) => section.items.length > 0 || (section.key === 'next' && !complete))
   }
 
-  return sections.filter((section) => section.key === 'next' || section.items.length > 0)
+  return ordered.filter((section) =>
+    section.items.length > 0 || (section.key === 'next' && !complete))
 }
 
 export function gradeScaleLabel(scale: Schema<'GradeScale'> | null): string | null {

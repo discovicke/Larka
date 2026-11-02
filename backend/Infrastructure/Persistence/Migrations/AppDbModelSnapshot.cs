@@ -60,6 +60,33 @@ namespace Backend.Infrastructure.Persistence.Migrations
                     b.ToTable("AssignmentGroupMembers");
                 });
 
+            modelBuilder.Entity("Backend.Domain.Entities.AssignmentReference", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("SourceLinkId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TargetLinkId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TargetLinkId");
+
+                    b.HasIndex("SourceLinkId", "Position");
+
+                    b.HasIndex("SourceLinkId", "TargetLinkId")
+                        .IsUnique();
+
+                    b.ToTable("AssignmentReferences");
+                });
+
             modelBuilder.Entity("Backend.Domain.Entities.AssignmentRequirement", b =>
                 {
                     b.Property<Guid>("Id")
@@ -943,6 +970,21 @@ namespace Backend.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Backend.Domain.Entities.AssignmentReference", b =>
+                {
+                    b.HasOne("Backend.Domain.Entities.ContentLink", null)
+                        .WithMany()
+                        .HasForeignKey("SourceLinkId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Backend.Domain.Entities.ContentLink", null)
+                        .WithMany()
+                        .HasForeignKey("TargetLinkId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Backend.Domain.Entities.AssignmentRequirement", b =>

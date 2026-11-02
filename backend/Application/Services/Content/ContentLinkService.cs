@@ -43,6 +43,23 @@ public class ContentLinkService(
         return ServiceResult<ContentLinkDto>.Ok(ContentLinkDto.From(link));
     }
 
+    public async Task<ServiceResult<List<RelatedLinkDto>>> GetRelatedLinksAsync(
+        Guid linkId, CancellationToken ct)
+    {
+        if (!await permissions.CanTeachLinkAsync(linkId, ct))
+        {
+            return ServiceResult<List<RelatedLinkDto>>.Forbidden();
+        }
+
+        if (await contents.GetLinkWithContentAsync(linkId, ct) is null)
+        {
+            return ServiceResult<List<RelatedLinkDto>>.NotFound("link not found");
+        }
+
+        var rows = await contents.GetRelatedLinksForSourcesAsync([linkId], ct);
+        return ServiceResult<List<RelatedLinkDto>>.Ok(rows.Select(row => row.Link).ToList());
+    }
+
     /// <summary>
     /// Flyttar en del till en annan vecka i samma kurs. Länken behåller id och deadline.
     /// Beroenden tas bort eftersom de bara gäller inom en vecka.
@@ -137,10 +154,25 @@ public class ContentLinkService(
             return ServiceResult<ContentLinkDto>.Invalid("dueAt is only allowed on assignments");
         }
 
+        var relatedError = await CheckRelatedLinksAsync(
+            linked.Link.CourseId,
+            linked.Link.GroupId,
+            dto.RelatedLinkIds,
+            linked.Link.Id,
+            ct);
+        if (relatedError is not null)
+        {
+            return ServiceResult<ContentLinkDto>.Invalid(relatedError);
+        }
+
         var previousPublishAt = linked.Link.PublishAt;
         linked.Link.PublishAt = dto.PublishAt ?? time.GetUtcNow();
         linked.Link.DueAt = dto.DueAt;
         linked.Link.IsPinned = dto.IsPinned;
+        if (dto.RelatedLinkIds is not null)
+        {
+            await ReplaceReferencesAsync(linked.Link, dto.RelatedLinkIds, ct);
+        }
 
         // Bara en ändrad publiceringstid ger notiser. Annars skulle en nål på en gammal nyhet notifiera alla.
         if (linked.Link.PublishAt != previousPublishAt)
@@ -310,7 +342,7 @@ public class ContentLinkService(
             return "dueAt is only allowed on assignments";
         }
 
-        return await AssignmentGroupPolicy.ValidateAsync(
+        var groupError = await AssignmentGroupPolicy.ValidateAsync(
             content.Assignment?.WorkMode ?? RepoWorkMode.Individual,
             dto.GroupId,
             dto.CourseId,
@@ -318,6 +350,8 @@ public class ContentLinkService(
             groups,
             users,
             ct);
+        return groupError ?? await CheckRelatedLinksAsync(
+            dto.CourseId, dto.GroupId, dto.RelatedLinkIds, null, ct);
     }
 
     /// <summary>Lägger till länken och delar ut uppgiften. Sparar inte.</summary>
@@ -367,9 +401,76 @@ public class ContentLinkService(
         }
 
         contents.AddLink(link);
+        await ReplaceReferencesAsync(link, dto.RelatedLinkIds, ct);
         await submissions.HandOutAsync(link, content, ct);
         await notifications.NotifyLinkPublishedAsync(content, link, ct);
         return link;
+    }
+
+    private async Task<string?> CheckRelatedLinksAsync(
+        Guid? courseId,
+        Guid? groupId,
+        IReadOnlyList<Guid>? relatedLinkIds,
+        Guid? sourceLinkId,
+        CancellationToken ct)
+    {
+        if (relatedLinkIds is null || relatedLinkIds.Count == 0)
+        {
+            return null;
+        }
+
+        if (relatedLinkIds.Distinct().Count() != relatedLinkIds.Count)
+        {
+            return "a related part can only be added once";
+        }
+
+        if (sourceLinkId is not null && relatedLinkIds.Contains(sourceLinkId.Value))
+        {
+            return "a part cannot reference itself";
+        }
+
+        foreach (var targetId in relatedLinkIds)
+        {
+            var target = await contents.GetLinkWithContentAsync(targetId, ct);
+            if (target is null)
+            {
+                return "related part not found";
+            }
+
+            if (target.Content.Status != ContentStatus.Published || target.Content.Type != ContentType.Theory)
+            {
+                return "only published theory parts can be related";
+            }
+
+            var sameTarget = courseId is not null
+                ? target.Link.CourseId == courseId
+                : target.Link.GroupId == groupId;
+            if (!sameTarget)
+            {
+                return "related parts must belong to the same course";
+            }
+        }
+
+        return null;
+    }
+
+    private async Task ReplaceReferencesAsync(
+        ContentLink source, IReadOnlyList<Guid>? relatedLinkIds, CancellationToken ct)
+    {
+        var existing = await contents.GetReferencesForSourceAsync(source.Id, ct);
+        contents.RemoveReferences(existing);
+        if (relatedLinkIds is null || relatedLinkIds.Count == 0)
+        {
+            return;
+        }
+
+        var position = 0;
+        contents.AddReferences(relatedLinkIds.Select(targetId => new AssignmentReference
+        {
+            SourceLinkId = source.Id,
+            TargetLinkId = targetId,
+            Position = ++position,
+        }));
     }
 
     // En länk till en kurs kräver lärare på kursen, en länk till bara en grupp lärare i gruppen.

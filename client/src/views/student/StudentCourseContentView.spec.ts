@@ -391,6 +391,8 @@ describe('StudentCourseContentView', () => {
     backend([completed])
     const {wrapper} = await renderApp('/courses/c1/content')
 
+    await wrapper.find('[data-test="student-module"]').trigger('click')
+    await flushPromises()
     await openSection(wrapper, 'completed')
     await wrapper.find('[data-test="undo-l6"]').trigger('click')
     await flushPromises()
@@ -413,10 +415,27 @@ describe('StudentCourseContentView', () => {
     expect(wrapper.find('[data-test="student-part-l3"]').text()).toContain('Inlämnad')
   })
 
+  it('fäller ihop en klar vecka och visar Klart först när den öppnas', async () => {
+    backend([completed])
+    const {wrapper} = await renderApp('/courses/c1/content')
+
+    expect(wrapper.find('[data-test="student-module"]').text()).toContain('Klar')
+    expect(wrapper.find('[data-test="student-section-completed"]').exists()).toBe(false)
+
+    await wrapper.find('[data-test="student-module"]').trigger('click')
+    await flushPromises()
+
+    const sections = wrapper.findAll('[data-test^="student-section-"]')
+    expect(sections[0].text()).toContain('Klart')
+    expect(sections.some((section) => section.text().includes('Nästa steg'))).toBe(false)
+  })
+
   it('visar inlämningens status och betyg', async () => {
     backend([submitted, graded])
     const {wrapper} = await renderApp('/courses/c1/content')
 
+    await wrapper.find('[data-test="student-module"]').trigger('click')
+    await flushPromises()
     await openSection(wrapper, 'completed')
 
     const handedIn = wrapper.find('[data-test="student-part-l3"]')
@@ -424,7 +443,7 @@ describe('StudentCourseContentView', () => {
     expect(handedIn.text()).not.toContain('Klar')
     const gradedRow = wrapper.find('[data-test="student-part-l4"]')
     expect(gradedRow.text()).toContain('Klar')
-    expect(gradedRow.find('[data-test="row-grade-stamp"]').text()).toBe('G')
+    expect(gradedRow.find('[data-test="row-grade-stamp"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="complete-l3"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="complete-l4"]').exists()).toBe(false)
   })
@@ -538,6 +557,25 @@ describe('StudentCourseContentView', () => {
     expect(wrapper.find('[data-test="student-part-l1"]').exists()).toBe(true)
   })
 
+  it('går tillbaka till veckovyn med webbläsarens bakåtknapp', async () => {
+    backend([theory])
+    const {wrapper, router} = await renderApp('/courses/c1/content')
+
+    await wrapper.find('[data-test="student-open-l1"]').trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.query.del).toBe('l1')
+    expect(wrapper.find('nav[aria-label="Kursens sidor"]').exists()).toBe(false)
+    expect(wrapper.find('[data-slot="breadcrumb"]').text()).toContain('Teori A')
+
+    router.back()
+    await flushPromises()
+
+    expect(router.currentRoute.value.query.del).toBeUndefined()
+    expect(wrapper.find('nav[aria-label="Kursens sidor"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="student-view"]').exists()).toBe(true)
+  })
+
   it('öppnar delen som står i ?del= och skriver adressen när en del väljs', async () => {
     backend([theory, graded])
     const {wrapper, router} = await renderApp('/courses/c1/content?del=l4')
@@ -570,6 +608,31 @@ describe('StudentCourseContentView', () => {
     const feedback = wrapper.find('[data-test="student-feedback"]')
     expect(feedback.text()).toContain('Snyggt arbete med pipelinen')
     expect(feedback.find('[data-test="grade-stamp"]').text()).toBe('G')
+    expect(wrapper.find('[data-test="student-detail"] aside').text()).not.toContain('Betyg')
+  })
+
+  it('döljer hjälpknappen och statustexten när uppgiften är inlämnad', async () => {
+    backend([submitted])
+    const {wrapper} = await renderApp('/courses/c1/content?del=l3')
+
+    const detail = wrapper.find('[data-test="student-detail"]')
+    expect(detail.find('[data-test="student-help"]').exists()).toBe(false)
+    expect(detail.text()).not.toContain('Statusen uppdateras')
+  })
+
+  it('döljer hjälpknappen när uppgiften är bedömd', async () => {
+    backend([graded])
+    const {wrapper} = await renderApp('/courses/c1/content?del=l4')
+
+    expect(wrapper.find('[data-test="student-help"]').exists()).toBe(false)
+  })
+
+  it('visar hjälpknappen på en uppgift som inte lämnats in', async () => {
+    const openAssignment = {...submitted, linkId: 'l9', contentId: 'x9', title: 'Öppen uppgift', submissionStatus: null, isCompleted: false}
+    backend([openAssignment])
+    const {wrapper} = await renderApp('/courses/c1/content?del=l9')
+
+    expect(wrapper.find('[data-test="student-help"]').exists()).toBe(true)
   })
 
   it('visar ingen kommentar på en uppgift som inte är bedömd', async () => {

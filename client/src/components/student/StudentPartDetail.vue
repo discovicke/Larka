@@ -12,6 +12,7 @@ import {computed, ref, watch} from 'vue'
 import {useRoute} from 'vue-router'
 
 import GitHubAssignmentBlock from '@/components/GitHubAssignmentBlock.vue'
+import RelatedMaterial from '@/components/student/RelatedMaterial.vue'
 import StudentHelpButton from '@/components/StudentHelpButton.vue'
 import MarkdownView from '@/components/editor/MarkdownView.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -32,7 +33,7 @@ import {
   rowIconClass,
   statusHeading,
 } from '@/lib/studentCourse'
-import {gradeBadgeVariant, gradeLabel, gradeName, handInLabel} from '@/lib/submissions'
+import {gradeBadgeVariant, gradeLabel, handInLabel} from '@/lib/submissions'
 import {fetchLinkSubmissions} from '@/lib/submissionsApi'
 
 // En öppen del: innehåll, checklista, lärarens kommentar och elevens status. Vyn runtom äger
@@ -57,6 +58,10 @@ const {me} = useCurrentUser()
 
 const unlocked = computed(() => props.module.content.filter((item) =>
   item.blockedBy.some((blocker) => blocker.linkId === props.part.linkId)))
+const canAskForHelp = computed(() => props.part.type === 'Assignment'
+  && !props.part.isLocked
+  && props.part.submissionStatus !== 'Submitted'
+  && props.part.submissionStatus !== 'Graded')
 
 // Checklistan i uppgiftstexten (`- [ ] ...`) visas som egna bockrutor. Elevens bockar sparas på servern.
 const checklist = computed(() => !props.part.isLocked
@@ -141,19 +146,17 @@ function handInOf(item: Schema<'StudentContentItem'>): string {
 
 <template>
   <div class="flex flex-col gap-6" data-test="student-detail">
-    <div class="text-muted-foreground flex flex-wrap items-center gap-1 text-sm">
+    <header class="flex flex-col gap-3 border-b pb-4">
       <Button
         variant="ghost"
         size="sm"
+        class="-ml-2 w-fit"
         data-test="student-back"
         @click="emit('close')"
       >
         <PhArrowLeft/>
-        Tillbaka
+        Tillbaka till veckan
       </Button>
-    </div>
-
-    <header class="flex flex-col gap-3 border-b pb-4">
       <h2 class="text-3xl leading-tight font-semibold">{{ part.title }}</h2>
       <p class="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
         <span class="flex items-center gap-1">
@@ -236,6 +239,8 @@ function handInOf(item: Schema<'StudentContentItem'>): string {
             </ul>
           </section>
         </template>
+
+        <RelatedMaterial :links="part.relatedLinks ?? []"/>
 
         <GitHubAssignmentBlock
           v-if="part.hasRepoMode && !part.isLocked"
@@ -340,25 +345,10 @@ function handInOf(item: Schema<'StudentContentItem'>): string {
               Ångra
             </Button>
           </template>
-          <template v-else-if="part.type === 'Assignment'">
-            <p class="text-muted-foreground text-sm">
-              Statusen uppdateras när du lämnar in uppgiften eller får betyg.
-            </p>
-            <dl class="flex flex-col gap-1.5 text-sm">
-              <div class="flex items-center justify-between gap-2">
-                <dt class="text-muted-foreground">Betyg</dt>
-                <dd>
-                  {{ part.gradeLevel
-                    ? gradeName(part.gradeLevel)
-                    : 'Inte bedömd än' }}
-                </dd>
-              </div>
-            </dl>
-          </template>
         </section>
 
         <StudentHelpButton
-          v-if="part.type === 'Assignment'"
+          v-if="canAskForHelp"
           :link-id="part.linkId"
         />
       </aside>

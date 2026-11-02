@@ -23,6 +23,7 @@ public class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
     public DbSet<AssignmentRequirement> AssignmentRequirements => Set<AssignmentRequirement>();
     public DbSet<AssignmentGroup> AssignmentGroups => Set<AssignmentGroup>();
     public DbSet<AssignmentGroupMember> AssignmentGroupMembers => Set<AssignmentGroupMember>();
+    public DbSet<AssignmentReference> AssignmentReferences => Set<AssignmentReference>();
     public DbSet<Submission> Submissions => Set<Submission>();
     public DbSet<SubmissionFile> SubmissionFiles => Set<SubmissionFile>();
     public DbSet<StudentRepo> StudentRepos => Set<StudentRepo>();

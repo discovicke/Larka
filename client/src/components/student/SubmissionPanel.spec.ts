@@ -172,6 +172,23 @@ describe('SubmissionPanel', () => {
     expect(wrapper.find('[data-test="repo-submission"]').text()).toContain('Inlämnad')
   })
 
+  it('visar inlämnad commit även när repot är låst och uppgiften är bedömd', async () => {
+    const lockedRepo = repoOf({
+      lockedAt: '2026-11-01T12:00:00Z',
+      submissionSha: 'abc1234567890',
+    })
+    backend([submissionOf('Graded', {repo: lockedRepo})])
+    const wrapper = await show({
+      submissionModes: ['Repo'],
+      hasRepoMode: true,
+      submissionStatus: 'Graded',
+      repo: lockedRepo,
+    })
+
+    expect(wrapper.find('[data-test="repo-submission"]').text()).toContain('Inlämnad')
+    expect(wrapper.find('[data-test="repo-submission"]').text()).not.toContain('Ingen commit registrerades')
+  })
+
   it('förklarar varför ett låst repo saknar inlämning', async () => {
     backend()
     const wrapper = await show({

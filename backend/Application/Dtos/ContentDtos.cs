@@ -37,7 +37,8 @@ public record CreateContentLinkDto(
     DateTimeOffset? PublishAt = null,
     DateTimeOffset? DueAt = null,
     bool IsPinned = false,
-    List<AssignmentGroupInput>? Groups = null);
+    List<AssignmentGroupInput>? Groups = null,
+    List<Guid>? RelatedLinkIds = null);
 
 /// <summary>Projektgrupp vid skapandet av en gruppuppgift. Alla elev-id:n måste finnas i kursen.</summary>
 public record AssignmentGroupInput(string Name, List<Guid> StudentIds, Guid? Id = null);
@@ -62,6 +63,16 @@ public record UpdateContentDto(
 public record UpdateContentStatusDto(ContentStatus Status);
 
 /// <summary>Förhandsvisning av reponamn. Värdena är exempel som läraren ser i formuläret.</summary>
+/// <summary>En publicerad del som en uppgift hänvisar till.</summary>
+public record RelatedLinkDto(
+    Guid LinkId,
+    Guid ContentId,
+    string Title,
+    ContentType Type,
+    Guid? ModuleId,
+    string? ModuleTitle,
+    Guid? CourseId);
+
 public record RepoNamePreviewRequest(
     string? Pattern,
     string AssignmentTitle,
@@ -79,7 +90,8 @@ public record RepoNamePreviewDto(string Name, string Pattern);
 public record UpdateContentLinkDto(
     DateTimeOffset? PublishAt = null,
     DateTimeOffset? DueAt = null,
-    bool IsPinned = false);
+    bool IsPinned = false,
+    List<Guid>? RelatedLinkIds = null);
 
 public record MoveContentLinkDto(Guid ModuleId);
 

@@ -394,6 +394,31 @@ describe('InboxView', () => {
     expect(router.currentRoute.value.path).toBe('/courses/c1/content')
   })
 
+  it('markerar inte en nyhet när en ny uppgift är öppen', async () => {
+    backend({
+      courses: {
+        c1: [news('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1'})],
+      },
+      notifications: [notification('n-new', 'AssignmentPublished', {
+        title: 'Ny labb',
+        courseId: 'c1',
+        courseTitle: 'DevOps',
+      })],
+    })
+
+    const {wrapper} = await renderApp('/inbox')
+
+    expect(wrapper.find('[data-test="news-item"]').attributes('aria-current')).toBe('true')
+
+    await wrapper.find('[data-test="notification-item"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="notification-item"]').attributes('aria-current')).toBe('true')
+    expect(wrapper.find('[data-test="news-item"]').attributes('aria-current')).toBeUndefined()
+    expect(wrapper.find('[data-test="news-item"]').classes()).not.toContain('bg-accent')
+    expect(wrapper.find('[aria-label="Meddelande"]').exists()).toBe(true)
+  })
+
   it.each([
     ['SubmissionGraded', 'Betygsatt'],
     ['SubmissionNeedsWork', 'Komplettera'],

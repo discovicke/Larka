@@ -49,7 +49,8 @@ public record StudentContentItem(
     List<SubmissionMode> SubmissionModes,
     List<AssignmentRequirementDto> Requirements,
     StudentRepoDto? Repo,
-    AssignmentGroupDto? Group = null);
+    AssignmentGroupDto? Group = null,
+    List<RelatedLinkDto>? RelatedLinks = null);
 
 /// <summary>
 /// En förutsättning som eleven saknar. Title är null när förutsättningen inte är publicerad än,

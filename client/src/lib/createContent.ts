@@ -28,6 +28,7 @@ export interface ContentForm {
   repoNamePattern: string
   workMode: Schema<'RepoWorkMode'>
   groups: GroupForm[]
+  relatedLinkIds: string[]
   requirements: RequirementForm[]
   isPinned: boolean
 }
@@ -53,6 +54,7 @@ export function emptyForm(): ContentForm {
     repoNamePattern: defaultRepoNamePattern,
     workMode: 'Individual',
     groups: [],
+    relatedLinkIds: [],
     requirements: [],
     isPinned: false,
   }
@@ -174,6 +176,7 @@ export function toRequests(
             studentIds: group.studentIds,
           }))
         : null,
+      relatedLinkIds: form.relatedLinkIds,
     },
   }
 }
@@ -188,6 +191,7 @@ export function toUpdateRequests(
       ? isoOrNull(form.dueAt)
       : null,
     isPinned: form.isPinned,
+    relatedLinkIds: form.relatedLinkIds,
   }
   if (!isAssignment(form)) {
     return {

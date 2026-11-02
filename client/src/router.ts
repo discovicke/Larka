@@ -112,8 +112,20 @@ export const routes: RouteRecordRaw[] = [
             path: 'content',
             name: 'course-content',
             component: CourseContentPage,
-            // Innehåll är kursens startsida, så brödsmulan slutar på kursen.
-            meta: {title: 'Innehåll', breadcrumbs: (route) => courseBreadcrumbs(route)},
+            // Innehåll är kursens startsida. En öppnad del blir sista brödsmula.
+            meta: {
+              title: 'Innehåll',
+              breadcrumbs: (route) => {
+                const linkId = typeof route.query.del === 'string'
+                  ? route.query.del
+                  : ''
+                return linkId
+                  ? courseBreadcrumbs(route, {
+                      label: useCrumbLabels().crumbLabel(`assignment:${linkId}`, 'Del'),
+                    })
+                  : courseBreadcrumbs(route)
+              },
+            },
           },
           {
             path: 'news',

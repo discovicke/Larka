@@ -30,6 +30,8 @@ const hasText = computed(() => props.item.submissionModes.includes('Text'))
 const hasFiles = computed(() => props.item.submissionModes.includes('File'))
 const hasRepo = computed(() => props.item.submissionModes.includes('Repo'))
 const repoLocked = computed(() => hasRepo.value && Boolean(props.item.repo?.lockedAt))
+const repoHasSubmission = computed(() =>
+  Boolean(props.item.repo?.submissionSha) || status.value === 'Submitted')
 const hasForm = computed(() => hasText.value || hasFiles.value)
 const onSite = computed(() => props.item.submissionModes.includes('OnSite'))
 const status = computed(() => props.item.submissionStatus ?? 'NotStarted')
@@ -142,12 +144,11 @@ function onFilesChosen(event: Event) {
     </Alert>
 
     <div v-if="hasRepo" class="flex flex-col gap-2" data-test="repo-submission">
-      <p v-if="status === 'Submitted'" class="text-muted-foreground text-sm">
+      <p v-if="repoHasSubmission" class="text-muted-foreground text-sm">
         Inlämnad
         <template v-if="submission?.submittedAt">
           {{ formatDate(submission.submittedAt, true) }}
         </template>
-        · commit <code class="font-mono">{{ submission?.repo?.submissionSha?.slice(0, 7) ?? '–' }}</code>
       </p>
       <p v-else-if="repoLocked" class="text-muted-foreground text-sm" data-test="repo-submission-locked">
         Repot låstes vid deadline. Ingen commit registrerades som inlämning.

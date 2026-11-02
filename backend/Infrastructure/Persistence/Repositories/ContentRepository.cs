@@ -71,6 +71,49 @@ public class ContentRepository(AppDb db) : IContentRepository
         return new LinkedContent(link, content);
     }
 
+    public Task<List<AssignmentReference>> GetReferencesForSourceAsync(
+        Guid sourceLinkId, CancellationToken ct) =>
+        db.AssignmentReferences
+            .Where(reference => reference.SourceLinkId == sourceLinkId)
+            .OrderBy(reference => reference.Position)
+            .ToListAsync(ct);
+
+    public Task<List<RelatedLinkRow>> GetRelatedLinksForSourcesAsync(
+        IReadOnlyCollection<Guid> sourceLinkIds, CancellationToken ct)
+    {
+        if (sourceLinkIds.Count == 0)
+        {
+            return Task.FromResult<List<RelatedLinkRow>>([]);
+        }
+
+        return (from reference in db.AssignmentReferences
+                join target in db.ContentLinks on reference.TargetLinkId equals target.Id
+                join content in db.Content on target.ContentId equals content.Id
+                join module in db.Modules on target.ModuleId equals module.Id into modules
+                from module in modules.DefaultIfEmpty()
+                where sourceLinkIds.Contains(reference.SourceLinkId)
+                orderby reference.SourceLinkId, reference.Position
+                select new RelatedLinkRow(
+                    reference.SourceLinkId,
+                    new RelatedLinkDto(
+                        target.Id,
+                        content.Id,
+                        content.Title,
+                        content.Type,
+                        target.ModuleId,
+                        module != null
+                            ? module.Title
+                            : null,
+                        target.CourseId)))
+            .ToListAsync(ct);
+    }
+
+    public void AddReferences(IEnumerable<AssignmentReference> references) =>
+        db.AssignmentReferences.AddRange(references);
+
+    public void RemoveReferences(IEnumerable<AssignmentReference> references) =>
+        db.AssignmentReferences.RemoveRange(references);
+
     public async Task<int> GetNextLinkPositionAsync(Guid moduleId, CancellationToken ct)
     {
         var lastPosition = await db.ContentLinks

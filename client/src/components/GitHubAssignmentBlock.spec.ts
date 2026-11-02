@@ -223,7 +223,23 @@ describe('GitHubAssignmentBlock', () => {
 
     expect(wrapper.find('[data-test="student-repo-locked-badge"]').text()).toContain('Repot är låst')
     expect(wrapper.find('[data-test="student-repo-locked"]').text()).toContain('abc1234')
-    expect(wrapper.find('[data-test="student-repo-locked"]').text()).toContain('går inte att ändra')
+    expect(wrapper.find('[data-test="student-repo-locked"]').text()).not.toContain('går inte att ändra')
+  })
+
+  it('visar inte senaste commit separat när den är samma som inlämnad commit', () => {
+    const wrapper = mount(GitHubAssignmentBlock, {
+      props: {
+        hasRepoMode: true,
+        gitHubLogin: 'elev-kalle',
+        repoUrl: 'https://github.com/skol-org/kalle-labb-1',
+        latestCommit: 'abc1234567890',
+        submissionSha: 'abc1234567890',
+        lockedAt: '2026-11-01T12:00:00Z',
+      },
+    })
+
+    expect(wrapper.find('[data-test="student-repo-commit"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="student-repo-locked"]').text()).toContain('abc1234')
   })
 
   it('visar varför ett låst repo saknar inlämning', () => {

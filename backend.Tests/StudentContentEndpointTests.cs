@@ -51,7 +51,11 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
         string? GradeLevel,
         bool HasRepoMode,
         List<string> SubmissionModes,
-        RepoResponse? Repo);
+        RepoResponse? Repo,
+        List<RelatedLinkResponse>? RelatedLinks);
+
+    private record RelatedLinkResponse(
+        Guid LinkId, Guid ContentId, string Title, string Type, Guid? ModuleId, string? ModuleTitle, Guid? CourseId);
 
     private record UnlinkedStudentResponse(Guid Id, string Name, string Email);
 
@@ -94,6 +98,40 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
         Assert.False(locked.CanMarkDone);
         var blocker = Assert.Single(locked.BlockedBy);
         Assert.Equal(("Teori A", false), (blocker.Title, blocker.IsSatisfied));
+    }
+
+    [Fact]
+    public async Task StudentModules_IncludeRelatedTheoryLinks()
+    {
+        var setup = await AddCourseWithGroupAsync();
+        var week = await CreateModuleAsync(setup.CourseId);
+        var theoryLink = await LinkTheoryAsync(setup.CourseId, week.Id, "Teori A", "Läs det här");
+        var assignment = await CreateContentAsync(new
+        {
+            type = "assignment",
+            title = "Uppgift",
+            bodyMd = "",
+            gradeScale = "passFail",
+            submissionModes = new[] { "text" }
+        });
+        var linked = await _client.PostAsJsonAsync(
+            $"/api/content/{assignment.Id}/links",
+            new
+            {
+                courseId = setup.CourseId,
+                moduleId = week.Id,
+                relatedLinkIds = new[] { theoryLink }
+            });
+        linked.EnsureSuccessStatusCode();
+        var assignmentLink = (await linked.Content.ReadFromJsonAsync<LinkResponse>())!.Id;
+
+        var modules = await GetStudentModulesAsync(setup, setup.StudentIds[0]);
+
+        var item = Assert.Single(modules).Content.Single(content => content.LinkId == assignmentLink);
+        var related = Assert.Single(item.RelatedLinks!);
+        Assert.Equal(theoryLink, related.LinkId);
+        Assert.Equal("Teori A", related.Title);
+        Assert.Equal("Vecka 1", related.ModuleTitle);
     }
 
     [Fact]

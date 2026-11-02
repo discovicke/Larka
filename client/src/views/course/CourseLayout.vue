@@ -21,6 +21,8 @@ const {status, findCourse} = useCourses()
 const course = computed(() => findCourse(String(route.params.courseId)))
 
 // Period och omfattning under rubriken, som i mockupen. Delar som saknar data lämnas borta.
+const showHeader = computed(() => !(route.name === 'course-content' && route.query.del))
+
 const subtitle = computed(() => {
   if (!course.value) {
     return ''
@@ -44,7 +46,7 @@ const subtitle = computed(() => {
   </Alert>
   <NotFoundView v-else-if="!course"/>
   <template v-else>
-    <div class="flex flex-col gap-4 border-b">
+    <div v-if="showHeader" class="flex flex-col gap-4 border-b">
       <div class="flex items-start justify-between gap-3">
         <div class="flex min-w-0 flex-col gap-1">
           <span class="text-muted-foreground font-mono text-xs">KURS · {{ course.code }}</span>
