@@ -59,7 +59,7 @@ I CI samlar backend- och frontendjobben varsin täckning och skriver sitt tal i 
 | Egna analyzer-regler | `backend.Analyzers.Tests/`                | samma                                       |                     |
 | Frontend             | `client/src/**/*.spec.ts` (Vitest, jsdom) | `npm --prefix client run test`, på varje PR |                     |
 | E2E smoke            | `e2e/tests/smoke.spec.ts` (Playwright)    | varje dag 05:17 UTC och manuellt            | den deployade appen |
-| E2E journeys         | `e2e/tests/journeys/` (Playwright)        | på varje PR, varje natt 02:23 UTC, manuellt | Docker (egen stack) |
+| E2E journeys         | `e2e/tests/journeys/` (Playwright)        | varje natt 02:23 UTC och manuellt           | Docker (egen stack) |
 
 ### Backend mot Postgres
 
@@ -67,14 +67,14 @@ Testerna startar en tillfällig Postgres med Testcontainers (en container per k�
 
 ### E2E: två sviter
 
-[`e2e/`](../e2e) har två sviter i samma Playwright-uppsättning.
+[`e2e/`](../e2e) har två sviter i samma Playwright-uppsättning. Ingen av dem körs på PR:er. Där körs bara bygge, formatering, lint och enhetstester, så att en PR inte väntar på en hel E2E-stack. E2E körs på schema mot det som redan finns på `main`, och manuellt via _Actions_ före en riskabel merge.
 
 |          | smoke                              | journeys                                             |
 | -------- | ---------------------------------- | ---------------------------------------------------- |
 | Vad      | att appen lever och sidorna laddar | användarflödena från början till slut                |
 | Skriver  | **nej**, bara läsning              | **ja**, skapar klasser, kurser, inlämningar och mer  |
 | Mot vad  | den deployade appen (prod)         | en färsk lokal stack, **aldrig prod**                |
-| Workflow | `e2e.yml`, dagligen 05:17 UTC      | `e2e-journeys.yml`, på PR, nattligen 02:23 UTC       |
+| Workflow | `e2e.yml`, dagligen 05:17 UTC      | `e2e-journeys.yml`, nattligen 02:23 UTC              |
 | Projekt  | `chromium` och `mobile`            | `journeys` (desktop) och `journeys-mobile` (bara E1) |
 
 Journeys är avstängda om inte `E2E_JOURNEYS=1` är satt, och konfigurationen vägrar starta om basadressen är `onrender.com`. Samma kontroll finns som en automatisk fixture som fäller varje journey som körs mot produktion.

@@ -13,18 +13,19 @@ Allt som når `main` deployas automatiskt av [`cd.yml`](../.github/workflows/cd.
 
 Samma kontroller syns på PR:er och på `main`. På `main` kör CD först hela CI (därför heter de där `CD / Tests / …`) och skickar sedan ut versionen.
 
-| Kontroll                                    | Var             | Vad den gör                                                                              | Obligatorisk på PR |
-| ------------------------------------------- | --------------- | ---------------------------------------------------------------------------------------- | ------------------ |
-| `CI / Detect changes`                       | PR, `main`      | Ser om bara dokumentation ändrats, då hoppas backend över och frontend kör bara Prettier | nej                |
-| `CI / Backend: build, format, tests`        | PR, `main`      | Bygger utan varningar, kör `dotnet format` och alla backendtester                        | ja                 |
-| `CI / Frontend: format, lint, build, tests` | PR, `main`      | Prettier, ESLint, att API-typerna är aktuella, bygger med typkontroll och enhetstester   | ja                 |
-| `CI / Coverage report`                      | PR, `main`      | Slår ihop täckningen från backend och frontend (se [testing.md](testing.md))             | nej                |
-| `PR title / Conventional commit title`      | PR              | PR-titeln ska följa Conventional Commits, eftersom den blir commiten som styr versionen  | ja                 |
-| `CD / Update coverage badge`                | `main`          | Uppdaterar täckningsbadgen i README                                                      | –                  |
-| `CD / Release: version and tag`             | `main`          | Räknar fram nästa version, taggar och skapar en GitHub-release                           | –                  |
-| `CD / Docker image`                         | `main`          | Bygger och pushar imagen                                                                 | –                  |
-| `CD / Deploy to Render`                     | `main`          | Deployar imagen och kontrollerar `/version`                                              | –                  |
-| `E2E / Smoke tests against prod`            | schema, manuell | Playwright mot den deployade appen varje morgon (se [testing.md](testing.md))            | –                  |
+| Kontroll                                        | Var             | Vad den gör                                                                              | Obligatorisk på PR |
+| ----------------------------------------------- | --------------- | ---------------------------------------------------------------------------------------- | ------------------ |
+| `CI / Detect changes`                           | PR, `main`      | Ser om bara dokumentation ändrats, då hoppas backend över och frontend kör bara Prettier | nej                |
+| `CI / Backend: build, format, tests`            | PR, `main`      | Bygger utan varningar, kör `dotnet format` och alla backendtester                        | ja                 |
+| `CI / Frontend: format, lint, build, tests`     | PR, `main`      | Prettier, ESLint, att API-typerna är aktuella, bygger med typkontroll och enhetstester   | ja                 |
+| `CI / Coverage report`                          | PR, `main`      | Slår ihop täckningen från backend och frontend (se [testing.md](testing.md))             | nej                |
+| `PR title / Conventional commit title`          | PR              | PR-titeln ska följa Conventional Commits, eftersom den blir commiten som styr versionen  | ja                 |
+| `CD / Update coverage badge`                    | `main`          | Uppdaterar täckningsbadgen i README                                                      | –                  |
+| `CD / Release: version and tag`                 | `main`          | Räknar fram nästa version, taggar och skapar en GitHub-release                           | –                  |
+| `CD / Docker image`                             | `main`          | Bygger och pushar imagen                                                                 | –                  |
+| `CD / Deploy to Render`                         | `main`          | Deployar imagen och kontrollerar `/version`                                              | –                  |
+| `E2E / Smoke tests against prod`                | schema, manuell | Playwright mot den deployade appen varje morgon (se [testing.md](testing.md))            | –                  |
+| `E2E journeys / Journeys against a fresh stack` | schema, manuell | Användarflödena mot en färsk Docker-stack varje natt, aldrig på PR:er                    | –                  |
 
 De obligatoriska kontrollerna står i rulesetet `main` under _Settings › Rules_ med samma namn. Byter ett jobb namn måste rulesetet uppdateras samtidigt, annars väntar PR:er på en kontroll som aldrig rapporterar.
 

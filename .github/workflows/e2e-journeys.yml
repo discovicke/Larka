@@ -2,17 +2,17 @@ name: E2E journeys
 
 # Användarflödena (e2e/tests/journeys) mot en färsk stack: Postgres och appen byggd av Dockerfilen, med demodata.
 # Journeys skriver data, så de körs aldrig mot produktion. Rökproven mot prod ligger i e2e.yml.
+# Nattligen och på begäran, aldrig på PR:er. En körning bygger hela stacken och tar flera minuter.
 on:
-  pull_request:
-    branches: [main]
   schedule:
     # Varje natt 02:23 UTC.
     - cron: '23 2 * * *'
   workflow_dispatch:
 
+# En körning i taget.
 concurrency:
-  group: e2e-journeys-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: e2e-journeys
+  cancel-in-progress: false
 
 permissions:
   contents: read
