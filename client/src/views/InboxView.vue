@@ -2,6 +2,7 @@
 import {
   PhArrowCounterClockwise,
   PhArrowLeft,
+  PhArrowRight,
   PhCheckCircle,
   PhChecks,
   PhClock,
@@ -38,6 +39,7 @@ import {
   sortRows,
 } from '@/lib/inbox'
 import {dayGroup, mergeNews} from '@/lib/news'
+import {gradeLabel} from '@/lib/submissions'
 
 const route = useRoute()
 const router = useRouter()
@@ -144,6 +146,12 @@ const sections = computed(() => dayHeadings
 const selectedId = computed(() => typeof route.query.post === 'string'
   ? route.query.post
   : '')
+const selectedNotificationId = computed(() => typeof route.query.message === 'string'
+  ? route.query.message
+  : '')
+const selectedNotification = computed(() => rows.value.find((row) =>
+  row.key === `notification-${selectedNotificationId.value}` && row.notification) ?? null)
+const hasDetail = computed(() => Boolean(selected.value || selectedNotification.value))
 const visibleNews = computed(() => entries.value.filter((entry) =>
   visibleRows.value.some((row) => row.contentId === entry.post.contentId)))
 const {isMobile, open} = useMobileDetail(computed(() => selectedId.value || undefined))
@@ -204,6 +212,48 @@ function select(contentId: string) {
   open(contentId)
 }
 
+function openNotification(row: InboxRow) {
+  if (!row.notification) {
+    return
+  }
+
+  markRowRead(row)
+  const location = {query: {message: row.notification.id}}
+  void (isMobile.value
+    ? router.push(location)
+    : router.replace(location))
+}
+
+// Meddelandet ska förklara vad notisen gäller, inte bara upprepa radrubriken.
+function notificationMessage(row: InboxRow): string {
+  const title = row.notification?.title ?? 'uppgiften'
+  switch (row.kind) {
+    case 'grade':
+      return `Du har fått en bedömning på ${title}. Öppna uppgiften för att se betyget och lärarens kommentar.`
+    case 'needsWork':
+      return `Läraren vill att du kompletterar ${title}. Öppna uppgiften för att se vad som behöver göras.`
+    case 'deadline':
+      return `${title} ska lämnas in inom ett dygn. Öppna uppgiften för att se detaljerna.`
+    case 'help':
+      return `En elev har bett om hjälp med ${title}. Öppna uppgiften för att se frågan.`
+    default:
+      return `En ny uppgift har publicerats: ${title}. Öppna uppgiften för att läsa mer.`
+  }
+}
+
+function notificationActionLabel(row: InboxRow): string {
+  const notification = row.notification
+  if (notification?.courseId && notification.linkId) {
+    return 'Gå till uppgiften'
+  }
+  if (row.kind === 'grade' || row.kind === 'needsWork') {
+    return 'Gå till betyget'
+  }
+  return notification?.courseId
+    ? 'Gå till kursen'
+    : 'Gå till Idag'
+}
+
 // Notiser om en del öppnar delen på kurssidan (?del=). Saknas kursen eller delen, som när innehållet
 // är borttaget, faller grader och komplettering tillbaka på studieplanen och resten på kursen eller Idag.
 function notificationLink(row: InboxRow): RouteLocationRaw {
@@ -244,6 +294,16 @@ watch([selectedId, loading], ([contentId, isLoading]) => {
   }
 })
 
+watch([selectedNotificationId, loading], ([notificationId, isLoading]) => {
+  if (!notificationId || isLoading) {
+    return
+  }
+  const row = rows.value.find((candidate) => candidate.notification?.id === notificationId)
+  if (row) {
+    markRowRead(row)
+  }
+})
+
 // Kurserna hämtas av AppLayout. Flödena kan hämtas först när listan finns.
 watch(status, (value) => {
   if (value !== 'loading') {
@@ -280,7 +340,7 @@ watch(status, (value) => {
     </template>
 
     <template v-else>
-      <div v-if="!isMobile || !selected" class="flex min-w-0 flex-[1_1_420px] flex-col border-r max-md:border-r-0">
+      <div v-if="!isMobile || !hasDetail" class="flex min-w-0 flex-[1_1_420px] flex-col border-r max-md:border-r-0">
         <div class="border-b px-4 py-3">
           <div role="tablist" class="bg-muted inline-flex flex-wrap rounded-[7px] p-[3px]">
             <button
@@ -343,12 +403,18 @@ watch(status, (value) => {
                   :meta="metaOf(row)"
                 />
               </button>
-              <RouterLink
+              <button
                 v-else
-                :to="notificationLink(row)"
+                type="button"
                 class="flex w-full gap-3 px-4 py-3 text-left hover:bg-muted/40"
+                :class="selectedNotification?.key === row.key
+                  ? 'bg-accent'
+                  : ''"
+                :aria-current="selectedNotification?.key === row.key
+                  ? 'true'
+                  : undefined"
                 data-test="notification-item"
-                @click="markRowRead(row)"
+                @click="openNotification(row)"
               >
                 <InboxRowContent
                   :icon="kindIcons[row.kind]"
@@ -356,15 +422,17 @@ watch(status, (value) => {
                   :row="row"
                   :meta="metaOf(row)"
                 />
-              </RouterLink>
+              </button>
             </template>
           </template>
         </template>
       </div>
 
       <section
-        v-if="!isMobile || selected"
-        aria-label="Nyhet"
+        v-if="!isMobile || hasDetail"
+        :aria-label="selectedNotification
+          ? 'Meddelande'
+          : 'Nyhet'"
         class="flex-[999_1_480px] min-w-0 px-[clamp(16px,3vw,40px)] py-8"
       >
         <RouterLink
@@ -376,7 +444,54 @@ watch(status, (value) => {
           <PhArrowLeft class="size-4"/>
           Tillbaka till inkorgen
         </RouterLink>
-        <div v-if="selected" class="max-w-[640px]">
+        <div
+          v-if="selectedNotification"
+          class="bg-card flex max-w-[640px] flex-col gap-4 rounded-xl border p-5"
+          data-test="notification-detail"
+        >
+          <header class="flex flex-wrap items-start justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <span
+                class="flex size-10 shrink-0 items-center justify-center rounded-[9px]"
+                :class="kindIconClasses[selectedNotification.kind]"
+              >
+                <component :is="kindIcons[selectedNotification.kind]" class="size-5"/>
+              </span>
+              <div class="flex flex-col gap-0.5">
+                <span class="text-muted-foreground text-xs">{{ kindLabels[selectedNotification.kind] }}</span>
+                <h1 class="text-xl leading-tight font-semibold">{{ selectedNotification.title }}</h1>
+              </div>
+            </div>
+            <span class="text-muted-foreground text-xs">{{ formatDate(selectedNotification.at, true) }}</span>
+          </header>
+
+          <p class="text-sm leading-relaxed">{{ notificationMessage(selectedNotification) }}</p>
+
+          <dl class="grid gap-2 text-sm sm:grid-cols-2">
+            <div v-if="selectedNotification.where" class="flex flex-col gap-0.5">
+              <dt class="text-muted-foreground text-xs">Gäller</dt>
+              <dd>{{ selectedNotification.where }}</dd>
+            </div>
+            <div v-if="selectedNotification.notification?.level" class="flex flex-col gap-0.5">
+              <dt class="text-muted-foreground text-xs">Betyg</dt>
+              <dd>{{ gradeLabel(selectedNotification.notification.level) }}</dd>
+            </div>
+          </dl>
+
+          <div>
+            <Button as-child>
+              <RouterLink
+                :to="notificationLink(selectedNotification)"
+                data-test="notification-go"
+              >
+                {{ notificationActionLabel(selectedNotification) }}
+                <PhArrowRight/>
+              </RouterLink>
+            </Button>
+          </div>
+        </div>
+
+        <div v-else-if="selected" class="max-w-[640px]">
           <NewsArticle
             :post="selected.post"
             :links="selected.links"

@@ -1,5 +1,4 @@
 import type {Schema} from '@/lib/api'
-import {gradeLabel} from '@/lib/submissions'
 
 type Notification = Schema<'NotificationDto'>
 
@@ -44,14 +43,12 @@ export interface InboxRow {
   notification?: Notification
 }
 
-/** Rubriken på raden, t.ex. "Laboration: CI/CD har fått betyget G". */
+/** Rubriken på raden. Betygsnivån visas först i meddelandet, inte i listan. */
 export function notificationTitle(notification: Notification, kind: InboxKind): string {
   const title = notification.title ?? 'Borttaget innehåll'
   switch (kind) {
     case 'grade':
-      return notification.level
-        ? `${title} har fått betyget ${gradeLabel(notification.level)}`
-        : `${title} har bedömts`
+      return `${title} har bedömts`
     case 'needsWork':
       return `${title} behöver kompletteras`
     case 'deadline':

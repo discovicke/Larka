@@ -234,7 +234,7 @@ describe('InboxView', () => {
     const {wrapper} = await renderApp('/inbox')
 
     expect(rowTitles(wrapper)).toEqual([
-      'Laboration: CI/CD har fått betyget G',
+      'Laboration: CI/CD har bedömts',
       'Testplan behöver kompletteras',
       'Studiebesök',
       'E2E-tester ska lämnas in inom ett dygn',
@@ -265,7 +265,7 @@ describe('InboxView', () => {
 
     await openTab(wrapper, 'Olästa')
 
-    expect(rowTitles(wrapper)).toEqual(['Laboration: CI/CD har fått betyget G', 'Studiebesök'])
+    expect(rowTitles(wrapper)).toEqual(['Laboration: CI/CD har bedömts', 'Studiebesök'])
   })
 
   it('filtrerar på Betyg och Nyheter', async () => {
@@ -280,7 +280,7 @@ describe('InboxView', () => {
 
     await openTab(wrapper, 'Betyg')
     expect(rowTitles(wrapper)).toEqual([
-      'Laboration: CI/CD har fått betyget G',
+      'Laboration: CI/CD har bedömts',
       'Testplan behöver kompletteras',
     ])
 
@@ -354,7 +354,7 @@ describe('InboxView', () => {
       .toEqual(['/api/notifications/n-news/read'])
   })
 
-  it('markerar betyget som läst och går till studieplanen när raden öppnas', async () => {
+  it('öppnar betyget som ett meddelande och går till betyget först när man klickar', async () => {
     backend({notifications: [gradeNotification]})
 
     const {wrapper, router} = await renderApp('/inbox')
@@ -364,10 +364,18 @@ describe('InboxView', () => {
 
     expect(requests.filter((request) => request.method === 'POST').map((request) => request.path))
       .toEqual(['/api/notifications/n-grade/read'])
+    expect(router.currentRoute.value.name).toBe('inbox')
+    expect(router.currentRoute.value.query.message).toBe('n-grade')
+    expect(wrapper.find('[data-test="notification-detail"]').text()).toContain('bedömning')
+    expect(wrapper.find('[data-test="notification-detail"]').text()).toContain('Betyg')
+    expect(wrapper.find('[data-test="notification-detail"]').text()).toContain('G')
+
+    await wrapper.find('[data-test="notification-go"]').trigger('click')
+    await flushPromises()
     expect(router.currentRoute.value.name).toBe('grades')
   })
 
-  it('går till kursen när en ny uppgift öppnas', async () => {
+  it('öppnar en ny uppgift som meddelande och går till kursen via knappen', async () => {
     backend({
       notifications: [notification('n-new', 'AssignmentPublished', {title: 'Ny labb', courseId: 'c1', courseTitle: 'DevOps'})],
     })
@@ -378,6 +386,11 @@ describe('InboxView', () => {
     await wrapper.find('[data-test="notification-item"]').trigger('click')
     await flushPromises()
 
+    expect(router.currentRoute.value.path).toBe('/inbox')
+    expect(wrapper.find('[data-test="notification-detail"]').text()).toContain('Ny labb')
+
+    await wrapper.find('[data-test="notification-go"]').trigger('click')
+    await flushPromises()
     expect(router.currentRoute.value.path).toBe('/courses/c1/content')
   })
 
@@ -394,6 +407,12 @@ describe('InboxView', () => {
     const {wrapper, router} = await renderApp('/inbox')
 
     await wrapper.find('[data-test="notification-item"]').trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.path).toBe('/inbox')
+    expect(wrapper.find('[data-test="notification-detail"]').exists()).toBe(true)
+
+    await wrapper.find('[data-test="notification-go"]').trigger('click')
     await flushPromises()
 
     // Kurssidan skickar läraren vidare från ?del= till delens egen sida.
@@ -649,6 +668,38 @@ describe('InboxView', () => {
     expect(router.currentRoute.value.query.post).toBe('x1')
     expect(wrapper.find('[aria-label="Nyhet"] h1').text()).toBe('Studiebesök')
     expect(wrapper.find('[data-test="back-to-list"]').exists()).toBe(true)
+    vi.unstubAllGlobals()
+  })
+
+  it('på mobil öppnas en notis som meddelande med väg tillbaka till listan', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: true,
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }))
+    backend({
+      notifications: [notification('n-part', 'SubmissionGraded', {
+        title: 'Laboration: CI/CD',
+        courseId: 'c1',
+        courseTitle: 'DevOps',
+        linkId: 'l9',
+      })],
+    })
+
+    const {wrapper, router} = await renderApp('/inbox')
+    await wrapper.find('[data-test="notification-item"]').trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.query.message).toBe('n-part')
+    expect(wrapper.find('[data-test="notification-detail"]').exists()).toBe(true)
+    expect(wrapper.findAll('[data-test="notification-item"]')).toHaveLength(0)
+
+    await wrapper.find('[data-test="back-to-list"]').trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.query.message).toBeUndefined()
+    expect(wrapper.findAll('[data-test="notification-item"]')).toHaveLength(1)
     vi.unstubAllGlobals()
   })
 
