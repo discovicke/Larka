@@ -48,10 +48,20 @@ public static class DependencyInjection
         scope.ServiceProvider.GetRequiredService<AppDb>().Database.Migrate();
     }
 
-    /// <summary>Lägger in inloggningskontona vid varje start, i alla miljöer. Idempotent.</summary>
+    /// <summary>
+    /// Lägger in demokontona (admin, larare, elev) vid varje start, men bara i Development och när demodatan är på
+    /// (Database:SeedDemoData). En riktig skola får inga konton med kända lösenord: första admin loggar in med
+    /// Microsoft (Auth:Entra:AdminObjectId). Idempotent.
+    /// </summary>
     public static async Task SeedAccountsAsync(this IServiceProvider services)
     {
         using var scope = services.CreateScope();
+        var isDevelopment = scope.ServiceProvider.GetRequiredService<IHostEnvironment>().IsDevelopment();
+        if (!isDevelopment && !scope.ServiceProvider.GetRequiredService<IOptions<DatabaseOptions>>().Value.SeedDemoData)
+        {
+            return;
+        }
+
         await scope.ServiceProvider.GetRequiredService<AccountSeed>().SeedAsync(CancellationToken.None);
     }
 

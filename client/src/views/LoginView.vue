@@ -9,10 +9,9 @@ import {Button} from '@/components/ui/button'
 import {Field, FieldLabel} from '@/components/ui/field'
 import {Input} from '@/components/ui/input'
 import {useCurrentUser} from '@/composables/useCurrentUser'
-import {exampleSchool} from '@/data/exampleData'
 import {auth, AuthError} from '@/lib/auth'
 import {
-  fetchMicrosoftSettings,
+  fetchAuthProviders,
   finishMicrosoftSignIn,
   type MicrosoftSettings,
   startMicrosoftSignIn,
@@ -28,6 +27,8 @@ const sending = ref(false)
 const error = ref('')
 // Microsoft-inloggningen visas bara när API:et har den. Utan den är sidan som förut, med bara lösenord.
 const microsoft = ref<MicrosoftSettings | null>(null)
+// Skolans namn från API:et. Tomt tills det har kommit, så att ingen ser en annan skolas namn.
+const schoolName = ref('')
 const finishing = ref(false)
 
 // Bara en sökväg i appen, inte // som skulle bli en annan värd.
@@ -58,7 +59,9 @@ async function signInWithMicrosoft() {
 // Microsoft skickar tillbaka hit. Första gången går användaren via välkomstsidan.
 onMounted(async () => {
   try {
-    microsoft.value = await fetchMicrosoftSettings()
+    const providers = await fetchAuthProviders()
+    microsoft.value = providers.microsoft
+    schoolName.value = providers.schoolName ?? ''
   } catch {
     microsoft.value = null
   }
@@ -137,14 +140,14 @@ function microsoftError(exception: unknown) {
         </p>
       </div>
 
-      <div class="text-sidebar-foreground/60 text-[13px]">{{ exampleSchool.name }}</div>
+      <div class="text-sidebar-foreground/60 text-[13px]" data-test="login-school">{{ schoolName }}</div>
     </section>
 
     <main class="flex flex-[1_1_480px] items-center justify-center px-4 py-12">
       <div class="flex w-full max-w-[380px] flex-col gap-6">
         <div class="flex flex-col gap-1">
           <h2 class="font-heading text-[26px] font-semibold">Logga in</h2>
-          <p class="text-muted-foreground text-sm">{{ exampleSchool.name }}</p>
+          <p class="text-muted-foreground text-sm">{{ schoolName }}</p>
         </div>
 
         <Alert v-if="error" variant="destructive">

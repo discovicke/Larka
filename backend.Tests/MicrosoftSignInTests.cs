@@ -24,7 +24,7 @@ namespace backend.Tests;
 /// Microsoft-inloggning med riktig JWT. ID-tokens signeras med en testnyckel, och appen får den nyckeln i stället
 /// för att hämta Microsofts metadata, så kontrollen av tokenet är densamma som i prod.
 /// </summary>
-public sealed class MicrosoftTestWebApplicationFactory : TestWebApplicationFactory
+public class MicrosoftTestWebApplicationFactory : TestWebApplicationFactory
 {
     public const string ClientId = "11111111-2222-3333-4444-555555555555";
     public const string TenantId = "66666666-7777-8888-9999-000000000000";
@@ -377,7 +377,7 @@ public class MicrosoftSignInTests(MicrosoftTestWebApplicationFactory factory)
             .ExecuteUpdateAsync(setters => setters.SetProperty(school => school.EntraTenantId, (string?)null));
     }
 
-    private static string IdToken(
+    internal static string IdToken(
         string oid,
         string email,
         string name,

@@ -6287,7 +6287,8 @@
       },
       "AuthProvidersDto": {
         "required": [
-          "microsoft"
+          "microsoft",
+          "schoolName"
         ],
         "type": "object",
         "properties": {
@@ -6300,9 +6301,15 @@
                 "$ref": "#/components/schemas/MicrosoftProviderDto"
               }
             ]
+          },
+          "schoolName": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         },
-        "description": "Microsoft är null när Microsoft-inloggning inte är inställd, och då visar klienten bara lösenordet."
+        "description": "Microsoft är null när Microsoft-inloggning inte är inställd, och då visar klienten bara lösenordet. SchoolName är\nskolans namn, som inloggningssidan visar."
       },
       "CalendarItemDto": {
         "required": [

@@ -17,7 +17,11 @@ public class EntraTokenValidator(
     private readonly EntraOptions _entra = options.Value;
 
     public MicrosoftSignInSettings? Settings => _entra.IsConfigured
-        ? new MicrosoftSignInSettings(_entra.ClientId, _entra.TenantId)
+        ? new MicrosoftSignInSettings(
+            _entra.ClientId,
+            _entra.TenantId,
+            Blank(_entra.AdminObjectId),
+            Blank(_entra.SchoolName))
         : null;
 
     public async Task<MicrosoftIdentity?> ValidateAsync(string idToken, CancellationToken ct)
@@ -53,6 +57,10 @@ public class EntraTokenValidator(
 
         return new MicrosoftIdentity(objectId, tenantId, email, Claim(result, "name") ?? email);
     }
+
+    private static string? Blank(string value) => string.IsNullOrWhiteSpace(value)
+        ? null
+        : value.Trim();
 
     private static string? Claim(TokenValidationResult result, string type) =>
         result.Claims.TryGetValue(type, out var value) && value is string text && !string.IsNullOrWhiteSpace(text)

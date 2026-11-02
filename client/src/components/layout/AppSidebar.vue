@@ -46,7 +46,7 @@ import {useCourses} from '@/composables/useCourses'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {useGradingCount} from '@/composables/useGradingCount'
 import {useNotifications} from '@/composables/useNotifications'
-import {exampleSchool, exampleUser} from '@/data/exampleData'
+import {exampleUser} from '@/data/exampleData'
 import {auth} from '@/lib/auth'
 import {courseStatus} from '@/lib/courseStatus'
 import {initials} from '@/lib/person'
@@ -123,7 +123,7 @@ const userRole = computed(() => me.value
 const userInitials = computed(() => me.value
   ? initials(me.value.name)
   : exampleUser.initials)
-const schoolName = computed(() => me.value?.school.name ?? exampleSchool.name)
+const schoolName = computed(() => me.value?.school.name ?? '')
 
 async function signOut() {
   await auth.signOut()
@@ -182,7 +182,7 @@ function courseLabel(course: SidebarCourse): string {
                 <AppLogo/>
                 <span class="flex flex-1 flex-col leading-tight group-data-[collapsible=icon]:hidden">
                   <span class="font-semibold">Lärka</span>
-                  <span class="text-sidebar-foreground/70 text-xs">{{ exampleSchool.name }}</span>
+                  <span class="text-sidebar-foreground/70 text-xs">{{ schoolName }}</span>
                 </span>
                 <PhCaretUpDown class="text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden"/>
               </SidebarMenuButton>
@@ -190,7 +190,7 @@ function courseLabel(course: SidebarCourse): string {
             <DropdownMenuContent align="start" class="w-(--reka-dropdown-menu-trigger-width) min-w-56">
               <DropdownMenuLabel class="text-muted-foreground text-xs">Skola</DropdownMenuLabel>
               <DropdownMenuItem>
-                {{ exampleSchool.name }}
+                {{ schoolName }}
                 <PhCheck class="ml-auto"/>
               </DropdownMenuItem>
             </DropdownMenuContent>

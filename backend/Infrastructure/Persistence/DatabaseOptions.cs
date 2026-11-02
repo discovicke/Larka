@@ -8,7 +8,8 @@ public class DatabaseOptions
     public bool SeedDevData { get; set; }
 
     /// <summary>
-    /// Lägger in realistisk demodata (DemoSeed) vid start, en gång. Bara i prod, via appsettings.Production.json.
+    /// Lägger in demokontona och realistisk demodata (DemoSeed) vid start. Av som standard. Edugrades demo sätter den
+    /// med variabeln SEED_DEMO_DATA i GitHub-miljön production, som deployen gör till Database__SeedDemoData.
     /// </summary>
     public bool SeedDemoData { get; set; }
 }

@@ -21,10 +21,18 @@ for pair in "Storage__Supabase__Url=$SUPABASE_URL" "Storage__Supabase__ServiceRo
   api -X PUT "$API/env-vars/${pair%%=*}" -d "$(jq -n --arg value "${pair#*=}" '{value: $value}')" >/dev/null
 done
 
+# Demokontona (admin/admin m.fl.) och demodatan finns bara när SEED_DEMO_DATA är true, som i Edugrades demo. En ny
+# skola sätter den inte och får en tom skola utan konton med kända lösenord.
+api -X PUT "$API/env-vars/Database__SeedDemoData" \
+  -d "$(jq -n --arg value "${SEED_DEMO_DATA:-false}" '{value: $value}')" >/dev/null
+
 # Microsoft-inloggningen är valfri. infra/entra-setup.sh lägger variablerna i GitHub-miljön production.
 if [ -n "${ENTRA_CLIENT_ID:-}" ] && [ -n "${ENTRA_TENANT_ID:-}" ]; then
-  for pair in "Auth__Entra__ClientId=$ENTRA_CLIENT_ID" "Auth__Entra__TenantId=$ENTRA_TENANT_ID"; do
-    api -X PUT "$API/env-vars/${pair%%=*}" -d "$(jq -n --arg value "${pair#*=}" '{value: $value}')" >/dev/null
+  for pair in "Auth__Entra__ClientId=$ENTRA_CLIENT_ID" "Auth__Entra__TenantId=$ENTRA_TENANT_ID" \
+    "Auth__Entra__AdminObjectId=${ENTRA_ADMIN_OBJECT_ID:-}" "Auth__Entra__SchoolName=${ENTRA_SCHOOL_NAME:-}"; do
+    if [ -n "${pair#*=}" ]; then
+      api -X PUT "$API/env-vars/${pair%%=*}" -d "$(jq -n --arg value "${pair#*=}" '{value: $value}')" >/dev/null
+    fi
   done
 fi
 

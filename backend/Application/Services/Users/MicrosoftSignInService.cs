@@ -13,6 +13,10 @@ namespace Backend.Application.Services;
 // Användaren hittas på Microsofts id (oid). Första gången kopplas en användare som admin har lagt in med samma
 // e-post i skolan, annars skapas en ny elev. Ingen väljer själv sin roll eller klass: en ny elev hamnar bara i
 // klassen som adressen slutar på (fornamn.efternamn.net25@... -> .NET25), om skolan har den.
+//
+// Undantaget är den som körde infra/entra-setup.sh (Auth:Entra:AdminObjectId). När ingen skola är kopplad till
+// tenanten än kopplar hens första inloggning skolan och ger den organisationens namn, och hen skapas som admin.
+// Så kommer en ny skola igång utan lösenord och utan att någon först loggar in på annat sätt.
 public partial class MicrosoftSignInService(
     IMicrosoftTokenValidator validator,
     ISchoolRepository schools,
@@ -24,17 +28,24 @@ public partial class MicrosoftSignInService(
     public const string SchoolNotLinkedMessage = "Skolan har inte slagit på inloggning med Microsoft.";
     public const string EmailTakenMessage = "E-postadressen används redan av ett annat konto. Kontakta skolans admin.";
 
-    public AuthProvidersDto GetProviders()
+    public async Task<AuthProvidersDto> GetProvidersAsync(CancellationToken ct)
     {
         var settings = validator.Settings;
-        return new AuthProvidersDto(settings is null
+        var school = settings is null
             ? null
-            : new MicrosoftProviderDto(settings.ClientId, settings.TenantId));
+            : await schools.GetByEntraTenantAsync(settings.TenantId, ct);
+        school ??= await schools.GetDefaultAsync(ct);
+        return new AuthProvidersDto(
+            settings is null
+                ? null
+                : new MicrosoftProviderDto(settings.ClientId, settings.TenantId),
+            school?.Name);
     }
 
     public async Task<ServiceResult<MicrosoftLoginResultDto>> SignInAsync(MicrosoftLoginDto dto, CancellationToken ct)
     {
-        if (validator.Settings is null)
+        var settings = validator.Settings;
+        if (settings is null)
         {
             return ServiceResult<MicrosoftLoginResultDto>.NotFound("microsoft sign-in is not set up");
         }
@@ -45,7 +56,15 @@ public partial class MicrosoftSignInService(
             return ServiceResult<MicrosoftLoginResultDto>.Invalid("invalid id token");
         }
 
+        var isSetupAdmin = settings.AdminObjectId is not null && identity.ObjectId == settings.AdminObjectId;
         var school = await schools.GetByEntraTenantAsync(identity.TenantId, ct);
+        var linkedSchool = false;
+        if (school is null && isSetupAdmin)
+        {
+            school = await LinkDefaultSchoolAsync(settings, ct);
+            linkedSchool = school is not null;
+        }
+
         if (school is null)
         {
             return ServiceResult<MicrosoftLoginResultDto>.Forbidden(SchoolNotLinkedMessage);
@@ -69,10 +88,15 @@ public partial class MicrosoftSignInService(
                     SchoolId = school.Id,
                     Name = identity.Name.Trim(),
                     Email = email,
-                    Role = UserRole.Student
+                    Role = isSetupAdmin
+                        ? UserRole.Admin
+                        : UserRole.Student
                 };
                 users.Add(user);
-                await JoinClassFromEmailAsync(user, ct);
+                if (!isSetupAdmin)
+                {
+                    await JoinClassFromEmailAsync(user, ct);
+                }
             }
 
             user.ExternalId = identity.ObjectId;
@@ -84,13 +108,31 @@ public partial class MicrosoftSignInService(
             return ServiceResult<MicrosoftLoginResultDto>.Forbidden(AuthService.DeactivatedMessage);
         }
 
-        if (firstSignIn)
+        if (firstSignIn || linkedSchool)
         {
             await unitOfWork.SaveChangesAsync(ct);
         }
 
         return ServiceResult<MicrosoftLoginResultDto>.Ok(
             new MicrosoftLoginResultDto(tokens.CreateToken(user), tokens.ExpiresAt, firstSignIn));
+    }
+
+    // Skolan från migrationen, om den inte redan hör till en annan tenant. Sparas med användaren.
+    private async Task<School?> LinkDefaultSchoolAsync(MicrosoftSignInSettings settings, CancellationToken ct)
+    {
+        var school = await schools.GetDefaultAsync(ct);
+        if (school is null || school.EntraTenantId is not null)
+        {
+            return null;
+        }
+
+        school.EntraTenantId = settings.TenantId;
+        if (settings.SchoolName is not null)
+        {
+            school.Name = settings.SchoolName;
+        }
+
+        return school;
     }
 
     /// <summary>

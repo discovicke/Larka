@@ -21,7 +21,9 @@ Skolans elever och personal loggar in med sitt Microsoft-konto (Microsoft Entra 
 
 På `/login` står _Logga in med Microsoft_ överst och lösenordet under (för demokontona). Microsoft skickar tillbaka till `/login` (redirect URI:n), där klienten tar emot svaret och öppnar sidan användaren ville till. Första gången öppnas _Välkommen_ (`/valkommen`) i stället: namnet från Microsoft kan rättas (`PUT /api/me/profile` `{name}`) och notiserna väljas. En elev utan klass och kurser ser _Du är inte med i någon klass än_ på Idag. _Logga ut_ loggar bara ut ur Lärka, inte ur Microsoft. MSAL laddas först när någon loggar in med Microsoft.
 
-Skolan tar emot Microsoft-inloggningar först när admin har slagit på det under _Inställningar → Integrationer → Inloggning med Microsoft_. Då kopplas appens tenant till skolan (`School.EntraTenantId`, en tenant per skola). `GET /api/schools/{id}/microsoft` visar läget (`configured`, `linked`, `tenantId`), `PUT` kopplar (`404` när `Auth:Entra` saknas, `409` när en annan skola redan har tenanten) och `DELETE` kopplar loss. Bara admin i skolan.
+En ny skola kopplas av den som körde `entra-setup.sh` (`Auth:Entra:AdminObjectId`): när ingen skola har tenanten än och hen loggar in med Microsoft kopplas skolan från migrationen till tenanten, får organisationens namn (`Auth:Entra:SchoolName`), och hen skapas som **admin**. Ingen annan kan koppla skolan på det sättet, och alla andra får `403` tills den är kopplad. `GET /api/auth/providers` skickar också skolans namn (`schoolName`), som inloggningssidan visar.
+
+Annars tar skolan emot Microsoft-inloggningar först när admin har slagit på det under _Inställningar → Integrationer → Inloggning med Microsoft_. Då kopplas appens tenant till skolan (`School.EntraTenantId`, en tenant per skola). `GET /api/schools/{id}/microsoft` visar läget (`configured`, `linked`, `tenantId`), `PUT` kopplar (`404` när `Auth:Entra` saknas, `409` när en annan skola redan har tenanten) och `DELETE` kopplar loss. Bara admin i skolan.
 
 På _Användare_ visar kolumnen _Microsoft_ vem som har loggat in med Microsoft. _Koppla bort Microsoft_ i menyn `⋯` (`DELETE /api/users/{id}/microsoft`) tömmer `ExternalId`, till exempel när skolans IT har skapat om någons konto. Nästa inloggning kopplar det nya kontot på e-postadressen. Admins _Idag_ listar **Elever utan klass**, till exempel de som loggade in första gången utan att adressen matchade en klass.
 
@@ -34,9 +36,9 @@ På _Användare_ visar kolumnen _Microsoft_ vem som har loggat in med Microsoft.
 
 ## Konton
 
-### Demokonton (alla miljöer)
+### Demokonton (Development och demon)
 
-Tre konton läggs in vid varje start, i alla miljöer, och deras lösenord sätts om vid varje start:
+Tre konton läggs in vid varje start i Development och när `Database:SeedDemoData` är `true` (Edugrades demo), och deras lösenord sätts om vid varje start. En ny skolas installation har dem inte, se [deploy.md](deploy.md#en-ny-skola):
 
 | Användarnamn | Lösenord | Roll    |
 | ------------ | -------- | ------- |
@@ -50,7 +52,7 @@ När demodatan nedan finns skapas varken `Demo-klass` eller `Demo-kurs`, och kon
 
 ### Demodata (prod)
 
-Prod fylls med realistisk data för skolan **Edugrade**, så att varje funktion går att visa. Det gör `DemoSeed` (`backend/Infrastructure/Persistence/Seeding/DemoSeed.cs`, innehållet i `DemoCatalog.cs`) vid start, när `Database:SeedDemoData` är `true`. Inställningen ligger i `backend/appsettings.Production.json`, så den gäller i prod (Render sätter `ASPNETCORE_ENVIRONMENT=Production`) utan att någon sätter något för hand, och är av i Development och i testerna. Se [konfiguration.md](konfiguration.md#databas).
+Prod fylls med realistisk data för skolan **Edugrade**, så att varje funktion går att visa. Det gör `DemoSeed` (`backend/Infrastructure/Persistence/Seeding/DemoSeed.cs`, innehållet i `DemoCatalog.cs`) vid start, när `Database:SeedDemoData` är `true`. Inställningen sätts med variabeln `SEED_DEMO_DATA=true` i GitHub-miljön `production`, som deployen gör till `Database__SeedDemoData` på Render. Den är av som standard, i Development och i testerna, så en ny skola får ingen demodata. Se [konfiguration.md](konfiguration.md#databas).
 
 Seeden är additiv och idempotent. Finns klassen `.NET25` (markören) gör den ingenting, och den ändrar eller tar aldrig bort något den inte skapat själv. Undantagen: skolan döps om från `Placeholder-skolan` till `Edugrade`, kontona `larare` och `elev` placeras i `.NET25`, och `Demo-klass` med `Demo-kurs` tas bort om ingen har lämnat in något där (annars lämnas de). Allt sparas i en transaktion. Ett fel loggas men stoppar inte starten.
 

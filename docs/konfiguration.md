@@ -24,11 +24,11 @@ dotnet user-secrets list --project backend
 
 ### Databas
 
-| Nyckel                      | Hemlig | Standard                      | Vad                                                                                                                                                                         |
-| --------------------------- | ------ | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ConnectionStrings:Default` | ja\*   | Docker-Postgres i Development | Connection string i .NET-format. I prod Supabase session pooler (IPv4).                                                                                                     |
-| `Database:SeedDevData`      | nej    | `true` i Development          | Lägger in exempeldata om databasen saknar grupper.                                                                                                                          |
-| `Database:SeedDemoData`     | nej    | `true` i Production           | Lägger in realistisk demodata för Edugrade vid start, en gång. Se [auth-och-behorigheter.md](auth-och-behorigheter.md#demodata-prod). Satt i `appsettings.Production.json`. |
+| Nyckel                      | Hemlig | Standard                      | Vad                                                                                                                                                                      |
+| --------------------------- | ------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ConnectionStrings:Default` | ja\*   | Docker-Postgres i Development | Connection string i .NET-format. I prod Supabase session pooler (IPv4).                                                                                                  |
+| `Database:SeedDevData`      | nej    | `true` i Development          | Lägger in exempeldata om databasen saknar grupper.                                                                                                                       |
+| `Database:SeedDemoData`     | nej    | `false`                       | Lägger in demokontona och realistisk demodata för Edugrade vid start. Se [auth-och-behorigheter.md](auth-och-behorigheter.md#demodata-prod). Sätts med `SEED_DEMO_DATA`. |
 
 \* Lokalt är standardvärdet bara dev-lösenordet till Docker-containern.
 
@@ -42,6 +42,8 @@ dotnet user-secrets list --project backend
 | `Auth:Jwt:Audience`        | nej    | `larka`                  | Ändras inte i praktiken.                                                                 |
 | `Auth:Entra:ClientId`      | nej    | tom                      | Lärkas app i skolans Entra ID. Utan den och `TenantId` finns ingen Microsoft-inloggning. |
 | `Auth:Entra:TenantId`      | nej    | tom                      | Skolans tenant. Bara konton därifrån kan logga in med Microsoft.                         |
+| `Auth:Entra:AdminObjectId` | nej    | tom                      | Den som körde `entra-setup.sh`. Hens första inloggning kopplar skolan och gör hen admin. |
+| `Auth:Entra:SchoolName`    | nej    | tom                      | Organisationens namn. Skolan får det när den kopplas på det sättet.                      |
 
 Ingen av Entra-nycklarna är hemlig. [`infra/entra-setup.sh`](../infra/entra-setup.sh) skapar appen och sparar värdena, se [deploy.md](deploy.md#microsoft-inloggning).
 
@@ -138,25 +140,28 @@ arkivera och hantera elevrepon. Mallrepon ska vara privata och markerade som **T
 
 ## GitHub Actions
 
-| Namn                        | Typ      | Var                 | Används av                            |
-| --------------------------- | -------- | ------------------- | ------------------------------------- |
-| `RENDER_API_KEY`            | secret   | miljön `production` | deploy: Render API                    |
-| `RENDER_SERVICE_ID`         | secret   | miljön `production` | deploy: vilken tjänst                 |
-| `APP_URL`                   | variabel | miljön `production` | deploy: kontroll av `/version`        |
-| `AUTH_JWT_KEY`              | secret   | miljön `production` | → `Auth__Jwt__Key` på Render          |
-| `SUPABASE_URL`              | variabel | miljön `production` | → `Storage__Supabase__Url`            |
-| `SUPABASE_SERVICE_ROLE_KEY` | secret   | miljön `production` | → `Storage__Supabase__ServiceRoleKey` |
-| `ENTRA_CLIENT_ID`           | variabel | miljön `production` | → `Auth__Entra__ClientId` (valfri)    |
-| `ENTRA_TENANT_ID`           | variabel | miljön `production` | → `Auth__Entra__TenantId` (valfri)    |
-| `GH_APP_ID`                 | variabel | miljön `production` | → `GitHub__AppId` (valfri)            |
-| `GH_APP_SLUG`               | variabel | miljön `production` | → `GitHub__AppSlug` (valfri)          |
-| `GH_CLIENT_ID`              | variabel | miljön `production` | → `GitHub__ClientId` (valfri)         |
-| `GH_ORG`                    | variabel | miljön `production` | → `GitHub__Org` (valfri)              |
-| `GH_INSTALLATION_ID`        | variabel | miljön `production` | → `GitHub__InstallationId` (valfri)   |
-| `GH_APP_PRIVATE_KEY`        | secret   | miljön `production` | → `GitHub__PrivateKey` (valfri)       |
-| `GH_CLIENT_SECRET`          | secret   | miljön `production` | → `GitHub__ClientSecret` (valfri)     |
-| `GH_WEBHOOK_SECRET`         | secret   | miljön `production` | → `GitHub__WebhookSecret` (valfri)    |
-| `E2E_BASE_URL`              | variabel | repot               | E2E-workflowen (valfri)               |
+| Namn                        | Typ      | Var                 | Används av                                               |
+| --------------------------- | -------- | ------------------- | -------------------------------------------------------- |
+| `RENDER_API_KEY`            | secret   | miljön `production` | deploy: Render API                                       |
+| `RENDER_SERVICE_ID`         | secret   | miljön `production` | deploy: vilken tjänst                                    |
+| `APP_URL`                   | variabel | miljön `production` | deploy: kontroll av `/version`                           |
+| `AUTH_JWT_KEY`              | secret   | miljön `production` | → `Auth__Jwt__Key` på Render                             |
+| `SUPABASE_URL`              | variabel | miljön `production` | → `Storage__Supabase__Url`                               |
+| `SUPABASE_SERVICE_ROLE_KEY` | secret   | miljön `production` | → `Storage__Supabase__ServiceRoleKey`                    |
+| `ENTRA_CLIENT_ID`           | variabel | miljön `production` | → `Auth__Entra__ClientId` (valfri)                       |
+| `ENTRA_TENANT_ID`           | variabel | miljön `production` | → `Auth__Entra__TenantId` (valfri)                       |
+| `ENTRA_ADMIN_OBJECT_ID`     | variabel | miljön `production` | → `Auth__Entra__AdminObjectId` (valfri)                  |
+| `ENTRA_SCHOOL_NAME`         | variabel | miljön `production` | → `Auth__Entra__SchoolName` (valfri)                     |
+| `SEED_DEMO_DATA`            | variabel | miljön `production` | → `Database__SeedDemoData`, `true` bara i Edugrades demo |
+| `GH_APP_ID`                 | variabel | miljön `production` | → `GitHub__AppId` (valfri)                               |
+| `GH_APP_SLUG`               | variabel | miljön `production` | → `GitHub__AppSlug` (valfri)                             |
+| `GH_CLIENT_ID`              | variabel | miljön `production` | → `GitHub__ClientId` (valfri)                            |
+| `GH_ORG`                    | variabel | miljön `production` | → `GitHub__Org` (valfri)                                 |
+| `GH_INSTALLATION_ID`        | variabel | miljön `production` | → `GitHub__InstallationId` (valfri)                      |
+| `GH_APP_PRIVATE_KEY`        | secret   | miljön `production` | → `GitHub__PrivateKey` (valfri)                          |
+| `GH_CLIENT_SECRET`          | secret   | miljön `production` | → `GitHub__ClientSecret` (valfri)                        |
+| `GH_WEBHOOK_SECRET`         | secret   | miljön `production` | → `GitHub__WebhookSecret` (valfri)                       |
+| `E2E_BASE_URL`              | variabel | repot               | E2E-workflowen (valfri)                                  |
 
 `GITHUB_TOKEN` kommer från Actions och används för semantic-release och för att pusha imagen till GHCR.
 

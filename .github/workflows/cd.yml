@@ -163,6 +163,9 @@ jobs:
           AUTH_JWT_KEY: ${{ secrets.AUTH_JWT_KEY }}
           ENTRA_CLIENT_ID: ${{ vars.ENTRA_CLIENT_ID }}
           ENTRA_TENANT_ID: ${{ vars.ENTRA_TENANT_ID }}
+          ENTRA_ADMIN_OBJECT_ID: ${{ vars.ENTRA_ADMIN_OBJECT_ID }}
+          ENTRA_SCHOOL_NAME: ${{ vars.ENTRA_SCHOOL_NAME }}
+          SEED_DEMO_DATA: ${{ vars.SEED_DEMO_DATA }}
           # GitHub är valfritt: saknas värdena deployar appen utan GitHub-integration.
           GH_APP_ID: ${{ vars.GH_APP_ID }}
           GH_APP_SLUG: ${{ vars.GH_APP_SLUG }}

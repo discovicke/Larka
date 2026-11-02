@@ -27,7 +27,8 @@ public static class AuthEndpoints
         });
 
         // Vilka sätt att logga in som finns. Klienten visar knappen Logga in med Microsoft när Microsoft finns.
-        auth.MapGet("/providers", (MicrosoftSignInService service) => TypedResults.Ok(service.GetProviders()));
+        auth.MapGet("/providers", async (MicrosoftSignInService service, CancellationToken ct) =>
+            TypedResults.Ok(await service.GetProvidersAsync(ct)));
 
         // Byter Microsofts ID-token mot Lärkas token. 401 för ett ogiltigt token, 403 när skolan inte har kopplat
         // Microsoft, kontot är spärrat eller adressen redan används, 404 när Microsoft-inloggning inte är inställd.

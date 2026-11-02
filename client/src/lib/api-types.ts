@@ -6140,9 +6140,13 @@ export interface components {
             /** Format: int64 */
             sizeBytes: number;
         };
-        /** @description Microsoft är null när Microsoft-inloggning inte är inställd, och då visar klienten bara lösenordet. */
+        /**
+         * @description Microsoft är null när Microsoft-inloggning inte är inställd, och då visar klienten bara lösenordet. SchoolName är
+         *     skolans namn, som inloggningssidan visar.
+         */
         AuthProvidersDto: {
             microsoft: null | components["schemas"]["MicrosoftProviderDto"];
+            schoolName: null | string;
         };
         /** @description En rad i kalendern: en deadline eller en publiceringstid för en del. */
         CalendarItemDto: {

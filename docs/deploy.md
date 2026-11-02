@@ -51,6 +51,9 @@ Hemligheterna finns i GitHub-miljön `production`, och deploy-jobbet skickar dem
 | `SUPABASE_SERVICE_ROLE_KEY` | `Storage__Supabase__ServiceRoleKey`                            |
 | `ENTRA_CLIENT_ID`           | `Auth__Entra__ClientId` (bara om båda Entra-variablerna finns) |
 | `ENTRA_TENANT_ID`           | `Auth__Entra__TenantId`                                        |
+| `ENTRA_ADMIN_OBJECT_ID`     | `Auth__Entra__AdminObjectId` (om den finns)                    |
+| `ENTRA_SCHOOL_NAME`         | `Auth__Entra__SchoolName` (om den finns)                       |
+| `SEED_DEMO_DATA`            | `Database__SeedDemoData`, alltid (`false` när den saknas)      |
 
 GitHub är valfritt. Finns värdena nedan skickas de också vid varje deploy, en variabel i taget. Saknas de deployar appen utan GitHub-integration.
 
@@ -67,12 +70,25 @@ GitHub är valfritt. Finns värdena nedan skickas de också vid varje deploy, en
 
 `RENDER_API_KEY`, `RENDER_SERVICE_ID` och `APP_URL` används bara av deploy-jobbet. Alla finns i [konfiguration.md](konfiguration.md#github-actions). Saknas någon av de obligatoriska värdena stoppar deploy-jobbet med ett fel innan något ändras.
 
+## En ny skola
+
+En skola har en egen installation: eget repo, egen Supabase-databas och egen Render-tjänst. Så kommer den igång:
+
+1. Skapa Supabase-projektet och Render-tjänsten ([`infra/render-setup.sh`](../infra/render-setup.sh)) och lägg hemligheterna i miljön `production` (se [Hemligheter](#hemligheter)). Sätt inte `SEED_DEMO_DATA`.
+2. Kör [`infra/entra-setup.sh`](#microsoft-inloggning) inloggad i skolans tenant. Du som kör det blir skolans första admin.
+3. Pusha till `main` (eller kör CD igen) så att deployen sätter värdena på Render.
+4. Logga in med Microsoft. Skolan kopplas till tenanten, får organisationens namn, och du blir admin.
+
+Sedan loggar alla andra in med Microsoft och blir elever, i klassen som adressen slutar på om den finns. Admin gör lärare och mentorer under _Användare_.
+
+En ny installation har inga konton med kända lösenord och ingen demodata. Demokontona (`admin`, `larare`, `elev`) och Edugrades demodata finns bara när `SEED_DEMO_DATA` är `true`, som i vår demo, och lokalt i Development.
+
 ## Microsoft-inloggning
 
-Skolans Entra-admin sätter upp inloggningen med Microsoft en gång, med [`infra/entra-setup.sh`](../infra/entra-setup.sh):
+Skolans Entra-admin, eller någon i skolan om skolan låter användare registrera appar, sätter upp inloggningen med Microsoft en gång, med [`infra/entra-setup.sh`](../infra/entra-setup.sh):
 
 ```bash
-az login          # som admin i skolans tenant
+az login          # i skolans tenant
 gh auth login     # med rätt att ändra miljön production
 infra/entra-setup.sh
 ```
@@ -84,7 +100,9 @@ Skriptet registrerar Lärka i skolans Entra ID, eller uppdaterar registreringen 
 - bara inloggningsbehörigheterna `openid`, `profile`, `email` och `offline_access`, och ingen hemlighet
 - samtycke för hela organisationen om den som kör är admin. Annars godkänner varje användare själv vid första inloggningen, vilket skolans standardregler brukar tillåta för just inloggning
 
-Sist sparas `ENTRA_CLIENT_ID` och `ENTRA_TENANT_ID` i miljön `production`, och nästa deploy sätter dem på Render. Klienten hämtar dem från API:et, så ingen ny build behövs. `SKIP_GITHUB=1` skriver bara ut värdena.
+Sist sparas `ENTRA_CLIENT_ID`, `ENTRA_TENANT_ID`, `ENTRA_ADMIN_OBJECT_ID` (ditt object id) och `ENTRA_SCHOOL_NAME` (organisationens namn, eller `SCHOOL_NAME` om du sätter den) i miljön `production`, och nästa deploy sätter dem på Render. Klienten hämtar dem från API:et, så ingen ny build behövs. `SKIP_GITHUB=1` skriver bara ut värdena.
+
+Appregistreringen är ingen Azure-resurs och syns inte under _Resources_ i Azure-portalen. Den ligger i skolans Entra ID och kostar ingenting. Spärrar skolan Entra-portalen för vanliga användare fungerar skriptet ändå, eftersom det går via Microsoft Graph.
 
 ## Versioner
 

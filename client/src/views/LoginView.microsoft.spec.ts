@@ -8,7 +8,7 @@ import {signOutForTests} from '@/test/auth'
 import LoginView from './LoginView.vue'
 
 const microsoft = vi.hoisted(() => ({
-  fetchMicrosoftSettings: vi.fn(),
+  fetchAuthProviders: vi.fn(),
   startMicrosoftSignIn: vi.fn(),
   finishMicrosoftSignIn: vi.fn(),
 }))
@@ -36,7 +36,7 @@ async function render(path = '/login') {
 
 beforeEach(() => {
   signOutForTests()
-  microsoft.fetchMicrosoftSettings.mockReset().mockResolvedValue(settings)
+  microsoft.fetchAuthProviders.mockReset().mockResolvedValue({microsoft: settings, schoolName: 'Edugrade'})
   microsoft.startMicrosoftSignIn.mockReset().mockResolvedValue(undefined)
   microsoft.finishMicrosoftSignIn.mockReset().mockResolvedValue(null)
   // Som när Microsoft skickar tillbaka till /login. Testerna utan svar tar bort det.
@@ -53,12 +53,21 @@ describe('LoginView med Microsoft', () => {
   })
 
   it('visar bara lösenordet när skolan inte har Microsoft', async () => {
-    microsoft.fetchMicrosoftSettings.mockResolvedValue(null)
+    microsoft.fetchAuthProviders.mockResolvedValue({microsoft: null, schoolName: 'Edugrade'})
 
     const {wrapper} = await render()
 
     expect(wrapper.find('[data-test="microsoft-sign-in"]').exists()).toBe(false)
     expect(microsoft.finishMicrosoftSignIn).not.toHaveBeenCalled()
+  })
+
+  it('visar skolans namn från API:et', async () => {
+    microsoft.fetchAuthProviders.mockResolvedValue({microsoft: settings, schoolName: 'Nya skolan'})
+
+    const {wrapper} = await render()
+
+    expect(wrapper.find('[data-test="login-school"]').text()).toBe('Nya skolan')
+    expect(wrapper.text()).not.toContain('Edugrade')
   })
 
   it('tar inte emot något när sidan inte öppnades av Microsoft', async () => {

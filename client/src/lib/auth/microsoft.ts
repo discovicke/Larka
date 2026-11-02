@@ -37,10 +37,20 @@ function msal(settings: MicrosoftSettings): Promise<PublicClientApplication> {
   return client
 }
 
+export interface AuthProviders {
+  microsoft: MicrosoftSettings | null
+  schoolName: string | null
+}
+
+/** Inloggningssättet och skolans namn, som inloggningssidan visar innan någon är inloggad. */
+export async function fetchAuthProviders(): Promise<AuthProviders> {
+  const {data} = await api.GET('/api/auth/providers')
+  return {microsoft: data?.microsoft ?? null, schoolName: data?.schoolName ?? null}
+}
+
 /** Microsoft-inloggningens inställningar, eller null när skolan bara har lösenord. */
 export async function fetchMicrosoftSettings(): Promise<MicrosoftSettings | null> {
-  const {data} = await api.GET('/api/auth/providers')
-  return data?.microsoft ?? null
+  return (await fetchAuthProviders()).microsoft
 }
 
 /** Skickar webbläsaren till Microsoft. returnTo är sidan som ska öppnas efter inloggningen. */

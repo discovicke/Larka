@@ -11,7 +11,10 @@ public record MicrosoftLoginDto(string IdToken);
 /// <summary>Lärkas token, som vid inloggning med lösenord. FirstSignIn är sant när användaren loggar in första gången.</summary>
 public record MicrosoftLoginResultDto(string AccessToken, DateTimeOffset ExpiresAt, bool FirstSignIn);
 
-/// <summary>Microsoft är null när Microsoft-inloggning inte är inställd, och då visar klienten bara lösenordet.</summary>
-public record AuthProvidersDto(MicrosoftProviderDto? Microsoft);
+/// <summary>
+/// Microsoft är null när Microsoft-inloggning inte är inställd, och då visar klienten bara lösenordet. SchoolName är
+/// skolans namn, som inloggningssidan visar.
+/// </summary>
+public record AuthProvidersDto(MicrosoftProviderDto? Microsoft, string? SchoolName);
 
 public record MicrosoftProviderDto(string ClientId, string TenantId);
