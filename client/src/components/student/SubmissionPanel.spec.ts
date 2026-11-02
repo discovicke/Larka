@@ -141,6 +141,24 @@ describe('SubmissionPanel', () => {
     expect(wrapper.emitted('submitted')).toHaveLength(1)
   })
 
+  it('visar repo-inlämning även när uppgiften också tar text', async () => {
+    backend()
+    const wrapper = await show({submissionModes: ['Repo', 'Text'], hasRepoMode: true})
+
+    expect(wrapper.find('[data-test="repo-submission"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="repo-submission-submit"]').text()).toContain('Lämna in senaste commit')
+    expect(wrapper.find('[data-test="submission-form"]').exists()).toBe(true)
+  })
+
+  it('visar repo-inlämning även när uppgiften också tar filer', async () => {
+    backend()
+    const wrapper = await show({submissionModes: ['Repo', 'File'], hasRepoMode: true})
+
+    expect(wrapper.find('[data-test="repo-submission"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="repo-submission-submit"]').text()).toContain('Lämna in senaste commit')
+    expect(wrapper.find('[data-test="submission-file-input"]').exists()).toBe(true)
+  })
+
   it('döljer repo-inlämning när repot är låst efter deadline', async () => {
     backend([submissionOf('Submitted', {repo: repoOf({lockedAt: '2026-11-01T12:00:00Z'})})])
     const wrapper = await show({

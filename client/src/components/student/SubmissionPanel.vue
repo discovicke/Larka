@@ -141,7 +141,7 @@ function onFilesChosen(event: Event) {
       <AlertDescription>{{ error }}</AlertDescription>
     </Alert>
 
-    <div v-if="hasRepo && !hasForm" class="flex flex-col gap-2" data-test="repo-submission">
+    <div v-if="hasRepo" class="flex flex-col gap-2" data-test="repo-submission">
       <p v-if="status === 'Submitted'" class="text-muted-foreground text-sm">
         Inlämnad
         <template v-if="submission?.submittedAt">
