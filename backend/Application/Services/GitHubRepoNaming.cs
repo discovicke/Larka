@@ -1,6 +1,8 @@
+using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 using Backend.Domain.Entities;
+using Backend.Domain.Enums;
 
 namespace Backend.Application.Services;
 
@@ -12,6 +14,7 @@ namespace Backend.Application.Services;
 public static partial class GitHubRepoNaming
 {
     public const string DefaultPattern = "{assignmentSlug}-{githubLogin}";
+    public const string DefaultGroupPattern = "{assignmentSlug}-{groupSlug}";
 
     private const int _maxRepoNameLength = 90;
 
@@ -22,7 +25,10 @@ public static partial class GitHubRepoNaming
         "githubLogin",
         "studentEmail",
         "studentName",
-        "studentId"
+        "studentId",
+        "groupName",
+        "groupSlug",
+        "groupNumber"
     };
 
     private static readonly HashSet<string> _uniquePlaceholders = new(StringComparer.OrdinalIgnoreCase)
@@ -32,12 +38,19 @@ public static partial class GitHubRepoNaming
         "studentId"
     };
 
+    private static readonly HashSet<string> _uniqueGroupPlaceholders = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "groupName",
+        "groupSlug",
+        "groupNumber"
+    };
+
     public static string EffectivePattern(string? pattern) =>
         string.IsNullOrWhiteSpace(pattern)
             ? DefaultPattern
             : pattern.Trim();
 
-    public static string? Validate(string? pattern)
+    public static string? Validate(string? pattern, RepoWorkMode workMode = RepoWorkMode.Individual)
     {
         if (string.IsNullOrWhiteSpace(pattern))
         {
@@ -62,9 +75,14 @@ public static partial class GitHubRepoNaming
             return "repoNamePattern contains unknown placeholders: " + string.Join(", ", unknown);
         }
 
-        if (!found.Any(name => _uniquePlaceholders.Contains(name)))
+        var unique = workMode == RepoWorkMode.Group
+            ? _uniqueGroupPlaceholders
+            : _uniquePlaceholders;
+        if (!found.Any(name => unique.Contains(name)))
         {
-            return "repoNamePattern must contain {githubLogin}, {studentEmail} or {studentId}";
+            return workMode == RepoWorkMode.Group
+                ? "repoNamePattern must contain {groupName}, {groupSlug} or {groupNumber}"
+                : "repoNamePattern must contain {githubLogin}, {studentEmail} or {studentId}";
         }
 
         var literals = PlaceholderPattern().Replace(effective, "");
@@ -93,6 +111,26 @@ public static partial class GitHubRepoNaming
                 student.Id),
             usedNames);
 
+    public static string ForGroup(
+        string? pattern,
+        string assignmentTitle,
+        string groupName,
+        int groupNumber,
+        HashSet<string>? usedNames = null) =>
+        Render(
+            string.IsNullOrWhiteSpace(pattern)
+                ? DefaultGroupPattern
+                : pattern,
+            new RepoNameValues(
+                assignmentTitle,
+                null,
+                "Elev",
+                "elev@example.com",
+                Guid.Empty,
+                groupName,
+                groupNumber),
+            usedNames);
+
     public static string Render(
         string? pattern,
         RepoNameValues values,
@@ -110,6 +148,9 @@ public static partial class GitHubRepoNaming
                 "studentemail" => LoginPart(null, values.StudentEmail),
                 "studentname" => values.StudentName,
                 "studentid" => values.StudentId.ToString("N")[..8],
+                "groupname" => values.GroupName ?? "grupp",
+                "groupslug" => Slug(values.GroupName ?? "grupp", 40, "grupp"),
+                "groupnumber" => (values.GroupNumber ?? 1).ToString(CultureInfo.InvariantCulture),
                 _ => ""
             };
         });
@@ -185,6 +226,17 @@ public static partial class GitHubRepoNaming
             return values.StudentId.ToString("N")[..8];
         }
 
+        if (pattern.Contains("{groupName}", StringComparison.OrdinalIgnoreCase)
+            || pattern.Contains("{groupSlug}", StringComparison.OrdinalIgnoreCase))
+        {
+            return Slug(values.GroupName ?? "grupp", 40, "grupp");
+        }
+
+        if (pattern.Contains("{groupNumber}", StringComparison.OrdinalIgnoreCase))
+        {
+            return (values.GroupNumber ?? 1).ToString(CultureInfo.InvariantCulture);
+        }
+
         return null;
     }
 
@@ -207,4 +259,6 @@ public sealed record RepoNameValues(
     string? GitHubLogin,
     string StudentName,
     string StudentEmail,
-    Guid StudentId);
+    Guid StudentId,
+    string? GroupName = null,
+    int? GroupNumber = null);

@@ -104,17 +104,20 @@ public sealed class GitHubLabProvisioner(
             ct);
         var (repoOwner, repoNameFromResponse) = ParseRepo(repository.FullName, nameof(repository.FullName));
 
-        if (!string.IsNullOrWhiteSpace(context.Student.GitHubLogin))
+        foreach (var member in context.GroupMembers ?? [context.Student])
         {
-            await AddCollaboratorAsync(
-                connection, repoOwner, repoNameFromResponse, context.Student.GitHubLogin, ct);
-        }
-        else
-        {
-            logger.LogWarning(
-                "Student {StudentId} has no GitHub login; {Repo} was created without a collaborator",
-                context.Student.Id,
-                repository.FullName);
+            if (!string.IsNullOrWhiteSpace(member.GitHubLogin))
+            {
+                await AddCollaboratorAsync(
+                    connection, repoOwner, repoNameFromResponse, member.GitHubLogin, ct);
+            }
+            else
+            {
+                logger.LogWarning(
+                    "Student {StudentId} has no GitHub login; {Repo} was created without a collaborator",
+                    member.Id,
+                    repository.FullName);
+            }
         }
 
         var now = time.GetUtcNow();

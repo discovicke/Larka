@@ -22,6 +22,44 @@ namespace Backend.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Backend.Domain.Entities.AssignmentGroup", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ContentLinkId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContentLinkId", "Position");
+
+                    b.ToTable("AssignmentGroups");
+                });
+
+            modelBuilder.Entity("Backend.Domain.Entities.AssignmentGroupMember", b =>
+                {
+                    b.Property<Guid>("AssignmentGroupId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("AssignmentGroupId", "StudentId");
+
+                    b.HasIndex("StudentId");
+
+                    b.ToTable("AssignmentGroupMembers");
+                });
+
             modelBuilder.Entity("Backend.Domain.Entities.AssignmentRequirement", b =>
                 {
                     b.Property<Guid>("Id")
@@ -632,6 +670,9 @@ namespace Backend.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("SubmissionId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("AssignmentGroupId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("AssignmentTitle")
                         .HasColumnType("text");
 
@@ -711,6 +752,9 @@ namespace Backend.Infrastructure.Persistence.Migrations
 
                     b.HasKey("SubmissionId");
 
+                    b.HasIndex("AssignmentGroupId")
+                        .IsUnique();
+
                     b.ToTable("StudentRepos");
                 });
 
@@ -747,6 +791,9 @@ namespace Backend.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("AssignmentGroupId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("BodyMd")
                         .HasColumnType("text");
 
@@ -764,6 +811,8 @@ namespace Backend.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AssignmentGroupId");
 
                     b.HasIndex("StudentId");
 
@@ -853,6 +902,32 @@ namespace Backend.Infrastructure.Persistence.Migrations
                             Role = "Admin",
                             SchoolId = new Guid("00000000-0000-0000-0000-00000000000a")
                         });
+                });
+
+            modelBuilder.Entity("Backend.Domain.Entities.AssignmentGroup", b =>
+                {
+                    b.HasOne("Backend.Domain.Entities.ContentLink", null)
+                        .WithMany("Groups")
+                        .HasForeignKey("ContentLinkId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Backend.Domain.Entities.AssignmentGroupMember", b =>
+                {
+                    b.HasOne("Backend.Domain.Entities.AssignmentGroup", null)
+                        .WithMany("Members")
+                        .HasForeignKey("AssignmentGroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Backend.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Backend.Domain.Entities.AssignmentRequirement", b =>
@@ -1112,11 +1187,18 @@ namespace Backend.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Backend.Domain.Entities.StudentRepo", b =>
                 {
+                    b.HasOne("Backend.Domain.Entities.AssignmentGroup", "Group")
+                        .WithOne("Repo")
+                        .HasForeignKey("Backend.Domain.Entities.StudentRepo", "AssignmentGroupId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
                     b.HasOne("Backend.Domain.Entities.Submission", null)
                         .WithOne("Repo")
                         .HasForeignKey("Backend.Domain.Entities.StudentRepo", "SubmissionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Group");
                 });
 
             modelBuilder.Entity("Backend.Domain.Entities.StudentRepoCheckRun", b =>
@@ -1130,6 +1212,11 @@ namespace Backend.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Backend.Domain.Entities.Submission", b =>
                 {
+                    b.HasOne("Backend.Domain.Entities.AssignmentGroup", "Group")
+                        .WithMany()
+                        .HasForeignKey("AssignmentGroupId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Backend.Domain.Entities.ContentLink", null)
                         .WithMany()
                         .HasForeignKey("ContentLinkId")
@@ -1141,6 +1228,8 @@ namespace Backend.Infrastructure.Persistence.Migrations
                         .HasForeignKey("StudentId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("Group");
                 });
 
             modelBuilder.Entity("Backend.Domain.Entities.SubmissionFile", b =>
@@ -1161,6 +1250,13 @@ namespace Backend.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Backend.Domain.Entities.AssignmentGroup", b =>
+                {
+                    b.Navigation("Members");
+
+                    b.Navigation("Repo");
+                });
+
             modelBuilder.Entity("Backend.Domain.Entities.AssignmentSpec", b =>
                 {
                     b.Navigation("Requirements");
@@ -1169,6 +1265,11 @@ namespace Backend.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Backend.Domain.Entities.Content", b =>
                 {
                     b.Navigation("Assignment");
+                });
+
+            modelBuilder.Entity("Backend.Domain.Entities.ContentLink", b =>
+                {
+                    b.Navigation("Groups");
                 });
 
             modelBuilder.Entity("Backend.Domain.Entities.StudentRepo", b =>

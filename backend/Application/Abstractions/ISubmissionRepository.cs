@@ -86,8 +86,11 @@ public interface ISubmissionRepository
     Task ReplaceCheckRunsAsync(
         Guid submissionId, IReadOnlyList<StudentRepoCheckRun> runs, CancellationToken ct);
 
-    /// <summary>Elevens redan skapade repon. Används när eleven kopplar GitHub efter utdelningen.</summary>
+    /// <summary>Elevens redan skapade repon, inklusive grupprepon eleven är medlem i.</summary>
     Task<List<StudentRepo>> GetReposForStudentAsync(Guid studentId, CancellationToken ct);
+
+    /// <summary>Alla inlämningar i en projektgrupp. Används när grupprepot låses.</summary>
+    Task<List<Submission>> GetSubmissionsForGroupAsync(Guid groupId, CancellationToken ct);
 
     /// <summary>Antal elevrepon i skolan, för adminöversikten.</summary>
     Task<int> CountReposForSchoolAsync(Guid schoolId, CancellationToken ct);

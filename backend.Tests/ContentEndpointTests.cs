@@ -397,20 +397,170 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     }
 
     [Fact]
-    public async Task CreateRepoAssignment_WithGroupMode_ReturnsBadRequest()
+    public async Task CreateRepoAssignment_WithGroupMode_RequiresGroups()
     {
-        var response = await _client.PostAsJsonAsync("/api/content", new
+        var (courseId, _, _) = await AddCourseWithTwoStudentsAsync();
+        var week = await CreateModuleAsync(courseId, "Vecka 1");
+
+        var response = await _client.PostAsJsonAsync("/api/content/with-link", new
         {
-            type = "assignment",
-            title = "Labb",
-            bodyMd = "",
-            gradeScale = "passFail",
-            submissionModes = new[] { "repo" },
-            templateRepo = "org/template",
-            workMode = "group"
+            content = new
+            {
+                type = "assignment",
+                title = "Labb",
+                bodyMd = "",
+                gradeScale = "passFail",
+                submissionModes = new[] { "repo" },
+                templateRepo = "org/template",
+                workMode = "group",
+                repoNamePattern = "labb-{groupSlug}"
+            },
+            link = new { courseId, moduleId = week.Id }
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateGroupRepoAssignment_CreatesGroupsSubmissionsAndSharedRepo()
+    {
+        var (courseId, firstId, secondId) = await AddCourseWithTwoStudentsAsync();
+        var week = await CreateModuleAsync(courseId, "Vecka 1");
+
+        var response = await _client.PostAsJsonAsync("/api/content/with-link", new
+        {
+            content = new
+            {
+                type = "assignment",
+                title = "Grupplabb",
+                bodyMd = "",
+                status = "published",
+                gradeScale = "passFail",
+                submissionModes = new[] { "repo" },
+                templateRepo = "org/template",
+                workMode = "group",
+                repoNamePattern = "labb-{groupSlug}"
+            },
+            link = new
+            {
+                courseId,
+                moduleId = week.Id,
+                groups = new[]
+                {
+                    new { name = "Grupp ett", studentIds = new[] { firstId } },
+                    new { name = "Grupp tva", studentIds = new[] { secondId } }
+                }
+            }
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<CreatedWithLink>();
+        var linkId = body!.Link.Id;
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var groups = await db.AssignmentGroups
+            .Where(group => group.ContentLinkId == linkId)
+            .OrderBy(group => group.Position)
+            .ToListAsync();
+        Assert.Equal(2, groups.Count);
+        Assert.Equal(["Grupp ett", "Grupp tva"], groups.Select(group => group.Name).ToArray());
+
+        var submissions = await db.Submissions
+            .Where(submission => submission.ContentLinkId == linkId)
+            .OrderBy(submission => submission.StudentId)
+            .ToListAsync();
+        Assert.Equal(2, submissions.Count);
+        Assert.All(submissions, submission => Assert.NotNull(submission.AssignmentGroupId));
+
+        var submissionIds = submissions.Select(submission => submission.Id).ToList();
+        var repos = await db.StudentRepos
+            .Where(repo => submissionIds.Contains(repo.SubmissionId))
+            .OrderBy(repo => repo.AssignmentGroupId)
+            .ToListAsync();
+        Assert.Equal(2, repos.Count);
+        Assert.All(repos, repo => Assert.NotNull(repo.AssignmentGroupId));
+        Assert.Equal(
+            ["labb-grupp-ett", "labb-grupp-tva"],
+            repos.Select(repo => repo.DesiredRepoName!).Order().ToArray());
+    }
+
+    [Fact]
+    public async Task LockGroupRepos_MarksEveryGroupMemberAsSubmitted()
+    {
+        var (courseId, firstId, secondId) = await AddCourseWithTwoStudentsAsync();
+        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var created = await _client.PostAsJsonAsync("/api/content/with-link", new
+        {
+            content = new
+            {
+                type = "assignment",
+                title = "Grupplabb",
+                bodyMd = "",
+                status = "published",
+                gradeScale = "passFail",
+                submissionModes = new[] { "repo" },
+                templateRepo = "org/template",
+                workMode = "group",
+                repoNamePattern = "labb-{groupSlug}"
+            },
+            link = new
+            {
+                courseId,
+                moduleId = week.Id,
+                groups = new[]
+                {
+                    new { name = "Grupp ett", studentIds = new[] { firstId } },
+                    new { name = "Grupp tva", studentIds = new[] { secondId } }
+                }
+            }
+        });
+        created.EnsureSuccessStatusCode();
+        var body = await created.Content.ReadFromJsonAsync<CreatedWithLink>();
+        var linkId = body!.Link.Id;
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var submissions = await db.Submissions
+            .Where(submission => submission.ContentLinkId == linkId)
+            .ToListAsync();
+        var submissionIds = submissions.Select(submission => submission.Id).ToList();
+        var repos = await db.StudentRepos
+            .Where(repo => submissionIds.Contains(repo.SubmissionId))
+            .ToListAsync();
+        Assert.Equal(2, repos.Count);
+        Assert.All(repos, repo => Assert.NotNull(repo.AssignmentGroupId));
+        foreach (var repo in repos)
+        {
+            repo.LastSha = "abc123";
+            repo.ProvisioningState = RepoProvisioningState.Ready;
+        }
+        await db.SaveChangesAsync();
+
+        using (var verifyScope = factory.Services.CreateScope())
+        {
+            var repository = verifyScope.ServiceProvider.GetRequiredService<ISubmissionRepository>();
+            var contexts = await repository.GetRepoContextsForLinkAsync(
+                linkId, DateTimeOffset.UtcNow, CancellationToken.None);
+            Assert.Equal(2, contexts.Count);
+            Assert.All(contexts, context =>
+                Assert.Equal(RepoProvisioningState.Ready, context.Repo.ProvisioningState));
+            Assert.All(contexts, context => Assert.Equal("abc123", context.Repo.LastSha));
+        }
+
+        var response = await _client.PostAsync($"/api/links/{linkId}/repos/lock", null);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        using var afterScope = factory.Services.CreateScope();
+        var afterDb = afterScope.ServiceProvider.GetRequiredService<AppDb>();
+        submissions = await afterDb.Submissions
+            .Where(submission => submission.ContentLinkId == linkId)
+            .ToListAsync();
+        repos = await afterDb.StudentRepos
+            .Where(repo => submissionIds.Contains(repo.SubmissionId))
+            .ToListAsync();
+        Assert.Equal(2, submissions.Count);
+        Assert.All(repos, repo => Assert.Equal("abc123", repo.SubmissionSha));
+        Assert.All(submissions, submission => Assert.Equal(SubmissionStatus.Submitted, submission.Status));
     }
 
     [Fact]
@@ -871,6 +1021,18 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
         return (await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId)).Id;
+    }
+
+    private async Task<(Guid CourseId, Guid FirstStudentId, Guid SecondStudentId)>
+        AddCourseWithTwoStudentsAsync()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
+        var course = await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId, group.Id);
+        var first = await TestData.AddMemberAsync(db, group);
+        var second = await TestData.AddMemberAsync(db, group);
+        return (course.Id, first.Id, second.Id);
     }
 
     private async Task<(Guid GroupId, Guid StudentId)> AddGroupWithStudentAsync()

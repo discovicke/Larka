@@ -43,7 +43,8 @@ public class ContentService(
             return ServiceResult<RepoNamePreviewDto>.Invalid("assignmentTitle is required");
         }
 
-        var patternError = GitHubRepoNaming.Validate(request.Pattern);
+        var workMode = request.WorkMode ?? RepoWorkMode.Individual;
+        var patternError = GitHubRepoNaming.Validate(request.Pattern, workMode);
         if (patternError is not null)
         {
             return ServiceResult<RepoNamePreviewDto>.Invalid(patternError);
@@ -58,10 +59,18 @@ public class ContentService(
             string.IsNullOrWhiteSpace(request.StudentEmail)
                 ? "elev@example.com"
                 : request.StudentEmail,
-            request.StudentId ?? Guid.Empty);
-        var pattern = GitHubRepoNaming.EffectivePattern(request.Pattern);
+            request.StudentId ?? Guid.Empty,
+            string.IsNullOrWhiteSpace(request.GroupName)
+                ? "Grupp 1"
+                : request.GroupName,
+            request.GroupNumber ?? 1);
+        var effectivePattern = workMode == RepoWorkMode.Group
+            && string.IsNullOrWhiteSpace(request.Pattern)
+                ? GitHubRepoNaming.DefaultGroupPattern
+                : request.Pattern;
+        var pattern = GitHubRepoNaming.EffectivePattern(effectivePattern);
         return ServiceResult<RepoNamePreviewDto>.Ok(
-            new RepoNamePreviewDto(GitHubRepoNaming.Render(request.Pattern, values), pattern));
+            new RepoNamePreviewDto(GitHubRepoNaming.Render(effectivePattern, values), pattern));
     }
 
     // Typ, status och läge är enums i DTO:n, så okända värden stoppas redan när JSON läses in (400).

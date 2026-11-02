@@ -29,6 +29,12 @@ export async function fetchCourseContent(courseId: string, type?: 'news') {
   return data ?? []
 }
 
+/** Kursens elever, för gruppindelning. */
+export async function fetchCourseStudents(courseId: string) {
+  const {data} = await api.GET('/api/courses/{id}/students', {params: {path: {id: courseId}}})
+  return data ?? []
+}
+
 /** Lärarens kurser med det som väntar på bedömning. */
 export async function fetchTeaching() {
   return unwrap(await api.GET('/api/me/teaching'))

@@ -44,6 +44,9 @@ public record AddCourseTeacherDto(Guid UserId);
 /// <summary>Elev i kursen som ännu inte har kopplat ett GitHub-konto.</summary>
 public record UnlinkedGitHubStudentDto(Guid Id, string Name, string Email);
 
+/// <summary>Elev i kursen, för gruppindelning och översikter.</summary>
+public record CourseStudentDto(Guid Id, string Name, string Email, string? GitHubLogin);
+
 // Kursomgången ligger i samma skola som källkursen. Klassen är den som ska läsa den.
 public record CreateCourseRunDto(
     string? Code,

@@ -198,9 +198,9 @@ function filterClass(value: Filter) {
     : 'text-muted-foreground'
 }
 
-const cloneCommands = computed(() => props.submissions
+const cloneCommands = computed(() => [...new Set(props.submissions
   .map((submission) => submission.repo?.repoFullName)
-  .filter((repo): repo is string => Boolean(repo))
+  .filter((repo): repo is string => Boolean(repo)))]
   .map((repo) => `git clone https://github.com/${repo}.git`)
   .join('\n'))
 
@@ -392,7 +392,17 @@ function rowBorder(index: number) {
               data-test="submission-row"
             >
               <td class="px-4 py-3 max-md:border-b-0 max-md:p-0" :class="rowBorder(index)">
-                <div class="font-medium">{{ nameOf(submission) }}</div>
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <span class="font-medium">{{ nameOf(submission) }}</span>
+                  <Badge
+                    v-if="submission.group"
+                    variant="outline"
+                    class="h-5 rounded-[4px] px-1.5 text-[11px]"
+                    data-test="group-name"
+                  >
+                    {{ submission.group.name }}
+                  </Badge>
+                </div>
                 <a
                   v-if="repoUrl(submission)"
                   :href="repoUrl(submission)!"

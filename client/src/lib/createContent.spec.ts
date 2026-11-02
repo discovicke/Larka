@@ -52,6 +52,26 @@ describe('toRequests', () => {
     expect(link.dueAt).toBe(new Date('2026-11-01T10:00').toISOString())
   })
 
+  it('grupprepo skickar gruppindelningen med länken', () => {
+    const {content, link} = toRequests(form({
+      partType: 'Submission',
+      submissionModes: ['Repo'],
+      templateRepo: 'org/mall',
+      workMode: 'Group',
+      repoNamePattern: 'labb-{groupSlug}',
+      groups: [
+        {name: 'Grupp ett', studentIds: ['s1', 's2']},
+        {name: 'Grupp två', studentIds: ['s3']},
+      ],
+    }), 'Published', target)
+
+    expect(content.workMode).toBe('Group')
+    expect(link.groups).toEqual([
+      {name: 'Grupp ett', studentIds: ['s1', 's2']},
+      {name: 'Grupp två', studentIds: ['s3']},
+    ])
+  })
+
   it('krav skickas med repo-uppgiften', () => {
     const {content} = toRequests(form({
       partType: 'Submission',
@@ -138,6 +158,45 @@ describe('validate', () => {
     expect(errors.repoNamePattern).toContain('{githubLogin}')
   })
 
+  it('grupprepo kräver grupper och grupplatshållare', () => {
+    const errors = validate(form({
+      partType: 'Submission',
+      submissionModes: ['Repo'],
+      templateRepo: 'org/mall',
+      workMode: 'Group',
+      repoNamePattern: 'labb-{assignmentSlug}',
+    }))
+
+    expect(errors.repoNamePattern).toContain('{groupSlug}')
+    expect(errors.groups).toContain('grupp')
+  })
+
+  it('grupprepo kräver att alla elever i kursen är med', () => {
+    const errors = validate(form({
+      partType: 'Submission',
+      submissionModes: ['Repo'],
+      templateRepo: 'org/mall',
+      workMode: 'Group',
+      repoNamePattern: 'labb-{groupSlug}',
+      groups: [{name: 'Grupp ett', studentIds: ['s1']}],
+    }), true, ['s1', 's2'])
+
+    expect(errors.groups).toContain('Alla elever')
+  })
+
+  it('grupprepo kräver minst en elev i varje grupp', () => {
+    const errors = validate(form({
+      partType: 'Submission',
+      submissionModes: ['Repo'],
+      templateRepo: 'org/mall',
+      workMode: 'Group',
+      repoNamePattern: 'labb-{groupSlug}',
+      groups: [{name: 'Grupp ett', studentIds: []}],
+    }))
+
+    expect(errors.groups).toContain('minst en elev')
+  })
+
   it('ett ifyllt formulär har inga fel', () => {
     expect(validate(form({partType: 'Submission', publishAt: '2026-11-01T08:00', dueAt: '2026-11-02T08:00'}))).toEqual({})
   })
@@ -151,5 +210,10 @@ describe('publishSteps', () => {
       'Varje elev får ett eget privat repo från mallen. Du och eleven får åtkomst.',
       'Vid deadline hamnar inlämningarna under Att bedöma.',
     ])
+    expect(publishSteps(form({
+      partType: 'Submission',
+      submissionModes: ['Repo'],
+      workMode: 'Group',
+    }))).toContain('Eleverna delas in i grupper och varje grupp får ett gemensamt privat repo.')
   })
 })

@@ -154,7 +154,7 @@ public class StudentSupportService(
         DateTimeOffset now,
         GitHubSupportOptions settings)
     {
-        var repo = submission.Repo;
+        var repo = submission.Repo ?? submission.Group?.Repo;
         var started = repo is not null
             && (repo.InitialSha is not null
                 ? repo.LastSha != repo.InitialSha

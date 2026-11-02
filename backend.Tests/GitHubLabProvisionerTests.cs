@@ -235,6 +235,46 @@ public class GitHubLabProvisionerTests
     }
 
     [Fact]
+    public async Task ProvisionOneAsync_GroupRepo_InvitesEveryMember()
+    {
+        var github = new FakeGitHubAppService();
+        var provisioner = CreateProvisioner(github);
+        var leader = new User
+        {
+            Id = Guid.NewGuid(),
+            SchoolId = _schoolId,
+            Name = "Alice",
+            Email = "alice@example.com",
+            GitHubLogin = "alice"
+        };
+        var member = new User
+        {
+            Id = Guid.NewGuid(),
+            SchoolId = _schoolId,
+            Name = "Bob",
+            Email = "bob@example.com",
+            GitHubLogin = "bob"
+        };
+        var repo = new StudentRepo
+        {
+            SubmissionId = Guid.NewGuid(),
+            AssignmentGroupId = Guid.NewGuid(),
+            TemplateRepo = "EduEdugrade-Sandbox/Template",
+            AssignmentTitle = "Grupplabb",
+            DesiredRepoName = "grupplabb-grupp-ett"
+        };
+
+        await provisioner.ProvisionOneAsync(
+            new RepoProvisioningContext(repo, leader, [leader, member]),
+            CancellationToken.None);
+
+        Assert.Equal(RepoProvisioningState.Ready, repo.ProvisioningState);
+        Assert.Equal(2, github.Collaborators.Count);
+        Assert.Contains(github.Collaborators, collaborator => collaborator.Username == "alice");
+        Assert.Contains(github.Collaborators, collaborator => collaborator.Username == "bob");
+    }
+
+    [Fact]
     public async Task ReopenForResubmissionAsync_UnarchivesTheRepo()
     {
         var github = new FakeGitHubAppService();
@@ -373,6 +413,10 @@ public class GitHubLabProvisionerTests
 
         public Task<List<StudentRepo>> GetReposForStudentAsync(
             Guid studentId, CancellationToken ct) => Task.FromResult(Repos);
+
+        public Task<List<Submission>> GetSubmissionsForGroupAsync(
+            Guid groupId, CancellationToken ct) =>
+            throw new NotSupportedException();
 
         public Task<Submission?> GetAsync(Guid id, CancellationToken ct) =>
             throw new NotSupportedException();

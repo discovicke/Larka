@@ -2519,6 +2519,69 @@
         }
       }
     },
+    "/api/courses/{id}/students": {
+      "get": {
+        "tags": [
+          "Courses"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CourseStudentDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/courses/{id}/students/unlinked-github": {
       "get": {
         "tags": [
@@ -5326,6 +5389,65 @@
         },
         "description": "En användare som inte kan logga in. GroupId är en klass hen går i, om hen går i någon."
       },
+      "AssignmentGroupDto": {
+        "required": [
+          "id",
+          "name",
+          "members"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AssignmentGroupMemberDto"
+            }
+          }
+        }
+      },
+      "AssignmentGroupInput": {
+        "required": [
+          "name",
+          "studentIds"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "studentIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "description": "Projektgrupp vid skapandet av en gruppuppgift. Alla elev-id:n måste finnas i kursen."
+      },
+      "AssignmentGroupMemberDto": {
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "AssignmentRequirementDto": {
         "required": [
           "id",
@@ -5964,6 +6086,34 @@
         },
         "description": "En lärare i kursen, med namnen på grupperna som läser kursen."
       },
+      "CourseStudentDto": {
+        "required": [
+          "id",
+          "name",
+          "email",
+          "gitHubLogin"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "gitHubLogin": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "description": "Elev i kursen, för gruppindelning och översikter."
+      },
       "CourseTeacherDto": {
         "required": [
           "userId",
@@ -6134,6 +6284,15 @@
           "isPinned": {
             "type": "boolean",
             "default": false
+          },
+          "groups": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/AssignmentGroupInput"
+            }
           }
         }
       },
@@ -7471,6 +7630,29 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "workMode": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RepoWorkMode"
+              }
+            ]
+          },
+          "groupName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupNumber": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
           }
         },
         "description": "Förhandsvisning av reponamn. Värdena är exempel som läraren ser i formuläret."
@@ -7747,6 +7929,16 @@
               },
               {
                 "$ref": "#/components/schemas/StudentRepoDto"
+              }
+            ]
+          },
+          "group": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AssignmentGroupDto"
               }
             ]
           }
@@ -8261,6 +8453,16 @@
               },
               {
                 "$ref": "#/components/schemas/StudentSupportDto"
+              }
+            ]
+          },
+          "group": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AssignmentGroupDto"
               }
             ]
           }

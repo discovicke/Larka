@@ -11,6 +11,7 @@ import {
 import {type Component, computed, onMounted, reactive, ref, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 
+import AssignmentGroupEditor from '@/components/course/AssignmentGroupEditor.vue'
 import AttachmentList from '@/components/course/AttachmentList.vue'
 import ContentFormFields from '@/components/course/ContentFormFields.vue'
 import PageActions from '@/components/layout/PageActions.vue'
@@ -26,14 +27,17 @@ import {ApiError, api, errorMessage, type Schema} from '@/lib/api'
 import {partTypeOf} from '@/lib/content'
 import {createContentWithLink, fetchContent, updateContent, updateContentLink} from '@/lib/contentApi'
 import {
+  defaultGroupRepoNamePattern,
   defaultRepoNamePattern,
   emptyForm,
   publishSteps,
   toRequests,
   toUpdateRequests,
+  usesGroupRepo,
   usesRepo,
   validate,
 } from '@/lib/createContent'
+import {fetchCourseStudents} from '@/lib/coursesApi'
 import {toDateTimeLocal} from '@/lib/form'
 import {
   fetchGitHubTemplateCommit,
@@ -78,6 +82,9 @@ const unlinkedStudents = ref<UnlinkedGitHubStudent[]>([])
 const unlinkedStudentsLoading = ref(false)
 const unlinkedStudentsError = ref('')
 const showUnlinkedStudents = ref(false)
+const courseStudents = ref<Schema<'CourseStudentDto'>[]>([])
+const courseStudentsLoading = ref(false)
+const courseStudentsError = ref('')
 const linkId = computed(() => route.params.linkId
   ? String(route.params.linkId)
   : null)
@@ -88,7 +95,7 @@ const form = reactive(emptyForm())
 // Felen visas först när läraren försökt spara.
 const triedToSave = ref(false)
 const errors = computed(() => triedToSave.value
-  ? validate(form)
+  ? validate(form, !isEditing.value, courseStudents.value.map((student) => student.id))
   : {})
 const saving = ref(false)
 const serverError = ref('')
@@ -189,7 +196,7 @@ async function loadRequirementsFromTemplate() {
       isManual: false,
     }))
     if (tests.length === 0) {
-      requirementsError.value = 'Hittade inga workflow-namn i mallen.'
+      requirementsError.value = 'Hittade inga jobbnamn i mallen.'
     }
   } catch (exception) {
     requirementsError.value = errorMessage(exception)
@@ -213,6 +220,13 @@ async function loadRepoNamePreview() {
         assignmentTitle: form.title.trim() || 'Uppgift',
         gitHubLogin: me.value?.gitHubLogin ?? 'elev',
         studentName: me.value?.name ?? 'Elev',
+        workMode: form.workMode,
+        groupName: form.workMode === 'Group'
+          ? 'grupp-1'
+          : null,
+        groupNumber: form.workMode === 'Group'
+          ? 1
+          : null,
       },
     })
     repoNamePreview.value = data ?? null
@@ -221,6 +235,23 @@ async function loadRepoNamePreview() {
     repoNamePreviewError.value = errorMessage(exception)
   } finally {
     repoNamePreviewLoading.value = false
+  }
+}
+
+async function loadCourseStudents() {
+  courseStudentsError.value = ''
+  if (!githubEnabled.value || !usesGroupRepo(form)) {
+    courseStudents.value = []
+    return
+  }
+
+  courseStudentsLoading.value = true
+  try {
+    courseStudents.value = await fetchCourseStudents(courseId)
+  } catch (exception) {
+    courseStudentsError.value = errorMessage(exception)
+  } finally {
+    courseStudentsLoading.value = false
   }
 }
 
@@ -245,7 +276,7 @@ watch(() => form.templateRepo, (fullName) => {
   void loadTemplateCommit(fullName)
 })
 
-watch([() => form.repoNamePattern, () => form.title], () => {
+watch([() => form.repoNamePattern, () => form.title, () => form.workMode], () => {
   if (usesRepo(form)) {
     void loadRepoNamePreview()
   }
@@ -260,6 +291,18 @@ watch(() => usesRepo(form), (repoMode) => {
 watch(() => usesRepo(form), (repoMode) => {
   if (repoMode) {
     void loadTemplates()
+  }
+})
+
+watch(() => form.workMode, (mode, previous) => {
+  const pattern = form.repoNamePattern.trim()
+  if (pattern === defaultRepoNamePattern && mode === 'Group') {
+    form.repoNamePattern = defaultGroupRepoNamePattern
+  } else if (pattern === defaultGroupRepoNamePattern && mode === 'Individual' && previous === 'Group') {
+    form.repoNamePattern = defaultRepoNamePattern
+  }
+  if (mode === 'Group') {
+    void loadCourseStudents()
   }
 })
 
@@ -301,6 +344,7 @@ async function load() {
     form.submissionModes = content.assignment?.submissionModes ?? []
     form.templateRepo = content.assignment?.templateRepo ?? ''
     form.repoNamePattern = content.assignment?.repoNamePattern ?? defaultRepoNamePattern
+    form.workMode = content.assignment?.workMode ?? 'Individual'
     form.requirements = (content.assignment?.requirements ?? []).map((requirement) => ({
       title: requirement.title,
       testPattern: requirement.testPattern ?? '',
@@ -325,12 +369,19 @@ onMounted(async () => {
     await loadTemplateCommit(form.templateRepo)
     await loadRepoNamePreview()
     await loadUnlinkedStudents()
+    if (usesGroupRepo(form)) {
+      await loadCourseStudents()
+    }
   }
 })
 
 async function save(status: Schema<'ContentStatus'> = 'Published') {
   triedToSave.value = true
-  if (Object.keys(validate(form)).length > 0) {
+  if (Object.keys(validate(
+    form,
+    !isEditing.value,
+    courseStudents.value.map((student) => student.id),
+  )).length > 0) {
     return
   }
 
@@ -415,9 +466,47 @@ async function save(status: Schema<'ContentStatus'> = 'Published') {
           <PhGithubLogo class="size-5"/>
           <div class="flex flex-col">
             <h2 class="text-base">GitHub-inställningar</h2>
-            <span class="text-muted-foreground text-[13px]">Varje elev får ett eget privat repo från din mall</span>
+            <span class="text-muted-foreground text-[13px]">
+              {{ usesGroupRepo(form)
+                ? 'Varje grupp får ett gemensamt privat repo från din mall'
+                : 'Varje elev får ett eget privat repo från din mall' }}
+            </span>
           </div>
         </div>
+
+        <Field>
+          <FieldLabel for="repo-work-mode">Arbetssätt</FieldLabel>
+          <NativeSelect
+            id="repo-work-mode"
+            v-model="form.workMode"
+            :disabled="isEditing"
+            data-test="repo-work-mode"
+          >
+            <NativeSelectOption value="Individual">Individuella repon</NativeSelectOption>
+            <NativeSelectOption value="Group">Grupprepon</NativeSelectOption>
+          </NativeSelect>
+          <p v-if="isEditing" class="text-muted-foreground text-xs">
+            Arbetssätt och gruppindelning kan inte ändras efter att uppgiften skapats.
+          </p>
+        </Field>
+
+        <template v-if="usesGroupRepo(form)">
+          <div v-if="isEditing" class="rounded-lg border border-dashed p-3 text-xs">
+            <p class="font-medium">Gruppindelningen är låst</p>
+            <p class="text-muted-foreground">
+              Grupperna skapades när uppgiften delades ut. Repon och medlemmarna påverkas inte av en
+              redigering här.
+            </p>
+          </div>
+          <AssignmentGroupEditor
+            v-else
+            v-model="form.groups"
+            :students="courseStudents"
+            :loading="courseStudentsLoading"
+            :error="errors.groups || courseStudentsError"
+          />
+        </template>
+
         <Field :data-invalid="!!errors.templateRepo">
           <FieldLabel for="template-repo">Mallrepo</FieldLabel>
           <p v-if="templatesLoading" class="text-muted-foreground text-[13px]" data-test="template-loading">
@@ -496,20 +585,33 @@ async function save(status: Schema<'ContentStatus'> = 'Published') {
           </p>
         </Field>
         <Field :data-invalid="!!errors.repoNamePattern">
-          <FieldLabel for="repo-name-pattern">Namn på elevernas repon</FieldLabel>
+          <FieldLabel for="repo-name-pattern">
+            {{ usesGroupRepo(form)
+              ? 'Namn på gruppernas repon'
+              : 'Namn på elevernas repon' }}
+          </FieldLabel>
           <Input
             id="repo-name-pattern"
             v-model="form.repoNamePattern"
             class="font-mono text-[13px]"
-            placeholder="{assignmentSlug}-{githubLogin}"
+            :placeholder="usesGroupRepo(form)
+              ? defaultGroupRepoNamePattern
+              : defaultRepoNamePattern"
             :aria-invalid="!!errors.repoNamePattern"
           />
           <p class="text-muted-foreground text-xs">
             Använd platshållarna
             <code class="font-mono">{assignmentSlug}</code>,
-            <code class="font-mono">{githubLogin}</code>,
-            <code class="font-mono">{studentEmail}</code> eller
-            <code class="font-mono">{studentId}</code>.
+            <template v-if="usesGroupRepo(form)">
+              <code class="font-mono">{groupName}</code>,
+              <code class="font-mono">{groupSlug}</code> eller
+              <code class="font-mono">{groupNumber}</code>.
+            </template>
+            <template v-else>
+              <code class="font-mono">{githubLogin}</code>,
+              <code class="font-mono">{studentEmail}</code> eller
+              <code class="font-mono">{studentId}</code>.
+            </template>
           </p>
           <FieldError v-if="errors.repoNamePattern">{{ errors.repoNamePattern }}</FieldError>
           <p

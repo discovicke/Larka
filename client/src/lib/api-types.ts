@@ -2723,6 +2723,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/courses/{id}/students": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CourseStudentDto"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/courses/{id}/students/unlinked-github": {
         parameters: {
             query?: never;
@@ -5335,6 +5399,22 @@ export interface components {
             groupId: null | string;
             groupName: null | string;
         };
+        AssignmentGroupDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            members: components["schemas"]["AssignmentGroupMemberDto"][];
+        };
+        /** @description Projektgrupp vid skapandet av en gruppuppgift. Alla elev-id:n måste finnas i kursen. */
+        AssignmentGroupInput: {
+            name: string;
+            studentIds: string[];
+        };
+        AssignmentGroupMemberDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
         AssignmentRequirementDto: {
             /** Format: uuid */
             id: string;
@@ -5522,6 +5602,14 @@ export interface components {
             email: string;
             groups: string[];
         };
+        /** @description Elev i kursen, för gruppindelning och översikter. */
+        CourseStudentDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            email: string;
+            gitHubLogin: null | string;
+        };
         /** @description En lärare i kursen, som admin ser den. */
         CourseTeacherDto: {
             /** Format: uuid */
@@ -5560,6 +5648,7 @@ export interface components {
             dueAt?: null | string;
             /** @default false */
             isPinned: boolean;
+            groups?: null | components["schemas"]["AssignmentGroupInput"][];
         };
         CreateContentWithLinkDto: {
             content: components["schemas"]["CreateContentDto"];
@@ -5931,6 +6020,10 @@ export interface components {
             studentEmail?: null | string;
             /** Format: uuid */
             studentId?: null | string;
+            workMode?: null | components["schemas"]["RepoWorkMode"];
+            groupName?: null | string;
+            /** Format: int32 */
+            groupNumber?: null | number;
         };
         /** @enum {unknown} */
         RepoProvisioningState: "Pending" | "Creating" | "Ready" | "Failed";
@@ -6003,6 +6096,7 @@ export interface components {
             submissionModes: components["schemas"]["SubmissionMode"][];
             requirements: components["schemas"]["AssignmentRequirementDto"][];
             repo: null | components["schemas"]["StudentRepoDto"];
+            group?: null | components["schemas"]["AssignmentGroupDto"];
         };
         StudentHelpStatusDto: {
             requested: boolean;
@@ -6130,6 +6224,7 @@ export interface components {
             repo: null | components["schemas"]["StudentRepoDto"];
             grade: null | components["schemas"]["GradeDto"];
             support: null | components["schemas"]["StudentSupportDto"];
+            group?: null | components["schemas"]["AssignmentGroupDto"];
         };
         /** @description Url är en tidsbegränsad länk som skapas när filen läses, inte något som sparas. */
         SubmissionFileDto: {

@@ -36,7 +36,11 @@ public record CreateContentLinkDto(
     Guid? ModuleId = null,
     DateTimeOffset? PublishAt = null,
     DateTimeOffset? DueAt = null,
-    bool IsPinned = false);
+    bool IsPinned = false,
+    List<AssignmentGroupInput>? Groups = null);
+
+/// <summary>Projektgrupp vid skapandet av en gruppuppgift. Alla elev-id:n måste finnas i kursen.</summary>
+public record AssignmentGroupInput(string Name, List<Guid> StudentIds);
 
 public record CreateCommentDto(string BodyMd);
 
@@ -64,7 +68,10 @@ public record RepoNamePreviewRequest(
     string? GitHubLogin = null,
     string? StudentName = null,
     string? StudentEmail = null,
-    Guid? StudentId = null);
+    Guid? StudentId = null,
+    RepoWorkMode? WorkMode = null,
+    string? GroupName = null,
+    int? GroupNumber = null);
 
 public record RepoNamePreviewDto(string Name, string Pattern);
 

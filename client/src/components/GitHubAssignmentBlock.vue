@@ -20,6 +20,8 @@ const props = withDefaults(
     hasRepoMode?: boolean
     gitHubLogin?: string | null
     repoUrl?: string | null
+    groupName?: string | null
+    groupMembers?: string[]
     latestCommit?: string | null
     checkStatus?: 'Pending' | 'Green' | 'Red' | null
     lockedAt?: string | null
@@ -36,6 +38,8 @@ const props = withDefaults(
     hasRepoMode: true,
     gitHubLogin: null,
     repoUrl: null,
+    groupName: null,
+    groupMembers: () => [],
     latestCommit: null,
     checkStatus: null,
     lockedAt: null,
@@ -238,6 +242,14 @@ async function handleConnect() {
       class="flex flex-col gap-3 text-sm"
       data-test="github-repo-ready"
     >
+      <div v-if="groupName" class="flex flex-col gap-1" data-test="student-group">
+        <span class="text-muted-foreground text-xs">Din grupp</span>
+        <span class="text-sm font-medium">{{ groupName }}</span>
+        <span v-if="groupMembers.length > 0" class="text-muted-foreground text-xs">
+          {{ groupMembers.join(', ') }}
+        </span>
+      </div>
+
       <div class="flex flex-col gap-1">
         <span class="text-muted-foreground text-xs">Ditt repo</span>
         <a

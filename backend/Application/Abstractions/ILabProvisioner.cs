@@ -11,8 +11,12 @@ public record RepoRequest(Guid SubmissionId, User Student);
 /// </summary>
 public record StudentRepoContext(StudentRepo Repo, Guid SchoolId);
 
-/// <summary>En pending repo-rad med eleven som ska bjudas in när GitHub-repot har skapats.</summary>
-public record RepoProvisioningContext(StudentRepo Repo, User Student);
+/// <summary>
+/// En pending repo-rad med eleven som ska bjudas in när GitHub-repot har skapats. För grupprepon
+/// innehåller GroupMembers alla elever som ska bjudas in.
+/// </summary>
+public record RepoProvisioningContext(
+    StudentRepo Repo, User Student, IReadOnlyList<User>? GroupMembers = null);
 
 /// <summary>Resultatet av en deadline-låsning. Sha är null när eleven saknade commit före deadline.</summary>
 public record RepoLockResult(bool Locked, string? Sha, DateTimeOffset? CommitAt, string? Error);

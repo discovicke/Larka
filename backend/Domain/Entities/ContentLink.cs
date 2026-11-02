@@ -18,4 +18,7 @@ public class ContentLink : IHasPosition
     public DateTimeOffset PublishAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? DueAt { get; set; }
     public bool IsPinned { get; set; }
+
+    // Projektgrupper för grupprepon. Tom för individuella uppgifter.
+    public List<AssignmentGroup> Groups { get; set; } = [];
 }

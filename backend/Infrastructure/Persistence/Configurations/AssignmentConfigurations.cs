@@ -50,6 +50,8 @@ public class SubmissionConfiguration : IEntityTypeConfiguration<Submission>
             .HasForeignKey<StudentRepo>(repo => repo.SubmissionId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(submission => submission.Grade).WithOne()
             .HasForeignKey<Grade>(grade => grade.SubmissionId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(submission => submission.Group).WithMany()
+            .HasForeignKey(submission => submission.AssignmentGroupId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 
@@ -60,6 +62,32 @@ public class StudentRepoConfiguration : IEntityTypeConfiguration<StudentRepo>
         builder.HasKey(repo => repo.SubmissionId);
         builder.HasMany(repo => repo.CheckRuns).WithOne()
             .HasForeignKey(checkRun => checkRun.SubmissionId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(repo => repo.Group).WithOne(group => group.Repo)
+            .HasForeignKey<StudentRepo>(repo => repo.AssignmentGroupId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasIndex(repo => repo.AssignmentGroupId).IsUnique();
+    }
+}
+
+public class AssignmentGroupConfiguration : IEntityTypeConfiguration<AssignmentGroup>
+{
+    public void Configure(EntityTypeBuilder<AssignmentGroup> builder)
+    {
+        builder.HasOne<ContentLink>().WithMany(link => link.Groups)
+            .HasForeignKey(group => group.ContentLinkId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasMany(group => group.Members).WithOne()
+            .HasForeignKey(member => member.AssignmentGroupId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasIndex(group => new { group.ContentLinkId, group.Position });
+    }
+}
+
+public class AssignmentGroupMemberConfiguration : IEntityTypeConfiguration<AssignmentGroupMember>
+{
+    public void Configure(EntityTypeBuilder<AssignmentGroupMember> builder)
+    {
+        builder.HasKey(member => new { member.AssignmentGroupId, member.StudentId });
+        builder.HasOne(member => member.User).WithMany()
+            .HasForeignKey(member => member.StudentId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(member => member.StudentId);
     }
 }
 

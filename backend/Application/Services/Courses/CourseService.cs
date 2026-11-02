@@ -238,6 +238,30 @@ public class CourseService(
             .ToList();
     }
 
+    /// <summary>Kursens elever, för gruppindelning i gruppuppgifter.</summary>
+    public async Task<ServiceResult<List<CourseStudentDto>>> GetStudentsAsync(
+        Guid courseId, CancellationToken ct)
+    {
+        if (!await groups.CourseExistsAsync(courseId, ct))
+        {
+            return ServiceResult<List<CourseStudentDto>>.NotFound("course not found");
+        }
+
+        if (!await permissions.CanTeachCourseAsync(courseId, ct))
+        {
+            return ServiceResult<List<CourseStudentDto>>.Forbidden();
+        }
+
+        var groupIds = await groups.GetGroupIdsReadingCourseAsync(courseId, ct);
+        var students = await users.GetStudentsInGroupsAsync(groupIds, ct);
+        return ServiceResult<List<CourseStudentDto>>.Ok(
+            students
+                .Select(student => new CourseStudentDto(
+                    student.Id, student.Name, student.Email, student.GitHubLogin))
+                .OrderBy(student => student.Name)
+                .ToList());
+    }
+
     /// <summary>
     /// Elever som läser kursen men saknar GitHubLogin. Lärarna använder listan för att påminna dem
     /// innan en repo-uppgift delas ut.

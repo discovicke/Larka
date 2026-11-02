@@ -241,6 +241,8 @@ function handInOf(item: Schema<'StudentContentItem'>): string {
           v-if="part.hasRepoMode && !part.isLocked"
           :git-hub-login="me?.gitHubLogin"
           :repo-url="repoUrlFor(part)"
+          :group-name="part.group?.name"
+          :group-members="part.group?.members.map((member) => member.name)"
           :latest-commit="part.repo?.lastSha"
           :check-status="part.repo?.checkStatus"
           :locked-at="part.repo?.lockedAt"

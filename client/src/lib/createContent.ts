@@ -10,6 +10,11 @@ export interface RequirementForm {
   isManual: boolean
 }
 
+export interface GroupForm {
+  name: string
+  studentIds: string[]
+}
+
 export interface ContentForm {
   partType: PartType
   title: string
@@ -20,16 +25,19 @@ export interface ContentForm {
   submissionModes: SubmissionMode[]
   templateRepo: string
   repoNamePattern: string
+  workMode: Schema<'RepoWorkMode'>
+  groups: GroupForm[]
   requirements: RequirementForm[]
   isPinned: boolean
 }
 
 export type FormErrors = Partial<Record<
-  'title' | 'dueAt' | 'templateRepo' | 'repoNamePattern' | 'requirements',
+  'title' | 'dueAt' | 'templateRepo' | 'repoNamePattern' | 'groups' | 'requirements',
   string
 >>
 
 export const defaultRepoNamePattern = '{assignmentSlug}-{githubLogin}'
+export const defaultGroupRepoNamePattern = '{assignmentSlug}-{groupSlug}'
 
 export function emptyForm(): ContentForm {
   return {
@@ -42,6 +50,8 @@ export function emptyForm(): ContentForm {
     submissionModes: [],
     templateRepo: '',
     repoNamePattern: defaultRepoNamePattern,
+    workMode: 'Individual',
+    groups: [],
     requirements: [],
     isPinned: false,
   }
@@ -53,7 +63,13 @@ export const isGraded = (form: ContentForm) => form.partType === 'Submission'
 
 export const usesRepo = (form: ContentForm) => isAssignment(form) && form.submissionModes.includes('Repo')
 
-export function validate(form: ContentForm): FormErrors {
+export const usesGroupRepo = (form: ContentForm) => usesRepo(form) && form.workMode === 'Group'
+
+export function validate(
+  form: ContentForm,
+  requireGroups = true,
+  groupStudentIds: string[] = [],
+): FormErrors {
   const errors: FormErrors = {}
   if (!form.title.trim()) {
     errors.title = 'Ange en titel.'
@@ -69,11 +85,32 @@ export function validate(form: ContentForm): FormErrors {
   }
   if (usesRepo(form)) {
     const pattern = form.repoNamePattern.trim()
-    if (pattern && !/\{(githubLogin|studentEmail|studentId)\}/i.test(pattern)) {
-      errors.repoNamePattern = 'Mönstret måste innehålla {githubLogin}, {studentEmail} eller {studentId}.'
+    const groupPlaceholders = usesGroupRepo(form)
+      ? /\{(groupName|groupSlug|groupNumber)\}/i
+      : /\{(githubLogin|studentEmail|studentId)\}/i
+    if (pattern && !groupPlaceholders.test(pattern)) {
+      errors.repoNamePattern = usesGroupRepo(form)
+        ? 'Mönstret måste innehålla {groupName}, {groupSlug} eller {groupNumber}.'
+        : 'Mönstret måste innehålla {githubLogin}, {studentEmail} eller {studentId}.'
     }
     if (pattern && /[/\\]/.test(pattern)) {
       errors.repoNamePattern = 'Mönstret får inte innehålla slash.'
+    }
+    if (usesGroupRepo(form) && requireGroups) {
+      if (form.groups.length === 0) {
+        errors.groups = 'Slumpa eller lägg till minst en grupp.'
+      } else if (form.groups.some((group) => !group.name.trim())) {
+        errors.groups = 'Alla grupper måste ha ett namn.'
+      } else if (form.groups.some((group) => group.studentIds.length === 0)) {
+        errors.groups = 'Alla grupper måste innehålla minst en elev.'
+      } else if (new Set(form.groups.map((group) => group.name.trim().toLowerCase())).size !== form.groups.length) {
+        errors.groups = 'Gruppnamnen måste vara unika.'
+      } else if (groupStudentIds.length > 0) {
+        const assigned = new Set(form.groups.flatMap((group) => group.studentIds))
+        if (groupStudentIds.some((studentId) => !assigned.has(studentId))) {
+          errors.groups = 'Alla elever i kursen måste tillhöra en grupp.'
+        }
+      }
     }
     if (form.requirements.some((requirement) =>
       !requirement.title.trim()
@@ -111,7 +148,9 @@ export function toRequests(
       repoNamePattern: usesRepo(form)
         ? form.repoNamePattern.trim() || null
         : null,
-      workMode: 'Individual',
+      workMode: usesRepo(form)
+        ? form.workMode
+        : 'Individual',
       lockAtDeadline: true,
       feedbackPullRequest: false,
       allowLate: false,
@@ -125,7 +164,16 @@ export function toRequests(
           }))
         : [],
     },
-    link: {...link, dueAt: isoOrNull(form.dueAt)},
+    link: {
+      ...link,
+      dueAt: isoOrNull(form.dueAt),
+      groups: usesGroupRepo(form)
+        ? form.groups.map((group) => ({
+            name: group.name.trim(),
+            studentIds: group.studentIds,
+          }))
+        : null,
+    },
   }
 }
 
@@ -161,7 +209,9 @@ export function toUpdateRequests(
       repoNamePattern: usesRepo(form)
         ? form.repoNamePattern.trim() || null
         : null,
-      workMode: 'Individual',
+      workMode: usesRepo(form)
+        ? form.workMode
+        : 'Individual',
       lockAtDeadline: true,
       feedbackPullRequest: false,
       allowLate: false,
@@ -189,7 +239,9 @@ export function publishSteps(form: ContentForm): string[] {
   }
 
   const steps = [`Uppgiften dyker upp under Att göra för kursens elever ${when}.`]
-  if (usesRepo(form)) {
+  if (usesGroupRepo(form)) {
+    steps.push('Eleverna delas in i grupper och varje grupp får ett gemensamt privat repo.')
+  } else if (usesRepo(form)) {
     steps.push('Varje elev får ett eget privat repo från mallen. Du och eleven får åtkomst.')
   }
   if (form.submissionModes.includes('OnSite')) {

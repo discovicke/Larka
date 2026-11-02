@@ -39,8 +39,15 @@ public class GitHubDeadlineLockService(
 
                 if (!string.IsNullOrWhiteSpace(result.Sha))
                 {
-                    context.Submission.Status = SubmissionStatus.Submitted;
-                    context.Submission.SubmittedAt = result.CommitAt ?? context.Deadline;
+                    var groupSubmissions = context.Repo.AssignmentGroupId is not null
+                        ? await submissions.GetSubmissionsForGroupAsync(
+                            context.Repo.AssignmentGroupId.Value, ct)
+                        : [context.Submission];
+                    foreach (var submission in groupSubmissions)
+                    {
+                        submission.Status = SubmissionStatus.Submitted;
+                        submission.SubmittedAt = result.CommitAt ?? context.Deadline;
+                    }
                 }
 
                 context.Repo.LockError = result.Error;

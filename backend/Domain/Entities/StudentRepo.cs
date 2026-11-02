@@ -7,6 +7,10 @@ public class StudentRepo
 {
     public Guid SubmissionId { get; set; }
 
+    // Satt när repot är gruppens gemensamma repo. SubmissionId är då gruppens ledarinlämning.
+    public Guid? AssignmentGroupId { get; set; }
+    public AssignmentGroup? Group { get; set; }
+
     // Tom tills GitHub-repot är skapat. Provisioning sker i bakgrunden så att publicering inte blockeras.
     public string RepoFullName { get; set; } = "";
 

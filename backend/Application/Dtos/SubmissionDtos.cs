@@ -26,7 +26,8 @@ public record SubmissionDto(
     List<SubmissionFileDto> Files,
     StudentRepoDto? Repo,
     GradeDto? Grade,
-    StudentSupportDto? Support)
+    StudentSupportDto? Support,
+    AssignmentGroupDto? Group = null)
 {
     public static SubmissionDto From(
         Submission submission,
@@ -34,17 +35,38 @@ public record SubmissionDto(
         List<SubmissionFileDto> files,
         StudentSupportDto? support = null)
     {
-        var repo = submission.Repo is null
-            ? null
-            : StudentRepoDto.From(submission.Repo);
+        var repo = submission.Repo ?? submission.Group?.Repo;
         var grade = submission.Grade is null
             ? null
             : GradeDto.From(submission.Grade);
+        var group = submission.Group is null
+            ? null
+            : AssignmentGroupDto.From(submission.Group);
         return new SubmissionDto(
             submission.Id, submission.ContentLinkId, submission.StudentId, studentName, submission.Status,
-            submission.BodyMd, submission.SubmittedAt, files, repo, grade, support);
+            submission.BodyMd, submission.SubmittedAt, files,
+            repo is null
+                ? null
+                : StudentRepoDto.From(repo),
+            grade, support, group);
     }
 }
+
+public record AssignmentGroupDto(Guid Id, string Name, List<AssignmentGroupMemberDto> Members)
+{
+    public static AssignmentGroupDto From(AssignmentGroup group) =>
+        new(
+            group.Id,
+            group.Name,
+            group.Members
+                .Select(member => new AssignmentGroupMemberDto(
+                    member.StudentId,
+                    member.User?.Name ?? ""))
+                .OrderBy(member => member.Name)
+                .ToList());
+}
+
+public record AssignmentGroupMemberDto(Guid Id, string Name);
 
 /// <summary>Stödsignaler som läraren ser i trackingtabellen. Beräknas alltid från aktuell data.</summary>
 public record StudentSupportDto(

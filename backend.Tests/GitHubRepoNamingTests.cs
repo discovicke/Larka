@@ -75,6 +75,40 @@ public class GitHubRepoNamingTests
     }
 
     [Fact]
+    public void GroupPattern_UsesGroupSlug()
+    {
+        var name = GitHubRepoNaming.ForGroup(
+            "labb-{groupSlug}", "Grupplabb", "Grupp ett", 1);
+
+        Assert.Equal("labb-grupp-ett", name);
+    }
+
+    [Fact]
+    public void GroupPattern_DefaultUsesGroupSlug()
+    {
+        var name = GitHubRepoNaming.ForGroup(null, "Grupplabb", "Grupp ett", 1);
+
+        Assert.Equal("grupplabb-grupp-ett", name);
+    }
+
+    [Theory]
+    [InlineData("{assignmentSlug}-{groupName}")]
+    [InlineData("{assignmentSlug}-{groupSlug}")]
+    [InlineData("{assignmentSlug}-grupp-{groupNumber}")]
+    public void Validate_AcceptsGroupPatterns(string pattern)
+    {
+        Assert.Null(GitHubRepoNaming.Validate(pattern, Backend.Domain.Enums.RepoWorkMode.Group));
+    }
+
+    [Theory]
+    [InlineData("{assignmentSlug}-{githubLogin}")]
+    [InlineData("{assignmentTitle}")]
+    public void Validate_GroupModeRequiresGroupPlaceholder(string pattern)
+    {
+        Assert.NotNull(GitHubRepoNaming.Validate(pattern, Backend.Domain.Enums.RepoWorkMode.Group));
+    }
+
+    [Fact]
     public void Render_TruncatesLongNames()
     {
         var name = GitHubRepoNaming.ForStudent(

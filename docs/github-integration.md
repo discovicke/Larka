@@ -393,6 +393,7 @@ Lärartrackingen uppdaterar sig automatiskt var 30:e sekund när fliken är synl
 Det här är med i första versionen:
 
 - individuella elevrepon,
+- grupprepon med ett gemensamt repo per grupp,
 - en GitHub-organisation per skola,
 - repo-uppgifter med mallrepo,
 - check runs och krav,
@@ -401,11 +402,18 @@ Det här är med i första versionen:
 
 Det här är inte med än:
 
-- grupprepon,
 - feedback-PR:er,
 - sena inlämningar,
 - dolda tester,
-- automatisk testmetodsinläsning från mallrepot.
+- automatisk testmetodsinläsning från mallrepot,
+- ändrade grupper efter att repon skapats, med automatiskt synkade collaborators,
+- gruppgemensamt betyg.
+
+### Grupprepon
+
+Läraren väljer **Grupprepon** i GitHub-inställningarna och slumpar fram grupper från kursens elevlista. Grupperna kan redigeras innan uppgiften sparas. Varje grupp får ett eget privat repo från mallen, och alla medlemmar bjuds in som collaborators. Elevinlämningar och betyg är fortfarande individuella, men repo, commits, check runs och deadline-lås delas av gruppen.
+
+Gruppindelningen hör till utdelningen och låses när uppgiften har skapats. Om en elev behöver byta grupp efteråt får läraren i första versionen hantera det manuellt i GitHub.
 
 ---
 

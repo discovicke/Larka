@@ -47,28 +47,70 @@ public class SubmissionService(
             ? [link.GroupId.Value]
             : await groups.GetGroupIdsReadingCourseAsync(link.CourseId!.Value, ct);
         var students = await users.GetStudentsInGroupsAsync(groupIds, ct);
+        var groupByStudent = link.Groups
+            .SelectMany(group => group.Members.Select(member => (member.StudentId, Group: group)))
+            .ToDictionary(entry => entry.StudentId, entry => entry.Group);
         var newSubmissions = students
-            .Select(student => new Submission { ContentLinkId = link.Id, StudentId = student.Id })
+            .Select(student => new Submission
+            {
+                ContentLinkId = link.Id,
+                StudentId = student.Id,
+                AssignmentGroupId = groupByStudent.TryGetValue(student.Id, out var group)
+                    ? group.Id
+                    : null
+            })
             .ToList();
 
         if (UsesRepo(spec.SubmissionModes))
         {
             var now = time.GetUtcNow();
             var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var (submission, student) in newSubmissions.Zip(students))
+            if (spec.WorkMode == RepoWorkMode.Group)
             {
-                submission.Repo = new StudentRepo
+                foreach (var group in link.Groups.OrderBy(group => group.Position))
                 {
-                    SubmissionId = submission.Id,
-                    TemplateRepo = spec.TemplateRepo,
-                    AssignmentTitle = content.Title,
-                    RepoNamePattern = spec.RepoNamePattern,
-                    DesiredRepoName = GitHubRepoNaming.ForStudent(
-                        spec.RepoNamePattern, content.Title, student, usedNames),
-                    ProvisioningState = RepoProvisioningState.Pending,
-                    NextProvisioningAttemptAt = now,
-                    UpdatedAt = now
-                };
+                    // Repot hänger på gruppens första inlämning. Alla medlemmar ser samma repo via gruppen.
+                    var leader = newSubmissions.FirstOrDefault(submission =>
+                        submission.AssignmentGroupId == group.Id);
+                    if (leader is null)
+                    {
+                        continue;
+                    }
+
+                    var repo = new StudentRepo
+                    {
+                        SubmissionId = leader.Id,
+                        AssignmentGroupId = group.Id,
+                        TemplateRepo = spec.TemplateRepo,
+                        AssignmentTitle = content.Title,
+                        RepoNamePattern = spec.RepoNamePattern,
+                        DesiredRepoName = GitHubRepoNaming.ForGroup(
+                            spec.RepoNamePattern, content.Title, group.Name, group.Position, usedNames),
+                        ProvisioningState = RepoProvisioningState.Pending,
+                        NextProvisioningAttemptAt = now,
+                        UpdatedAt = now
+                    };
+                    leader.Repo = repo;
+                    group.Repo = repo;
+                }
+            }
+            else
+            {
+                foreach (var (submission, student) in newSubmissions.Zip(students))
+                {
+                    submission.Repo = new StudentRepo
+                    {
+                        SubmissionId = submission.Id,
+                        TemplateRepo = spec.TemplateRepo,
+                        AssignmentTitle = content.Title,
+                        RepoNamePattern = spec.RepoNamePattern,
+                        DesiredRepoName = GitHubRepoNaming.ForStudent(
+                            spec.RepoNamePattern, content.Title, student, usedNames),
+                        ProvisioningState = RepoProvisioningState.Pending,
+                        NextProvisioningAttemptAt = now,
+                        UpdatedAt = now
+                    };
+                }
             }
         }
 
@@ -204,9 +246,10 @@ public class SubmissionService(
         submission.Status = SubmissionStatus.Submitted;
         submission.SubmittedAt = time.GetUtcNow();
         submission.BodyMd = dto.BodyMd;
-        if (UsesRepo(modes) && submission.Repo is not null)
+        var repo = submission.Repo ?? submission.Group?.Repo;
+        if (UsesRepo(modes) && repo is not null)
         {
-            submission.Repo.SubmissionSha = submission.Repo.LastSha;
+            repo.SubmissionSha = repo.LastSha;
         }
 
         await ReplaceFilesAsync(submission, keptFiles, files, ct);
@@ -301,22 +344,23 @@ public class SubmissionService(
         ApplyGrade(submission, dto);
 
         // En begärd komplettering ska öppna ett arkiverat repo igen, men får inte fälla betygsättningen.
-        if (dto.NeedsWork && submission.Repo is not null)
+        var repo = submission.Repo ?? submission.Group?.Repo;
+        if (dto.NeedsWork && repo is not null)
         {
             var now = time.GetUtcNow();
-            submission.Repo.ReopenedAt = now;
-            submission.Repo.UpdatedAt = now;
+            repo.ReopenedAt = now;
+            repo.UpdatedAt = now;
             var student = await users.GetAsync(submission.StudentId, ct);
-            if (student is not null && !string.IsNullOrWhiteSpace(submission.Repo.RepoFullName))
+            if (student is not null && !string.IsNullOrWhiteSpace(repo.RepoFullName))
             {
                 try
                 {
                     await provisioner.ReopenForResubmissionAsync(
-                        new StudentRepoContext(submission.Repo, student.SchoolId), ct);
+                        new StudentRepoContext(repo, student.SchoolId), ct);
                 }
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {
-                    submission.Repo.LockError =
+                    repo.LockError =
                         "Repot kunde inte öppnas för komplettering. Öppna det manuellt i GitHub.";
                     logger.LogWarning(
                         exception,
@@ -458,8 +502,15 @@ public class SubmissionService(
 
                 if (!string.IsNullOrWhiteSpace(result.Sha))
                 {
-                    context.Submission.Status = SubmissionStatus.Submitted;
-                    context.Submission.SubmittedAt = result.CommitAt ?? now;
+                    var groupSubmissions = context.Repo.AssignmentGroupId is not null
+                        ? await submissions.GetSubmissionsForGroupAsync(
+                            context.Repo.AssignmentGroupId.Value, ct)
+                        : [context.Submission];
+                    foreach (var submission in groupSubmissions)
+                    {
+                        submission.Status = SubmissionStatus.Submitted;
+                        submission.SubmittedAt = result.CommitAt ?? now;
+                    }
                 }
 
                 context.Repo.LockError = result.Error;

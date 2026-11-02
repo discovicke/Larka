@@ -172,6 +172,21 @@ describe('GitHubAssignmentBlock', () => {
     expect(wrapper.find('[data-test="student-requirements"]').text()).toContain('Ingen matchande check')
   })
 
+  it('visar gruppens namn och medlemmar', () => {
+    const wrapper = mount(GitHubAssignmentBlock, {
+      props: {
+        hasRepoMode: true,
+        gitHubLogin: 'elev-kalle',
+        repoUrl: 'https://github.com/skol-org/grupp-1',
+        groupName: 'Grupp 1',
+        groupMembers: ['Kalle', 'Nora'],
+      },
+    })
+
+    expect(wrapper.find('[data-test="student-group"]').text()).toContain('Grupp 1')
+    expect(wrapper.find('[data-test="student-group"]').text()).toContain('Kalle, Nora')
+  })
+
   it('visar låst repo och inlämnad commit utan åtgärder', () => {
     const wrapper = mount(GitHubAssignmentBlock, {
       props: {

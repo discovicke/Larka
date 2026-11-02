@@ -276,6 +276,10 @@ public class StudentContentService(
             .ToList();
         var isLocked = blockers.Any(blocker => !blocker.IsSatisfied);
         var submission = submissionByLinkId.GetValueOrDefault(link.Link.Id);
+        var repo = submission?.Repo ?? submission?.Group?.Repo;
+        var group = submission?.Group is null
+            ? null
+            : AssignmentGroupDto.From(submission.Group);
         return new StudentContentItem(
             link.Link.Id,
             link.Content.Id,
@@ -306,9 +310,10 @@ public class StudentContentService(
                 .OrderBy(requirement => requirement.Position)
                 .Select(AssignmentRequirementDto.From)
                 .ToList() ?? [],
-            submission?.Repo is null
+            repo is null
                 ? null
-                : StudentRepoDto.From(submission.Repo));
+                : StudentRepoDto.From(repo),
+            group);
     }
 
     // Titeln visas bara om förutsättningen är publicerad och har passerat PublishAt.

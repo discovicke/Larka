@@ -46,11 +46,6 @@ public static class AssignmentFieldsValidator
                 : null;
         }
 
-        if (workMode != RepoWorkMode.Individual)
-        {
-            return "group repositories are not supported yet";
-        }
-
         if (feedbackPullRequest)
         {
             return "feedback pull requests are not supported yet";
@@ -82,7 +77,7 @@ public static class AssignmentFieldsValidator
             }
         }
 
-        return GitHubRepoNaming.Validate(repoNamePattern);
+        return GitHubRepoNaming.Validate(repoNamePattern, workMode);
     }
 
     // "org/name": exakt ett snedstreck, med text på båda sidor.

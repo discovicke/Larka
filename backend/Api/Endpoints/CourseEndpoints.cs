@@ -46,6 +46,11 @@ public static class CourseEndpoints
             Guid id, Guid userId, CourseTeacherService service, CancellationToken ct) =>
             (await service.RemoveAsync(id, userId, ct)).ToHttp(_ => TypedResults.NoContent()));
 
+        // Lärarna ser kursens elever när de ska dela in en gruppuppgift.
+        courses.MapGet("/{id:guid}/students", async (
+            Guid id, CourseService service, CancellationToken ct) =>
+            (await service.GetStudentsAsync(id, ct)).ToHttp(TypedResults.Ok));
+
         // Lärarna ser vilka elever i kursen som ännu inte har kopplat GitHub.
         courses.MapGet("/{id:guid}/students/unlinked-github", async (
             Guid id, CourseService service, CancellationToken ct) =>

@@ -126,19 +126,50 @@ public class SubmissionRepository(AppDb db) : ISubmissionRepository
                 (item, user) => new StudentRepoContext(item.Repo, user.SchoolId))
             .ToListAsync(ct);
 
-    public Task<List<RepoProvisioningContext>> GetPendingReposAsync(
-        DateTimeOffset now, int take, int maxAttempts, CancellationToken ct) =>
-        (from repo in db.StudentRepos
-         join submission in db.Submissions on repo.SubmissionId equals submission.Id
-         join student in db.Users on submission.StudentId equals student.Id
-         where (repo.ProvisioningState == RepoProvisioningState.Pending
-                 || repo.ProvisioningState == RepoProvisioningState.Failed)
-             && repo.ProvisioningAttempts < maxAttempts
-             && (repo.NextProvisioningAttemptAt == null || repo.NextProvisioningAttemptAt <= now)
-         orderby repo.NextProvisioningAttemptAt, repo.UpdatedAt
-         select new RepoProvisioningContext(repo, student))
-        .Take(take)
-        .ToListAsync(ct);
+    public async Task<List<RepoProvisioningContext>> GetPendingReposAsync(
+        DateTimeOffset now, int take, int maxAttempts, CancellationToken ct)
+    {
+        var pending = await (from repo in db.StudentRepos
+                             join submission in db.Submissions on repo.SubmissionId equals submission.Id
+                             join student in db.Users on submission.StudentId equals student.Id
+                             where (repo.ProvisioningState == RepoProvisioningState.Pending
+                                     || repo.ProvisioningState == RepoProvisioningState.Failed)
+                                 && repo.ProvisioningAttempts < maxAttempts
+                                 && (repo.NextProvisioningAttemptAt == null || repo.NextProvisioningAttemptAt <= now)
+                             orderby repo.NextProvisioningAttemptAt, repo.UpdatedAt
+                             select new RepoProvisioningContext(repo, student))
+            .Take(take)
+            .ToListAsync(ct);
+
+        var groupIds = pending
+            .Select(context => context.Repo.AssignmentGroupId)
+            .Where(groupId => groupId is not null)
+            .Select(groupId => groupId!.Value)
+            .Distinct()
+            .ToList();
+        if (groupIds.Count == 0)
+        {
+            return pending;
+        }
+
+        var members = await db.AssignmentGroupMembers
+            .Where(member => groupIds.Contains(member.AssignmentGroupId))
+            .Include(member => member.User)
+            .ToListAsync(ct);
+        var byGroup = members
+            .Where(member => member.User is not null)
+            .GroupBy(member => member.AssignmentGroupId)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyList<User>)group.Select(member => member.User!).ToList());
+
+        return pending
+            .Select(context => context.Repo.AssignmentGroupId is not null
+                && byGroup.TryGetValue(context.Repo.AssignmentGroupId.Value, out var groupMembers)
+                    ? context with { GroupMembers = groupMembers }
+                    : context)
+            .ToList();
+    }
 
     public Task<List<RepoLockContext>> GetReposToLockAsync(
         DateTimeOffset now, int take, CancellationToken ct) =>
@@ -190,11 +221,26 @@ public class SubmissionRepository(AppDb db) : ISubmissionRepository
         db.StudentRepoCheckRuns.AddRange(runs);
     }
 
-    public Task<List<StudentRepo>> GetReposForStudentAsync(Guid studentId, CancellationToken ct) =>
-        (from repo in db.StudentRepos
-         join submission in db.Submissions on repo.SubmissionId equals submission.Id
-         where submission.StudentId == studentId
-         select repo).ToListAsync(ct);
+    public async Task<List<StudentRepo>> GetReposForStudentAsync(Guid studentId, CancellationToken ct)
+    {
+        var individual = from repo in db.StudentRepos
+                         join submission in db.Submissions on repo.SubmissionId equals submission.Id
+                         where submission.StudentId == studentId
+                         select repo;
+        var shared = from repo in db.StudentRepos
+                     join assignmentGroup in db.AssignmentGroups
+                         on repo.AssignmentGroupId equals assignmentGroup.Id
+                     join member in db.AssignmentGroupMembers
+                         on assignmentGroup.Id equals member.AssignmentGroupId
+                     where member.StudentId == studentId
+                     select repo;
+        return await individual.Concat(shared).Distinct().ToListAsync(ct);
+    }
+
+    public Task<List<Submission>> GetSubmissionsForGroupAsync(Guid groupId, CancellationToken ct) =>
+        db.Submissions
+            .Where(submission => submission.AssignmentGroupId == groupId)
+            .ToListAsync(ct);
 
     public Task<int> CountReposForSchoolAsync(Guid schoolId, CancellationToken ct) =>
         (from repo in db.StudentRepos
@@ -207,6 +253,12 @@ public class SubmissionRepository(AppDb db) : ISubmissionRepository
         db.Submissions
             .Include(submission => submission.Files)
             .Include(submission => submission.Repo)
+                .ThenInclude(repo => repo!.CheckRuns)
+            .Include(submission => submission.Group)
+                .ThenInclude(group => group!.Members)
+                .ThenInclude(member => member.User)
+            .Include(submission => submission.Group)
+                .ThenInclude(group => group!.Repo)
                 .ThenInclude(repo => repo!.CheckRuns)
             .Include(submission => submission.Grade);
 }
