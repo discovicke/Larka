@@ -104,6 +104,18 @@ Sist sparas `ENTRA_CLIENT_ID`, `ENTRA_TENANT_ID`, `ENTRA_ADMIN_OBJECT_ID` (ditt 
 
 Appregistreringen är ingen Azure-resurs och syns inte under _Resources_ i Azure-portalen. Den ligger i skolans Entra ID och kostar ingenting. Spärrar skolan Entra-portalen för vanliga användare fungerar skriptet ändå, eftersom det går via Microsoft Graph.
 
+### Flytta till en ny tenant
+
+Kör skriptet igen inloggad i den nya tenanten och deploya. Första gången du loggar in med Microsoft efter det byts skolans gamla tenant ut mot den nya, och du blir admin om du inte redan finns i skolan. Användare från den gamla tenanten kan inte logga in längre, men deras konton och data finns kvar.
+
+### Vår demo
+
+Demon på Render använder en egen testtenant (`christiangennari61gmail.onmicrosoft.com`), inte Edugrades. Edugrades Entra ID används inte. Miljön `production` har `SEED_DEMO_DATA=true` (demokontona och demodatan) och `ENTRA_SCHOOL_NAME=Edugrade`, så att demoskolan behåller namnet. Testkontona `elev.test.net25@…` (elev i .NET25) och `larare.test@…` finns i testtenanten. Lösenorden delas inte här, fråga Christian.
+
+### Testa med en egen tenant
+
+En gratis Microsoft-tenant räcker, till exempel katalogen som följer med ett personligt Azure-konto. Du är global admin där, så skriptet ger samtycke för hela organisationen. Skapa testanvändare med `az ad user create`. Har tenanten _security defaults_ på (standard för nya tenanter) måste varje användare registrera Microsoft Authenticator vid första inloggningen. För en testtenant kan du stänga av det under _Entra admin center › Översikt › Egenskaper › Hantera standardinställningar för säkerhet_. Gör inte det i en riktig skolas tenant.
+
 ## Versioner
 
 Varje push till `main` kör [semantic-release](https://semantic-release.gitbook.io/), som läser commits sedan förra taggen och räknar fram nästa version enligt [semver](https://semver.org/):

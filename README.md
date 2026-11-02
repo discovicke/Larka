@@ -39,6 +39,7 @@ Innan du pushar: `npm run format`, `dotnet test Larka.sln` och `npm --prefix cli
 | [Inloggning och behörigheter](docs/auth-och-behorigheter.md) | JWT, konton, roller och vad de får göra                     |
 | [Fillagring](docs/fillagring.md)                             | Bilagor och inlämningar i Supabase Storage                  |
 | [Deploy och releaser](docs/deploy.md)                        | CD-flödet, Render, hemligheter och semantic versioning      |
+| [En ny skola](docs/deploy.md#en-ny-skola)                    | Installera Lärka för en skola och logga in med Microsoft    |
 | [Testning](docs/testing.md)                                  | Teststrategi, kodtäckning och E2E                           |
 | [Bidra](docs/bidra.md)                                       | Arbetsflöde, commit-format, PR-kontroller och kodstil       |
 | [Kodstil i C#](docs/code-style-csharp.md)                    | Våra egna analyzer-regler                                   |
