@@ -26,6 +26,16 @@ public static class SchoolEndpoints
             (await service.CreateAsync(schoolDto, ct)).ToHttp(school =>
                 TypedResults.Created($"/api/schools/{school.Id}", school)));
 
+        // Microsoft-inloggning för skolan. Bara admin i skolan.
+        schools.MapGet("/{id:guid}/microsoft", async (Guid id, SchoolService service, CancellationToken ct) =>
+            (await service.GetMicrosoftAsync(id, ct)).ToHttp(microsoft => TypedResults.Ok(microsoft)));
+
+        schools.MapPut("/{id:guid}/microsoft", async (Guid id, SchoolService service, CancellationToken ct) =>
+            (await service.LinkMicrosoftAsync(id, ct)).ToHttp(microsoft => TypedResults.Ok(microsoft)));
+
+        schools.MapDelete("/{id:guid}/microsoft", async (Guid id, SchoolService service, CancellationToken ct) =>
+            (await service.UnlinkMicrosoftAsync(id, ct)).ToHttp(microsoft => TypedResults.Ok(microsoft)));
+
         return app;
     }
 }

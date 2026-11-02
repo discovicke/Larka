@@ -8,6 +8,7 @@ import StatusBadge from '@/components/StatusBadge.vue'
 import GitHubOnboardingBanner from '@/components/GitHubOnboardingBanner.vue'
 import AdminToday from '@/components/today/AdminToday.vue'
 import TeacherToday from '@/components/today/TeacherToday.vue'
+import {Empty, EmptyDescription, EmptyHeader, EmptyTitle} from '@/components/ui/empty'
 import {Skeleton} from '@/components/ui/skeleton'
 import {useAsync} from '@/composables/useAsync'
 import {useCurrentUser} from '@/composables/useCurrentUser'
@@ -48,6 +49,9 @@ const tab = ref<Tab>('upcoming')
 // eleven och mentorn, ser elevens. Båda hämtar sin egen data. En admin som också undervisar ser båda.
 const isAdmin = ref(false)
 const isTeacher = ref(false)
+// Den som har loggat in första gången utan att hamna i en klass har inget att se än.
+const noClass = computed(() => !!me.value && !isAdmin.value && !isTeacher.value
+  && me.value.groups.length === 0 && me.value.courses.length === 0)
 
 const name = computed(() => firstName(me.value?.name))
 const mobileGreeting = computed(() => name.value
@@ -183,6 +187,15 @@ load()
     <Skeleton class="h-9 w-72"/>
     <Skeleton class="h-64 w-full"/>
   </div>
+
+  <Empty v-else-if="noClass" class="border border-dashed" data-test="today-no-class">
+    <EmptyHeader>
+      <EmptyTitle>Du är inte med i någon klass än</EmptyTitle>
+      <EmptyDescription>
+        Skolans admin lägger in dig i din klass. Sedan ser du dina kurser, uppgifter och nyheter här.
+      </EmptyDescription>
+    </EmptyHeader>
+  </Empty>
 
   <template v-else-if="today">
     <!-- Dator -->

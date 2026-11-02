@@ -8,9 +8,21 @@ public record SchoolDto(Guid Id, string Name)
     public static SchoolDto From(School school) => new(school.Id, school.Name);
 }
 
-public record UserDto(Guid Id, Guid SchoolId, string Name, string Email, UserRole Role)
+/// <summary>
+/// DeactivatedAt är satt när admin har spärrat användaren. MicrosoftLinked är sant när hen har loggat in med
+/// Microsoft.
+/// </summary>
+public record UserDto(
+    Guid Id,
+    Guid SchoolId,
+    string Name,
+    string Email,
+    UserRole Role,
+    DateTimeOffset? DeactivatedAt,
+    bool MicrosoftLinked)
 {
-    public static UserDto From(User user) => new(user.Id, user.SchoolId, user.Name, user.Email, user.Role);
+    public static UserDto From(User user) =>
+        new(user.Id, user.SchoolId, user.Name, user.Email, user.Role, user.DeactivatedAt, user.ExternalId is not null);
 }
 
 public record MemberDto(Guid UserId, Guid GroupId, GroupRole Role)
@@ -24,8 +36,16 @@ public record GroupMemberDto(Guid UserId, string Name, GroupRole Role);
 
 public record CreateSchoolDto(string Name);
 
+/// <summary>
+/// Microsoft-inloggning för skolan. Configured: appen har Auth:Entra. Linked: skolan tar emot inloggningar från
+/// TenantId, appens tenant.
+/// </summary>
+public record SchoolMicrosoftDto(bool Configured, bool Linked, string? TenantId);
+
 /// <summary>Password är valfritt. Utan lösenord kan användaren inte logga in med e-post och lösenord.</summary>
 public record CreateUserDto(Guid SchoolId, string Name, string Email, UserRole Role, string? Password = null);
+
+public record UpdateUserRoleDto(UserRole Role);
 
 public record CreateGroupDto(Guid SchoolId, GroupType Type, string Name, string? Term = null);
 

@@ -12,6 +12,7 @@ import {
   PhMagnifyingGlass,
   PhSignOut,
   PhTray,
+  PhUserList,
   PhUsersThree,
 } from '@phosphor-icons/vue'
 import {type Component, computed, ref, watch} from 'vue'
@@ -50,6 +51,7 @@ import {auth} from '@/lib/auth'
 import {courseStatus} from '@/lib/courseStatus'
 import {initials} from '@/lib/person'
 import {isMentorOnly, type Action} from '@/lib/permissions'
+import {userRoleLabels} from '@/lib/userRoles'
 
 interface NavItem {
   label: string
@@ -74,8 +76,6 @@ const mainNav: NavItem[] = [
   {label: 'Studieplan', routeName: 'grades', icon: PhGraduationCap, studentOnly: true},
   {label: 'Att bedöma', routeName: 'grading', icon: PhListChecks, toGrade: true, requires: 'grade'},
 ]
-
-const roleLabels: Record<string, string> = {Admin: 'Admin', Teacher: 'Lärare', Student: 'Elev'}
 
 const route = useRoute()
 const router = useRouter()
@@ -113,6 +113,8 @@ const navItems = computed(() => mainNav
         ? gradingCount.value
         : item.count,
   })))
+
+const roleLabels: Record<string, string> = userRoleLabels
 
 const userName = computed(() => me.value?.name ?? exampleUser.name)
 const userRole = computed(() => me.value
@@ -292,6 +294,14 @@ function courseLabel(course: SidebarCourse): string {
               <RouterLink :to="{name: 'groups'}">
                 <PhUsersThree/>
                 <span>Alla grupper</span>
+              </RouterLink>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem v-if="can('admin')">
+            <SidebarMenuButton as-child tooltip="Användare" :is-active="route.name === 'users'">
+              <RouterLink :to="{name: 'users'}" data-test="users-link">
+                <PhUserList/>
+                <span>Användare</span>
               </RouterLink>
             </SidebarMenuButton>
           </SidebarMenuItem>

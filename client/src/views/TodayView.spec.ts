@@ -230,6 +230,26 @@ describe('TodayView', () => {
     expect(wrapper.text()).toContain('Kunde inte hämta din översikt.')
   })
 
+  it('en ny elev utan klass får veta att admin lägger in hen', async () => {
+    mockApi((_method, path) => {
+      if (path === '/api/me') {
+        return {status: 200, body: meAs('Student', [], 'Ny Elev')}
+      }
+      if (path === '/api/courses') {
+        return {status: 200, body: []}
+      }
+      if (path === '/api/me/today') {
+        return {status: 200, body: empty}
+      }
+      return {status: 404}
+    })
+
+    const {wrapper} = await renderApp('/')
+
+    expect(wrapper.find('[data-test="today-no-class"]').text()).toContain('Du är inte med i någon klass än')
+    expect(wrapper.find('[data-test="today-desktop"]').exists()).toBe(false)
+  })
+
   it('visar lärarens översikt för en lärare, utan elevens listor', async () => {
     mockApi((_method, path) => {
       if (path === '/api/me') {

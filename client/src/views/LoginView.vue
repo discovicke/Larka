@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import {ref} from 'vue'
+import {PhWindowsLogo} from '@phosphor-icons/vue'
+import {onMounted, ref} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 
 import AppLogo from '@/components/layout/AppLogo.vue'
@@ -10,6 +11,12 @@ import {Input} from '@/components/ui/input'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {exampleSchool} from '@/data/exampleData'
 import {auth, AuthError} from '@/lib/auth'
+import {
+  fetchMicrosoftSettings,
+  finishMicrosoftSignIn,
+  type MicrosoftSettings,
+  startMicrosoftSignIn,
+} from '@/lib/auth/microsoft'
 
 const route = useRoute()
 const router = useRouter()
@@ -19,14 +26,63 @@ const username = ref('')
 const password = ref('')
 const sending = ref(false)
 const error = ref('')
+// Microsoft-inloggningen visas bara när API:et har den. Utan den är sidan som förut, med bara lösenord.
+const microsoft = ref<MicrosoftSettings | null>(null)
+const finishing = ref(false)
 
 // Bara en sökväg i appen, inte // som skulle bli en annan värd.
-function redirectTarget(): string {
-  const redirect = route.query.redirect
-  return typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//')
-    ? redirect
+function safePath(path: unknown): string {
+  return typeof path === 'string' && path.startsWith('/') && !path.startsWith('//')
+    ? path
     : '/'
 }
+
+function redirectTarget(): string {
+  return safePath(route.query.redirect)
+}
+
+async function signInWithMicrosoft() {
+  if (!microsoft.value) {
+    return
+  }
+  sending.value = true
+  error.value = ''
+  try {
+    await startMicrosoftSignIn(microsoft.value, redirectTarget())
+  } catch {
+    error.value = 'Kunde inte öppna inloggningen hos Microsoft. Försök igen.'
+    sending.value = false
+  }
+}
+
+// Microsoft skickar tillbaka hit. Första gången går användaren via välkomstsidan.
+onMounted(async () => {
+  try {
+    microsoft.value = await fetchMicrosoftSettings()
+  } catch {
+    microsoft.value = null
+  }
+  // Microsoft svarar i adressens fragment (#code=... eller #error=...). Annars finns inget att ta emot.
+  if (!microsoft.value || !/[#&](code|error)=/.test(window.location.hash)) {
+    return
+  }
+
+  finishing.value = true
+  try {
+    const result = await finishMicrosoftSignIn(microsoft.value)
+    if (result) {
+      resetCurrentUser()
+      const target = safePath(result.returnTo)
+      await router.push(result.firstSignIn
+        ? {name: 'welcome', query: {redirect: target}}
+        : target)
+    }
+  } catch (exception) {
+    error.value = microsoftError(exception)
+  } finally {
+    finishing.value = false
+  }
+})
 
 async function submit() {
   sending.value = true
@@ -37,12 +93,30 @@ async function submit() {
     resetCurrentUser()
     await router.push(redirectTarget())
   } catch (exception) {
-    error.value = exception instanceof AuthError && exception.status === 401
-      ? 'Fel e-post eller lösenord.'
-      : 'Kunde inte logga in. Försök igen.'
+    error.value = loginError(exception)
   } finally {
     sending.value = false
   }
+}
+
+function loginError(exception: unknown) {
+  if (exception instanceof AuthError && exception.status === 401) {
+    return 'Fel e-post eller lösenord.'
+  }
+  if (exception instanceof AuthError && exception.status === 403) {
+    return 'Ditt konto är spärrat. Kontakta skolans admin.'
+  }
+  return 'Kunde inte logga in. Försök igen.'
+}
+
+function microsoftError(exception: unknown) {
+  if (exception instanceof AuthError && exception.status === 403 && exception.detail) {
+    return exception.detail
+  }
+  if (exception instanceof AuthError && exception.status === 401) {
+    return 'Inloggningen hos Microsoft kunde inte kontrolleras. Försök igen.'
+  }
+  return 'Kunde inte logga in med Microsoft. Försök igen.'
 }
 </script>
 
@@ -77,6 +151,26 @@ async function submit() {
           <AlertDescription>{{ error }}</AlertDescription>
         </Alert>
 
+        <template v-if="microsoft">
+          <Button
+            type="button"
+            class="h-11 w-full"
+            :disabled="sending || finishing"
+            data-test="microsoft-sign-in"
+            @click="signInWithMicrosoft"
+          >
+            <PhWindowsLogo/>
+            {{ finishing
+              ? 'Loggar in…'
+              : 'Logga in med Microsoft' }}
+          </Button>
+          <div class="text-muted-foreground flex items-center gap-3 text-xs">
+            <span class="bg-border h-px flex-1"/>
+            eller med lösenord
+            <span class="bg-border h-px flex-1"/>
+          </div>
+        </template>
+
         <form class="flex flex-col gap-3.5" @submit.prevent="submit">
           <Field>
             <FieldLabel for="login-username">Användarnamn eller e-post</FieldLabel>
@@ -102,7 +196,14 @@ async function submit() {
             />
           </Field>
 
-          <Button type="submit" class="h-11 w-full" :disabled="sending">
+          <Button
+            type="submit"
+            class="h-11 w-full"
+            :variant="microsoft
+              ? 'outline'
+              : 'default'"
+            :disabled="sending || finishing"
+          >
             {{
               sending
                 ? 'Loggar in…'

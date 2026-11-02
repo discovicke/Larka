@@ -19,8 +19,21 @@ export default defineConfig({
       output: {
         // Annars hamnar allt i en chunk på 1,4 MB. Biblioteken ändras sällan, så de cachas också längre så här.
         manualChunks(id) {
+          // Vites hjälpare för dynamiska importer måste ligga i vendor. Annars kan Rollup lägga den i msal-chunken,
+          // och då laddas hela MSAL vid varje sidladdning.
+          if (id.includes('vite/preload-helper')) {
+            return 'vendor'
+          }
           if (/node_modules\/(@tiptap|prosemirror|linkifyjs|markdown-it|marked)/.test(id)) {
             return 'editor'
+          }
+          // MSAL laddas bara när någon loggar in med Microsoft, så den får en egen chunk i stället för vendor.
+          if (id.includes('node_modules/@azure/msal-')) {
+            return 'msal'
+          }
+          // Ikonerna är den största delen av vendor och växer med varje ny ikon, så de får en egen chunk.
+          if (id.includes('node_modules/@phosphor-icons/')) {
+            return 'icons'
           }
           if (id.includes('node_modules')) {
             return 'vendor'

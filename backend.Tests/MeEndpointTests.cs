@@ -11,6 +11,31 @@ public class MeEndpointTests(TestWebApplicationFactory factory) : IClassFixture<
 {
     private readonly HttpClient _client = factory.CreateClient();
 
+    [Fact]
+    public async Task UpdateProfile_ChangesTheOwnName_AndRejectsAnEmptyOne()
+    {
+        Guid userId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            userId = (await TestData.AddUserAsync(db)).Id;
+        }
+
+        var saved = await SendAsync(HttpMethod.Put, "/api/me/profile", userId, new { name = "  Kim Ny  " });
+        var empty = await SendAsync(HttpMethod.Put, "/api/me/profile", userId, new { name = " " });
+
+        Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+        Assert.Contains("\"name\":\"Kim Ny\"", await saved.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.BadRequest, empty.StatusCode);
+    }
+
+    private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, Guid userId, object body)
+    {
+        var request = new HttpRequestMessage(method, path) { Content = JsonContent.Create(body) };
+        request.Headers.Add(TestAuthHandler.Header, userId.ToString());
+        return await _client.SendAsync(request);
+    }
+
     private record MeResponse(
         Guid Id, string Name, string Email, string Role, SchoolResponse School, List<CourseRoleResponse> Courses,
         List<GroupResponse> Groups);

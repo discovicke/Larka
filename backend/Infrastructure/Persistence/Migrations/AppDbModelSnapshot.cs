@@ -569,11 +569,17 @@ namespace Backend.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("EntraTenantId")
+                        .HasColumnType("text");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EntraTenantId")
+                        .IsUnique();
 
                     b.ToTable("Schools");
 
@@ -855,8 +861,14 @@ namespace Backend.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTimeOffset?>("DeactivatedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Email")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ExternalId")
                         .HasColumnType("text");
 
                     b.Property<string>("GitHubLogin")
@@ -883,6 +895,9 @@ namespace Backend.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.HasIndex("ExternalId")
                         .IsUnique();
 
                     b.HasIndex("GitHubLogin")

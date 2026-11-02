@@ -9,6 +9,7 @@ public class SchoolService(
     ISchoolRepository schools,
     IPermissions permissions,
     ICurrentSchool currentSchool,
+    IMicrosoftTokenValidator microsoft,
     IUnitOfWork unitOfWork)
 {
     // Användaren ser bara sin egen skola, så listan har högst en rad.
@@ -50,5 +51,80 @@ public class SchoolService(
         schools.Add(school);
         await unitOfWork.SaveChangesAsync(ct);
         return ServiceResult<SchoolDto>.Ok(SchoolDto.From(school));
+    }
+
+    // Microsoft-inloggning för skolan. Appens tenant (Auth:Entra) kopplas till skolan, så att inloggningar därifrån
+    // hamnar här. Bara admin i skolan.
+    public async Task<ServiceResult<SchoolMicrosoftDto>> GetMicrosoftAsync(Guid id, CancellationToken ct)
+    {
+        var school = await GetOwnAsAdminAsync(id, ct);
+        if (school.Status != ResultStatus.Ok)
+        {
+            return ServiceResult<SchoolMicrosoftDto>.From(school);
+        }
+
+        return ServiceResult<SchoolMicrosoftDto>.Ok(MicrosoftOf(school.Value!));
+    }
+
+    // 404 när Microsoft-inloggning inte är inställd, 409 när en annan skola redan har tenanten.
+    public async Task<ServiceResult<SchoolMicrosoftDto>> LinkMicrosoftAsync(Guid id, CancellationToken ct)
+    {
+        var school = await GetOwnAsAdminAsync(id, ct);
+        if (school.Status != ResultStatus.Ok)
+        {
+            return ServiceResult<SchoolMicrosoftDto>.From(school);
+        }
+
+        var settings = microsoft.Settings;
+        if (settings is null)
+        {
+            return ServiceResult<SchoolMicrosoftDto>.NotFound("microsoft sign-in is not set up");
+        }
+
+        var owner = await schools.GetByEntraTenantAsync(settings.TenantId, ct);
+        if (owner is not null && owner.Id != id)
+        {
+            return ServiceResult<SchoolMicrosoftDto>.Conflict("another school is linked to the tenant");
+        }
+
+        school.Value!.EntraTenantId = settings.TenantId;
+        await unitOfWork.SaveChangesAsync(ct);
+        return ServiceResult<SchoolMicrosoftDto>.Ok(MicrosoftOf(school.Value));
+    }
+
+    // Användarnas koppling till Microsoft (oid) ligger kvar, så de känns igen om skolan kopplas igen.
+    public async Task<ServiceResult<SchoolMicrosoftDto>> UnlinkMicrosoftAsync(Guid id, CancellationToken ct)
+    {
+        var school = await GetOwnAsAdminAsync(id, ct);
+        if (school.Status != ResultStatus.Ok)
+        {
+            return ServiceResult<SchoolMicrosoftDto>.From(school);
+        }
+
+        school.Value!.EntraTenantId = null;
+        await unitOfWork.SaveChangesAsync(ct);
+        return ServiceResult<SchoolMicrosoftDto>.Ok(MicrosoftOf(school.Value));
+    }
+
+    private SchoolMicrosoftDto MicrosoftOf(School school)
+    {
+        var settings = microsoft.Settings;
+        return new SchoolMicrosoftDto(
+            settings is not null,
+            settings is not null && school.EntraTenantId == settings.TenantId,
+            settings?.TenantId);
+    }
+
+    private async Task<ServiceResult<School>> GetOwnAsAdminAsync(Guid id, CancellationToken ct)
+    {
+        if (!await permissions.IsAdminAsync(ct))
+        {
+            return ServiceResult<School>.Forbidden();
+        }
+
+        var school = await schools.GetAsync(id, ct);
+        return school is null || !await currentSchool.OwnsAsync(id, ct)
+            ? ServiceResult<School>.NotFound("school not found")
+            : ServiceResult<School>.Ok(school);
     }
 }

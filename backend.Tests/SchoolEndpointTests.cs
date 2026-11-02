@@ -10,6 +10,16 @@ public class SchoolEndpointTests(TestWebApplicationFactory factory) : IClassFixt
 {
     private readonly HttpClient _client = factory.CreateClient();
 
+    [Fact]
+    public async Task Microsoft_WithoutAuthEntra_IsNotConfigured_AndCannotBeLinked()
+    {
+        var status = await _client.GetStringAsync($"/api/schools/{PlaceholderIds.SchoolId}/microsoft");
+        var link = await _client.PutAsync($"/api/schools/{PlaceholderIds.SchoolId}/microsoft", null);
+
+        Assert.Contains("\"configured\":false", status);
+        Assert.Equal(HttpStatusCode.NotFound, link.StatusCode);
+    }
+
     private record SchoolResponse(Guid Id, string Name);
 
     [Fact]

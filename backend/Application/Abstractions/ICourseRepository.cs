@@ -29,6 +29,9 @@ public interface ICourseRepository
     /// <summary>Tar bort alla lärarkopplingar till kursen, som måste bort innan kursen kan tas bort.</summary>
     Task RemoveTeachersAsync(Guid courseId, CancellationToken ct);
 
+    /// <summary>Tar bort användaren som lärare i alla kurser, när hen inte längre får undervisa.</summary>
+    Task RemoveTeacherFromAllCoursesAsync(Guid userId, CancellationToken ct);
+
     void Add(Course course);
     void Remove(Course course);
 }

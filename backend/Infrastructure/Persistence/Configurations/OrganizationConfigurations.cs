@@ -15,6 +15,7 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.HasIndex(user => user.Email).IsUnique();
         // Nullable: flera elever kan sakna GitHub. Postgres tillåter flera NULL i ett unikt index.
         builder.HasIndex(user => user.GitHubLogin).IsUnique();
+        builder.HasIndex(user => user.ExternalId).IsUnique();
     }
 }
 
@@ -82,6 +83,13 @@ public class EnrollmentConfiguration : IEntityTypeConfiguration<Enrollment>
         builder.HasOne<Group>().WithMany()
             .HasForeignKey(enrollment => enrollment.GroupId).OnDelete(DeleteBehavior.Restrict);
     }
+}
+
+public class SchoolConfiguration : IEntityTypeConfiguration<School>
+{
+    // En tenant hör till högst en skola, så att en Microsoft-inloggning alltid hamnar i rätt skola.
+    public void Configure(EntityTypeBuilder<School> builder) =>
+        builder.HasIndex(school => school.EntraTenantId).IsUnique();
 }
 
 public class SchoolGitHubInstallationConfiguration : IEntityTypeConfiguration<SchoolGitHubInstallation>

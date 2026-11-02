@@ -4,8 +4,8 @@ using Backend.Application.Abstractions;
 
 namespace Backend.Infrastructure.Auth;
 
-// Vem som anropar, från sub-claimen i JWT:n. Här är förlängningspunkten: Microsoft Entra ID (#79) lägger till
-// ett eget JWT-schema vars oid mappas till vårt användar-id, och inget annat behöver ändras.
+// Vem som anropar, från sub-claimen i JWT:n. Microsoft-inloggningen ger samma token (MicrosoftSignInService),
+// så det här gäller hur användaren än loggade in.
 public class ClaimsCurrentUser(IHttpContextAccessor accessor) : ICurrentUser
 {
     public Guid UserId

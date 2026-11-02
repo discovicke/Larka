@@ -13,6 +13,13 @@ public class User
     // Hash från ASP.NET Cores PasswordHasher, för den enkla inloggningen. Null betyder att användaren inte kan logga in med lösenord.
     public string? PasswordHash { get; set; }
 
+    // Användarens id i Microsoft Entra ID (oid), satt vid första Microsoft-inloggningen. Användaren känns igen på
+    // det, inte på e-posten, eftersom e-postadresser kan bytas.
+    public string? ExternalId { get; set; }
+
+    // När admin spärrade användaren. En spärrad användare kan inte logga in, men allt hen gjort finns kvar.
+    public DateTimeOffset? DeactivatedAt { get; set; }
+
     // GitHub-användarnamn, satt via OAuth. Null tills eleven har kopplat sitt GitHub-konto.
     public string? GitHubLogin { get; set; }
 

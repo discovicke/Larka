@@ -65,6 +65,54 @@
         }
       }
     },
+    "/api/auth/providers": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthProvidersDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/microsoft": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MicrosoftLoginDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MicrosoftLoginResultDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/schools": {
       "get": {
         "tags": [
@@ -173,6 +221,182 @@
           },
           "404": {
             "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/schools/{id}/microsoft": {
+      "get": {
+        "tags": [
+          "Schools"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchoolMicrosoftDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Schools"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchoolMicrosoftDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Schools"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchoolMicrosoftDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -288,6 +512,256 @@
     },
     "/api/users/{id}": {
       "get": {
+        "tags": [
+          "Users"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/{id}/role": {
+      "put": {
+        "tags": [
+          "Users"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserRoleDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/{id}/deactivate": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/{id}/reactivate": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/{id}/microsoft": {
+      "delete": {
         "tags": [
           "Users"
         ],
@@ -522,6 +996,65 @@
           },
           "404": {
             "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/me/profile": {
+      "put": {
+        "tags": [
+          "Me"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -5329,7 +5862,8 @@
           "courses",
           "coursesWithoutTeacher",
           "classesWithoutMentor",
-          "usersWithoutPassword"
+          "usersWithoutPassword",
+          "studentsWithoutClass"
         ],
         "type": "object",
         "properties": {
@@ -5353,9 +5887,32 @@
             "items": {
               "$ref": "#/components/schemas/AdminUserWithoutPasswordDto"
             }
+          },
+          "studentsWithoutClass": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminUserRefDto"
+            }
           }
         },
         "description": "Adminens Idag-sida: skolans kurser per läge och det som saknar något. Varje rad pekar på klassen eller kursen\ndär admin ordnar det."
+      },
+      "AdminUserRefDto": {
+        "required": [
+          "userId",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "description": "En elev utan klass, till exempel någon som loggade in med Microsoft första gången."
       },
       "AdminUserWithoutPasswordDto": {
         "required": [
@@ -5387,7 +5944,7 @@
             ]
           }
         },
-        "description": "En användare som inte kan logga in. GroupId är en klass hen går i, om hen går i någon."
+        "description": "En användare som inte kan logga in: inget lösenord, och skolan har inte Microsoft-inloggning. GroupId är en klass\nhen går i, om hen går i någon."
       },
       "AssignmentGroupDto": {
         "required": [
@@ -5586,6 +6143,25 @@
           }
         },
         "description": "Url är en tidsbegränsad länk som skapas när bilagan läses, inte något som sparas."
+      },
+      "AuthProvidersDto": {
+        "required": [
+          "microsoft"
+        ],
+        "type": "object",
+        "properties": {
+          "microsoft": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MicrosoftProviderDto"
+              }
+            ]
+          }
+        },
+        "description": "Microsoft är null när Microsoft-inloggning inte är inställd, och då visar klienten bara lösenordet."
       },
       "CalendarItemDto": {
         "required": [
@@ -7145,6 +7721,54 @@
           }
         }
       },
+      "MicrosoftLoginDto": {
+        "required": [
+          "idToken"
+        ],
+        "type": "object",
+        "properties": {
+          "idToken": {
+            "type": "string"
+          }
+        },
+        "description": "ID-tokenet som klienten fick av Microsoft (MSAL)."
+      },
+      "MicrosoftLoginResultDto": {
+        "required": [
+          "accessToken",
+          "expiresAt",
+          "firstSignIn"
+        ],
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "firstSignIn": {
+            "type": "boolean"
+          }
+        },
+        "description": "Lärkas token, som vid inloggning med lösenord. FirstSignIn är sant när användaren loggar in första gången."
+      },
+      "MicrosoftProviderDto": {
+        "required": [
+          "clientId",
+          "tenantId"
+        ],
+        "type": "object",
+        "properties": {
+          "clientId": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          }
+        }
+      },
       "ModuleContentItem": {
         "required": [
           "linkId",
@@ -7730,6 +8354,29 @@
             "type": "string"
           }
         }
+      },
+      "SchoolMicrosoftDto": {
+        "required": [
+          "configured",
+          "linked",
+          "tenantId"
+        ],
+        "type": "object",
+        "properties": {
+          "configured": {
+            "type": "boolean"
+          },
+          "linked": {
+            "type": "boolean"
+          },
+          "tenantId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "description": "Microsoft-inloggning för skolan. Configured: appen har Auth:Entra. Linked: skolan tar emot inloggningar från\nTenantId, appens tenant."
       },
       "SchoolRefDto": {
         "required": [
@@ -9260,13 +9907,38 @@
           }
         }
       },
+      "UpdateProfileDto": {
+        "required": [
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        },
+        "description": "Det användaren själv får ändra om sig. Namnet kommer från Microsoft och kan rättas här."
+      },
+      "UpdateUserRoleDto": {
+        "required": [
+          "role"
+        ],
+        "type": "object",
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/UserRole"
+          }
+        }
+      },
       "UserDto": {
         "required": [
           "id",
           "schoolId",
           "name",
           "email",
-          "role"
+          "role",
+          "deactivatedAt",
+          "microsoftLinked"
         ],
         "type": "object",
         "properties": {
@@ -9286,8 +9958,19 @@
           },
           "role": {
             "$ref": "#/components/schemas/UserRole"
+          },
+          "deactivatedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "microsoftLinked": {
+            "type": "boolean"
           }
-        }
+        },
+        "description": "DeactivatedAt är satt när admin har spärrat användaren. MicrosoftLinked är sant när hen har loggat in med\nMicrosoft."
       },
       "UserRole": {
         "enum": [

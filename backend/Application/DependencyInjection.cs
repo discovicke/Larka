@@ -9,6 +9,7 @@ public static class DependencyInjection
     {
         services.AddScoped<SchoolService>();
         services.AddScoped<AuthService>();
+        services.AddScoped<MicrosoftSignInService>();
         services.AddScoped<UserService>();
         services.AddScoped<GroupService>();
         services.AddScoped<CourseService>();

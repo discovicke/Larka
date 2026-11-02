@@ -1,5 +1,6 @@
 using Backend.Application.Abstractions;
 using Backend.Application.Dtos;
+using Backend.Application.Results;
 
 namespace Backend.Application.Services;
 
@@ -69,5 +70,25 @@ public class MeService(
         user.MutedNotificationKinds = settings.Muted.Distinct().Order().ToList();
         await unitOfWork.SaveChangesAsync(ct);
         return new NotificationSettingsDto(user.MutedNotificationKinds);
+    }
+
+    /// <summary>Byter användarens namn. Null om användaren inte finns, Invalid om namnet är tomt.</summary>
+    public async Task<ServiceResult<MeDto>> UpdateProfileAsync(UpdateProfileDto profile, CancellationToken ct)
+    {
+        var name = profile.Name?.Trim() ?? "";
+        if (name.Length == 0 || name.Length > 200)
+        {
+            return ServiceResult<MeDto>.Invalid("name must be 1 to 200 characters");
+        }
+
+        var user = await users.GetAsync(currentUser.UserId, ct);
+        if (user is null)
+        {
+            return ServiceResult<MeDto>.NotFound("user not found");
+        }
+
+        user.Name = name;
+        await unitOfWork.SaveChangesAsync(ct);
+        return ServiceResult<MeDto>.Ok((await GetAsync(ct))!);
     }
 }

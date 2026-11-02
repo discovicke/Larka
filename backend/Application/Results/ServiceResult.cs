@@ -20,4 +20,11 @@ public record ServiceResult<T>(ResultStatus Status, T? Value, string? Error)
     public static ServiceResult<T> NotFound(string error) => new(ResultStatus.NotFound, default, error);
     public static ServiceResult<T> Conflict(string error) => new(ResultStatus.Conflict, default, error);
     public static ServiceResult<T> Forbidden() => new(ResultStatus.Forbidden, default, ForbiddenMessage);
+
+    /// <summary>403 med en egen text, när användaren behöver veta varför.</summary>
+    public static ServiceResult<T> Forbidden(string message) => new(ResultStatus.Forbidden, default, message);
+
+    /// <summary>Samma fel som ett annat resultat, när en service skickar vidare ett misslyckat steg.</summary>
+    public static ServiceResult<T> From<TOther>(ServiceResult<TOther> failed) =>
+        new(failed.Status, default, failed.Error);
 }

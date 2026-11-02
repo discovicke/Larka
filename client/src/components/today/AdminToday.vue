@@ -45,7 +45,8 @@ const withoutPassword = computed<ClassCount[]>(() => {
 
 const attentionCount = computed(() => (overview.value?.coursesWithoutTeacher.length ?? 0)
   + (overview.value?.classesWithoutMentor.length ?? 0)
-  + (overview.value?.usersWithoutPassword.length ?? 0))
+  + (overview.value?.usersWithoutPassword.length ?? 0)
+  + (overview.value?.studentsWithoutClass.length ?? 0))
 
 const summary = computed(() => attentionCount.value === 0
   ? 'Inget behöver ordnas'
@@ -177,8 +178,34 @@ load()
       </ul>
     </section>
 
+    <section
+      v-if="overview.studentsWithoutClass.length"
+      aria-labelledby="a-no-class-heading"
+      class="flex flex-col gap-1.5"
+      data-test="no-class"
+    >
+      <h2 id="a-no-class-heading" class="text-base">Elever utan klass</h2>
+      <p class="text-muted-foreground text-sm">
+        Lägg in dem i en klass med Lägg till medlem på klassens sida, eller gör dem till lärare under Användare.
+      </p>
+      <ul class="flex flex-col">
+        <li
+          v-for="student in overview.studentsWithoutClass"
+          :key="student.userId"
+          class="flex min-h-11 items-center font-medium"
+          data-test="no-class-item"
+        >
+          {{ student.name }}
+        </li>
+      </ul>
+      <div class="flex flex-wrap gap-x-5">
+        <RouterLink :to="{name: 'groups', query: {filter: 'groups'}}" :class="linkClass">Visa klasserna</RouterLink>
+        <RouterLink :to="{name: 'users'}" :class="linkClass">Visa användarna</RouterLink>
+      </div>
+    </section>
+
     <p v-if="attentionCount === 0" class="text-muted-foreground text-sm" data-test="admin-all-good">
-      Alla kurser har lärare, alla klasser har mentor och alla användare kan logga in.
+      Alla kurser har lärare, alla klasser har mentor, alla elever har en klass och alla användare kan logga in.
     </p>
   </div>
 </template>

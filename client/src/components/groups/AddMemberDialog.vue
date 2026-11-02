@@ -18,6 +18,7 @@ import {useAsync} from '@/composables/useAsync'
 import {api, errorMessage, unwrap, type Schema} from '@/lib/api'
 import {groupRoles} from '@/lib/groupRoles'
 import {addGroupMember} from '@/lib/groupsApi'
+import {fetchMicrosoftSettings} from '@/lib/auth/microsoft'
 import {fetchUsers} from '@/lib/usersApi'
 
 const props = defineProps<{groupId: string, groupName: string, schoolId: string, memberIds: string[]}>()
@@ -37,6 +38,8 @@ const {run: loadUsers, loading, error} = useAsync(fetchUsers)
 const creating = ref(false)
 const submitted = ref(false)
 const form = reactive({name: '', email: '', schoolRole: 'Student' as Schema<'UserRole'>, password: ''})
+// Med Microsoft-inloggning loggar alla in med skolans konto, så admin sätter inga lösenord.
+const microsoftSignIn = ref(false)
 // Har användaren skapats men inte kunnat läggas till, används samma användare vid nästa försök.
 let createdUser: Schema<'UserDto'> | null = null
 
@@ -77,6 +80,13 @@ watch(open, async (isOpen) => {
   submitted.value = false
   createdUser = null
   Object.assign(form, {name: '', email: '', schoolRole: 'Student', password: ''})
+  void fetchMicrosoftSettings()
+    .then((settings) => {
+      microsoftSignIn.value = settings !== null
+    })
+    .catch(() => {
+      microsoftSignIn.value = false
+    })
   const loaded = await loadUsers()
   if (loaded) {
     users.value = loaded
@@ -215,7 +225,11 @@ async function addToGroup(user: Schema<'UserDto'> | null | undefined) {
               </NativeSelectOption>
             </NativeSelect>
           </Field>
+          <p v-if="microsoftSignIn" class="text-muted-foreground text-sm" data-test="new-user-microsoft">
+            Hen loggar in med skolans Microsoft-konto, med samma e-postadress.
+          </p>
           <Field
+            v-else
             :data-invalid="passwordError
               ? true
               : undefined"

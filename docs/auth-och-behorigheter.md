@@ -10,7 +10,27 @@ Vem som är inloggad ligger bakom `ICurrentUser`, som läser användaren från t
 
 **JWT-nyckeln** (`Auth:Jwt:Key`) är en hemlighet på minst 32 byte, och appen stoppar vid start om den saknas. I Development finns en dev-nyckel i `appsettings.Development.json`. Var den sätts i övrigt: [konfiguration.md](konfiguration.md#inloggning).
 
-Microsoft Entra ID (#79) kan läggas till senare som ett andra JWT-schema, utan att resten ändras.
+### Inloggning med Microsoft
+
+Skolans elever och personal loggar in med sitt Microsoft-konto (Microsoft Entra ID). Ingen kan skapa ett konto på något annat sätt, och ingen väljer själv sin roll eller klass. Inställningen görs en gång med [`infra/entra-setup.sh`](../infra/entra-setup.sh) ([deploy.md](deploy.md#microsoft-inloggning)).
+
+1. `GET /api/auth/providers` berättar om Microsoft-inloggning finns (`microsoft: {clientId, tenantId}` eller `null`). Klienten loggar in hos Microsoft med MSAL (redirect, auth code med PKCE, `openid profile email`) och får ett ID-token.
+2. Klienten skickar det en gång till `POST /api/auth/microsoft` `{idToken}`. Backend kontrollerar signaturen mot tenantens nycklar, utfärdaren (skolans tenant), mottagaren (`Auth:Entra:ClientId`) och tiden, och svarar med samma token som inloggning med lösenord, plus `firstSignIn`. Resten av API:et ser ingen skillnad.
+3. Användaren hittas på Microsofts id (`oid`, sparat som `User.ExternalId`). Saknas det kopplas en användare i skolan med samma e-post (utan hänsyn till versaler) som inte redan är kopplad, till exempel en elev från en inklistrad elevlista. Annars skapas en ny **elev**.
+4. En ny elev läggs i klassen som adressen slutar på: `fornamn.efternamn.net25@...` ger `net25`, som matchar klassen `.NET25` (versaler, punkter och mellanslag räknas inte). Bara om exakt en klass i skolan har namnet, och bara när användaren skapas. Annars har eleven ingen klass förrän admin lägger in hen. En kopplad användare behåller sin roll och sina klasser.
+
+På `/login` står _Logga in med Microsoft_ överst och lösenordet under (för demokontona). Microsoft skickar tillbaka till `/login` (redirect URI:n), där klienten tar emot svaret och öppnar sidan användaren ville till. Första gången öppnas _Välkommen_ (`/valkommen`) i stället: namnet från Microsoft kan rättas (`PUT /api/me/profile` `{name}`) och notiserna väljas. En elev utan klass och kurser ser _Du är inte med i någon klass än_ på Idag. _Logga ut_ loggar bara ut ur Lärka, inte ur Microsoft. MSAL laddas först när någon loggar in med Microsoft.
+
+Skolan tar emot Microsoft-inloggningar först när admin har slagit på det under _Inställningar → Integrationer → Inloggning med Microsoft_. Då kopplas appens tenant till skolan (`School.EntraTenantId`, en tenant per skola). `GET /api/schools/{id}/microsoft` visar läget (`configured`, `linked`, `tenantId`), `PUT` kopplar (`404` när `Auth:Entra` saknas, `409` när en annan skola redan har tenanten) och `DELETE` kopplar loss. Bara admin i skolan.
+
+På _Användare_ visar kolumnen _Microsoft_ vem som har loggat in med Microsoft. _Koppla bort Microsoft_ i menyn `⋯` (`DELETE /api/users/{id}/microsoft`) tömmer `ExternalId`, till exempel när skolans IT har skapat om någons konto. Nästa inloggning kopplar det nya kontot på e-postadressen. Admins _Idag_ listar **Elever utan klass**, till exempel de som loggade in första gången utan att adressen matchade en klass.
+
+| Svar från `POST /api/auth/microsoft` | När                                                                                                    |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| `200`                                | Inloggad. `firstSignIn` är sant första gången.                                                         |
+| `401`                                | Tokenet är ogiltigt: fel signatur, tenant, mottagare eller för gammalt.                                |
+| `403`                                | Skolan har inte kopplat Microsoft, kontot är spärrat, eller e-posten används redan av ett annat konto. |
+| `404`                                | Microsoft-inloggning är inte inställd (`Auth:Entra` saknas).                                           |
 
 ## Konton
 
@@ -88,7 +108,7 @@ Seeden körs bara när databasen är tom. Saknar en äldre dev-databas de här a
 
 ### Produktion
 
-Prod seedar inga lösenord utöver demokontona och demodatan (`larka-demo`). Admin kan ge en ny användare ett tillfälligt lösenord (minst 8 tecken) när hen skapas från _Lägg till medlem_ på en grupp, eller med `password` i `POST /api/users`. Utan lösenord kan användaren inte logga in. För äldre användare utan lösenord: hasha det med ASP.NET Core `PasswordHasher<User>` och skriv hashen i `Users.PasswordHash`.
+Prod seedar inga lösenord utöver demokontona och demodatan (`larka-demo`). Admin kan ge en ny användare ett tillfälligt lösenord (minst 8 tecken) när hen skapas från _Lägg till medlem_ på en grupp, eller med `password` i `POST /api/users`. När Microsoft-inloggning är inställd visar _Lägg till medlem_ inget lösenordsfält, eftersom användaren loggar in med skolans konto. Utan lösenord kan användaren inte logga in. För äldre användare utan lösenord: hasha det med ASP.NET Core `PasswordHasher<User>` och skriv hashen i `Users.PasswordHash`.
 
 ## Roller och behörigheter
 
@@ -113,6 +133,31 @@ E-post och global roll (`User.Role`) lämnas bara ut till admin, och bara för a
 | `GET /api/users`               | Skolans användare, med e-post och roll  | `403`                                        | `403`           | Admin ser sin egen skola, andra får `403`     |
 | `GET /api/users/{id}`          | Användare i skolan, med e-post och roll | `403`                                        | `403`           | `404` för admin (en annan skola), andra `403` |
 | `GET /api/groups/{id}/members` | Hela listan                             | Hela listan                                  | `403`           | `404`                                         |
+
+### Skolroll
+
+Admin ändrar en användares skolroll (`User.Role`: Elev, Lärare eller Admin) på sidan _Användare_ (`/users`, bara admin), med _Ändra roll_ i menyn `⋯` på raden. Sidan listar skolans användare med namn, e-post och roll, med sökning och flikar per roll.
+
+| Anrop                                  | Admin                                   | Övriga |
+| -------------------------------------- | --------------------------------------- | ------ |
+| `PUT /api/users/{id}/role` `{role}`    | `200` med användaren                    | `403`  |
+| Användare i en annan skola eller okänd | `404`                                   | `403`  |
+| Den egna rollen                        | `409` `you cannot change your own role` | `403`  |
+
+Ingen kan ändra sin egen roll. Den som ändrar är alltid admin i skolan, så skolan har alltid kvar minst en admin. Blir någon elev tas hen bort som lärare i alla kurser (raderna i `CourseTeacher`), eftersom bara lärare och admin kan vara lärare i en kurs. Det hen har skapat, bedömt och skrivit ligger kvar. Rollerna i grupperna (`GroupRole`) ändras inte, de sätts på gruppens sida. Blir en lärare admin behåller hen sina kurser.
+
+### Spärra användare
+
+Användare tas aldrig bort, eftersom deras inlämningar, betyg och kommentarer ska finnas kvar. Admin spärrar dem i stället, med _Spärra_ i menyn `⋯` på _Användare_, och släpper spärren med _Återaktivera_. Båda frågar först.
+
+| Anrop                             | Admin                                  | Övriga |
+| --------------------------------- | -------------------------------------- | ------ |
+| `POST /api/users/{id}/deactivate` | `200`, sätter `deactivatedAt`          | `403`  |
+| `POST /api/users/{id}/reactivate` | `200`, tar bort `deactivatedAt`        | `403`  |
+| Sig själv                         | `409` `you cannot deactivate yourself` | `403`  |
+| En annan skolas användare         | `404`                                  | `403`  |
+
+En spärrad användare som loggar in med rätt lösenord får `403` med texten `Ditt konto är spärrat.` (fel lösenord ger som vanligt `401`, så spärren avslöjas inte). En inloggning som redan finns gäller tills tokenet går ut (8 timmar). Spärrade användare syns inte i gruppernas medlemslistor eller i listorna där admin väljer lärare, mentor och elever, men medlemskapen ligger kvar och namnet står kvar på det de har gjort. På _Användare_ har de märket _Spärrad_ och en egen flik.
 
 `POST /api/groups/{id}/members/import` tar en inklistrad elevlista (`{lines: [{name, email}]}`, högst 500 rader) och är bara för admin (`403` för alla andra, `404` för en annan skolas grupp). Nya elever skapas utan lösenord, alla läggs till som elever i klassen i ett enda sparsteg, och svaret redovisar varje rad: `Created`, `Added`, `AlreadyMember`, `NotStudent`, `Duplicate` eller `Invalid`. Lärare och admin läggs inte till på det här sättet.
 
@@ -168,6 +213,6 @@ Admin som också undervisar i kursen (en rad i `CourseTeacher`) får lärarens k
 
 Mentorn är medlem i klassen med `GroupRole.Mentor`. Mentorn läser alltså klassens kurser, klasslistan och elevernas inlämningar, men skapar, publicerar och bedömer ingenting. Den globala rollen spelar ingen roll: de seedade mentorerna har `User.Role` Lärare och får ändå inte skapa innehåll.
 
-`GET /api/me/admin-overview` ger adminens Idag: antal kurser per läge (kommande, pågår, avslutade, utan datum), kurser utan lärare, klasser utan mentor och användare som inte kan logga in eftersom de saknar lösenord. Varje rad bär id:t på klassen eller kursen där admin ordnar det.
+`GET /api/me/admin-overview` ger adminens Idag: antal kurser per läge (kommande, pågår, avslutade, utan datum), kurser utan lärare, klasser utan mentor och användare som inte kan logga in (inget lösenord, och skolan har inte Microsoft-inloggning) och elever utan klass. Spärrade användare räknas inte. Varje rad bär id:t på klassen eller kursen där admin ordnar det.
 
 Nekas anropet svarar API:et `403 Forbidden` som ProblemDetails med texten `Du har inte behörighet.`. Läsning och elevens egna handlingar är öppna, och en elev ser bara sina egna inlämningar. Undantaget är användarlistan och medlemslistorna ovan.

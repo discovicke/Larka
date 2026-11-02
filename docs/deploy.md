@@ -44,11 +44,13 @@ Tjänsten skapas och konfigureras med [`infra/render-setup.sh`](../infra/render-
 
 Hemligheterna finns i GitHub-miljön `production`, och deploy-jobbet skickar dem till Render vid varje deploy, en variabel i taget så att övriga variabler på tjänsten lämnas orörda:
 
-| I `production`              | På Render                           |
-| --------------------------- | ----------------------------------- |
-| `AUTH_JWT_KEY`              | `Auth__Jwt__Key`                    |
-| `SUPABASE_URL`              | `Storage__Supabase__Url`            |
-| `SUPABASE_SERVICE_ROLE_KEY` | `Storage__Supabase__ServiceRoleKey` |
+| I `production`              | På Render                                                      |
+| --------------------------- | -------------------------------------------------------------- |
+| `AUTH_JWT_KEY`              | `Auth__Jwt__Key`                                               |
+| `SUPABASE_URL`              | `Storage__Supabase__Url`                                       |
+| `SUPABASE_SERVICE_ROLE_KEY` | `Storage__Supabase__ServiceRoleKey`                            |
+| `ENTRA_CLIENT_ID`           | `Auth__Entra__ClientId` (bara om båda Entra-variablerna finns) |
+| `ENTRA_TENANT_ID`           | `Auth__Entra__TenantId`                                        |
 
 GitHub är valfritt. Finns värdena nedan skickas de också vid varje deploy, en variabel i taget. Saknas de deployar appen utan GitHub-integration.
 
@@ -64,6 +66,25 @@ GitHub är valfritt. Finns värdena nedan skickas de också vid varje deploy, en
 | `GH_WEBHOOK_SECRET`  | `GitHub__WebhookSecret`  |
 
 `RENDER_API_KEY`, `RENDER_SERVICE_ID` och `APP_URL` används bara av deploy-jobbet. Alla finns i [konfiguration.md](konfiguration.md#github-actions). Saknas någon av de obligatoriska värdena stoppar deploy-jobbet med ett fel innan något ändras.
+
+## Microsoft-inloggning
+
+Skolans Entra-admin sätter upp inloggningen med Microsoft en gång, med [`infra/entra-setup.sh`](../infra/entra-setup.sh):
+
+```bash
+az login          # som admin i skolans tenant
+gh auth login     # med rätt att ändra miljön production
+infra/entra-setup.sh
+```
+
+Skriptet registrerar Lärka i skolans Entra ID, eller uppdaterar registreringen om den redan finns (den hittas på taggen `larka-sign-in`):
+
+- bara konton i skolans egen tenant kan logga in (single-tenant)
+- plattformen _Single-page application_ med redirect URI:erna `APP_URL/login` och `http://localhost:5173/login`
+- bara inloggningsbehörigheterna `openid`, `profile`, `email` och `offline_access`, och ingen hemlighet
+- samtycke för hela organisationen om den som kör är admin. Annars godkänner varje användare själv vid första inloggningen, vilket skolans standardregler brukar tillåta för just inloggning
+
+Sist sparas `ENTRA_CLIENT_ID` och `ENTRA_TENANT_ID` i miljön `production`, och nästa deploy sätter dem på Render. Klienten hämtar dem från API:et, så ingen ny build behövs. `SKIP_GITHUB=1` skriver bara ut värdena.
 
 ## Versioner
 

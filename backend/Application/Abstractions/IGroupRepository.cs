@@ -73,7 +73,7 @@ public interface IGroupRepository
     /// <summary>Grupperna användaren är medlem i, med vilken roll som helst, sorterade på namn.</summary>
     Task<List<GroupRef>> GetMemberGroupsAsync(Guid userId, CancellationToken ct);
 
-    /// <summary>Medlemmarna i gruppen, med namn och roll.</summary>
+    /// <summary>Medlemmarna i gruppen, med namn och roll. Spärrade användare är inte med.</summary>
     Task<List<GroupMemberDto>> GetMembersAsync(Guid groupId, CancellationToken ct);
 
     /// <summary>Antal medlemmar per grupp i skolan, i en fråga. Grupper utan medlemmar saknas i svaret.</summary>

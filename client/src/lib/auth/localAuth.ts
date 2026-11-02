@@ -14,7 +14,7 @@ async function signIn(credentials: {username: string, password: string}): Promis
   } catch (exception) {
     // api-klienten kastar ApiError för svar som inte är 2xx. Vyn vill ha AuthError med samma status.
     throw exception instanceof ApiError
-      ? new AuthError(exception.status)
+      ? new AuthError(exception.status, exception.message)
       : exception
   }
 }

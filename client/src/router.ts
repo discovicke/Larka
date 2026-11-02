@@ -24,6 +24,8 @@ import MaterialView from '@/views/MaterialView.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
 import SettingsView from '@/views/SettingsView.vue'
 import TodayView from '@/views/TodayView.vue'
+import UsersView from '@/views/UsersView.vue'
+import WelcomeView from '@/views/WelcomeView.vue'
 import CourseAboutView from '@/views/course/CourseAboutView.vue'
 import CourseContentPage from '@/views/course/CourseContentPage.vue'
 import CourseLayout from '@/views/course/CourseLayout.vue'
@@ -96,6 +98,8 @@ export const routes: RouteRecordRaw[] = [
           ],
         },
       },
+      {path: 'valkommen', name: 'welcome', component: WelcomeView, meta: {title: 'Välkommen'}},
+      {path: 'users', name: 'users', component: UsersView, meta: {title: 'Användare', requires: 'admin'}},
       {path: 'settings', name: 'settings', component: SettingsView, meta: {title: 'Inställningar'}},
       // Program och klasser finns inte längre: admin hanterar klasser och grupper på Alla grupper.
       {path: 'settings/groups', redirect: {name: 'groups'}},

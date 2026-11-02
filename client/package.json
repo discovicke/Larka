@@ -16,6 +16,7 @@
     "gen:api": "openapi-typescript openapi.json -o src/lib/api-types.ts --enum-values"
   },
   "dependencies": {
+    "@azure/msal-browser": "^4.30.0",
     "@internationalized/date": "^3.12.4",
     "@phosphor-icons/vue": "^2.2.1",
     "@tiptap/extension-highlight": "^3.32.0",

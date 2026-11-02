@@ -21,6 +21,13 @@ for pair in "Storage__Supabase__Url=$SUPABASE_URL" "Storage__Supabase__ServiceRo
   api -X PUT "$API/env-vars/${pair%%=*}" -d "$(jq -n --arg value "${pair#*=}" '{value: $value}')" >/dev/null
 done
 
+# Microsoft-inloggningen är valfri. infra/entra-setup.sh lägger variablerna i GitHub-miljön production.
+if [ -n "${ENTRA_CLIENT_ID:-}" ] && [ -n "${ENTRA_TENANT_ID:-}" ]; then
+  for pair in "Auth__Entra__ClientId=$ENTRA_CLIENT_ID" "Auth__Entra__TenantId=$ENTRA_TENANT_ID"; do
+    api -X PUT "$API/env-vars/${pair%%=*}" -d "$(jq -n --arg value "${pair#*=}" '{value: $value}')" >/dev/null
+  done
+fi
+
 # GitHub är valfritt. Tomma värden hoppas över, så en deploy utan GitHub fungerar som förut.
 for pair in \
   "GitHub__AppId=${GH_APP_ID:-}" \

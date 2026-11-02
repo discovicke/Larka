@@ -8,7 +8,8 @@ public record AdminOverviewDto(
     AdminCourseCountsDto Courses,
     List<AdminCourseWithoutTeacherDto> CoursesWithoutTeacher,
     List<AdminGroupRefDto> ClassesWithoutMentor,
-    List<AdminUserWithoutPasswordDto> UsersWithoutPassword);
+    List<AdminUserWithoutPasswordDto> UsersWithoutPassword,
+    List<AdminUserRefDto> StudentsWithoutClass);
 
 /// <summary>
 /// Antal kurser per läge, räknat på datumen som i klienten. Kurser utan datum ingår i Undated.
@@ -21,5 +22,11 @@ public record AdminCourseWithoutTeacherDto(Guid CourseId, string Code, string Ti
 /// <summary>En klass.</summary>
 public record AdminGroupRefDto(Guid GroupId, string Name, string Term);
 
-/// <summary>En användare som inte kan logga in. GroupId är en klass hen går i, om hen går i någon.</summary>
+/// <summary>
+/// En användare som inte kan logga in: inget lösenord, och skolan har inte Microsoft-inloggning. GroupId är en klass
+/// hen går i, om hen går i någon.
+/// </summary>
 public record AdminUserWithoutPasswordDto(Guid UserId, string Name, Guid? GroupId, string? GroupName);
+
+/// <summary>En elev utan klass, till exempel någon som loggade in med Microsoft första gången.</summary>
+public record AdminUserRefDto(Guid UserId, string Name);

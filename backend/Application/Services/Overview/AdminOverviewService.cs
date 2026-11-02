@@ -5,12 +5,13 @@ using Backend.Domain.Enums;
 
 namespace Backend.Application.Services;
 
-// Adminens Idag-sida. Visar vad som behöver ordnas i skolan: kurser utan lärare, klasser utan mentor och
-// användare som saknar lösenord. Bara admin, och bara den egna skolan.
+// Adminens Idag-sida. Visar vad som behöver ordnas i skolan: kurser utan lärare, klasser utan mentor, användare
+// som inte kan logga in och elever utan klass. Bara admin, och bara den egna skolan. Spärrade användare räknas inte.
 public class AdminOverviewService(
     ICourseRepository courses,
     IGroupRepository groups,
     IUserRepository users,
+    ISchoolRepository schools,
     IPermissions permissions,
     ICurrentSchool currentSchool,
     TimeProvider time)
@@ -63,8 +64,14 @@ public class AdminOverviewService(
                 grouped => groupsById[grouped.Select(enrollment => enrollment.GroupId)
                     .OrderBy(groupId => groupsById[groupId].Name)
                     .First()]);
-        var withoutPassword = (await users.GetForSchoolAsync(schoolId.Value, ct))
-            .Where(user => string.IsNullOrEmpty(user.PasswordHash))
+        var schoolUsers = (await users.GetForSchoolAsync(schoolId.Value, ct))
+            .Where(user => user.DeactivatedAt is null)
+            .ToList();
+        // Med Microsoft-inloggning kan alla logga in utan lösenord, så då finns ingen sådan lista.
+        var school = await schools.GetAsync(schoolId.Value, ct);
+        var microsoftLinked = school?.EntraTenantId is not null;
+        var withoutPassword = schoolUsers
+            .Where(user => !microsoftLinked && string.IsNullOrEmpty(user.PasswordHash))
             .OrderBy(user => user.Name)
             .Select(user => firstClassOfUser.TryGetValue(user.Id, out var group)
                 ? new AdminUserWithoutPasswordDto(user.Id, user.Name, group.Id, group.Name)
@@ -79,7 +86,12 @@ public class AdminOverviewService(
                 schoolCourses.Count(course => StateOf(course.StartsOn, course.EndsOn, today) == CourseState.Undated)),
             withoutTeacher,
             withoutMentor,
-            withoutPassword));
+            withoutPassword,
+            schoolUsers
+                .Where(user => user.Role == UserRole.Student && !firstClassOfUser.ContainsKey(user.Id))
+                .OrderBy(user => user.Name)
+                .Select(user => new AdminUserRefDto(user.Id, user.Name))
+                .ToList()));
     }
 
     private enum CourseState

@@ -193,7 +193,7 @@ public class GroupRepository(AppDb db) : IGroupRepository
         db.Enrollments
             .Where(enrollment => enrollment.GroupId == groupId)
             .Join(
-                db.Users,
+                db.Users.Where(user => user.DeactivatedAt == null),
                 enrollment => enrollment.UserId,
                 user => user.Id,
                 (enrollment, user) => new { UserId = user.Id, user.Name, enrollment.Role })

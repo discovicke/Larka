@@ -56,6 +56,10 @@ public static class MeEndpoints
                 : TypedResults.Ok(settings);
         }).WithTags("Me");
 
+        // Användarens eget namn, till exempel vid första inloggningen med Microsoft.
+        app.MapPut("/me/profile", async (UpdateProfileDto body, MeService service, CancellationToken ct) =>
+            (await service.UpdateProfileAsync(body, ct)).ToHttp(TypedResults.Ok)).WithTags("Me");
+
         return app;
     }
 }

@@ -12,6 +12,9 @@ public interface IUserRepository
     Task<Dictionary<Guid, string>> GetNamesAsync(IReadOnlyCollection<Guid> userIds, CancellationToken ct);
     Task<User?> GetAsync(Guid id, CancellationToken ct);
     Task<User?> GetByEmailAsync(string email, CancellationToken ct);
+
+    /// <summary>Användaren med id:t från Microsoft Entra ID (oid).</summary>
+    Task<User?> GetByExternalIdAsync(string externalId, CancellationToken ct);
     Task<List<User>> GetStudentsInGroupsAsync(IReadOnlyCollection<Guid> groupIds, CancellationToken ct);
 
     /// <summary>Avstängda notisslag per användare. Användare utan avstängda slag saknas i resultatet.</summary>

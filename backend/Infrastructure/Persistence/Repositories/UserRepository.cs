@@ -41,6 +41,9 @@ public class UserRepository(AppDb db) : IUserRepository
 
     public void Add(User user) => db.Users.Add(user);
 
+    public Task<User?> GetByExternalIdAsync(string externalId, CancellationToken ct) =>
+        db.Users.FirstOrDefaultAsync(user => user.ExternalId == externalId, ct);
+
     public Task<User?> GetByEmailAsync(string email, CancellationToken ct)
     {
         // E-post jämförs utan hänsyn till versaler och inledande/trailing blanksteg.

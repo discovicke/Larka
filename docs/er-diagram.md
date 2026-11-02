@@ -50,6 +50,7 @@ erDiagram
     School {
         uuid Id PK
         string Name
+        string EntraTenantId UK "nullable"
     }
     User {
         uuid Id PK
@@ -59,6 +60,8 @@ erDiagram
         string PasswordHash "nullable"
         UserRole Role "Admin, Teacher, Student"
         string GitHubLogin UK "nullable"
+        string ExternalId UK "nullable, Microsofts oid"
+        timestamptz DeactivatedAt "nullable"
         NotificationKind[] MutedNotificationKinds
     }
     Group {

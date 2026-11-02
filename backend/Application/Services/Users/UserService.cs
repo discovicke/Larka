@@ -3,6 +3,7 @@ using Backend.Application.Abstractions;
 using Backend.Application.Dtos;
 using Backend.Application.Results;
 using Backend.Domain.Entities;
+using Backend.Domain.Enums;
 using Microsoft.AspNetCore.Identity;
 
 namespace Backend.Application.Services;
@@ -10,10 +11,13 @@ namespace Backend.Application.Services;
 public class UserService(
     IUserRepository users,
     ISchoolRepository schools,
+    ICourseRepository courses,
+    ICurrentUser currentUser,
     IPermissions permissions,
     ICurrentSchool currentSchool,
     IPasswordHasher<User> passwordHasher,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    TimeProvider time)
 {
     private const int _minPasswordLength = 8;
 
@@ -89,6 +93,101 @@ public class UserService(
         }
 
         users.Add(user);
+        await unitOfWork.SaveChangesAsync(ct);
+        return ServiceResult<UserDto>.Ok(UserDto.From(user));
+    }
+
+    // Admin ändrar skolrollen. Ingen kan ändra sin egen roll, så skolan har alltid kvar minst en admin (den som
+    // ändrar). Blir någon elev tas hen bort som lärare i sina kurser, eftersom en kurs bara kan ha lärare och admin
+    // som lärare. Det hen har skapat och bedömt ligger kvar.
+    public async Task<ServiceResult<UserDto>> UpdateRoleAsync(Guid id, UpdateUserRoleDto dto, CancellationToken ct)
+    {
+        if (!await permissions.IsAdminAsync(ct))
+        {
+            return ServiceResult<UserDto>.Forbidden();
+        }
+
+        var user = await users.GetAsync(id, ct);
+        if (user is null || !await currentSchool.OwnsAsync(user.SchoolId, ct))
+        {
+            return ServiceResult<UserDto>.NotFound("user not found");
+        }
+
+        if (user.Id == currentUser.UserId)
+        {
+            return ServiceResult<UserDto>.Conflict("you cannot change your own role");
+        }
+
+        if (user.Role == dto.Role)
+        {
+            return ServiceResult<UserDto>.Ok(UserDto.From(user));
+        }
+
+        if (dto.Role == UserRole.Student)
+        {
+            await courses.RemoveTeacherFromAllCoursesAsync(user.Id, ct);
+        }
+
+        user.Role = dto.Role;
+        await unitOfWork.SaveChangesAsync(ct);
+        return ServiceResult<UserDto>.Ok(UserDto.From(user));
+    }
+
+    // Spärrar i stället för att ta bort, så att inlämningar, betyg och kommentarer finns kvar. Ingen kan spärra sig
+    // själv, så skolan har alltid kvar en admin. En inloggning som redan finns gäller tills tokenet går ut.
+    public Task<ServiceResult<UserDto>> DeactivateAsync(Guid id, CancellationToken ct) =>
+        SetDeactivatedAsync(id, deactivate: true, ct);
+
+    public Task<ServiceResult<UserDto>> ReactivateAsync(Guid id, CancellationToken ct) =>
+        SetDeactivatedAsync(id, deactivate: false, ct);
+
+    // Tar bort kopplingen till Microsoft-kontot, till exempel när skolans IT har skapat om personens konto. Nästa
+    // Microsoft-inloggning kopplar hen igen, på e-posten.
+    public async Task<ServiceResult<UserDto>> UnlinkMicrosoftAsync(Guid id, CancellationToken ct)
+    {
+        if (!await permissions.IsAdminAsync(ct))
+        {
+            return ServiceResult<UserDto>.Forbidden();
+        }
+
+        var user = await users.GetAsync(id, ct);
+        if (user is null || !await currentSchool.OwnsAsync(user.SchoolId, ct))
+        {
+            return ServiceResult<UserDto>.NotFound("user not found");
+        }
+
+        user.ExternalId = null;
+        await unitOfWork.SaveChangesAsync(ct);
+        return ServiceResult<UserDto>.Ok(UserDto.From(user));
+    }
+
+    private async Task<ServiceResult<UserDto>> SetDeactivatedAsync(Guid id, bool deactivate, CancellationToken ct)
+    {
+        if (!await permissions.IsAdminAsync(ct))
+        {
+            return ServiceResult<UserDto>.Forbidden();
+        }
+
+        var user = await users.GetAsync(id, ct);
+        if (user is null || !await currentSchool.OwnsAsync(user.SchoolId, ct))
+        {
+            return ServiceResult<UserDto>.NotFound("user not found");
+        }
+
+        if (user.Id == currentUser.UserId)
+        {
+            return ServiceResult<UserDto>.Conflict("you cannot deactivate yourself");
+        }
+
+        if (deactivate)
+        {
+            user.DeactivatedAt ??= time.GetUtcNow();
+        }
+        else
+        {
+            user.DeactivatedAt = null;
+        }
+
         await unitOfWork.SaveChangesAsync(ct);
         return ServiceResult<UserDto>.Ok(UserDto.From(user));
     }

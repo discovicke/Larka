@@ -161,6 +161,8 @@ jobs:
           SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           AUTH_JWT_KEY: ${{ secrets.AUTH_JWT_KEY }}
+          ENTRA_CLIENT_ID: ${{ vars.ENTRA_CLIENT_ID }}
+          ENTRA_TENANT_ID: ${{ vars.ENTRA_TENANT_ID }}
           # GitHub är valfritt: saknas värdena deployar appen utan GitHub-integration.
           GH_APP_ID: ${{ vars.GH_APP_ID }}
           GH_APP_SLUG: ${{ vars.GH_APP_SLUG }}

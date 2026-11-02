@@ -24,6 +24,8 @@ public class RelationTests(TestWebApplicationFactory factory) : IClassFixture<Te
                 column.Property.Name != "Id"
                 && column.Property.Name != "InstallationId"
                 && column.Property.Name.EndsWith("Id")
+                // Id:n från andra system (Microsofts oid och tenant) är text och pekar inte på våra tabeller.
+                && column.Property.ClrType != typeof(string)
                 && !column.Property.IsForeignKey())
             .Select(column => $"{column.Entity.ClrType.Name}.{column.Property.Name}")
             .ToList();

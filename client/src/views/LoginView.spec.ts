@@ -83,6 +83,15 @@ describe('LoginView', () => {
     expect(wrapper.find('[role="alert"]').text()).toBe('Fel e-post eller lösenord.')
   })
 
+  it('säger att kontot är spärrat vid 403', async () => {
+    mockApi(() => ({status: 403, body: {detail: 'Ditt konto är spärrat.'}}))
+    const {wrapper} = await render()
+
+    await submitLogin(wrapper, 'elev', 'elev')
+
+    expect(wrapper.find('[role="alert"]').text()).toBe('Ditt konto är spärrat. Kontakta skolans admin.')
+  })
+
   it('visar ett allmänt fel när inloggningen inte kan göras', async () => {
     mockApi(() => ({status: 500, body: 'boom'}))
     const {wrapper} = await render()

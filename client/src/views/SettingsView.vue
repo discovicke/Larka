@@ -9,6 +9,7 @@ import {computed, onMounted, ref} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 
 import AppearanceSection from '@/components/settings/AppearanceSection.vue'
+import MicrosoftIntegration from '@/components/settings/MicrosoftIntegration.vue'
 import NotificationsSection from '@/components/settings/NotificationsSection.vue'
 import ProfileSection from '@/components/settings/ProfileSection.vue'
 import {Alert, AlertDescription, AlertTitle} from '@/components/ui/alert'
@@ -360,6 +361,8 @@ onMounted(async () => {
               Anslutningar som gäller hela skolan. Bara admin kan se dem.
             </p>
           </header>
+
+          <MicrosoftIntegration/>
 
           <div class="bg-card rounded-xl border p-5" data-test="github-integration">
             <header class="flex flex-wrap items-start justify-between gap-3">

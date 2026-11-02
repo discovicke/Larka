@@ -14,6 +14,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Protocols;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Backend.Infrastructure;
@@ -90,8 +92,8 @@ public static class DependencyInjection
 
     /// <summary>
     /// Inloggning med användarnamn eller e-post och lösenord, och JWT-token. Allt under /api kräver token, och
-    /// användaren läses från token (ClaimsCurrentUser). Microsoft Entra ID (#79) lägger till ett eget JWT-schema
-    /// vid sidan av det här, utan att något annat ändras.
+    /// användaren läses från token (ClaimsCurrentUser). Microsoft Entra ID loggar in
+    /// genom att byta sitt ID-token mot samma token (MicrosoftSignInService), så inget annat ändras.
     /// </summary>
     private static void AddAuth(this IServiceCollection services, IConfiguration config)
     {
@@ -111,6 +113,17 @@ public static class DependencyInjection
         services.AddScoped<DemoContentRefresh>();
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUser, ClaimsCurrentUser>();
+
+        // Microsoft-inloggning (Auth:Entra). Nycklarna hämtas från tenantens metadata först när någon loggar in,
+        // och cachas sedan, så appen startar utan nätverk och utan inställningen.
+        services.AddOptions<EntraOptions>().Bind(config.GetSection(EntraOptions.SectionName));
+        services.AddSingleton<IConfigurationManager<OpenIdConnectConfiguration>>(serviceProvider =>
+            new ConfigurationManager<OpenIdConnectConfiguration>(
+                $"{serviceProvider.GetRequiredService<IOptions<EntraOptions>>().Value.Authority}"
+                + "/.well-known/openid-configuration",
+                new OpenIdConnectConfigurationRetriever(),
+                new HttpDocumentRetriever()));
+        services.AddSingleton<IMicrosoftTokenValidator, EntraTokenValidator>();
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
         services.AddAuthorization();

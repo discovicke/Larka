@@ -11,7 +11,8 @@ public class UserEndpointTests(TestWebApplicationFactory factory) : IClassFixtur
 {
     private readonly HttpClient _client = factory.CreateClient();
 
-    private record UserResponse(Guid Id, Guid SchoolId, string Name, string Email, string Role);
+    private record UserResponse(
+        Guid Id, Guid SchoolId, string Name, string Email, string Role, DateTimeOffset? DeactivatedAt);
 
     [Fact]
     public async Task CreateUser_ReturnsCreated_WithLowercaseEmail()
@@ -204,6 +205,198 @@ public class UserEndpointTests(TestWebApplicationFactory factory) : IClassFixtur
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
             Assert.DoesNotContain(target.Email, await response.Content.ReadAsStringAsync());
         }
+    }
+
+    [Fact]
+    public async Task UpdateRole_AsAdmin_PromotesAStudentToTeacher()
+    {
+        var student = await AddUserAsync(PlaceholderIds.SchoolId, UserRole.Student);
+
+        var response = await _client.PutAsJsonAsync($"/api/users/{student.Id}/role", new { role = "teacher" });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("Teacher", (await response.Content.ReadFromJsonAsync<UserResponse>())!.Role);
+        var found = await _client.GetFromJsonAsync<UserResponse>($"/api/users/{student.Id}");
+        Assert.Equal("Teacher", found!.Role);
+    }
+
+    [Fact]
+    public async Task UpdateRole_ToStudent_RemovesTheUserAsCourseTeacher()
+    {
+        var teacher = await AddUserAsync(PlaceholderIds.SchoolId, UserRole.Teacher);
+        Guid courseId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            var course = await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId);
+            await TestData.AddCourseTeacherAsync(db, course, teacher);
+            courseId = course.Id;
+        }
+
+        var response = await _client.PutAsJsonAsync($"/api/users/{teacher.Id}/role", new { role = "student" });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var check = factory.Services.CreateScope();
+        var checkDb = check.ServiceProvider.GetRequiredService<AppDb>();
+        Assert.False(checkDb.CourseTeachers.Any(row => row.UserId == teacher.Id));
+        Assert.True(checkDb.CourseTeachers.Any(row =>
+            row.CourseId == courseId && row.UserId == PlaceholderIds.UserId));
+    }
+
+    [Fact]
+    public async Task UpdateRole_ToAdmin_KeepsCourseTeaching()
+    {
+        var teacher = await AddUserAsync(PlaceholderIds.SchoolId, UserRole.Teacher);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            var course = await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId);
+            await TestData.AddCourseTeacherAsync(db, course, teacher);
+        }
+
+        var response = await _client.PutAsJsonAsync($"/api/users/{teacher.Id}/role", new { role = "admin" });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var check = factory.Services.CreateScope();
+        var checkDb = check.ServiceProvider.GetRequiredService<AppDb>();
+        Assert.True(checkDb.CourseTeachers.Any(row => row.UserId == teacher.Id));
+    }
+
+    [Fact]
+    public async Task UpdateRole_OfYourself_ReturnsConflict()
+    {
+        var response = await _client.PutAsJsonAsync(
+            $"/api/users/{PlaceholderIds.UserId}/role", new { role = "teacher" });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Contains("you cannot change your own role", await response.Content.ReadAsStringAsync());
+        var self = await _client.GetFromJsonAsync<UserResponse>($"/api/users/{PlaceholderIds.UserId}");
+        Assert.Equal("Admin", self!.Role);
+    }
+
+    [Fact]
+    public async Task UpdateRole_ForAnotherSchoolOrUnknownUser_Returns404()
+    {
+        var other = await AddUserAsync(null, UserRole.Student);
+
+        var foreign = await _client.PutAsJsonAsync($"/api/users/{other.Id}/role", new { role = "teacher" });
+        var unknown = await _client.PutAsJsonAsync($"/api/users/{Guid.NewGuid()}/role", new { role = "teacher" });
+
+        Assert.Equal(HttpStatusCode.NotFound, foreign.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, unknown.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateRole_WithUnknownRole_ReturnsBadRequest()
+    {
+        var student = await AddUserAsync(PlaceholderIds.SchoolId, UserRole.Student);
+
+        var response = await _client.PutAsJsonAsync($"/api/users/{student.Id}/role", new { role = "rektor" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateRole_AsTeacherOrStudent_IsForbidden()
+    {
+        var target = await AddUserAsync(PlaceholderIds.SchoolId, UserRole.Student);
+        var teacher = await AddUserAsync(PlaceholderIds.SchoolId, UserRole.Teacher);
+        var student = await AddUserAsync(PlaceholderIds.SchoolId, UserRole.Student);
+
+        foreach (var caller in new[] { teacher, student })
+        {
+            var request = new HttpRequestMessage(HttpMethod.Put, $"/api/users/{target.Id}/role")
+            {
+                Content = JsonContent.Create(new { role = "admin" })
+            };
+            request.Headers.Add(TestAuthHandler.Header, caller.Id.ToString());
+            var response = await _client.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        }
+
+        Assert.Equal("Student", (await _client.GetFromJsonAsync<UserResponse>($"/api/users/{target.Id}"))!.Role);
+    }
+
+    [Fact]
+    public async Task Deactivate_BlocksSignIn_AndReactivateLetsThemBackIn()
+    {
+        var email = $"{Guid.NewGuid():N}@example.com";
+        var created = await _client.PostAsJsonAsync("/api/users", new
+        {
+            schoolId = PlaceholderIds.SchoolId,
+            name = "Spärr Elev",
+            email,
+            role = "student",
+            password = "hemligt123"
+        });
+        var user = await created.Content.ReadFromJsonAsync<UserResponse>();
+
+        var deactivated = await _client.PostAsync($"/api/users/{user!.Id}/deactivate", null);
+        var blocked = await _client.PostAsJsonAsync(
+            "/api/auth/login", new { username = email, password = "hemligt123" });
+        var wrongPassword = await _client.PostAsJsonAsync(
+            "/api/auth/login", new { username = email, password = "fel-losen1" });
+
+        Assert.Equal(HttpStatusCode.OK, deactivated.StatusCode);
+        Assert.NotNull((await deactivated.Content.ReadFromJsonAsync<UserResponse>())!.DeactivatedAt);
+        Assert.Equal(HttpStatusCode.Forbidden, blocked.StatusCode);
+        Assert.Contains("Ditt konto är spärrat.", await blocked.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.Unauthorized, wrongPassword.StatusCode);
+
+        var reactivated = await _client.PostAsync($"/api/users/{user.Id}/reactivate", null);
+        var login = await _client.PostAsJsonAsync("/api/auth/login", new { username = email, password = "hemligt123" });
+
+        Assert.Null((await reactivated.Content.ReadFromJsonAsync<UserResponse>())!.DeactivatedAt);
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+    }
+
+    [Fact]
+    public async Task Deactivate_HidesTheUserFromTheClassList_ButKeepsTheEnrollment()
+    {
+        Guid groupId;
+        Backend.Domain.Entities.User student;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
+            student = await TestData.AddMemberAsync(db, group);
+            groupId = group.Id;
+        }
+
+        await _client.PostAsync($"/api/users/{student.Id}/deactivate", null);
+        var members = await _client.GetStringAsync($"/api/groups/{groupId}/members");
+
+        Assert.DoesNotContain(student.Id.ToString(), members);
+        using var check = factory.Services.CreateScope();
+        var checkDb = check.ServiceProvider.GetRequiredService<AppDb>();
+        Assert.True(checkDb.Enrollments.Any(row => row.UserId == student.Id && row.GroupId == groupId));
+    }
+
+    [Fact]
+    public async Task Deactivate_Yourself_ReturnsConflict()
+    {
+        var response = await _client.PostAsync($"/api/users/{PlaceholderIds.UserId}/deactivate", null);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Contains("you cannot deactivate yourself", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Deactivate_InAnotherSchool_Returns404_AndAsNonAdmin_Returns403()
+    {
+        var other = await AddUserAsync(null, UserRole.Student);
+        var target = await AddUserAsync(PlaceholderIds.SchoolId, UserRole.Student);
+        var teacher = await AddUserAsync(PlaceholderIds.SchoolId, UserRole.Teacher);
+
+        var foreign = await _client.PostAsync($"/api/users/{other.Id}/deactivate", null);
+        var request = new HttpRequestMessage(HttpMethod.Post, $"/api/users/{target.Id}/deactivate");
+        request.Headers.Add(TestAuthHandler.Header, teacher.Id.ToString());
+        var forbidden = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.NotFound, foreign.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+        Assert.Null((await _client.GetFromJsonAsync<UserResponse>($"/api/users/{target.Id}"))!.DeactivatedAt);
     }
 
     // En användare i skolan (eller en ny skola om schoolId saknas). Med groupRole läggs hen också i en grupp.

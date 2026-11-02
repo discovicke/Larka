@@ -34,12 +34,16 @@ dotnet user-secrets list --project backend
 
 ### Inloggning
 
-| Nyckel                     | Hemlig | Standard                 | Vad                                         |
-| -------------------------- | ------ | ------------------------ | ------------------------------------------- |
-| `Auth:Jwt:Key`             | ja     | dev-nyckel i Development | Minst 32 byte. Appen startar inte utan den. |
-| `Auth:Jwt:LifetimeMinutes` | nej    | `480`                    | Hur länge ett token gäller.                 |
-| `Auth:Jwt:Issuer`          | nej    | `larka`                  | Ändras inte i praktiken.                    |
-| `Auth:Jwt:Audience`        | nej    | `larka`                  | Ändras inte i praktiken.                    |
+| Nyckel                     | Hemlig | Standard                 | Vad                                                                                      |
+| -------------------------- | ------ | ------------------------ | ---------------------------------------------------------------------------------------- |
+| `Auth:Jwt:Key`             | ja     | dev-nyckel i Development | Minst 32 byte. Appen startar inte utan den.                                              |
+| `Auth:Jwt:LifetimeMinutes` | nej    | `480`                    | Hur länge ett token gäller.                                                              |
+| `Auth:Jwt:Issuer`          | nej    | `larka`                  | Ändras inte i praktiken.                                                                 |
+| `Auth:Jwt:Audience`        | nej    | `larka`                  | Ändras inte i praktiken.                                                                 |
+| `Auth:Entra:ClientId`      | nej    | tom                      | Lärkas app i skolans Entra ID. Utan den och `TenantId` finns ingen Microsoft-inloggning. |
+| `Auth:Entra:TenantId`      | nej    | tom                      | Skolans tenant. Bara konton därifrån kan logga in med Microsoft.                         |
+
+Ingen av Entra-nycklarna är hemlig. [`infra/entra-setup.sh`](../infra/entra-setup.sh) skapar appen och sparar värdena, se [deploy.md](deploy.md#microsoft-inloggning).
 
 ### Fillagring
 
@@ -142,6 +146,8 @@ arkivera och hantera elevrepon. Mallrepon ska vara privata och markerade som **T
 | `AUTH_JWT_KEY`              | secret   | miljön `production` | → `Auth__Jwt__Key` på Render          |
 | `SUPABASE_URL`              | variabel | miljön `production` | → `Storage__Supabase__Url`            |
 | `SUPABASE_SERVICE_ROLE_KEY` | secret   | miljön `production` | → `Storage__Supabase__ServiceRoleKey` |
+| `ENTRA_CLIENT_ID`           | variabel | miljön `production` | → `Auth__Entra__ClientId` (valfri)    |
+| `ENTRA_TENANT_ID`           | variabel | miljön `production` | → `Auth__Entra__TenantId` (valfri)    |
 | `GH_APP_ID`                 | variabel | miljön `production` | → `GitHub__AppId` (valfri)            |
 | `GH_APP_SLUG`               | variabel | miljön `production` | → `GitHub__AppSlug` (valfri)          |
 | `GH_CLIENT_ID`              | variabel | miljön `production` | → `GitHub__ClientId` (valfri)         |

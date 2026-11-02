@@ -16,6 +16,7 @@ const overview = {
     {userId: 'u2', name: 'Bo Elev', groupId: 'g1', groupName: 'NET26'},
     {userId: 'u3', name: 'Clara Lös', groupId: null, groupName: null},
   ],
+  studentsWithoutClass: [],
 }
 
 const nothingToDo = {
@@ -23,6 +24,7 @@ const nothingToDo = {
   coursesWithoutTeacher: [],
   classesWithoutMentor: [],
   usersWithoutPassword: [],
+  studentsWithoutClass: [],
 }
 
 function backend(options: {me?: ReturnType<typeof meAs>, overview?: unknown, fail?: boolean} = {}) {
@@ -64,6 +66,21 @@ describe('AdminToday', () => {
     expect(dashboard.find('h1').text()).toBe('God morgon, Ada')
     expect(dashboard.text()).toContain('Onsdag 21 oktober · vecka 43 · 6 saker att ordna')
     expect(wrapper.find('[data-test="teacher-dashboard"]').exists()).toBe(false)
+  })
+
+  it('listar elever utan klass och räknar dem bland det som ska ordnas', async () => {
+    backend({overview: {...nothingToDo, studentsWithoutClass: [
+      {userId: 'u7', name: 'Ny Elev'},
+      {userId: 'u8', name: 'Annan Ny'},
+    ]}})
+
+    const {wrapper} = await renderApp('/')
+
+    const section = wrapper.find('[data-test="no-class"]')
+    expect(section.findAll('[data-test="no-class-item"]').map((item) => item.text())).toEqual(['Ny Elev', 'Annan Ny'])
+    expect(section.find('a[href="/users"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('2 saker att ordna')
+    expect(wrapper.find('[data-test="admin-all-good"]').exists()).toBe(false)
   })
 
   it('visar kurserna per läge', async () => {

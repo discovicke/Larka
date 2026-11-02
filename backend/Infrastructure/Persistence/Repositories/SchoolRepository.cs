@@ -12,5 +12,8 @@ public class SchoolRepository(AppDb db) : ISchoolRepository
     public Task<bool> ExistsAsync(Guid id, CancellationToken ct) =>
         db.Schools.AnyAsync(school => school.Id == id, ct);
 
+    public Task<School?> GetByEntraTenantAsync(string tenantId, CancellationToken ct) =>
+        db.Schools.FirstOrDefaultAsync(school => school.EntraTenantId == tenantId, ct);
+
     public void Add(School school) => db.Schools.Add(school);
 }
