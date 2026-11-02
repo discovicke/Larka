@@ -1,0 +1,5 @@
+# HTTPS för Lärka. Caddy hämtar och förnyar certifikatet för LARKA_DOMAIN själv (Let's Encrypt).
+{$LARKA_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:8080
+}

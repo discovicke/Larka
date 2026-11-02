@@ -1,0 +1,56 @@
+# Lärka på en egen server: appen, Postgres och Caddy (HTTPS med automatiskt certifikat). Se docs/drift.md.
+#
+#   cp .env.example .env   # och fyll i
+#   docker compose up -d
+#
+# Databasen och filerna ligger i volymerna db och files. Säkerhetskopiera båda.
+name: larka
+
+services:
+  app:
+    image: ${LARKA_IMAGE:-ghcr.io/eduedugrade/net25-devops-grupp-4}:${LARKA_VERSION:?sätt LARKA_VERSION i .env}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      ConnectionStrings__Default: Host=db;Port=5432;Database=larka;Username=larka;Password=${POSTGRES_PASSWORD:?sätt POSTGRES_PASSWORD i .env}
+      Storage__Disk__Path: /data/files
+    volumes:
+      - files:/data/files
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: larka
+      POSTGRES_USER: larka
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?sätt POSTGRES_PASSWORD i .env}
+    volumes:
+      - db:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U larka -d larka']
+      interval: 5s
+      retries: 12
+
+  # Tar emot trafiken på 80 och 443 och hämtar ett certifikat för LARKA_DOMAIN. Har skolan redan en reverse proxy
+  # kan tjänsten tas bort och appens port 8080 publiceras i stället.
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      LARKA_DOMAIN: ${LARKA_DOMAIN:?sätt LARKA_DOMAIN i .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy:/data
+    depends_on:
+      - app
+
+volumes:
+  db:
+  files:
+  caddy:

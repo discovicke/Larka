@@ -12,3 +12,14 @@ public class SupabaseStorageOptions
 
     public bool IsConfigured => Url != "" && ServiceRoleKey != "";
 }
+
+// Storage:Disk i konfigurationen. Path är mappen där filerna sparas, till exempel en volym i Docker. Används när
+// Supabase inte är inställt.
+public class DiskStorageOptions
+{
+    public const string SectionName = "Storage:Disk";
+
+    public string Path { get; set; } = "";
+
+    public bool IsConfigured => Path != "";
+}

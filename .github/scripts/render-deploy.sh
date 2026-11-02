@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 # Deployar en image till Render, väntar tills den är live och kontrollerar att rätt version svarar.
 # Körs av deploy-jobbet i cd.yml. Misslyckas en deploy behåller Render den gamla versionen live.
+#
+# Appens inställningar kommer från GitHub-miljön production: varje variabel (APP_VARS) och hemlighet (APP_SECRETS)
+# med __ i namnet är en nyckel i appen (AUTH__JWT__KEY blir Auth:Jwt:Key, .NET bryr sig inte om versaler). Alla
+# skickas till Render, så en ny inställning behöver bara läggas i miljön. Övriga namn (RENDER_API_KEY, APP_URL) är
+# deployens egna och skickas inte. GitHub tillåter inga namn som börjar på GITHUB_, så ett inledande LARKA_ tas bort:
+# LARKA_GITHUB__APPID blir GITHUB__APPID (GitHub:AppId).
 set -euo pipefail
 
 : "${RENDER_API_KEY:?saknas}" "${RENDER_SERVICE_ID:?saknas, kör infra/render-setup.sh}" "${APP_URL:?saknas}"
-: "${SUPABASE_URL:?saknas}" "${SUPABASE_SERVICE_ROLE_KEY:?saknas}"
-: "${AUTH_JWT_KEY:?saknas, lägg den som secret i GitHub-miljön production}"
-: "${IMAGE:?saknas}""${EXPECTED_VERSION:?saknas}" "${EXPECTED_COMMIT:?saknas}"
+: "${IMAGE:?saknas}" "${EXPECTED_VERSION:?saknas}" "${EXPECTED_COMMIT:?saknas}"
 
 API="https://api.render.com/v1/services/$RENDER_SERVICE_ID"
 
@@ -14,44 +18,31 @@ api() {
   curl -fsS -H "Authorization: Bearer $RENDER_API_KEY" -H "Content-Type: application/json" "$@"
 }
 
-# Filagringen (Supabase Storage) och JWT-nyckeln ställs in här så att hemligheterna bara behöver finnas i GitHub-miljön
-# production. Ett anrop per variabel, så att övriga miljövariabler på tjänsten lämnas orörda.
-for pair in "Storage__Supabase__Url=$SUPABASE_URL" "Storage__Supabase__ServiceRoleKey=$SUPABASE_SERVICE_ROLE_KEY" \
-  "Auth__Jwt__Key=$AUTH_JWT_KEY"; do
-  api -X PUT "$API/env-vars/${pair%%=*}" -d "$(jq -n --arg value "${pair#*=}" '{value: $value}')" >/dev/null
-done
+empty_json='{}'
+settings=$(jq -n --argjson vars "${APP_VARS:-$empty_json}" --argjson secrets "${APP_SECRETS:-$empty_json}" \
+  '$vars + $secrets | with_entries(select(.key | contains("__")) | .key |= ltrimstr("LARKA_"))')
 
-# Demokontona (admin/admin m.fl.) och demodatan finns bara när SEED_DEMO_DATA är true, som i Edugrades demo. En ny
-# skola sätter den inte och får en tom skola utan konton med kända lösenord.
-api -X PUT "$API/env-vars/Database__SeedDemoData" \
-  -d "$(jq -n --arg value "${SEED_DEMO_DATA:-false}" '{value: $value}')" >/dev/null
-
-# Microsoft-inloggningen är valfri. infra/entra-setup.sh lägger variablerna i GitHub-miljön production.
-if [ -n "${ENTRA_CLIENT_ID:-}" ] && [ -n "${ENTRA_TENANT_ID:-}" ]; then
-  for pair in "Auth__Entra__ClientId=$ENTRA_CLIENT_ID" "Auth__Entra__TenantId=$ENTRA_TENANT_ID" \
-    "Auth__Entra__AdminObjectId=${ENTRA_ADMIN_OBJECT_ID:-}" "Auth__Entra__SchoolName=${ENTRA_SCHOOL_NAME:-}"; do
-    if [ -n "${pair#*=}" ]; then
-      api -X PUT "$API/env-vars/${pair%%=*}" -d "$(jq -n --arg value "${pair#*=}" '{value: $value}')" >/dev/null
-    fi
-  done
-fi
-
-# GitHub är valfritt. Tomma värden hoppas över, så en deploy utan GitHub fungerar som förut.
-for pair in \
-  "GitHub__AppId=${GH_APP_ID:-}" \
-  "GitHub__AppSlug=${GH_APP_SLUG:-}" \
-  "GitHub__ClientId=${GH_CLIENT_ID:-}" \
-  "GitHub__Org=${GH_ORG:-}" \
-  "GitHub__InstallationId=${GH_INSTALLATION_ID:-}" \
-  "GitHub__PrivateKey=${GH_APP_PRIVATE_KEY:-}" \
-  "GitHub__ClientSecret=${GH_CLIENT_SECRET:-}" \
-  "GitHub__WebhookSecret=${GH_WEBHOOK_SECRET:-}"; do
-  key="${pair%%=*}"
-  value="${pair#*=}"
-  if [ -n "$value" ]; then
-    api -X PUT "$API/env-vars/$key" -d "$(jq -n --arg value "$value" '{value: $value}')" >/dev/null
+# Utan dessa startar appen inte, så stoppa innan något ändras.
+for required in CONNECTIONSTRINGS__DEFAULT AUTH__JWT__KEY; do
+  if [ "$(jq -r --arg key "$required" 'with_entries(.key |= ascii_upcase) | .[$key] // empty' <<<"$settings")" = "" ]; then
+    echo "::error::$required saknas i GitHub-miljön production"
+    exit 1
   fi
 done
+
+# Samma nyckel med andra versaler (Auth__Jwt__Key från förr, AUTH__JWT__KEY från GitHub) skulle ge två variabler som
+# .NET läser i okänd ordning. Den gamla stavningen tas bort, och resten av tjänstens variabler lämnas orörda.
+existing=$(api "$API/env-vars?limit=100" | jq -r '.[].envVar.key')
+while IFS= read -r key; do
+  for old in $existing; do
+    if [ "$old" != "$key" ] && [ "${old^^}" = "${key^^}" ]; then
+      api -X DELETE "$API/env-vars/$old" >/dev/null
+      echo "Tog bort $old (ersätts av $key)"
+    fi
+  done
+  api -X PUT "$API/env-vars/$key" -d "$(jq --arg key "$key" '{value: .[$key]}' <<<"$settings")" >/dev/null
+done < <(jq -r 'keys[]' <<<"$settings")
+echo "Skickade $(jq 'length' <<<"$settings") inställningar till Render"
 
 echo "Deployar $IMAGE"
 response=$(api -X POST "$API/deploys" -d "$(jq -n --arg image "$IMAGE" '{imageUrl: $image}')")

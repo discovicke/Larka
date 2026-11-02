@@ -48,6 +48,7 @@ export default defineConfig({
       '/api': backendUrl,
       '/health': backendUrl,
       '/version': backendUrl,
+      '/files': backendUrl,
     },
   },
 })

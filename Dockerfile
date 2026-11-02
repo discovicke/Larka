@@ -23,6 +23,10 @@ ARG APP_VERSION=dev
 ARG GIT_COMMIT=local
 ENV APP_VERSION=$APP_VERSION GIT_COMMIT=$GIT_COMMIT
 
+# Mappen för filer när de sparas på disk (Storage__Disk__Path=/data/files, se docs/drift.md). Den skapas här och ägs
+# av appens användare, så att en Docker-volym som monteras där går att skriva i.
+RUN mkdir -p /data/files && chown "$APP_UID" /data/files
+
 # aspnet-imagen lyssnar på 8080 och har en användare utan root-rättigheter.
 EXPOSE 8080
 USER $APP_UID

@@ -11,7 +11,7 @@ namespace Backend.Infrastructure.Persistence.Seeding;
 /// Realistisk demodata för Edugrade: tre klasser och ett klassråd med lärare, mentor och ett tjugotal elever
 /// vardera, avslutade, pågående och kommande kurser, veckor med material och uppgifter, inlämningar i alla
 /// lägen, betyg, nyheter och kommentarer. Körs vid start efter AccountSeed, bara när Database:SeedDemoData är
-/// true (Edugrades prod via variabeln SEED_DEMO_DATA). Se DemoCatalog för innehållet och DemoPeople för namnen.
+/// true (Edugrades prod via DATABASE__SEEDDEMODATA). Se DemoCatalog för innehållet och DemoPeople för namnen.
 ///
 /// Additiv och idempotent: finns klassen .NET25 (markören) görs ingenting, och inget som seeden inte skapat själv
 /// ändras eller tas bort. Undantagen är skolans namn (Placeholder-skolan blir Edugrade), demokontona larare och

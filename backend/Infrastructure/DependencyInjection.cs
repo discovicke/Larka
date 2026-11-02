@@ -215,8 +215,9 @@ public static class DependencyInjection
     }
 
     /// <summary>
-    /// Supabase Storage när Storage:Supabase är inställt. Annars lagras filerna i minnet i Development, och i
-    /// andra miljöer felar första användningen (inte starten, så att bygget av OpenAPI-dokumentet inte påverkas).
+    /// Supabase Storage när Storage:Supabase är inställt, annars på disk när Storage:Disk:Path är satt. Utan någon av
+    /// dem lagras filerna i minnet i Development, och i andra miljöer felar första användningen (inte starten, så att
+    /// bygget av OpenAPI-dokumentet inte påverkas).
     /// </summary>
     private static void AddFileStorage(this IServiceCollection services, IConfiguration config)
     {
@@ -236,11 +237,21 @@ public static class DependencyInjection
             return;
         }
 
+        var diskSection = config.GetSection(DiskStorageOptions.SectionName);
+        services.AddOptions<DiskStorageOptions>().Bind(diskSection);
+        var disk = diskSection.Get<DiskStorageOptions>();
+        if (disk is not null && disk.IsConfigured)
+        {
+            services.AddSingleton<DiskFileStorage>();
+            services.AddSingleton<IFileStorage>(provider => provider.GetRequiredService<DiskFileStorage>());
+            return;
+        }
+
         services.AddSingleton<IFileStorage>(serviceProvider =>
             serviceProvider.GetRequiredService<IHostEnvironment>().IsDevelopment()
                 ? new InMemoryFileStorage()
                 : throw new InvalidOperationException(
-                    $"{SupabaseStorageOptions.SectionName}:Url och :ServiceRoleKey saknas."));
+                    $"{SupabaseStorageOptions.SectionName}:Url och :ServiceRoleKey, eller {DiskStorageOptions.SectionName}:Path, saknas."));
     }
 
     private static void AddPersistence(this IServiceCollection services, IConfiguration config)

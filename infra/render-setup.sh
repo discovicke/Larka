@@ -4,35 +4,17 @@
 # Tjänsten kör Docker-imagen som cd.yml bygger och pushar till GitHub Container Registry.
 # Render behöver alltså ingen åtkomst till repot, bara en token som får läsa imagen.
 #
-# Kör lokalt när inställningarna ändras. Hemligheter skickas som miljövariabler, aldrig i repot:
+# Kör lokalt när tjänsten skapas eller dess inställningar ändras:
 #   RENDER_API_KEY     Render → Account Settings → API Keys
 #   GHCR_USERNAME      GitHub-användaren som äger GHCR_TOKEN
 #   GHCR_TOKEN         GitHub classic token med bara read:packages
-#   CONNECTION_STRING  Supabase session pooler (.NET-format)
-#   SUPABASE_URL                 https://<projekt>.supabase.co
-#   SUPABASE_SERVICE_ROLE_KEY    service role-nyckeln för Storage, går förbi row level security
-#   AUTH_JWT_KEY                 JWT-nyckeln för inloggningen (minst 32 byte), som Auth__Jwt__Key
-#   GH_APP_ID                    GitHub Appens ID (valfritt)
-#   GH_APP_SLUG                  GitHub Appens slug (valfritt)
-#   GH_CLIENT_ID                 OAuth client id för elevens GitHub-koppling (valfritt)
-#   GH_ORG                       Skolans GitHub-organisation (valfritt)
-#   GH_INSTALLATION_ID           Legacy-installation för lokal dev (valfritt)
-#   GH_APP_PRIVATE_KEY           PEM eller base64-kodad PEM (valfritt, hemlighet)
-#   GH_CLIENT_SECRET             OAuth client secret (valfritt, hemlighet)
-#   GH_WEBHOOK_SECRET            Secret för webhook-signaturer (valfritt, hemlighet)
+#
+# Appens inställningar (databas, nycklar, Microsoft, fillagring) sätts inte här. De ligger i GitHub-miljön production
+# under appens egna nycklar, och deployen (.github/scripts/render-deploy.sh) skickar dem till Render. Se
+# docs/konfiguration.md.
 set -euo pipefail
 
-GH_APP_ID="${GH_APP_ID:-}"
-GH_APP_SLUG="${GH_APP_SLUG:-}"
-GH_CLIENT_ID="${GH_CLIENT_ID:-}"
-GH_ORG="${GH_ORG:-}"
-GH_INSTALLATION_ID="${GH_INSTALLATION_ID:-}"
-GH_APP_PRIVATE_KEY="${GH_APP_PRIVATE_KEY:-}"
-GH_CLIENT_SECRET="${GH_CLIENT_SECRET:-}"
-GH_WEBHOOK_SECRET="${GH_WEBHOOK_SECRET:-}"
-
-: "${RENDER_API_KEY:?saknas}" "${GHCR_USERNAME:?saknas}" "${GHCR_TOKEN:?saknas}" "${CONNECTION_STRING:?saknas}"
-: "${SUPABASE_URL:?saknas}" "${SUPABASE_SERVICE_ROLE_KEY:?saknas}" "${AUTH_JWT_KEY:?saknas}"
+: "${RENDER_API_KEY:?saknas}" "${GHCR_USERNAME:?saknas}" "${GHCR_TOKEN:?saknas}"
 
 NAME=net25-devops-grupp-4
 IMAGE=ghcr.io/eduedugrade/net25-devops-grupp-4:latest
@@ -57,27 +39,7 @@ else
 fi
 
 # PORT: aspnet-imagen lyssnar på 8080. APP_VERSION och GIT_COMMIT bakas in i imagen vid bygget.
-# GitHub-värden är valfria. Tomma värden filtreras bort så att en skola utan GitHub fungerar.
-env_vars=$(jq -n --arg cs "$CONNECTION_STRING" --arg sbUrl "$SUPABASE_URL" --arg sbKey "$SUPABASE_SERVICE_ROLE_KEY" \
-  --arg jwtKey "$AUTH_JWT_KEY" --arg ghAppId "$GH_APP_ID" --arg ghAppSlug "$GH_APP_SLUG" \
-  --arg ghClientId "$GH_CLIENT_ID" --arg ghOrg "$GH_ORG" --arg ghInstallationId "$GH_INSTALLATION_ID" \
-  --arg ghPrivateKey "$GH_APP_PRIVATE_KEY" --arg ghClientSecret "$GH_CLIENT_SECRET" \
-  --arg ghWebhookSecret "$GH_WEBHOOK_SECRET" '[
-  {key: "ASPNETCORE_ENVIRONMENT", value: "Production"},
-  {key: "PORT", value: "8080"},
-  {key: "ConnectionStrings__Default", value: $cs},
-  {key: "Storage__Supabase__Url", value: $sbUrl},
-  {key: "Storage__Supabase__ServiceRoleKey", value: $sbKey},
-  {key: "Auth__Jwt__Key", value: $jwtKey},
-  {key: "GitHub__AppId", value: $ghAppId},
-  {key: "GitHub__AppSlug", value: $ghAppSlug},
-  {key: "GitHub__ClientId", value: $ghClientId},
-  {key: "GitHub__Org", value: $ghOrg},
-  {key: "GitHub__InstallationId", value: $ghInstallationId},
-  {key: "GitHub__PrivateKey", value: $ghPrivateKey},
-  {key: "GitHub__ClientSecret", value: $ghClientSecret},
-  {key: "GitHub__WebhookSecret", value: $ghWebhookSecret}
-] | map(select(.value != ""))')
+env_vars='[{"key": "ASPNETCORE_ENVIRONMENT", "value": "Production"}, {"key": "PORT", "value": "8080"}]'
 
 # Frankfurt = samma region som Supabase. Deployer triggas av GitHub Actions, inte av Render.
 service=$(api "$API/services?name=$NAME&ownerId=$owner" | jq -r '.[0].service.id // empty')
@@ -100,7 +62,7 @@ else
     serviceDetails: {plan: "free", healthCheckPath: "/health"}
   }')
   api -X PATCH "$API/services/$service" -d "$body" >/dev/null
-  # En variabel i taget, så att variabler som bara satts för hand (t.ex. GitHub) finns kvar.
+  # En variabel i taget, så att appens inställningar från deployen finns kvar.
   count=$(jq 'length' <<<"$env_vars")
   for i in $(seq 0 $((count - 1))); do
     key=$(jq -r ".[$i].key" <<<"$env_vars")
@@ -114,4 +76,4 @@ url=$(api "$API/services/$service" | jq -r '.serviceDetails.url')
 echo
 echo "RENDER_SERVICE_ID=$service"
 echo "URL=$url"
-echo "Lägg RENDER_SERVICE_ID som secret och URL som variabeln APP_URL i GitHub-miljön production."
+echo "Lägg RENDER_SERVICE_ID som secret och URL som variabeln APP_URL i GitHub-miljön production. Kör sedan en deploy."

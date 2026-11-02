@@ -9,11 +9,19 @@ Backend läser i ordning, där det sista vinner:
 1. `appsettings.json`
 2. `appsettings.Development.json` (bara lokalt, `ASPNETCORE_ENVIRONMENT=Development`)
 3. user-secrets (bara lokalt)
-4. miljövariabler (Render, Docker)
+4. miljövariabler (Render, Docker, `.env`)
 
-En nyckel skrivs med `:` i JSON och user-secrets och med `__` som miljövariabel: `Auth:Jwt:Key` blir `Auth__Jwt__Key`.
+En nyckel skrivs med `:` i JSON och user-secrets och med `__` som miljövariabel: `Auth:Jwt:Key` blir `Auth__Jwt__Key`. Versaler spelar ingen roll.
 
-**Hemligheter hamnar aldrig i `appsettings`.** Lokalt ligger de i user-secrets, i prod i GitHub-miljön `production`, som deploy-jobbet skickar vidare till Render (se [deploy.md](deploy.md#hemligheter)).
+### Var värdena hör hemma
+
+| Sort                                  | Var                        | Exempel                               |
+| ------------------------------------- | -------------------------- | ------------------------------------- |
+| Hur appen beter sig, samma överallt   | `appsettings.json` i repot | jobbens intervall, tokenets livslängd |
+| Det som skiljer mellan installationer | miljön där appen körs      | connection string, tenant, fillagring |
+| Hemligheter                           | miljön, aldrig i repot     | JWT-nyckeln, databasens lösenord      |
+
+[`deploy/.env.example`](../deploy/.env.example) är listan över det en installation ställer in. Den används som den är på en egen server (`deploy/.env`), och samma nycklar läggs i värdtjänstens inställningar i molnet ([drift.md](drift.md)). Lokalt ligger hemligheterna i user-secrets, och i vår prod i GitHub-miljön `production` (se [GitHub Actions](#github-actions)).
 
 ```bash
 dotnet user-secrets set <Nyckel> "<värde>" --project backend
@@ -24,11 +32,11 @@ dotnet user-secrets list --project backend
 
 ### Databas
 
-| Nyckel                      | Hemlig | Standard                      | Vad                                                                                                                                                                      |
-| --------------------------- | ------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `ConnectionStrings:Default` | ja\*   | Docker-Postgres i Development | Connection string i .NET-format. I prod Supabase session pooler (IPv4).                                                                                                  |
-| `Database:SeedDevData`      | nej    | `true` i Development          | Lägger in exempeldata om databasen saknar grupper.                                                                                                                       |
-| `Database:SeedDemoData`     | nej    | `false`                       | Lägger in demokontona och realistisk demodata för Edugrade vid start. Se [auth-och-behorigheter.md](auth-och-behorigheter.md#demodata-prod). Sätts med `SEED_DEMO_DATA`. |
+| Nyckel                      | Hemlig | Standard                      | Vad                                                                                                                                                                |
+| --------------------------- | ------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ConnectionStrings:Default` | ja\*   | Docker-Postgres i Development | Connection string i .NET-format. I prod Supabase session pooler (IPv4).                                                                                            |
+| `Database:SeedDevData`      | nej    | `true` i Development          | Lägger in exempeldata om databasen saknar grupper.                                                                                                                 |
+| `Database:SeedDemoData`     | nej    | `false`                       | Lägger in demokontona och realistisk demodata för Edugrade vid start. Se [auth-och-behorigheter.md](auth-och-behorigheter.md#demodata-prod). Sätts bara i en demo. |
 
 \* Lokalt är standardvärdet bara dev-lösenordet till Docker-containern.
 
@@ -49,13 +57,14 @@ Ingen av Entra-nycklarna är hemlig. [`infra/entra-setup.sh`](../infra/entra-set
 
 ### Fillagring
 
-| Nyckel                            | Hemlig | Standard | Vad                             |
-| --------------------------------- | ------ | -------- | ------------------------------- |
-| `Storage:Supabase:Url`            | nej    | tom      | `https://<projekt>.supabase.co` |
-| `Storage:Supabase:ServiceRoleKey` | ja     | tom      | Går förbi row level security.   |
-| `Storage:Supabase:Bucket`         | nej    | `files`  | En privat bucket.               |
+| Nyckel                            | Hemlig | Standard | Vad                                                              |
+| --------------------------------- | ------ | -------- | ---------------------------------------------------------------- |
+| `Storage:Supabase:Url`            | nej    | tom      | `https://<projekt>.supabase.co`                                  |
+| `Storage:Supabase:ServiceRoleKey` | ja     | tom      | Går förbi row level security.                                    |
+| `Storage:Supabase:Bucket`         | nej    | `files`  | En privat bucket.                                                |
+| `Storage:Disk:Path`               | nej    | tom      | Mapp för filerna när Supabase inte används, t.ex. `/data/files`. |
 
-Saknas `Url` eller `ServiceRoleKey` lagras filerna i minnet i Development, och i andra miljöer felar första filanropet. Se [fillagring.md](fillagring.md).
+Supabase används när `Url` och `ServiceRoleKey` finns, annars disk när `Storage:Disk:Path` finns. Utan någon av dem lagras filerna i minnet i Development, och i andra miljöer felar första filanropet. Se [fillagring.md](fillagring.md).
 
 ### Notiser
 
@@ -140,29 +149,18 @@ arkivera och hantera elevrepon. Mallrepon ska vara privata och markerade som **T
 
 ## GitHub Actions
 
-| Namn                        | Typ      | Var                 | Används av                                               |
-| --------------------------- | -------- | ------------------- | -------------------------------------------------------- |
-| `RENDER_API_KEY`            | secret   | miljön `production` | deploy: Render API                                       |
-| `RENDER_SERVICE_ID`         | secret   | miljön `production` | deploy: vilken tjänst                                    |
-| `APP_URL`                   | variabel | miljön `production` | deploy: kontroll av `/version`                           |
-| `AUTH_JWT_KEY`              | secret   | miljön `production` | → `Auth__Jwt__Key` på Render                             |
-| `SUPABASE_URL`              | variabel | miljön `production` | → `Storage__Supabase__Url`                               |
-| `SUPABASE_SERVICE_ROLE_KEY` | secret   | miljön `production` | → `Storage__Supabase__ServiceRoleKey`                    |
-| `ENTRA_CLIENT_ID`           | variabel | miljön `production` | → `Auth__Entra__ClientId` (valfri)                       |
-| `ENTRA_TENANT_ID`           | variabel | miljön `production` | → `Auth__Entra__TenantId` (valfri)                       |
-| `ENTRA_ADMIN_OBJECT_ID`     | variabel | miljön `production` | → `Auth__Entra__AdminObjectId` (valfri)                  |
-| `ENTRA_SCHOOL_NAME`         | variabel | miljön `production` | → `Auth__Entra__SchoolName` (valfri)                     |
-| `SEED_DEMO_DATA`            | variabel | miljön `production` | → `Database__SeedDemoData`, `true` bara i Edugrades demo |
-| `GH_APP_ID`                 | variabel | miljön `production` | → `GitHub__AppId` (valfri)                               |
-| `GH_APP_SLUG`               | variabel | miljön `production` | → `GitHub__AppSlug` (valfri)                             |
-| `GH_CLIENT_ID`              | variabel | miljön `production` | → `GitHub__ClientId` (valfri)                            |
-| `GH_ORG`                    | variabel | miljön `production` | → `GitHub__Org` (valfri)                                 |
-| `GH_INSTALLATION_ID`        | variabel | miljön `production` | → `GitHub__InstallationId` (valfri)                      |
-| `GH_APP_PRIVATE_KEY`        | secret   | miljön `production` | → `GitHub__PrivateKey` (valfri)                          |
-| `GH_CLIENT_SECRET`          | secret   | miljön `production` | → `GitHub__ClientSecret` (valfri)                        |
-| `GH_WEBHOOK_SECRET`         | secret   | miljön `production` | → `GitHub__WebhookSecret` (valfri)                       |
-| `E2E_BASE_URL`              | variabel | repot               | E2E-workflowen (valfri)                                  |
+Miljön `production` håller allt deployen behöver. Två sorters namn:
+
+- **Appens inställningar** heter som appens nycklar, med `__`: `AUTH__JWT__KEY`, `CONNECTIONSTRINGS__DEFAULT`, `AUTH__ENTRA__TENANTID` (GitHub sparar namnen med versaler). Hemligheter som secrets, resten som variabler. Deployen skickar **alla** namn med `__` till Render, så en ny inställning läggs bara i miljön, inget skript ändras. Lägg därför inget annat med `__` i miljön. GitHub tillåter inga namn som börjar på `GITHUB_`, så GitHub-integrationens nycklar får prefixet `LARKA_`, som tas bort: `LARKA_GITHUB__APPID` blir `GitHub:AppId`.
+- **Deployens egna** saknar `__` och skickas inte vidare:
+
+| Namn                | Typ      | Var                 | Används av                     |
+| ------------------- | -------- | ------------------- | ------------------------------ |
+| `RENDER_API_KEY`    | secret   | miljön `production` | deploy: Render API             |
+| `RENDER_SERVICE_ID` | secret   | miljön `production` | deploy: vilken tjänst          |
+| `APP_URL`           | variabel | miljön `production` | deploy: kontroll av `/version` |
+| `E2E_BASE_URL`      | variabel | repot               | E2E-workflowen (valfri)        |
+
+`CONNECTIONSTRINGS__DEFAULT` och `AUTH__JWT__KEY` måste finnas, annars stoppar deployen innan något ändras. I vår prod finns också `STORAGE__SUPABASE__URL`, `STORAGE__SUPABASE__SERVICEROLEKEY`, `AUTH__ENTRA__*` och `DATABASE__SEEDDEMODATA=true`. GitHub-integrationens nycklar ligger som `LARKA_GITHUB__*`.
 
 `GITHUB_TOKEN` kommer från Actions och används för semantic-release och för att pusha imagen till GHCR.
-
-Connection string till prod-databasen sätts bara av [`infra/render-setup.sh`](../infra/render-setup.sh), inte av deploy-jobbet.

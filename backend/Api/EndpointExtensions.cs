@@ -9,6 +9,7 @@ public static class EndpointExtensions
         app.MapHealthEndpoints();
         app.MapAuthEndpoints();
         app.MapGitHubWebhookEndpoints();
+        app.MapFileEndpoints();
 
         // Allt under /api kräver ett giltigt token. /api/auth ligger utanför gruppen.
         var api = app.MapGroup("/api").RequireAuthorization();

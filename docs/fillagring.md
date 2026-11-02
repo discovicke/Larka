@@ -1,6 +1,6 @@
 # Fillagring
 
-Filer (bilagor och inlämningar) ligger i en privat bucket i Supabase Storage, bakom `IFileStorage`. Databasen sparar bara nyckeln (`content/{contentId}/{guid}`, `submissions/{submissionId}/{guid}`), och svaren innehåller en länk som gäller i 10 minuter och skapas när filen läses. Åtkomstkontrollerna görs i backend innan länken skapas.
+Filer (bilagor och inlämningar) ligger bakom `IFileStorage`: i en privat bucket i Supabase Storage (vår prod) eller i en mapp på disk (när en skola kör Lärka själv, se [drift.md](drift.md)). Databasen sparar bara nyckeln (`content/{contentId}/{guid}`, `submissions/{submissionId}/{guid}`), och svaren innehåller en länk som gäller i 10 minuter och skapas när filen läses. Åtkomstkontrollerna görs i backend innan länken skapas.
 
 ## Uppladdning
 
@@ -15,7 +15,11 @@ Eleven ser sina egna filer. Lärarna på kursen ser alla inlämningars filer, oc
 
 ## Inställningar
 
-Utan inställningar lagras filerna i minnet i Development (borta när appen stängs av). I andra miljöer går det då inte att spara eller läsa filer, men appen startar.
+Lagringen väljs så här: Supabase när `Storage:Supabase:Url` och `ServiceRoleKey` finns, annars disk när `Storage:Disk:Path` finns. Utan någon av dem lagras filerna i minnet i Development (borta när appen stängs av). I andra miljöer går det då inte att spara eller läsa filer, men appen startar.
+
+### På disk
+
+Med `Storage:Disk:Path` (till exempel `/data/files`, en volym i Docker) sparas varje fil i mappen under sin nyckel, med innehållstypen i en fil bredvid (`.type`). Länkarna ser ut som `/files/{nyckel}?expires=...&sig=...` och lämnas ut av appen själv (`FileEndpoints`). Signaturen är en HMAC som härleds ur `Auth:Jwt:Key`, så ingen ny hemlighet behövs. En länk som har ändrats, gått ut eller pekar utanför mappen ger `404`. Säkerhetskopiera mappen tillsammans med databasen.
 
 För att köra mot Supabase lokalt: skapa en privat bucket, t.ex. `files`, i Supabase-projektet och ställ in:
 

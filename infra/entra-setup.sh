@@ -9,8 +9,9 @@
 # Skriptet skapar en app som bara skolans egna konton kan logga in med (single-tenant), med plattformen
 # Single-page application och bara inloggningsbehörigheter (openid, profile, email, offline_access). Ingen
 # hemlighet behövs: klienten loggar in med MSAL och backend byter Microsofts ID-token mot Lärkas eget token.
-# Sist sparas client id, tenant id, ditt object id och organisationens namn som variabler i GitHub-miljön
-# production, och nästa deploy (.github/scripts/render-deploy.sh) sätter dem som Auth__Entra__* på Render.
+# Sist skrivs Auth__Entra__ClientId, TenantId, AdminObjectId (ditt object id) och SchoolName ut. Med GitHub sparas
+# de också i GitHub-miljön production, och nästa deploy (.github/scripts/render-deploy.sh) skickar dem till Render.
+# Kör du Lärka någon annanstans, sätt SKIP_GITHUB=1 och lägg raderna i appens miljö (docs/drift.md).
 #
 # Den som kör skriptet blir skolans första admin: första gången du loggar in med Microsoft kopplas skolan till
 # tenanten, får organisationens namn, och du blir admin. Ingen behöver logga in med lösenord.
@@ -106,22 +107,25 @@ else
   echo "Kunde inte ge samtycke för hela organisationen (kräver admin). Användarna godkänner själva vid första inloggningen."
 fi
 
+# Appens egna nycklar, så att raderna kan klistras in i en .env eller i molntjänstens inställningar som de är.
+settings=$(printf '%s\n' \
+  "Auth__Entra__ClientId=$app_id" \
+  "Auth__Entra__TenantId=$tenant" \
+  "Auth__Entra__AdminObjectId=$admin_object_id" \
+  "Auth__Entra__SchoolName=$school_name")
 echo
-echo "ENTRA_CLIENT_ID=$app_id"
-echo "ENTRA_TENANT_ID=$tenant"
-echo "ENTRA_ADMIN_OBJECT_ID=$admin_object_id"
-echo "ENTRA_SCHOOL_NAME=$school_name"
+echo "$settings"
 
 if [ -n "${SKIP_GITHUB:-}" ]; then
-  echo "Lägg värdena som variabler i GitHub-miljön production."
+  echo
+  echo "Lägg raderna i appens miljö: .env på en egen server, eller värdtjänstens inställningar (docs/drift.md)."
   exit 0
 fi
 
-gh variable set ENTRA_CLIENT_ID --env production --body "$app_id"
-gh variable set ENTRA_TENANT_ID --env production --body "$tenant"
-gh variable set ENTRA_ADMIN_OBJECT_ID --env production --body "$admin_object_id"
-if [ -n "$school_name" ]; then
-  gh variable set ENTRA_SCHOOL_NAME --env production --body "$school_name"
-fi
-echo "Sparade i GitHub-miljön production. Nästa deploy sätter dem på Render."
+while IFS='=' read -r key value; do
+  if [ -n "$value" ]; then
+    gh variable set "$key" --env production --body "$value"
+  fi
+done <<<"$settings"
+echo "Sparade i GitHub-miljön production. Nästa deploy skickar dem till Render."
 echo "Logga sedan in på $APP_URL med Microsoft. Du blir admin och skolan kopplas till tenanten."

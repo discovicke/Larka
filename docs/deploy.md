@@ -7,7 +7,7 @@ Allt som når `main` deployas automatiskt av [`cd.yml`](../.github/workflows/cd.
 1. **Tests**: samma kontroller som på PR:er ([ci.yml](../.github/workflows/ci.yml))
 2. **Release: version and tag**: semantic-release sätter versionstagg (se [Versioner](#versioner))
 3. **Docker image**: bygger Docker-imagen och pushar den till `ghcr.io/eduedugrade/net25-devops-grupp-4`, taggad med commit, version och `latest`
-4. **Deploy to Render**: [`render-deploy.sh`](../.github/scripts/render-deploy.sh) sätter hemligheterna på Render, säger åt Render att köra imagen, väntar tills den är live och kontrollerar att `/version` svarar med rätt commit
+4. **Deploy to Render**: [`render-deploy.sh`](../.github/scripts/render-deploy.sh) skickar appens inställningar till Render, säger åt Render att köra imagen, väntar tills den är live och kontrollerar att `/version` svarar med rätt commit
 
 ## Kontrollerna på GitHub
 
@@ -40,48 +40,24 @@ Tjänsten skapas och konfigureras med [`infra/render-setup.sh`](../infra/render-
 
 > Körs skriptet mot en befintlig tjänst uppdateras en variabel i taget. Variabler som bara satts för hand på Render, till exempel GitHub-nycklar, finns kvar.
 
-## Hemligheter
+## Inställningar och hemligheter
 
-Hemligheterna finns i GitHub-miljön `production`, och deploy-jobbet skickar dem till Render vid varje deploy, en variabel i taget så att övriga variabler på tjänsten lämnas orörda:
+Appens inställningar för prod ligger i GitHub-miljön `production`, under appens egna nycklar (`AUTH__JWT__KEY`, `CONNECTIONSTRINGS__DEFAULT`, `AUTH__ENTRA__TENANTID`). Vid varje deploy skickar [`render-deploy.sh`](../.github/scripts/render-deploy.sh) **alla** variabler och secrets med `__` i namnet till Render, en i taget, så att annat på tjänsten lämnas orört. En ny inställning läggs alltså bara i miljön. Finns samma nyckel på Render med andra versaler (`Auth__Jwt__Key`) tas den gamla stavningen bort, så att .NET inte får två värden.
 
-| I `production`              | På Render                                                      |
-| --------------------------- | -------------------------------------------------------------- |
-| `AUTH_JWT_KEY`              | `Auth__Jwt__Key`                                               |
-| `SUPABASE_URL`              | `Storage__Supabase__Url`                                       |
-| `SUPABASE_SERVICE_ROLE_KEY` | `Storage__Supabase__ServiceRoleKey`                            |
-| `ENTRA_CLIENT_ID`           | `Auth__Entra__ClientId` (bara om båda Entra-variablerna finns) |
-| `ENTRA_TENANT_ID`           | `Auth__Entra__TenantId`                                        |
-| `ENTRA_ADMIN_OBJECT_ID`     | `Auth__Entra__AdminObjectId` (om den finns)                    |
-| `ENTRA_SCHOOL_NAME`         | `Auth__Entra__SchoolName` (om den finns)                       |
-| `SEED_DEMO_DATA`            | `Database__SeedDemoData`, alltid (`false` när den saknas)      |
-
-GitHub är valfritt. Finns värdena nedan skickas de också vid varje deploy, en variabel i taget. Saknas de deployar appen utan GitHub-integration.
-
-| I `production`       | På Render                |
-| -------------------- | ------------------------ |
-| `GH_APP_ID`          | `GitHub__AppId`          |
-| `GH_APP_SLUG`        | `GitHub__AppSlug`        |
-| `GH_CLIENT_ID`       | `GitHub__ClientId`       |
-| `GH_ORG`             | `GitHub__Org`            |
-| `GH_INSTALLATION_ID` | `GitHub__InstallationId` |
-| `GH_APP_PRIVATE_KEY` | `GitHub__PrivateKey`     |
-| `GH_CLIENT_SECRET`   | `GitHub__ClientSecret`   |
-| `GH_WEBHOOK_SECRET`  | `GitHub__WebhookSecret`  |
-
-`RENDER_API_KEY`, `RENDER_SERVICE_ID` och `APP_URL` används bara av deploy-jobbet. Alla finns i [konfiguration.md](konfiguration.md#github-actions). Saknas någon av de obligatoriska värdena stoppar deploy-jobbet med ett fel innan något ändras.
+Saknas `CONNECTIONSTRINGS__DEFAULT` eller `AUTH__JWT__KEY` stoppar deployen med ett fel innan något ändras. `RENDER_API_KEY`, `RENDER_SERVICE_ID` och `APP_URL` är deployens egna och skickas inte till appen. Hela listan: [konfiguration.md](konfiguration.md#github-actions).
 
 ## En ny skola
 
 En skola har en egen installation: eget repo, egen Supabase-databas och egen Render-tjänst. Så kommer den igång:
 
-1. Skapa Supabase-projektet och Render-tjänsten ([`infra/render-setup.sh`](../infra/render-setup.sh)) och lägg hemligheterna i miljön `production` (se [Hemligheter](#hemligheter)). Sätt inte `SEED_DEMO_DATA`.
+1. Sätt upp databasen och värdtjänsten. Med vår uppsättning: ett Supabase-projekt och Render-tjänsten ([`infra/render-setup.sh`](../infra/render-setup.sh)), och inställningarna i miljön `production` (se [Inställningar och hemligheter](#inställningar-och-hemligheter)). Någon annanstans: [drift.md](drift.md). Sätt inte `DATABASE__SEEDDEMODATA`.
 2. Kör [`infra/entra-setup.sh`](#microsoft-inloggning) inloggad i skolans tenant. Du som kör det blir skolans första admin.
 3. Pusha till `main` (eller kör CD igen) så att deployen sätter värdena på Render.
 4. Logga in med Microsoft. Skolan kopplas till tenanten, får organisationens namn, och du blir admin.
 
 Sedan loggar alla andra in med Microsoft och blir elever, i klassen som adressen slutar på om den finns. Admin gör lärare och mentorer under _Användare_.
 
-En ny installation har inga konton med kända lösenord och ingen demodata. Demokontona (`admin`, `larare`, `elev`) och Edugrades demodata finns bara när `SEED_DEMO_DATA` är `true`, som i vår demo, och lokalt i Development.
+En ny installation har inga konton med kända lösenord och ingen demodata. Demokontona (`admin`, `larare`, `elev`) och Edugrades demodata finns bara när `Database__SeedDemoData` är `true`, som i vår demo, och lokalt i Development.
 
 ## Microsoft-inloggning
 
@@ -100,7 +76,7 @@ Skriptet registrerar Lärka i skolans Entra ID, eller uppdaterar registreringen 
 - bara inloggningsbehörigheterna `openid`, `profile`, `email` och `offline_access`, och ingen hemlighet
 - samtycke för hela organisationen om den som kör är admin. Annars godkänner varje användare själv vid första inloggningen, vilket skolans standardregler brukar tillåta för just inloggning
 
-Sist sparas `ENTRA_CLIENT_ID`, `ENTRA_TENANT_ID`, `ENTRA_ADMIN_OBJECT_ID` (ditt object id) och `ENTRA_SCHOOL_NAME` (organisationens namn, eller `SCHOOL_NAME` om du sätter den) i miljön `production`, och nästa deploy sätter dem på Render. Klienten hämtar dem från API:et, så ingen ny build behövs. `SKIP_GITHUB=1` skriver bara ut värdena.
+Sist skrivs `Auth__Entra__ClientId`, `TenantId`, `AdminObjectId` (ditt object id) och `SchoolName` (organisationens namn, eller `SCHOOL_NAME` om du sätter den) ut och sparas i miljön `production`, och nästa deploy skickar dem till Render. Klienten hämtar dem från API:et, så ingen ny build behövs. `SKIP_GITHUB=1` skriver bara ut raderna, färdiga att klistra in i en `.env` eller en molntjänsts inställningar ([drift.md](drift.md)).
 
 Appregistreringen är ingen Azure-resurs och syns inte under _Resources_ i Azure-portalen. Den ligger i skolans Entra ID och kostar ingenting. Spärrar skolan Entra-portalen för vanliga användare fungerar skriptet ändå, eftersom det går via Microsoft Graph.
 
@@ -110,7 +86,7 @@ Kör skriptet igen inloggad i den nya tenanten och deploya. Första gången du l
 
 ### Vår demo
 
-Demon på Render använder en egen testtenant (`christiangennari61gmail.onmicrosoft.com`), inte Edugrades. Edugrades Entra ID används inte. Miljön `production` har `SEED_DEMO_DATA=true` (demokontona och demodatan) och `ENTRA_SCHOOL_NAME=Edugrade`, så att demoskolan behåller namnet. Testkontona `elev.test.net25@…` (elev i .NET25) och `larare.test@…` finns i testtenanten. Lösenorden delas inte här, fråga Christian.
+Demon på Render använder en egen testtenant (`christiangennari61gmail.onmicrosoft.com`), inte Edugrades. Edugrades Entra ID används inte. Miljön `production` har `DATABASE__SEEDDEMODATA=true` (demokontona och demodatan) och `AUTH__ENTRA__SCHOOLNAME=Edugrade`, så att demoskolan behåller namnet. Testkontona `elev.test.net25@…` (elev i .NET25) och `larare.test@…` finns i testtenanten. Lösenorden delas inte här, fråga Christian.
 
 ### Testa med en egen tenant
 
