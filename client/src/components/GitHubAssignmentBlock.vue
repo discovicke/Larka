@@ -5,6 +5,7 @@ import {
   PhClock,
   PhGitCommit,
   PhGithubLogo,
+  PhLock,
   PhXCircle,
 } from '@phosphor-icons/vue'
 import {computed, ref} from 'vue'
@@ -21,6 +22,9 @@ const props = withDefaults(
     repoUrl?: string | null
     latestCommit?: string | null
     checkStatus?: 'Pending' | 'Green' | 'Red' | null
+    lockedAt?: string | null
+    submissionSha?: string | null
+    lockError?: string | null
     repoProvisioningState?: 'Pending' | 'Creating' | 'Ready' | 'Failed' | null
     repoProvisioningError?: string | null
     requirements?: Schema<'AssignmentRequirementDto'>[]
@@ -34,6 +38,9 @@ const props = withDefaults(
     repoUrl: null,
     latestCommit: null,
     checkStatus: null,
+    lockedAt: null,
+    submissionSha: null,
+    lockError: null,
     repoProvisioningState: null,
     repoProvisioningError: null,
     requirements: () => [],
@@ -72,7 +79,10 @@ const requirementRows = computed(() => props.requirements.map((requirement) => {
   const pattern = requirement.testPattern ?? ''
   const matches = props.checkRuns.filter((run) => wildcardMatch(pattern, run.name))
   if (matches.length === 0) {
-    return {requirement, label: 'Väntar på test', variant: 'outline' as const}
+    const label = props.checkRuns.length > 0
+      ? 'Ingen matchande check'
+      : 'Väntar på test'
+    return {requirement, label, variant: 'outline' as const}
   }
 
   const failed = matches.some((run) =>
@@ -94,7 +104,15 @@ function wildcardMatch(pattern: string, value: string): boolean {
     .split('*')
     .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
     .join('.*')
-  return new RegExp(`^${expression}$`, 'i').test(value)
+  if (new RegExp(`^${expression}$`, 'i').test(value)) {
+    return true
+  }
+
+  // Matrix-jobb får ett suffix, t.ex. "build (ubuntu-latest)". Ett krav på jobbnamnet ska
+  // fortfarande matcha när läraren inte själv har skrivit ett wildcard.
+  return !pattern.includes('*')
+    && (value.toLowerCase().startsWith(`${pattern.toLowerCase()} (`)
+      || value.toLowerCase().startsWith(`${pattern.toLowerCase()} / `))
 }
 
 async function handleConnect() {
@@ -134,7 +152,16 @@ async function handleConnect() {
         </div>
       </div>
       <Badge
-        v-if="repoUrl && checkStatus"
+        v-if="repoUrl && lockedAt"
+        variant="outline"
+        class="gap-1.5"
+        data-test="student-repo-locked-badge"
+      >
+        <PhLock class="size-3.5"/>
+        Repot är låst
+      </Badge>
+      <Badge
+        v-else-if="repoUrl && checkStatus"
         :variant="statusBadge.variant"
         class="gap-1.5"
         data-test="student-repo-status"
@@ -228,6 +255,23 @@ async function handleConnect() {
       <div v-if="latestCommit" class="flex items-center gap-1.5 text-xs text-muted-foreground" data-test="student-repo-commit">
         <PhGitCommit class="size-3.5 shrink-0"/>
         <span>Senaste commit: <code class="font-mono">{{ latestCommit.slice(0, 7) }}</code></span>
+      </div>
+
+      <div
+        v-if="lockedAt"
+        class="flex flex-col gap-1 rounded-lg border border-dashed p-3 text-xs"
+        data-test="student-repo-locked"
+      >
+        <p v-if="submissionSha" class="text-sm font-medium">
+          Inlämnad commit:
+          <code class="font-mono text-xs">{{ submissionSha.slice(0, 7) }}</code>
+        </p>
+        <p v-else-if="lockError" class="text-muted-foreground">
+          {{ lockError }}
+        </p>
+        <p class="text-muted-foreground">
+          Repot låstes vid deadline och går inte att ändra. Kontakta läraren om du behöver komplettera.
+        </p>
       </div>
 
       <ul v-if="requirementRows.length > 0" class="flex flex-col gap-1.5" data-test="student-requirements">

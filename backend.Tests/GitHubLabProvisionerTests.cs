@@ -181,7 +181,8 @@ public class GitHubLabProvisionerTests
                 new StudentRepo
                 {
                     SubmissionId = Guid.NewGuid(),
-                    RepoFullName = "EduEdugrade-Sandbox/labb-1-alice"
+                    RepoFullName = "EduEdugrade-Sandbox/labb-1-alice",
+                    ProvisioningState = RepoProvisioningState.Ready
                 }
             ]
         };
@@ -194,6 +195,43 @@ public class GitHubLabProvisionerTests
         Assert.Equal("EduEdugrade-Sandbox", collaborator.Owner);
         Assert.Equal("labb-1-alice", collaborator.Name);
         Assert.Equal("alice", collaborator.Username);
+    }
+
+    [Fact]
+    public async Task InviteToExistingReposAsync_SkipsReposThatAreNotReady()
+    {
+        var github = new FakeGitHubAppService();
+        var student = new User
+        {
+            Id = Guid.NewGuid(),
+            SchoolId = _schoolId,
+            Name = "Alice",
+            Email = "alice@example.com",
+            GitHubLogin = "alice"
+        };
+        var submissions = new FakeSubmissionRepository
+        {
+            Repos =
+            [
+                new StudentRepo
+                {
+                    SubmissionId = Guid.NewGuid(),
+                    ProvisioningState = RepoProvisioningState.Pending
+                },
+                new StudentRepo
+                {
+                    SubmissionId = Guid.NewGuid(),
+                    RepoFullName = "EduEdugrade-Sandbox/labb-1-alice",
+                    ProvisioningState = RepoProvisioningState.Ready
+                }
+            ]
+        };
+        var provisioner = CreateProvisioner(github, submissions: submissions);
+
+        await provisioner.InviteToExistingReposAsync(student, CancellationToken.None);
+
+        var collaborator = Assert.Single(github.Collaborators);
+        Assert.Equal("labb-1-alice", collaborator.Name);
     }
 
     [Fact]

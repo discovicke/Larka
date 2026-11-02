@@ -123,4 +123,82 @@ describe('GitHubAssignmentBlock', () => {
 
     expect(wrapper.find('[data-test="student-repo-status"]').text()).toContain('Tester underkända')
   })
+
+  it('matchar matrix-jobb mot jobbnamnet', () => {
+    const wrapper = mount(GitHubAssignmentBlock, {
+      props: {
+        hasRepoMode: true,
+        gitHubLogin: 'elev-kalle',
+        repoUrl: 'https://github.com/skol-org/kalle-labb-1',
+        requirements: [
+          {
+            id: 'r1',
+            title: 'Bygger',
+            testPattern: 'Build and test',
+            isManual: false,
+            position: 0,
+          },
+        ],
+        checkRuns: [
+          {id: 'c1', name: 'Build and test (ubuntu-latest)', status: 'completed', conclusion: 'success'},
+        ],
+      },
+    })
+
+    expect(wrapper.find('[data-test="student-requirements"]').text()).toContain('Godkänd')
+  })
+
+  it('säger att ingen check matchar när det finns check runs men mönstret inte träffar', () => {
+    const wrapper = mount(GitHubAssignmentBlock, {
+      props: {
+        hasRepoMode: true,
+        gitHubLogin: 'elev-kalle',
+        repoUrl: 'https://github.com/skol-org/kalle-labb-1',
+        requirements: [
+          {
+            id: 'r1',
+            title: 'Bygger',
+            testPattern: 'Workflow name',
+            isManual: false,
+            position: 0,
+          },
+        ],
+        checkRuns: [
+          {id: 'c1', name: 'build', status: 'completed', conclusion: 'success'},
+        ],
+      },
+    })
+
+    expect(wrapper.find('[data-test="student-requirements"]').text()).toContain('Ingen matchande check')
+  })
+
+  it('visar låst repo och inlämnad commit utan åtgärder', () => {
+    const wrapper = mount(GitHubAssignmentBlock, {
+      props: {
+        hasRepoMode: true,
+        gitHubLogin: 'elev-kalle',
+        repoUrl: 'https://github.com/skol-org/kalle-labb-1',
+        lockedAt: '2026-11-01T12:00:00Z',
+        submissionSha: 'abc1234567890',
+      },
+    })
+
+    expect(wrapper.find('[data-test="student-repo-locked-badge"]').text()).toContain('Repot är låst')
+    expect(wrapper.find('[data-test="student-repo-locked"]').text()).toContain('abc1234')
+    expect(wrapper.find('[data-test="student-repo-locked"]').text()).toContain('går inte att ändra')
+  })
+
+  it('visar varför ett låst repo saknar inlämning', () => {
+    const wrapper = mount(GitHubAssignmentBlock, {
+      props: {
+        hasRepoMode: true,
+        gitHubLogin: 'elev-kalle',
+        repoUrl: 'https://github.com/skol-org/kalle-labb-1',
+        lockedAt: '2026-11-01T12:00:00Z',
+        lockError: 'Ingen commit före deadline.',
+      },
+    })
+
+    expect(wrapper.find('[data-test="student-repo-locked"]').text()).toContain('Ingen commit före deadline.')
+  })
 })

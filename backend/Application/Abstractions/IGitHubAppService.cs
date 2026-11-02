@@ -76,7 +76,7 @@ public interface IGitHubAppService
 
     Task<IReadOnlyList<GitHubRepository>> ListTemplateRepositoriesAsync(long installationId, CancellationToken ct);
 
-    /// <summary>Workflow-namn från mallens .github/workflows, som förslag till krav.</summary>
+    /// <summary>Jobbnamn från mallens .github/workflows, samma namn som GitHub använder för check runs.</summary>
     Task<IReadOnlyList<string>> ListWorkflowNamesAsync(
         long installationId, string owner, string name, CancellationToken ct);
 

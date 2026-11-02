@@ -161,6 +161,15 @@ jobs:
           SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           AUTH_JWT_KEY: ${{ secrets.AUTH_JWT_KEY }}
+          # GitHub är valfritt: saknas värdena deployar appen utan GitHub-integration.
+          GH_APP_ID: ${{ vars.GH_APP_ID }}
+          GH_APP_SLUG: ${{ vars.GH_APP_SLUG }}
+          GH_CLIENT_ID: ${{ vars.GH_CLIENT_ID }}
+          GH_ORG: ${{ vars.GH_ORG }}
+          GH_INSTALLATION_ID: ${{ vars.GH_INSTALLATION_ID }}
+          GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          GH_CLIENT_SECRET: ${{ secrets.GH_CLIENT_SECRET }}
+          GH_WEBHOOK_SECRET: ${{ secrets.GH_WEBHOOK_SECRET }}
           IMAGE: ${{ needs.image.outputs.image }}
           EXPECTED_VERSION: ${{ needs.release.outputs.version }}
           EXPECTED_COMMIT: ${{ github.sha }}

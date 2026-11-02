@@ -13,7 +13,7 @@ GitHub är **inte** en inloggningsmetod i Larka. GitHub används bara för kodre
 | **Organisation** | Skolans GitHub-organisation. Alla elevrepon ägs av organisationen, inte av elevens privata konto.                         |
 | **Mallrepo**     | Ett privat GitHub-repo markerat som **Template repository**. Elevrepon skapas från mallen.                                |
 | **Elevrepo**     | Ett privat repo per elev och uppgift. Eleven är collaborator med `push`, inte ägare.                                      |
-| **Check run**    | Ett test- eller workflow-resultat från GitHub Actions, till exempel `dotnet test` eller ett workflow-namn.                |
+| **Check run**    | Ett testresultat från GitHub Actions. Namnet är jobbets namn, till exempel `build` eller `test (ubuntu-latest)`.          |
 | **Krav**         | En rad i uppgiften som antingen matchas mot check runs eller bedöms manuellt av läraren.                                  |
 | **Stödsignal**   | Automatisk signal till läraren, till exempel “Inte startat”, “Ingen push” eller “Röda tester”.                            |
 
@@ -34,7 +34,7 @@ GitHub Appen sköter allt som händer på GitHub-sidan:
 - autentiserar mot GitHub med appens privata nyckel och ett installations-token,
 - skapar privata elevrepon från mallrepon,
 - bjuder in eleven som collaborator med `push`,
-- läser commits, check runs och workflow-namn,
+- läser commits, check runs och jobbnamn från mallens workflows,
 - arkiverar och avarkiverar repon vid deadline och komplettering,
 - skickar webhooks när något händer i ett repo.
 
@@ -177,7 +177,9 @@ Läraren kan lägga till krav i uppgiften:
 - **Testkrav** matchas mot check runs. Mönstret kan innehålla `*`, till exempel `*test*`.
 - **Manuella krav** matchas inte mot GitHub. De visas som “Bedöms av lärare”.
 
-Knappen **Läs in från mallen** läser workflow-namn från `.github/workflows/*.yml|yaml` i mallrepot. Den läser alltså inte enskilda testmetoder.
+Knappen **Läs in från mallen** läser **jobbnamn** från `.github/workflows/*.yml|yaml` i mallrepot. Det är samma namn som GitHub Actions använder för check runs. Den läser alltså inte workflowets namn, stegnamn eller enskilda testmetoder. Matrix-jobb matchas även när GitHub lägger till ett suffix, till exempel `build (ubuntu-latest)`.
+
+Har krav redan sparats med ett gammalt mönster kan läraren behöva läsa in från mallen igen eller ändra mönstret manuellt.
 
 ### Utdelning
 
@@ -378,6 +380,7 @@ Lärartrackingen uppdaterar sig automatiskt var 30:e sekund när fliken är synl
 | Repot står kvar som `Pending` | Provisioneringsjobbet är avstängt eller GitHub-anropet felar.                       | Kontrollera jobbet och felet i `StudentRepo.ProvisioningError`.    |
 | Repot blir `Failed`           | Mallen är inte ett template-repo, namnet är upptaget eller appen saknar behörighet. | Kontrollera mallen, reponamnet och appens behörigheter.            |
 | Inga checks syns              | Inga workflows har kört än, eller check runs är inte klara.                         | Vänta, kontrollera GitHub Actions och tryck **Uppdatera**.         |
+| Krav står “Väntar på test”    | Kravets mönster matchar inget jobbnamn i repots check runs.                         | Läs in från mallen igen eller ändra mönstret till jobbnamnet.      |
 | Webhook uppdaterar inte       | Fel secret, fel event eller avstängd webhook.                                       | Kontrollera leveransen i GitHub och `GitHub:WebhookSecret`.        |
 | Eleven ser inte repot         | Eleven saknade GitHub-login när repot skapades.                                     | Låt eleven koppla GitHub; backend bjuder in till befintliga repon. |
 | Eleven ser andra repon        | Organisationens basbehörighet är för bred.                                          | Sätt **Base permissions** till **No permission**.                  |

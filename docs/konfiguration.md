@@ -142,6 +142,14 @@ arkivera och hantera elevrepon. Mallrepon ska vara privata och markerade som **T
 | `AUTH_JWT_KEY`              | secret   | miljön `production` | → `Auth__Jwt__Key` på Render          |
 | `SUPABASE_URL`              | variabel | miljön `production` | → `Storage__Supabase__Url`            |
 | `SUPABASE_SERVICE_ROLE_KEY` | secret   | miljön `production` | → `Storage__Supabase__ServiceRoleKey` |
+| `GH_APP_ID`                 | variabel | miljön `production` | → `GitHub__AppId` (valfri)            |
+| `GH_APP_SLUG`               | variabel | miljön `production` | → `GitHub__AppSlug` (valfri)          |
+| `GH_CLIENT_ID`              | variabel | miljön `production` | → `GitHub__ClientId` (valfri)         |
+| `GH_ORG`                    | variabel | miljön `production` | → `GitHub__Org` (valfri)              |
+| `GH_INSTALLATION_ID`        | variabel | miljön `production` | → `GitHub__InstallationId` (valfri)   |
+| `GH_APP_PRIVATE_KEY`        | secret   | miljön `production` | → `GitHub__PrivateKey` (valfri)       |
+| `GH_CLIENT_SECRET`          | secret   | miljön `production` | → `GitHub__ClientSecret` (valfri)     |
+| `GH_WEBHOOK_SECRET`         | secret   | miljön `production` | → `GitHub__WebhookSecret` (valfri)    |
 | `E2E_BASE_URL`              | variabel | repot               | E2E-workflowen (valfri)               |
 
 `GITHUB_TOKEN` kommer från Actions och används för semantic-release och för att pusha imagen till GHCR.

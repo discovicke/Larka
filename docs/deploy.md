@@ -38,7 +38,7 @@ Render har ingen åtkomst till repot. Tjänsten kör imagen från GHCR med en to
 
 Tjänsten skapas och konfigureras med [`infra/render-setup.sh`](../infra/render-setup.sh). Kör den lokalt när tjänstens inställningar ändras. Skriptet beskriver själv vilka variabler det behöver.
 
-> Körs skriptet mot en befintlig tjänst ersätts **alla** miljövariabler på tjänsten med skriptets lista. Variabler som bara satts för hand på Render försvinner.
+> Körs skriptet mot en befintlig tjänst uppdateras en variabel i taget. Variabler som bara satts för hand på Render, till exempel GitHub-nycklar, finns kvar.
 
 ## Hemligheter
 
@@ -50,7 +50,20 @@ Hemligheterna finns i GitHub-miljön `production`, och deploy-jobbet skickar dem
 | `SUPABASE_URL`              | `Storage__Supabase__Url`            |
 | `SUPABASE_SERVICE_ROLE_KEY` | `Storage__Supabase__ServiceRoleKey` |
 
-`RENDER_API_KEY`, `RENDER_SERVICE_ID` och `APP_URL` används bara av deploy-jobbet. Alla finns i [konfiguration.md](konfiguration.md#github-actions). Saknas någon av dem stoppar deploy-jobbet med ett fel innan något ändras.
+GitHub är valfritt. Finns värdena nedan skickas de också vid varje deploy, en variabel i taget. Saknas de deployar appen utan GitHub-integration.
+
+| I `production`       | På Render                |
+| -------------------- | ------------------------ |
+| `GH_APP_ID`          | `GitHub__AppId`          |
+| `GH_APP_SLUG`        | `GitHub__AppSlug`        |
+| `GH_CLIENT_ID`       | `GitHub__ClientId`       |
+| `GH_ORG`             | `GitHub__Org`            |
+| `GH_INSTALLATION_ID` | `GitHub__InstallationId` |
+| `GH_APP_PRIVATE_KEY` | `GitHub__PrivateKey`     |
+| `GH_CLIENT_SECRET`   | `GitHub__ClientSecret`   |
+| `GH_WEBHOOK_SECRET`  | `GitHub__WebhookSecret`  |
+
+`RENDER_API_KEY`, `RENDER_SERVICE_ID` och `APP_URL` används bara av deploy-jobbet. Alla finns i [konfiguration.md](konfiguration.md#github-actions). Saknas någon av de obligatoriska värdena stoppar deploy-jobbet med ett fel innan något ändras.
 
 ## Versioner
 

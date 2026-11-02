@@ -29,6 +29,7 @@ const editorKey = ref(0)
 const hasText = computed(() => props.item.submissionModes.includes('Text'))
 const hasFiles = computed(() => props.item.submissionModes.includes('File'))
 const hasRepo = computed(() => props.item.submissionModes.includes('Repo'))
+const repoLocked = computed(() => hasRepo.value && Boolean(props.item.repo?.lockedAt))
 const hasForm = computed(() => hasText.value || hasFiles.value)
 const onSite = computed(() => props.item.submissionModes.includes('OnSite'))
 const status = computed(() => props.item.submissionStatus ?? 'NotStarted')
@@ -148,11 +149,14 @@ function onFilesChosen(event: Event) {
         </template>
         · commit <code class="font-mono">{{ submission?.repo?.submissionSha?.slice(0, 7) ?? '–' }}</code>
       </p>
+      <p v-else-if="repoLocked" class="text-muted-foreground text-sm" data-test="repo-submission-locked">
+        Repot låstes vid deadline. Ingen commit registrerades som inlämning.
+      </p>
       <p v-else class="text-muted-foreground text-sm">
         När du lämnar in sparas senaste commit som din inlämning. Du kan lämna in igen fram till deadline.
       </p>
       <Button
-        v-if="status !== 'Graded'"
+        v-if="status !== 'Graded' && !repoLocked"
         type="button"
         :disabled="saving"
         data-test="repo-submission-submit"

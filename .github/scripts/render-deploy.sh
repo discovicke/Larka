@@ -21,6 +21,23 @@ for pair in "Storage__Supabase__Url=$SUPABASE_URL" "Storage__Supabase__ServiceRo
   api -X PUT "$API/env-vars/${pair%%=*}" -d "$(jq -n --arg value "${pair#*=}" '{value: $value}')" >/dev/null
 done
 
+# GitHub är valfritt. Tomma värden hoppas över, så en deploy utan GitHub fungerar som förut.
+for pair in \
+  "GitHub__AppId=${GH_APP_ID:-}" \
+  "GitHub__AppSlug=${GH_APP_SLUG:-}" \
+  "GitHub__ClientId=${GH_CLIENT_ID:-}" \
+  "GitHub__Org=${GH_ORG:-}" \
+  "GitHub__InstallationId=${GH_INSTALLATION_ID:-}" \
+  "GitHub__PrivateKey=${GH_APP_PRIVATE_KEY:-}" \
+  "GitHub__ClientSecret=${GH_CLIENT_SECRET:-}" \
+  "GitHub__WebhookSecret=${GH_WEBHOOK_SECRET:-}"; do
+  key="${pair%%=*}"
+  value="${pair#*=}"
+  if [ -n "$value" ]; then
+    api -X PUT "$API/env-vars/$key" -d "$(jq -n --arg value "$value" '{value: $value}')" >/dev/null
+  fi
+done
+
 echo "Deployar $IMAGE"
 response=$(api -X POST "$API/deploys" -d "$(jq -n --arg image "$IMAGE" '{imageUrl: $image}')")
 deploy_id=$(jq -r '.id // empty' <<<"$response")

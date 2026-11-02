@@ -284,16 +284,11 @@ public sealed class GitHubLabProvisioner(
             return;
         }
 
+        SchoolConnection connection;
         try
         {
-            var connection = await GetConnectionAsync(
+            connection = await GetConnectionAsync(
                 student.SchoolId, new Dictionary<Guid, SchoolConnection>(), ct);
-            foreach (var repo in repos)
-            {
-                var (owner, name) = ParseRepo(repo.RepoFullName, nameof(repo.RepoFullName));
-                await AddCollaboratorAsync(
-                    connection, owner, name, student.GitHubLogin, ct);
-            }
         }
         catch (InvalidOperationException exception)
         {
@@ -302,6 +297,32 @@ public sealed class GitHubLabProvisioner(
                 exception,
                 "Could not invite {GitHubLogin} to existing repositories",
                 student.GitHubLogin);
+            return;
+        }
+
+        foreach (var repo in repos)
+        {
+            // Ett repo som fortfarande provisioning-skaps har inget fullständigt namn än.
+            if (repo.ProvisioningState != RepoProvisioningState.Ready
+                || string.IsNullOrWhiteSpace(repo.RepoFullName))
+            {
+                continue;
+            }
+
+            try
+            {
+                var (owner, name) = ParseRepo(repo.RepoFullName, nameof(repo.RepoFullName));
+                await AddCollaboratorAsync(
+                    connection, owner, name, student.GitHubLogin, ct);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                logger.LogWarning(
+                    exception,
+                    "Could not invite {GitHubLogin} to {Repo}",
+                    student.GitHubLogin,
+                    repo.RepoFullName);
+            }
         }
     }
 

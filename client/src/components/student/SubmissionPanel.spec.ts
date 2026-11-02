@@ -47,6 +47,32 @@ function submissionOf(status: Schema<'SubmissionStatus'>, extra: Partial<Schema<
   }
 }
 
+function repoOf(extra: Partial<Schema<'StudentRepoDto'>> = {}): Schema<'StudentRepoDto'> {
+  return {
+    repoFullName: 'skol-org/kalle-labb-1',
+    lastSha: 'abc1234567890',
+    checkStatus: 'Green',
+    updatedAt: '2026-11-01T12:00:00Z',
+    provisioningState: 'Ready',
+    provisioningError: null,
+    submissionSha: 'abc1234567890',
+    lockedAt: null,
+    lockError: null,
+    reopenedAt: null,
+    lastCommitMessage: 'feat: klar',
+    lastCommitAt: '2026-11-01T11:00:00Z',
+    commitCount: 3,
+    checksPassed: 1,
+    checksTotal: 1,
+    initialSha: null,
+    initialCommitAt: null,
+    provisionedAt: null,
+    checkStatusChangedAt: null,
+    checkRuns: [],
+    ...extra,
+  }
+}
+
 function backend(existing: unknown[] = []) {
   mockApi((method, path) => {
     if (method === 'GET' && path === '/api/links/l1/submissions') {
@@ -113,6 +139,35 @@ describe('SubmissionPanel', () => {
     expect(requests.some((request) =>
       request.method === 'POST' && request.path === '/api/links/l1/submissions')).toBe(true)
     expect(wrapper.emitted('submitted')).toHaveLength(1)
+  })
+
+  it('döljer repo-inlämning när repot är låst efter deadline', async () => {
+    backend([submissionOf('Submitted', {repo: repoOf({lockedAt: '2026-11-01T12:00:00Z'})})])
+    const wrapper = await show({
+      submissionModes: ['Repo'],
+      hasRepoMode: true,
+      submissionStatus: 'Submitted',
+      repo: repoOf({lockedAt: '2026-11-01T12:00:00Z'}),
+    })
+
+    expect(wrapper.find('[data-test="repo-submission-submit"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="repo-submission"]').text()).toContain('Inlämnad')
+  })
+
+  it('förklarar varför ett låst repo saknar inlämning', async () => {
+    backend()
+    const wrapper = await show({
+      submissionModes: ['Repo'],
+      hasRepoMode: true,
+      repo: repoOf({
+        lockedAt: '2026-11-01T12:00:00Z',
+        submissionSha: null,
+        lockError: 'Ingen commit före deadline.',
+      }),
+    })
+
+    expect(wrapper.find('[data-test="repo-submission-locked"]').text()).toContain('Ingen commit registrerades')
+    expect(wrapper.find('[data-test="repo-submission-submit"]').exists()).toBe(false)
   })
 
   it('tar emot filer, listar dem och låter eleven ta bort en före inlämning', async () => {

@@ -37,12 +37,8 @@ public static class SubmissionEndpoints
                 (await service.GradeAsync(id, gradeDto, ct)).ToHttp(submission => TypedResults.Ok(submission)));
 
         // --- GitHub-repon (Fake nu / Octokit sen) ---
-        submissions.MapPost("/refresh-checks", async (SubmissionService service, CancellationToken ct) =>
-        {
-            await service.RefreshChecksAsync(ct);
-            return TypedResults.Ok();
-        });
-
+        // Global check-refresh körs bara av GitHubChecksJob. Läraren uppdaterar en utdelning via
+        // POST /links/{id}/repos/refresh, som behörighetsprövas.
         var repoActions = app.MapGroup("/links/{id:guid}/repos").WithTags("Submissions");
 
         repoActions.MapPost("/refresh", async (

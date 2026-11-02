@@ -4431,18 +4431,6 @@
         }
       }
     },
-    "/api/submissions/refresh-checks": {
-      "post": {
-        "tags": [
-          "Submissions"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
     "/api/links/{id}/repos/refresh": {
       "post": {
         "tags": [

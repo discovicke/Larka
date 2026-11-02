@@ -6,6 +6,8 @@ using System.Text.RegularExpressions;
 using Backend.Application.Abstractions;
 using Backend.Domain.Enums;
 using Microsoft.Extensions.Options;
+using YamlDotNet.Core;
+using YamlDotNet.RepresentationModel;
 
 namespace Backend.Infrastructure.GitHub;
 
@@ -183,20 +185,75 @@ public sealed class GitHubAppService(
                 continue;
             }
 
-            foreach (Match match in Regex.Matches(
-                         yaml,
-                         @"^\s*name:\s*['""]?(?<name>[^'""\r\n]+)['""]?\s*$",
-                         RegexOptions.Multiline))
-            {
-                var value = match.Groups["name"].Value.Trim();
-                if (value.Length > 0)
-                {
-                    names.Add(value);
-                }
-            }
+            names.UnionWith(ParseWorkflowJobNames(yaml));
         }
 
         return names.OrderBy(value => value, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    /// <summary>
+    /// GitHub Actions check runs namnges efter jobb, inte efter workflow eller steg. Läser därför bara
+    /// jobs.*.name (eller job-id när namnet saknas) så att kraven matchar det GitHub faktiskt rapporterar.
+    /// </summary>
+    internal static IReadOnlyList<string> ParseWorkflowJobNames(string yaml)
+    {
+        var names = new List<string>();
+        var stream = new YamlStream();
+        try
+        {
+            using var reader = new StringReader(yaml);
+            stream.Load(reader);
+        }
+        catch (YamlException)
+        {
+            // En trasig workflow kan GitHub inte köra. Hoppa över filen i stället för att fälla hela listan.
+            return names;
+        }
+
+        if (stream.Documents.Count == 0
+            || stream.Documents[0].RootNode is not YamlMappingNode root
+            || !TryGetChild(root, "jobs", out var jobsNode)
+            || jobsNode is not YamlMappingNode jobs)
+        {
+            return names;
+        }
+
+        foreach (var jobEntry in jobs.Children)
+        {
+            if (jobEntry.Key is not YamlScalarNode jobId || string.IsNullOrWhiteSpace(jobId.Value))
+            {
+                continue;
+            }
+
+            var name = jobId.Value.Trim();
+            if (jobEntry.Value is YamlMappingNode job
+                && TryGetChild(job, "name", out var nameNode)
+                && nameNode is YamlScalarNode nameScalar
+                && !string.IsNullOrWhiteSpace(nameScalar.Value))
+            {
+                name = nameScalar.Value.Trim();
+            }
+
+            names.Add(name);
+        }
+
+        return names;
+    }
+
+    private static bool TryGetChild(YamlMappingNode mapping, string key, out YamlNode value)
+    {
+        foreach (var entry in mapping.Children)
+        {
+            if (entry.Key is YamlScalarNode scalar
+                && string.Equals(scalar.Value, key, StringComparison.OrdinalIgnoreCase))
+            {
+                value = entry.Value;
+                return true;
+            }
+        }
+
+        value = null!;
+        return false;
     }
 
     public async Task<GitHubRepository> GetRepositoryAsync(
