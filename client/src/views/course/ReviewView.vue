@@ -356,112 +356,118 @@ watch([courseId, linkId, submissionId], () => {
 
       <aside
         aria-label="Bedömning"
-        class="flex-[1_1_340px] min-w-0 border-l bg-muted/40 p-5 flex flex-col gap-5 max-md:border-l-0 max-md:border-t"
+        class="flex-[1_1_340px] min-w-0 border-l bg-muted/40 max-md:border-l-0 max-md:border-t"
       >
-        <section class="flex flex-col gap-2">
-          <h2 class="text-sm font-semibold">Betyg</h2>
-          <div
-            v-if="hasGrades && canGrade"
-            role="radiogroup"
-            class="grid gap-2"
-            :class="levels.length === 3
-              ? 'grid-cols-3'
-              : 'grid-cols-2'"
-          >
-            <button
-              v-for="option in levels"
-              :key="option"
-              type="button"
-              role="radio"
-              :aria-checked="level === option"
-              class="h-11 rounded-[7px] border bg-background flex flex-col items-center justify-center leading-tight"
-              :class="level === option
-                ? 'bg-primary text-primary-foreground border-primary'
-                : ''"
-              @click="level = option"
+        <!-- Följer med när läraren scrollar en lång inlämning, så betyg och knappar alltid syns. -->
+        <div
+          data-test="review-panel"
+          class="flex flex-col gap-5 p-5 md:sticky md:top-0 md:max-h-svh md:min-h-[calc(100svh-56px)] md:overflow-y-auto"
+        >
+          <section class="flex flex-col gap-2">
+            <h2 class="text-sm font-semibold">Betyg</h2>
+            <div
+              v-if="hasGrades && canGrade"
+              role="radiogroup"
+              class="grid gap-2"
+              :class="levels.length === 3
+                ? 'grid-cols-3'
+                : 'grid-cols-2'"
             >
-              <span class="font-bold">{{ gradeLabel(option) }}</span>
-              <span
-                class="text-[11px] text-muted-foreground"
+              <button
+                v-for="option in levels"
+                :key="option"
+                type="button"
+                role="radio"
+                :aria-checked="level === option"
+                class="h-11 rounded-[7px] border bg-background flex flex-col items-center justify-center leading-tight"
                 :class="level === option
-                  ? 'text-primary-foreground/80'
+                  ? 'bg-primary text-primary-foreground border-primary'
                   : ''"
-              >{{ gradeName(option) }}</span>
-            </button>
+                @click="level = option"
+              >
+                <span class="font-bold">{{ gradeLabel(option) }}</span>
+                <span
+                  class="text-[11px] text-muted-foreground"
+                  :class="level === option
+                    ? 'text-primary-foreground/80'
+                    : ''"
+                >{{ gradeName(option) }}</span>
+              </button>
+            </div>
+            <p v-else-if="hasGrades" class="text-sm" data-test="read-only-grade">
+              {{ level
+                ? `${gradeLabel(level)} · ${gradeName(level)}`
+                : 'Inte bedömd än.' }}
+            </p>
+            <p v-else class="text-muted-foreground text-sm">Uppgiften har inget betyg, bara återkoppling.</p>
+          </section>
+
+          <div v-if="canGrade" class="flex flex-col gap-2">
+            <label for="feedback" class="font-heading text-sm font-semibold">Sammanfattande kommentar</label>
+            <Textarea
+              id="feedback"
+              v-model="feedback"
+              :rows="4"
+              class="bg-background"
+              placeholder="Skriv en kommentar till eleven…"
+            />
           </div>
-          <p v-else-if="hasGrades" class="text-sm" data-test="read-only-grade">
-            {{ level
-              ? `${gradeLabel(level)} · ${gradeName(level)}`
-              : 'Inte bedömd än.' }}
-          </p>
-          <p v-else class="text-muted-foreground text-sm">Uppgiften har inget betyg, bara återkoppling.</p>
-        </section>
 
-        <div v-if="canGrade" class="flex flex-col gap-2">
-          <label for="feedback" class="font-heading text-sm font-semibold">Sammanfattande kommentar</label>
-          <Textarea
-            id="feedback"
-            v-model="feedback"
-            :rows="4"
-            class="bg-background"
-            placeholder="Skriv en kommentar till eleven…"
-          />
-        </div>
+          <section v-else-if="feedback" class="flex flex-col gap-2">
+            <h2 class="text-sm font-semibold">Kommentar</h2>
+            <p class="text-sm whitespace-pre-line">{{ feedback }}</p>
+          </section>
 
-        <section v-else-if="feedback" class="flex flex-col gap-2">
-          <h2 class="text-sm font-semibold">Kommentar</h2>
-          <p class="text-sm whitespace-pre-line">{{ feedback }}</p>
-        </section>
+          <Alert v-if="notice" data-test="review-notice">
+            <AlertDescription>{{ notice }}</AlertDescription>
+          </Alert>
 
-        <Alert v-if="notice" data-test="review-notice">
-          <AlertDescription>{{ notice }}</AlertDescription>
-        </Alert>
+          <p v-if="formError" class="text-destructive text-[13px]">{{ formError }}</p>
 
-        <p v-if="formError" class="text-destructive text-[13px]">{{ formError }}</p>
+          <Alert v-if="saveError" variant="destructive">
+            <AlertDescription>{{ saveError }}</AlertDescription>
+          </Alert>
 
-        <Alert v-if="saveError" variant="destructive">
-          <AlertDescription>{{ saveError }}</AlertDescription>
-        </Alert>
-
-        <div class="mt-auto flex flex-col gap-2">
-          <p v-if="gradedAt" class="text-muted-foreground text-xs">Bedömd {{ gradedAt }}</p>
-          <template v-if="canGrade">
-            <p class="text-muted-foreground flex items-center gap-1.5 text-xs">
-              <PhInfo class="size-3.5"/>
-              Eleven ser betyget och kommentaren direkt.
-            </p>
-            <p v-if="inQueue" class="text-sm font-medium" data-test="review-remaining">
-              {{ remaining }} kvar att bedöma
-            </p>
-            <Button
-              class="w-full"
-              :disabled="saving"
-              data-test="review-save"
-              @click="publish"
-            >
-              {{ next
-                ? 'Spara och nästa'
-                : 'Spara' }}
-            </Button>
-            <Button
-              variant="outline"
-              class="w-full"
-              :disabled="saving"
-              @click="requestWork"
-            >
-              Begär komplettering
-            </Button>
-            <Button
-              v-if="next"
-              variant="ghost"
-              class="w-full"
-              :disabled="saving"
-              data-test="review-skip"
-              @click="skip"
-            >
-              Hoppa över till nästa
-            </Button>
-          </template>
+          <div class="mt-auto flex flex-col gap-2">
+            <p v-if="gradedAt" class="text-muted-foreground text-xs">Bedömd {{ gradedAt }}</p>
+            <template v-if="canGrade">
+              <p class="text-muted-foreground flex items-center gap-1.5 text-xs">
+                <PhInfo class="size-3.5"/>
+                Eleven ser betyget och kommentaren direkt.
+              </p>
+              <p v-if="inQueue" class="text-sm font-medium" data-test="review-remaining">
+                {{ remaining }} kvar att bedöma
+              </p>
+              <Button
+                class="w-full"
+                :disabled="saving"
+                data-test="review-save"
+                @click="publish"
+              >
+                {{ next
+                  ? 'Spara och nästa'
+                  : 'Spara' }}
+              </Button>
+              <Button
+                variant="outline"
+                class="w-full"
+                :disabled="saving"
+                @click="requestWork"
+              >
+                Begär komplettering
+              </Button>
+              <Button
+                v-if="next"
+                variant="ghost"
+                class="w-full"
+                :disabled="saving"
+                data-test="review-skip"
+                @click="skip"
+              >
+                Hoppa över till nästa
+              </Button>
+            </template>
+          </div>
         </div>
       </aside>
     </template>
