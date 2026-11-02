@@ -49,6 +49,8 @@ Alla inställningar och hemligheter ligger i [Infisical](https://eu.infisical.co
 
 Vid varje deploy loggar [`render-deploy.sh`](../.github/scripts/render-deploy.sh) in i Infisical med GitHubs OIDC-token (identiteten `github-actions-deploy`, som bara får läsa och bara från miljön `production` i det här repot). Den hämtar `prod` och **ersätter** Renders inställningar med exakt dem. Ändra ett värde i Infisical och kör CD, så är det ute. Saknas `ConnectionStrings__Default` eller `Auth__Jwt__Key` stoppar deployen innan något ändras.
 
+Repot använder GitHubs oföränderliga OIDC-subject, så identiteten i Infisical måste ha subject `repo:EduEdugrade@227339915/net25-devops-grupp-4@1426964077:environment:production` (audience `https://github.com/EduEdugrade`). Med bara `repo:EduEdugrade/net25-devops-grupp-4:…` svarar Infisical 403.
+
 ## En ny skola
 
 1. Databas och värdtjänst: med vår uppsättning ett Supabase-projekt och Render-tjänsten ([`infra/render-setup.sh`](../infra/render-setup.sh)), annars [drift.md](drift.md).

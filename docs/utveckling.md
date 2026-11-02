@@ -27,12 +27,14 @@ Alla tidigare migrationer är hopslagna till en baslinje, `Baseline`. Dess id ä
 
 Börja om från en tom lokal databas: `docker compose down -v && npm run db`.
 
-Hemligheter behövs inte lokalt. Vill du köra mot något annat, till exempel Supabase eller GitHub-sandlådan, lägg nycklarna i Infisical (projektet Lärka, miljön `dev`) och starta backend genom Infisicals CLI, som lägger dem i miljön:
+Hemligheter behövs inte lokalt. Vill du köra mot något annat, till exempel Supabase eller GitHub-sandlådan, lägg nycklarna i Infisical (projektet Lärka, miljön `dev`) och starta backend genom [Infisicals CLI](https://infisical.com/docs/cli/overview):
 
 ```bash
-infisical login
+infisical login                                # välj Infisical Cloud (EU Region), sparas till nästa gång
 infisical run -- dotnet run --project backend
 ```
+
+`infisical run` hämtar hemligheterna och ger dem som miljövariabler till kommandot efter `--`, och bara till det. Inget skrivs till disk, och terminalen får dem inte. Projektet läses från `.infisical.json`. `--env=prod` eller `--path=/deploy` väljer en annan miljö eller mapp.
 
 Alla inställningar finns i [konfiguration.md](konfiguration.md).
 
