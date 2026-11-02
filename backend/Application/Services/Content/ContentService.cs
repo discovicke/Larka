@@ -327,7 +327,7 @@ public class ContentService(
         bool feedbackPullRequest,
         bool allowLate)
     {
-        if (!SubmissionService.UsesRepo(spec.SubmissionModes))
+        if (!spec.UsesRepo)
         {
             spec.RepoNamePattern = null;
             spec.WorkMode = RepoWorkMode.Individual;
@@ -350,7 +350,7 @@ public class ContentService(
         AssignmentSpec spec, List<AssignmentRequirementInput>? requirements)
     {
         spec.Requirements.Clear();
-        if (!SubmissionService.UsesRepo(spec.SubmissionModes) || requirements is null)
+        if (!spec.UsesRepo || requirements is null)
         {
             return;
         }

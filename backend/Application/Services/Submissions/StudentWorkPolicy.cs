@@ -8,6 +8,9 @@ namespace Backend.Application.Services;
 // NotStarted skapas när en uppgift delas ut och är inget elevarbete.
 public static class StudentWorkPolicy
 {
+    public static bool UsesRepo(IReadOnlyCollection<SubmissionMode> modes) =>
+        modes.Contains(SubmissionMode.Repo);
+
     public static bool HasStudentActivity(Submission submission) =>
         submission.Status != SubmissionStatus.NotStarted
         || submission.SubmittedAt is not null

@@ -30,7 +30,7 @@ public static class AssignmentFieldsValidator
         }
 
         var submissionModes = modes ?? [];
-        var usesRepo = SubmissionService.UsesRepo(submissionModes);
+        var usesRepo = StudentWorkPolicy.UsesRepo(submissionModes);
         if (usesRepo != (templateRepo is not null))
         {
             return "templateRepo is required for repo, and only allowed there";

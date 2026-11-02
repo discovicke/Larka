@@ -16,6 +16,7 @@ public class SubmissionService(
     IUserRepository users,
     IPermissions permissions,
     ILabProvisioner provisioner,
+    GitHubRepoActions repoActions,
     StudentSupportService supportStatus,
     IFileStorage storage,
     NotificationService notifications,
@@ -24,8 +25,6 @@ public class SubmissionService(
     TimeProvider time,
     ILogger<SubmissionService> logger)
 {
-    public static bool UsesRepo(List<SubmissionMode> modes) => modes.Contains(SubmissionMode.Repo);
-
     // Eleven lämnar själv in text, filer eller repo. OnSite bedöms av läraren och har ingen inlämning från eleven.
     private static bool StudentSubmits(List<SubmissionMode> modes) =>
         modes.Any(mode => mode != SubmissionMode.OnSite);
@@ -61,7 +60,7 @@ public class SubmissionService(
             })
             .ToList();
 
-        if (UsesRepo(spec.SubmissionModes))
+        if (spec.UsesRepo)
         {
             var now = time.GetUtcNow();
             var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -247,7 +246,7 @@ public class SubmissionService(
         submission.SubmittedAt = time.GetUtcNow();
         submission.BodyMd = dto.BodyMd;
         var repo = submission.Repo ?? submission.Group?.Repo;
-        if (UsesRepo(modes) && repo is not null)
+        if (StudentWorkPolicy.UsesRepo(modes) && repo is not null)
         {
             repo.SubmissionSha = repo.LastSha;
         }
@@ -277,7 +276,8 @@ public class SubmissionService(
     {
         var hasText = modes.Contains(SubmissionMode.Text) && !string.IsNullOrWhiteSpace(dto.BodyMd);
         var hasFiles = modes.Contains(SubmissionMode.File) && files.Count > 0;
-        return UsesRepo(modes) || hasText || (modes.Contains(SubmissionMode.File) && keptFiles.Count > 0) || hasFiles;
+        var hasKeptFiles = modes.Contains(SubmissionMode.File) && keptFiles.Count > 0;
+        return StudentWorkPolicy.UsesRepo(modes) || hasText || hasFiles || hasKeptFiles;
     }
 
     private async Task ReplaceFilesAsync(
@@ -347,26 +347,10 @@ public class SubmissionService(
         var repo = submission.Repo ?? submission.Group?.Repo;
         if (dto.NeedsWork && repo is not null)
         {
-            var now = time.GetUtcNow();
-            repo.ReopenedAt = now;
-            repo.UpdatedAt = now;
             var student = await users.GetAsync(submission.StudentId, ct);
-            if (student is not null && !string.IsNullOrWhiteSpace(repo.RepoFullName))
+            if (student is not null)
             {
-                try
-                {
-                    await provisioner.ReopenForResubmissionAsync(
-                        new StudentRepoContext(repo, student.SchoolId), ct);
-                }
-                catch (Exception exception) when (exception is not OperationCanceledException)
-                {
-                    repo.LockError =
-                        "Repot kunde inte öppnas för komplettering. Öppna det manuellt i GitHub.";
-                    logger.LogWarning(
-                        exception,
-                        "Could not reopen GitHub repo for submission {SubmissionId}",
-                        submission.Id);
-                }
+                await repoActions.ReopenAsync(repo, student.SchoolId, ct);
             }
         }
 

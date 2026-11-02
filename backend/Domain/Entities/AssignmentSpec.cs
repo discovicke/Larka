@@ -20,4 +20,6 @@ public class AssignmentSpec
     public bool AllowLate { get; set; } // fas 2
 
     public List<AssignmentRequirement> Requirements { get; set; } = [];
+
+    public bool UsesRepo => SubmissionModes.Contains(SubmissionMode.Repo);
 }

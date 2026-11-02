@@ -8,7 +8,7 @@ import {
   PhTrash,
   PhWarning,
 } from '@phosphor-icons/vue'
-import {type Component, computed, onMounted, reactive, ref, watch} from 'vue'
+import {type Component, computed, onMounted, reactive, ref} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 
 import AssignmentGroupEditor from '@/components/course/AssignmentGroupEditor.vue'
@@ -22,8 +22,9 @@ import {Field, FieldError, FieldLabel} from '@/components/ui/field'
 import {Input} from '@/components/ui/input'
 import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
 import {Skeleton} from '@/components/ui/skeleton'
+import {useAssignmentGitHub} from '@/composables/useAssignmentGitHub'
 import {useCurrentUser} from '@/composables/useCurrentUser'
-import {ApiError, api, errorMessage, type Schema} from '@/lib/api'
+import {ApiError, errorMessage, type Schema} from '@/lib/api'
 import {partTypeOf} from '@/lib/content'
 import {createContentWithLink, fetchContent, updateContent, updateContentLink} from '@/lib/contentApi'
 import {
@@ -37,17 +38,7 @@ import {
   usesRepo,
   validate,
 } from '@/lib/createContent'
-import {fetchCourseStudents} from '@/lib/coursesApi'
 import {toDateTimeLocal} from '@/lib/form'
-import {
-  fetchGitHubTemplateCommit,
-  fetchGitHubTemplateTests,
-  fetchGitHubTemplates,
-  fetchUnlinkedGitHubStudents,
-  type GitHubTemplateCommit,
-  type GitHubTemplateRepo,
-  type UnlinkedGitHubStudent,
-} from '@/lib/integrations'
 import {fetchCourseModules} from '@/lib/modulesApi'
 import NotFoundView from '@/views/NotFoundView.vue'
 
@@ -62,35 +53,46 @@ const route = useRoute()
 const router = useRouter()
 const courseId = String(route.params.courseId)
 const moduleId = String(route.params.moduleId)
-const {can, me} = useCurrentUser()
+const {can} = useCurrentUser()
 const canManageAttachments = computed(() => can('manageAttachments', courseId))
-const githubEnabled = computed(() => me.value?.gitHubEnabled === true)
-const availableSubmissionModes = computed(() => submissionModes.filter((mode) =>
-  mode.value !== 'Repo' || githubEnabled.value))
-const templates = ref<GitHubTemplateRepo[]>([])
-const templatesLoading = ref(false)
-const templatesError = ref('')
-const templateCommit = ref<GitHubTemplateCommit | null>(null)
-const templateCommitLoading = ref(false)
-const templateCommitError = ref('')
-const requirementsLoading = ref(false)
-const requirementsError = ref('')
-const repoNamePreview = ref<{name: string, pattern: string} | null>(null)
-const repoNamePreviewLoading = ref(false)
-const repoNamePreviewError = ref('')
-const unlinkedStudents = ref<UnlinkedGitHubStudent[]>([])
-const unlinkedStudentsLoading = ref(false)
-const unlinkedStudentsError = ref('')
-const showUnlinkedStudents = ref(false)
-const courseStudents = ref<Schema<'CourseStudentDto'>[]>([])
-const courseStudentsLoading = ref(false)
-const courseStudentsError = ref('')
 const linkId = computed(() => route.params.linkId
   ? String(route.params.linkId)
   : null)
 const isEditing = computed(() => linkId.value !== null)
-
 const form = reactive(emptyForm())
+
+const {
+  githubEnabled,
+  templates,
+  templatesLoading,
+  templatesError,
+  templateCommit,
+  templateCommitLoading,
+  templateCommitError,
+  templateOptions,
+  selectedTemplate,
+  templateNotMarked,
+  requirementsLoading,
+  requirementsError,
+  repoNamePreview,
+  repoNamePreviewLoading,
+  repoNamePreviewError,
+  unlinkedStudents,
+  unlinkedStudentsLoading,
+  unlinkedStudentsError,
+  showUnlinkedStudents,
+  courseStudents,
+  courseStudentsLoading,
+  courseStudentsError,
+  loadTemplates,
+  loadRequirementsFromTemplate,
+  loadAll,
+  addRequirement,
+  removeRequirement,
+} = useAssignmentGitHub(form, courseId)
+
+const availableSubmissionModes = computed(() => submissionModes.filter((mode) =>
+  mode.value !== 'Repo' || githubEnabled.value))
 
 // Felen visas först när läraren försökt spara.
 const triedToSave = ref(false)
@@ -110,201 +112,6 @@ const loadError = ref('')
 const backRoute = computed(() => linkId.value
   ? {name: 'part', params: {courseId, linkId: linkId.value}}
   : {name: 'course-content', params: {courseId}})
-
-const templateOptions = computed(() => {
-  const options = templates.value.map((template) => ({
-    value: template.fullName,
-    label: template.fullName,
-  }))
-  if (form.templateRepo && !options.some((option) => option.value === form.templateRepo)) {
-    options.unshift({
-      value: form.templateRepo,
-      label: `${form.templateRepo} (inte markerat som template)`,
-    })
-  }
-
-  return options
-})
-
-const selectedTemplate = computed(() =>
-  templates.value.find((template) => template.fullName === form.templateRepo) ?? null)
-
-const templateNotMarked = computed(() =>
-  Boolean(form.templateRepo)
-  && !templatesLoading.value
-  && !templatesError.value
-  && templates.value.length > 0
-  && selectedTemplate.value === null)
-
-async function loadTemplates(force = false) {
-  if (!githubEnabled.value || (!force && templates.value.length > 0)) {
-    return
-  }
-
-  templatesLoading.value = true
-  templatesError.value = ''
-  try {
-    templates.value = await fetchGitHubTemplates()
-    if (form.templateRepo) {
-      await loadTemplateCommit(form.templateRepo)
-    }
-  } catch (exception) {
-    templatesError.value = errorMessage(exception)
-  } finally {
-    templatesLoading.value = false
-  }
-}
-
-async function loadTemplateCommit(fullName: string) {
-  templateCommit.value = null
-  templateCommitError.value = ''
-  if (!fullName.includes('/')) {
-    return
-  }
-
-  templateCommitLoading.value = true
-  try {
-    templateCommit.value = await fetchGitHubTemplateCommit(fullName)
-  } catch (exception) {
-    templateCommitError.value = errorMessage(exception)
-  } finally {
-    templateCommitLoading.value = false
-  }
-}
-
-function addRequirement() {
-  form.requirements.push({title: '', testPattern: '', isManual: false})
-}
-
-function removeRequirement(index: number) {
-  form.requirements.splice(index, 1)
-}
-
-async function loadRequirementsFromTemplate() {
-  requirementsError.value = ''
-  if (!form.templateRepo) {
-    requirementsError.value = 'Välj ett mallrepo först.'
-    return
-  }
-
-  requirementsLoading.value = true
-  try {
-    const tests = await fetchGitHubTemplateTests(form.templateRepo)
-    form.requirements = tests.map((name) => ({
-      title: name,
-      testPattern: name,
-      isManual: false,
-    }))
-    if (tests.length === 0) {
-      requirementsError.value = 'Hittade inga jobbnamn i mallen.'
-    }
-  } catch (exception) {
-    requirementsError.value = errorMessage(exception)
-  } finally {
-    requirementsLoading.value = false
-  }
-}
-
-async function loadRepoNamePreview() {
-  repoNamePreviewError.value = ''
-  if (!form.repoNamePattern.trim()) {
-    repoNamePreview.value = null
-    return
-  }
-
-  repoNamePreviewLoading.value = true
-  try {
-    const {data} = await api.POST('/api/content/github/repo-name-preview', {
-      body: {
-        pattern: form.repoNamePattern.trim(),
-        assignmentTitle: form.title.trim() || 'Uppgift',
-        gitHubLogin: me.value?.gitHubLogin ?? 'elev',
-        studentName: me.value?.name ?? 'Elev',
-        workMode: form.workMode,
-        groupName: form.workMode === 'Group'
-          ? 'grupp-1'
-          : null,
-        groupNumber: form.workMode === 'Group'
-          ? 1
-          : null,
-      },
-    })
-    repoNamePreview.value = data ?? null
-  } catch (exception) {
-    repoNamePreview.value = null
-    repoNamePreviewError.value = errorMessage(exception)
-  } finally {
-    repoNamePreviewLoading.value = false
-  }
-}
-
-async function loadCourseStudents() {
-  courseStudentsError.value = ''
-  if (!githubEnabled.value || !usesGroupRepo(form)) {
-    courseStudents.value = []
-    return
-  }
-
-  courseStudentsLoading.value = true
-  try {
-    courseStudents.value = await fetchCourseStudents(courseId)
-  } catch (exception) {
-    courseStudentsError.value = errorMessage(exception)
-  } finally {
-    courseStudentsLoading.value = false
-  }
-}
-
-async function loadUnlinkedStudents() {
-  unlinkedStudentsError.value = ''
-  if (!githubEnabled.value) {
-    unlinkedStudents.value = []
-    return
-  }
-
-  unlinkedStudentsLoading.value = true
-  try {
-    unlinkedStudents.value = await fetchUnlinkedGitHubStudents(courseId)
-  } catch (exception) {
-    unlinkedStudentsError.value = errorMessage(exception)
-  } finally {
-    unlinkedStudentsLoading.value = false
-  }
-}
-
-watch(() => form.templateRepo, (fullName) => {
-  void loadTemplateCommit(fullName)
-})
-
-watch([() => form.repoNamePattern, () => form.title, () => form.workMode], () => {
-  if (usesRepo(form)) {
-    void loadRepoNamePreview()
-  }
-})
-
-watch(() => usesRepo(form), (repoMode) => {
-  if (repoMode) {
-    void loadUnlinkedStudents()
-  }
-})
-
-watch(() => usesRepo(form), (repoMode) => {
-  if (repoMode) {
-    void loadTemplates()
-  }
-})
-
-watch(() => form.workMode, (mode, previous) => {
-  const pattern = form.repoNamePattern.trim()
-  if (pattern === defaultRepoNamePattern && mode === 'Group') {
-    form.repoNamePattern = defaultGroupRepoNamePattern
-  } else if (pattern === defaultGroupRepoNamePattern && mode === 'Individual' && previous === 'Group') {
-    form.repoNamePattern = defaultRepoNamePattern
-  }
-  if (mode === 'Group') {
-    void loadCourseStudents()
-  }
-})
 
 async function load() {
   loading.value = true
@@ -364,15 +171,7 @@ async function load() {
 
 onMounted(async () => {
   await load()
-  if (usesRepo(form)) {
-    await loadTemplates()
-    await loadTemplateCommit(form.templateRepo)
-    await loadRepoNamePreview()
-    await loadUnlinkedStudents()
-    if (usesGroupRepo(form)) {
-      await loadCourseStudents()
-    }
-  }
+  await loadAll()
 })
 
 async function save(status: Schema<'ContentStatus'> = 'Published') {
