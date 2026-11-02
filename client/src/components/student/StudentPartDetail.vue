@@ -2,13 +2,14 @@
 import {
   PhArrowCounterClockwise,
   PhArrowLeft,
+  PhArrowRight,
   PhCalendarBlank,
   PhCircle,
   PhLock,
   PhLockOpen,
   PhPaperPlaneTilt,
 } from '@phosphor-icons/vue'
-import {computed, ref, watch} from 'vue'
+import {computed, nextTick, ref, watch} from 'vue'
 import {useRoute} from 'vue-router'
 
 import GitHubAssignmentBlock from '@/components/GitHubAssignmentBlock.vue'
@@ -33,7 +34,7 @@ import {
   rowIconClass,
   statusHeading,
 } from '@/lib/studentCourse'
-import {gradeBadgeVariant, gradeLabel, handInLabel} from '@/lib/submissions'
+import {gradeBadgeVariant, gradeLabel, gradeName, handInLabel} from '@/lib/submissions'
 import {fetchLinkSubmissions} from '@/lib/submissionsApi'
 
 // En öppen del: innehåll, checklista, lärarens kommentar och elevens status. Vyn runtom äger
@@ -44,16 +45,20 @@ const props = defineProps<{
   part: Schema<'StudentContentItem'>
   module: Schema<'StudentModuleWithContentDto'>
   savingLinkId: string
+  previousPart?: Schema<'StudentContentItem'> | null
+  nextPart?: Schema<'StudentContentItem'> | null
 }>()
 
 const emit = defineEmits<{
   close: []
+  open: [item: Schema<'StudentContentItem'>]
   complete: [linkId: string, completed: boolean]
   submitted: []
   error: [message: string]
 }>()
 
 const route = useRoute()
+const root = ref<HTMLElement | null>(null)
 const {me} = useCurrentUser()
 
 const unlocked = computed(() => props.module.content.filter((item) =>
@@ -131,6 +136,14 @@ watch(() => {
   }
 }, {immediate: true})
 
+// Byter man del med Föregående och Nästa del ska den nya delen börja högst upp.
+watch(() => props.part.linkId, async (_linkId, previous) => {
+  if (previous) {
+    await nextTick()
+    root.value?.scrollIntoView?.({block: 'start'})
+  }
+})
+
 function repoUrlFor(item: Schema<'StudentContentItem'>): string | null {
   return item.repo?.repoFullName
     ? `https://github.com/${item.repo.repoFullName}`
@@ -145,7 +158,7 @@ function handInOf(item: Schema<'StudentContentItem'>): string {
 </script>
 
 <template>
-  <div class="flex flex-col gap-6" data-test="student-detail">
+  <div ref="root" class="flex scroll-mt-4 flex-col gap-6" data-test="student-detail">
     <header class="flex flex-col gap-3 border-b pb-4">
       <Button
         variant="ghost"
@@ -186,7 +199,7 @@ function handInOf(item: Schema<'StudentContentItem'>): string {
       </div>
     </header>
 
-    <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+    <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
       <div class="flex flex-col gap-6">
         <section v-if="part.isLocked" class="bg-card flex flex-col items-start gap-3 rounded-xl border border-dashed p-6">
           <span class="bg-muted grid size-10 place-items-center rounded-full">
@@ -261,34 +274,6 @@ function handInOf(item: Schema<'StudentContentItem'>): string {
         />
 
         <section
-          v-if="feedback"
-          class="bg-card flex flex-col gap-2 rounded-xl border p-4"
-          aria-labelledby="feedback-h"
-          data-test="student-feedback"
-        >
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <h2 id="feedback-h" class="text-sm font-semibold">
-              {{ part.submissionStatus === 'NeedsWork'
-                ? 'Läraren vill att du kompletterar'
-                : 'Lärarens kommentar' }}
-            </h2>
-            <Badge v-if="feedback.level && part.submissionStatus !== 'NeedsWork'" :variant="gradeBadgeVariant(feedback.level)" data-test="grade-stamp">
-              {{ gradeLabel(feedback.level) }}
-            </Badge>
-          </div>
-          <p v-if="feedback.feedback" class="text-sm leading-relaxed whitespace-pre-wrap">
-            {{ feedback.feedback }}
-          </p>
-          <p class="text-muted-foreground text-xs">Bedömd {{ formatDate(feedback.gradedAt, true) }}</p>
-        </section>
-
-        <SubmissionPanel
-          v-if="part.type === 'Assignment' && !part.isLocked"
-          :item="part"
-          @submitted="emit('submitted')"
-        />
-
-        <section
           v-if="part.type !== 'News' && !part.isLocked"
           class="bg-card overflow-hidden rounded-xl border"
           aria-labelledby="unlocks-h"
@@ -314,6 +299,35 @@ function handInOf(item: Schema<'StudentContentItem'>): string {
             </ul>
           </div>
         </section>
+
+        <nav
+          v-if="previousPart || nextPart"
+          class="flex flex-wrap items-center justify-between gap-2 border-t pt-4"
+          aria-label="Föregående och nästa del"
+          data-test="student-part-nav"
+        >
+          <Button
+            v-if="previousPart"
+            variant="ghost"
+            class="max-w-full"
+            data-test="student-previous"
+            @click="emit('open', previousPart)"
+          >
+            <PhArrowLeft/>
+            <span class="truncate">Föregående: {{ previousPart.title }}</span>
+          </Button>
+          <span v-else/>
+          <Button
+            v-if="nextPart"
+            variant="outline"
+            class="max-w-full"
+            data-test="student-next"
+            @click="emit('open', nextPart)"
+          >
+            <span class="truncate">Nästa del: {{ nextPart.title }}</span>
+            <PhArrowRight/>
+          </Button>
+        </nav>
       </div>
 
       <aside class="flex flex-col gap-4 max-lg:order-first">
@@ -323,6 +337,35 @@ function handInOf(item: Schema<'StudentContentItem'>): string {
             <component :is="rowIcon(part)" class="size-5" :class="rowIconClass(part)"/>
             <span class="font-medium">{{ statusHeading(part) }}</span>
           </div>
+
+          <section
+            v-if="feedback"
+            class="flex flex-col gap-2 border-t pt-3"
+            aria-labelledby="feedback-h"
+            data-test="student-feedback"
+          >
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <h2 id="feedback-h" class="text-sm font-semibold">
+                {{ part.submissionStatus === 'NeedsWork'
+                  ? 'Läraren vill att du kompletterar'
+                  : 'Lärarens kommentar' }}
+              </h2>
+              <Badge
+                v-if="feedback.level && part.submissionStatus !== 'NeedsWork'"
+                :variant="gradeBadgeVariant(feedback.level)"
+                role="img"
+                :aria-label="gradeName(feedback.level)"
+                :title="gradeName(feedback.level)"
+                data-test="grade-stamp"
+              >
+                {{ gradeLabel(feedback.level) }}
+              </Badge>
+            </div>
+            <p v-if="feedback.feedback" class="text-sm leading-relaxed whitespace-pre-wrap">
+              {{ feedback.feedback }}
+            </p>
+            <p class="text-muted-foreground text-xs">Bedömd {{ formatDate(feedback.gradedAt, true) }}</p>
+          </section>
 
           <template v-if="part.canMarkDone && !part.isLocked">
             <Button
@@ -346,6 +389,13 @@ function handInOf(item: Schema<'StudentContentItem'>): string {
             </Button>
           </template>
         </section>
+
+        <!-- Formuläret hör till statusen: det står direkt under den, och på mobil före uppgiftstexten. -->
+        <SubmissionPanel
+          v-if="part.type === 'Assignment' && !part.isLocked"
+          :item="part"
+          @submitted="emit('submitted')"
+        />
 
         <StudentHelpButton
           v-if="canAskForHelp"

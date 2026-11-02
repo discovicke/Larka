@@ -1,23 +1,26 @@
 using Backend.Application.Abstractions;
 using Backend.Domain.Entities;
-using Backend.Domain.Enums;
 
 namespace Backend.Application.Services;
 
 public class ContentAccess(
     IPermissions permissions,
     IUserRepository users,
-    ICurrentSchool currentSchool,
-    ICurrentUser currentUser)
+    ICurrentSchool currentSchool)
 {
-    // Lärare på någon av innehållets länkar, eller den som skrev innehållet. Admin har ingen genväg hit.
-    public async Task<bool> MayEditAsync(Content content, CancellationToken ct) =>
-        content.AuthorId == currentUser.UserId || await permissions.CanTeachContentAsync(content.Id, ct);
+    // Lärare på någon av innehållets länkar. Författaren har ingen genväg: den som lämnat kursen
+    // kan inte längre ändra det hen skrev. Admin har ingen genväg hit heller.
+    public Task<bool> MayEditAsync(Content content, CancellationToken ct) =>
+        permissions.CanTeachContentAsync(content.Id, ct);
 
-    // Publicerat innehåll läses av alla inloggade, ett utkast bara av dem som får ändra det och av admin i skolan.
+    // Läsa får den som får ändra innehållet, elever och mentorer i en kurs eller grupp där en länk syns för
+    // eleverna (publicerat, PublishAt passerat, veckan öppen), och admin i skolan där innehållets författare
+    // hör hemma (admin läser kursernas innehåll, med utkast, men undervisar inte). Alla andra, också
+    // inloggade i en annan kurs eller skola, får samma svar som för innehåll som inte finns.
     public async Task<bool> MayReadAsync(Content content, CancellationToken ct)
     {
-        if (content.Status != ContentStatus.Draft || await MayEditAsync(content, ct))
+        if (await MayEditAsync(content, ct)
+            || await permissions.CanReadPublishedContentAsync(content.Id, ct))
         {
             return true;
         }

@@ -16,9 +16,9 @@ afterEach(() => {
   mounted.splice(0).forEach((wrapper) => wrapper.unmount())
 })
 
-async function openDialog(status = 201) {
+async function openDialog(status = 201, list: unknown[] = courses) {
   mockApi((method) => (method === 'GET'
-    ? {status: 200, body: courses}
+    ? {status: 200, body: list}
     : {status, body: status === 201
         ? {}
         : 'fel'}))
@@ -47,6 +47,45 @@ describe('LinkCourseDialog', () => {
 
     const select = document.querySelector('[data-test="link-course"]') as HTMLSelectElement
     expect([...select.options].map((option) => option.value)).toEqual(['', 'c2'])
+  })
+
+  it('lägger avslutade kurser sist', async () => {
+    await openDialog(201, [
+      courses[0],
+      {id: 'c3', schoolId: 's1', code: 'OLD', title: 'Gammal', startsOn: '2020-01-01', endsOn: '2020-06-01'},
+      courses[1],
+    ])
+
+    const select = document.querySelector('[data-test="link-course"]') as HTMLSelectElement
+    expect([...select.options].map((option) => option.value)).toEqual(['', 'c2', 'c3'])
+  })
+
+  it('filtrerar kurserna på titel och kod i sökfältet', async () => {
+    mockApi(() => ({status: 200, body: [...courses, {id: 'c3', schoolId: 's1', code: 'NET', title: 'C# grunder'}]}))
+    const wrapper = mount(LinkCourseDialog, {
+      props: {open: false, groupId: 'g1', groupName: 'TE22A', linkedIds: ['c1']},
+      attachTo: document.body,
+    })
+    await wrapper.setProps({open: true})
+    await flushPromises()
+    mounted.push(wrapper)
+    const select = document.querySelector('[data-test="link-course"]') as HTMLSelectElement
+    const search = document.querySelector('[data-test="link-course-search"]') as HTMLInputElement
+
+    search.value = 'grund'
+    search.dispatchEvent(new Event('input'))
+    await flushPromises()
+    expect([...select.options].map((option) => option.value)).toEqual(['', 'c3'])
+
+    search.value = 'java'
+    search.dispatchEvent(new Event('input'))
+    await flushPromises()
+    expect([...select.options].map((option) => option.value)).toEqual(['', 'c2'])
+
+    search.value = 'finns inte'
+    search.dispatchEvent(new Event('input'))
+    await flushPromises()
+    expect([...select.options].map((option) => option.text.trim())).toEqual(['Ingen kurs matchar sökningen'])
   })
 
   it('kopplar vald kurs och meddelar det', async () => {

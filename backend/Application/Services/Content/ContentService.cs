@@ -174,6 +174,11 @@ public class ContentService(
             return ServiceResult<ContentDto>.Invalid("title is required");
         }
 
+        if (content.Type == ContentType.News && string.IsNullOrWhiteSpace(dto.BodyMd))
+        {
+            return ServiceResult<ContentDto>.Invalid("news text is required");
+        }
+
         var fieldError = AssignmentFieldsValidator.Check(
             content.Type,
             dto.GradeScale,
@@ -268,6 +273,11 @@ public class ContentService(
         if (string.IsNullOrWhiteSpace(dto.Title))
         {
             return ValidationResult<Content>.Invalid("title is required");
+        }
+
+        if (type == ContentType.News && string.IsNullOrWhiteSpace(dto.BodyMd))
+        {
+            return ValidationResult<Content>.Invalid("news text is required");
         }
 
         var fieldError = AssignmentFieldsValidator.Check(

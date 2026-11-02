@@ -61,10 +61,12 @@ function clear() {
       <Calendar
         :model-value="selected"
         locale="sv-SE"
+        calendar-label="Datum"
         :week-starts-on="1"
         :min-value="toCalendarDate(min)"
         :max-value="toCalendarDate(max)"
         :default-placeholder="toCalendarDate(min) ?? undefined"
+        layout="month-and-year"
         fixed-weeks
         initial-focus
         @update:model-value="onSelect"

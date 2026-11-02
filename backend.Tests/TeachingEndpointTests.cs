@@ -57,7 +57,8 @@ public class TeachingEndpointTests(TestWebApplicationFactory factory) : IClassFi
         string Kind);
 
     private record CourseResponse(
-        Guid CourseId, string Code, string Title, int Students, int ToGrade, bool NeedsPreparation);
+        Guid CourseId, string Code, string Title, int Students, int ToGrade, bool NeedsPreparation,
+        DateOnly? StartsOn, DateOnly? EndsOn);
 
     private record ContentResponse(Guid Id);
 
@@ -73,6 +74,24 @@ public class TeachingEndpointTests(TestWebApplicationFactory factory) : IClassFi
         var teaching = await GetTeachingAsync(setup.TeacherId);
 
         Assert.True(teaching.Courses.Single().NeedsPreparation);
+    }
+
+    [Fact]
+    public async Task Courses_CarryTheCourseDates()
+    {
+        var setup = await AddSetupAsync();
+        await SetCourseAsync(setup.CourseId, "Beskrivning", new DateOnly(2025, 1, 10));
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            (await db.Courses.SingleAsync(row => row.Id == setup.CourseId)).EndsOn = new DateOnly(2025, 6, 1);
+            await db.SaveChangesAsync();
+        }
+
+        var teaching = await GetTeachingAsync(setup.TeacherId);
+
+        var course = teaching.Courses.Single();
+        Assert.Equal((new DateOnly(2025, 1, 10), new DateOnly(2025, 6, 1)), (course.StartsOn, course.EndsOn));
     }
 
     [Fact]

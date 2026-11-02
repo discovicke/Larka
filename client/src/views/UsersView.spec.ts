@@ -105,6 +105,13 @@ describe('UsersView', () => {
     expect(rows(wrapper).map((row) => row.find('td').text().replace(/\s+/g, ' '))).toEqual(['Sara Spärrad Spärrad'])
   })
 
+  it('öppnas med filtret från länken på Idag', async () => {
+    backend()
+    const {wrapper} = await renderApp('/users?filter=Student')
+
+    expect(rows(wrapper).map((row) => row.find('td').text().replace(/\s+/g, ' '))).toEqual(['Elin Elev', 'Sara Spärrad Spärrad'])
+  })
+
   it('Spärra frågar först och markerar sedan raden som spärrad', async () => {
     backend()
     const {wrapper} = await renderApp('/users')

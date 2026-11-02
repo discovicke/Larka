@@ -33,7 +33,7 @@ import {formatDate} from '@/lib/content'
 import {lockGitHubRepos, refreshGitHubRepos} from '@/lib/integrations'
 import {submissionStatusKey} from '@/lib/status'
 import {resolveStudentHelp} from '@/lib/support'
-import {checkClass, checkLabel, gradeBadgeVariant, gradeLabel, statusLabel} from '@/lib/submissions'
+import {checkClass, checkLabel, gradeBadgeVariant, gradeLabel, gradeName, statusLabel} from '@/lib/submissions'
 
 type Filter = 'all'
   | 'due'
@@ -686,7 +686,13 @@ function rowBorder(index: number) {
                     v-else-if="row.status === 'Graded'"
                     :to="reviewRoute(row)"
                   >
-                    <Badge v-if="row.grade?.level" :variant="gradeBadgeVariant(row.grade.level)">
+                    <Badge
+                      v-if="row.grade?.level"
+                      :variant="gradeBadgeVariant(row.grade.level)"
+                      role="img"
+                      :aria-label="gradeName(row.grade.level)"
+                      :title="gradeName(row.grade.level)"
+                    >
                       {{ gradeLabel(row.grade.level) }}
                     </Badge>
                     <span

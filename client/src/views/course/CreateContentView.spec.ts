@@ -3,7 +3,7 @@ import {describe, expect, it, vi} from 'vitest'
 
 import {type Handler, mockApi, requests, sent} from '@/test/mockApi'
 import {meAs} from '@/test/me'
-import {pickDateTime} from '@/test/datePicker'
+import {clickDay, closePicker, openPicker, pickDateTime} from '@/test/datePicker'
 import {renderApp} from '@/test/renderApp'
 
 const course = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps'}
@@ -193,6 +193,79 @@ function button(label: string): HTMLButtonElement {
 }
 
 describe('CreateContentView', () => {
+  it('frågar innan ett osparat formulär lämnas', async () => {
+    backend()
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true)
+    const {wrapper, router} = await renderApp('/courses/c1/modules/m1/new')
+    await flushPromises()
+    await wrapper.find('#title').setValue('Halvskriven del')
+
+    await router.push('/courses/c1/content')
+    await flushPromises()
+    expect(confirm).toHaveBeenCalledTimes(1)
+    expect(router.currentRoute.value.path).toBe('/courses/c1/modules/m1/new')
+
+    await router.push('/courses/c1/content')
+    await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/courses/c1/content')
+    confirm.mockRestore()
+  })
+
+  it('frågar innan en osparad redigering lämnas', async () => {
+    editBackend()
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true)
+    const {wrapper, router} = await renderApp('/courses/c1/modules/m1/content/l1/edit')
+    await flushPromises()
+    await wrapper.find('#title').setValue('Ändrad titel')
+
+    await router.push('/courses/c1/content')
+    await flushPromises()
+    expect(confirm).toHaveBeenCalledTimes(1)
+    expect(router.currentRoute.value.path).toBe('/courses/c1/modules/m1/content/l1/edit')
+
+    await router.push('/courses/c1/content')
+    await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/courses/c1/content')
+    confirm.mockRestore()
+  })
+
+  it('en ny deadline får klockan 23:59', async () => {
+    backend()
+    const {wrapper} = await renderApp('/courses/c1/modules/m1/new')
+    await flushPromises()
+    await wrapper.find('#part-Exercise').trigger('click')
+    await openPicker('#due-at')
+    await clickDay('2027-10-15')
+    await closePicker()
+    expect(wrapper.find('#due-at').text()).toBe('15 okt 2027 23:59')
+  })
+
+  it('frågar inte när inget är ändrat', async () => {
+    backend()
+    const confirm = vi.spyOn(window, 'confirm')
+    const {router} = await renderApp('/courses/c1/modules/m1/new')
+    await flushPromises()
+
+    await router.push('/courses/c1/content')
+    await flushPromises()
+
+    expect(confirm).not.toHaveBeenCalled()
+    expect(router.currentRoute.value.path).toBe('/courses/c1/content')
+    confirm.mockRestore()
+  })
+
+  it('varnar webbläsaren vid omladdning med osparade ändringar', async () => {
+    backend()
+    const {wrapper} = await renderApp('/courses/c1/modules/m1/new')
+    await flushPromises()
+    await wrapper.find('#title').setValue('Halvskriven del')
+
+    const event = new Event('beforeunload', {cancelable: true})
+    window.dispatchEvent(event)
+
+    expect(event.defaultPrevented).toBe(true)
+  })
+
   it('visar veckan, börjar på teori och visar fälten för typen man väljer', async () => {
     backend()
     const {wrapper} = await renderApp('/courses/c1/modules/m1/new')
@@ -201,7 +274,7 @@ describe('CreateContentView', () => {
 
     await wrapper.find('#part-Submission').trigger('click')
 
-    expect(wrapper.findAll('#grade-scale option').map((option) => option.text())).toEqual(['IG – G', 'IG – G – VG'])
+    expect(wrapper.findAll('#grade-scale option').map((option) => option.text())).toEqual(['Icke godkänd / Godkänd', 'Icke godkänd / Godkänd / Väl godkänd'])
     expect(wrapper.text()).toContain('Hur lämnar eleven in?')
   })
 
@@ -345,14 +418,14 @@ describe('CreateContentView', () => {
   })
 
   it('visar felet från servern och stannar på sidan', async () => {
-    backend(() => ({status: 400, body: 'templateRepo must look like org/name'}))
+    backend(() => ({status: 400, body: 'title is required'}))
     const {wrapper, router} = await renderApp('/courses/c1/modules/m1/new')
 
     await wrapper.find('#title').setValue('Teori')
     button('Publicera').click()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('templateRepo must look like org/name')
+    expect(wrapper.text()).toContain('Titeln saknas.')
     expect(router.currentRoute.value.name).toBe('create-content')
   })
 

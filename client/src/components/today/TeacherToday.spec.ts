@@ -183,11 +183,39 @@ describe('TeacherToday', () => {
     expect(items[0].find('a').attributes('href')).toBe('/courses/c2/content')
   })
 
+  it('lägger Behöver förberedas före Att bedöma', async () => {
+    backend()
+
+    const {wrapper} = await renderApp('/')
+
+    const headings = wrapper.findAll('h2').map((heading) => heading.text())
+    expect(headings.indexOf('Behöver förberedas')).toBeGreaterThanOrEqual(0)
+    expect(headings.indexOf('Behöver förberedas')).toBeLessThan(headings.indexOf('Att bedöma'))
+  })
+
   it('visar ingen uppmaning när alla kurser är förberedda', async () => {
     backend({...full, courses: full.courses.map((course) => ({...course, needsPreparation: false}))})
 
     const {wrapper} = await renderApp('/')
 
+    expect(wrapper.find('[data-test="needs-preparation"]').exists()).toBe(false)
+  })
+
+  it('Mina kurser döljer avslutade kurser utan inlämningar att bedöma', async () => {
+    const finished = {startsOn: '2020-01-01', endsOn: '2020-06-01', students: 3, needsPreparation: true}
+    backend({
+      ...full,
+      courses: [
+        {...full.courses[0]},
+        {...finished, courseId: 'c3', code: 'OLD', title: 'Gammal', toGrade: 0},
+        {...finished, courseId: 'c4', code: 'OLD2', title: 'Gammal med rättning', toGrade: 2},
+      ],
+    })
+
+    const {wrapper} = await renderApp('/')
+
+    expect(wrapper.findAll('[data-test="teacher-course-card"]').map((card) => card.text()))
+      .toEqual([expect.stringContaining('DevOps'), expect.stringContaining('Gammal med rättning')])
     expect(wrapper.find('[data-test="needs-preparation"]').exists()).toBe(false)
   })
 

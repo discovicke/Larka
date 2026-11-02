@@ -158,5 +158,7 @@ describe('GradingView', () => {
     expect(router.currentRoute.value.name).toBe('today')
     expect(router.currentRoute.value.path).toBe('/')
     expect(wrapper.text()).toContain('Idag')
+    // Omdirigeringen är inte tyst: användaren får veta varför.
+    expect(wrapper.find('[data-test="toast"]').text()).toContain('Du har inte behörighet till den sidan.')
   })
 })

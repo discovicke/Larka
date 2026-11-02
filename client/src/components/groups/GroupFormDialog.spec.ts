@@ -9,7 +9,7 @@ import {mockApi, requests, sent} from '@/test/mockApi'
 enableAutoUnmount(afterEach)
 
 const existing: Schema<'GroupDto'> = {
-  id: 'g1', schoolId: 's1', type: 'Class', name: 'NET25', term: 'HT25', memberCount: 4,
+  id: 'g1', schoolId: 's1', type: 'Class', name: 'NET25', term: 'HT25', memberCount: 4, lastCourseEndsOn: null,
 }
 
 async function render(group?: Schema<'GroupDto'>, kind: 'class' | 'group' = 'class') {
@@ -117,8 +117,48 @@ describe('GroupFormDialog', () => {
     await submit()
 
     expect(document.querySelector('[data-test="group-form-error"]')?.textContent)
-      .toContain('the school already has a group with this name and term')
+      .toContain('Det finns redan en klass med det namnet.')
     expect(wrapper.emitted('saved')).toBeUndefined()
     expect(wrapper.emitted('update:open')).toBeUndefined()
+  })
+
+  it('Ny klass visar vilken adresskod namnet fångar', async () => {
+    await render()
+    expect(field('group-name').value).toBe('')
+    expect(document.querySelector('[data-test="group-code-hint"]')).toBeNull()
+
+    await type('group-name', '.NET25')
+
+    expect(document.querySelector('[data-test="group-code-hint"]')?.textContent)
+      .toContain('Elever med adresser som slutar på .net25@… hamnar här.')
+  })
+
+  it('Ny klass varnar när namnet inte ger någon användbar kod', async () => {
+    await render()
+
+    await type('group-name', 'NET 25 DevOps')
+
+    expect(document.querySelector('[data-test="group-code-hint"]')).toBeNull()
+    expect(document.querySelector('[data-test="group-code-hint-missing"]')?.textContent)
+      .toContain('ger ingen kod')
+  })
+
+  it('Redigera klass visar koden från namnet och följer med när det ändras', async () => {
+    await render(existing)
+
+    expect(document.querySelector('[data-test="group-code-hint"]')?.textContent).toContain('.net25@…')
+
+    await type('group-name', 'NET 26')
+
+    expect(document.querySelector('[data-test="group-code-hint"]')?.textContent).toContain('.net26@…')
+  })
+
+  it('en grupp som inte är en klass visar ingen adresskod', async () => {
+    await render(undefined, 'group')
+
+    await type('group-name', 'Elevråd')
+
+    expect(document.querySelector('[data-test="group-code-hint"]')).toBeNull()
+    expect(document.querySelector('[data-test="group-code-hint-missing"]')).toBeNull()
   })
 })

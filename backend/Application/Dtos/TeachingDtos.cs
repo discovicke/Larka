@@ -52,4 +52,6 @@ public record TeachingCourseDto(
     string Title,
     int Students,
     int ToGrade,
-    bool NeedsPreparation);
+    bool NeedsPreparation,
+    DateOnly? StartsOn,
+    DateOnly? EndsOn);

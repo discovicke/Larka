@@ -64,11 +64,23 @@ describe('AdminToday', () => {
 
     const dashboard = wrapper.find('[data-test="admin-dashboard"]')
     expect(dashboard.find('h1').text()).toBe('God morgon, Ada')
-    expect(dashboard.text()).toContain('Onsdag 21 oktober · vecka 43 · 6 saker att ordna')
+    expect(dashboard.text()).toContain('Onsdag 21 oktober · vecka 43 · 5 saker att ordna')
     expect(wrapper.find('[data-test="teacher-dashboard"]').exists()).toBe(false)
   })
 
-  it('listar elever utan klass och räknar dem bland det som ska ordnas', async () => {
+  it('räknar per klass och inte per användare', async () => {
+    backend({overview: {...nothingToDo, usersWithoutPassword: [
+      {userId: 'u1', name: 'Anna', groupId: 'g1', groupName: 'NET26'},
+      {userId: 'u2', name: 'Bo', groupId: 'g1', groupName: 'NET26'},
+      {userId: 'u3', name: 'Cia', groupId: 'g1', groupName: 'NET26'},
+    ]}})
+
+    const {wrapper} = await renderApp('/')
+
+    expect(wrapper.text()).toContain('1 sak att ordna')
+  })
+
+  it('samlar elever utan klass i en rad som länkar till användarna', async () => {
     backend({overview: {...nothingToDo, studentsWithoutClass: [
       {userId: 'u7', name: 'Ny Elev'},
       {userId: 'u8', name: 'Annan Ny'},
@@ -77,9 +89,9 @@ describe('AdminToday', () => {
     const {wrapper} = await renderApp('/')
 
     const section = wrapper.find('[data-test="no-class"]')
-    expect(section.findAll('[data-test="no-class-item"]').map((item) => item.text())).toEqual(['Ny Elev', 'Annan Ny'])
-    expect(section.find('a[href="/users"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('2 saker att ordna')
+    expect(section.findAll('[data-test="no-class-item"]').map((item) => item.text())).toEqual(['2 elever'])
+    expect(section.find('[data-test="no-class-item"] a').attributes('href')).toBe('/users?filter=Student')
+    expect(wrapper.text()).toContain('1 sak att ordna')
     expect(wrapper.find('[data-test="admin-all-good"]').exists()).toBe(false)
   })
 
@@ -127,7 +139,7 @@ describe('AdminToday', () => {
     expect(items[0].text()).toContain('2 användare')
     expect(items[0].find('a').attributes('href')).toBe('/groups/g1')
     expect(items[1].text()).toContain('Utan klass')
-    expect(items[1].find('a').exists()).toBe(false)
+    expect(items[1].find('a').attributes('href')).toBe('/users')
   })
 
   it('säger det när inget behöver ordnas', async () => {

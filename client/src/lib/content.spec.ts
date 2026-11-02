@@ -66,7 +66,7 @@ describe('weekPublishState', () => {
     }, now)).toMatchObject({status: 'publishing.draft'})
   })
 
-  it('visar ingen badge för en tom vecka utan datum', () => {
-    expect(weekPublishState({publishAt: null, content: []}, now)).toBeNull()
+  it('visar utkast för en ny, tom vecka', () => {
+    expect(weekPublishState({publishAt: null, content: []}, now)).toEqual({status: 'publishing.draft'})
   })
 })

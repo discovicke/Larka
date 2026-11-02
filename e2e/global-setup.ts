@@ -1,13 +1,9 @@
 import type {FullConfig} from '@playwright/test'
 
-import {saveToken} from './auth'
+import {credentialsFor, roles, saveToken, type Role} from './auth'
 
 const HEALTH_TIMEOUT_MS = 3 * 60 * 1000
 const RETRY_DELAY_MS = 5_000
-
-// Standard är eleven i demokontona. Med E2E_USERNAME och E2E_PASSWORD går det att logga in som någon annan.
-const username = process.env.E2E_USERNAME ?? 'elev'
-const password = process.env.E2E_PASSWORD ?? 'elev'
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -22,7 +18,9 @@ export default async function globalSetup(config: FullConfig) {
   }
 
   await waitForHealth(baseURL)
-  await signIn(baseURL)
+  for (const role of roles) {
+    await signIn(baseURL, role)
+  }
 }
 
 async function waitForHealth(baseURL: string) {
@@ -48,17 +46,19 @@ async function waitForHealth(baseURL: string) {
   throw new Error(`Appen svarade inte på /health inom 3 minuter (${healthUrl}, senast: ${lastError})`)
 }
 
-// Loggar in med samma endpoint som klienten, och sparar tokenet för testerna. Lösenordet loggas aldrig.
-async function signIn(baseURL: string) {
+// Loggar in som varje roll med samma endpoint som klienten, och sparar tokenen för testerna. Lösenordet loggas aldrig.
+// Kontona är demokontona elev, larare och admin, eller E2E_<ROLL>_USERNAME och E2E_<ROLL>_PASSWORD.
+async function signIn(baseURL: string, role: Role) {
+  const {username, password} = credentialsFor(role)
   const response = await fetch(`${baseURL}/api/auth/login`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({username, password}),
   })
   if (!response.ok) {
-    throw new Error(`Inloggningen för e2e misslyckades (HTTP ${response.status}). Kontrollera E2E_USERNAME och E2E_PASSWORD.`)
+    throw new Error(`Inloggningen som ${role} misslyckades (HTTP ${response.status}). Kontrollera E2E_${role.toUpperCase()}_USERNAME och E2E_${role.toUpperCase()}_PASSWORD.`)
   }
 
   const result = await response.json() as {accessToken: string, expiresAt: string}
-  await saveToken({accessToken: result.accessToken, expiresAt: result.expiresAt})
+  await saveToken(role, {accessToken: result.accessToken, expiresAt: result.expiresAt})
 }

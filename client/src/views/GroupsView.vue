@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import {PhDotsThree, PhMagnifyingGlass, PhPencilSimple, PhPlus, PhTrash} from '@phosphor-icons/vue'
-import {computed, ref} from 'vue'
-import {type RouteLocationRaw, useRoute, useRouter} from 'vue-router'
+import {PhCaretDown, PhMagnifyingGlass, PhPlus} from '@phosphor-icons/vue'
+import {computed, ref, watch} from 'vue'
+import {useRoute, useRouter} from 'vue-router'
 
-import CourseStatusBadge from '@/components/course/CourseStatusBadge.vue'
 import DeleteCourseDialog from '@/components/courses/DeleteCourseDialog.vue'
 import CourseFormDialog from '@/components/courses/CourseFormDialog.vue'
 import DeleteGroupDialog from '@/components/groups/DeleteGroupDialog.vue'
 import GroupFormDialog from '@/components/groups/GroupFormDialog.vue'
+import GroupsTable from '@/components/groups/GroupsTable.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Button} from '@/components/ui/button'
+import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '@/components/ui/collapsible'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,26 +25,14 @@ import {useCourses} from '@/composables/useCourses'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {type Schema} from '@/lib/api'
 import {periodLabel} from '@/lib/coursePeriod'
-import {type CourseStatus, courseStatus} from '@/lib/courseStatus'
+import {type CourseStatus, courseStatus, isGroupFinished} from '@/lib/courseStatus'
+import {type GroupRow} from '@/lib/groupRows'
 import {groupTypeLabels} from '@/lib/groups'
 import {fetchGroups} from '@/lib/groupsApi'
 import {fetchMe} from '@/lib/me'
 
 type Group = Schema<'GroupDto'>
 type Course = Schema<'CourseDto'>
-
-interface GroupRow {
-  key: string
-  kind: 'school' | 'group' | 'course'
-  name: string
-  code: string
-  type: string
-  period: string
-  status: CourseStatus | null
-  to?: RouteLocationRaw
-  group?: Group
-  course?: Course
-}
 
 type Filter = 'all' | 'groups' | 'courses'
 
@@ -85,6 +74,7 @@ const rows = computed<GroupRow[]>(() => {
       type: 'Skola',
       period: '–',
       status: null,
+      finished: false,
     })
   }
 
@@ -102,6 +92,8 @@ const rows = computed<GroupRow[]>(() => {
           : group.term
         : '–',
       status: null,
+      // Bara en klass kan vara avslutad. Servern räknar ut den sista slutdagen bland kurserna.
+      finished: group.type === 'Class' && isGroupFinished(group),
       to: {name: 'group', params: {groupId: group.id}},
       group,
     }))
@@ -121,6 +113,7 @@ const rows = computed<GroupRow[]>(() => {
       // Mockupen skriver "från 16 nov 2026" med litet f.
       period: periodLabel(course.startsOn, course.endsOn).replace(/^(Från|Till)/, (word) => word.toLowerCase()) || '–',
       status,
+      finished: status === 'finished',
       to: {name: 'course-content', params: {courseId: course.id}},
       course,
     }))
@@ -128,7 +121,7 @@ const rows = computed<GroupRow[]>(() => {
   return [...schoolRows, ...groupRows, ...courseRows]
 })
 
-const visibleRows = computed(() => {
+const matchingRows = computed(() => {
   const text = search.value.trim().toLowerCase()
   return rows.value.filter((row) => {
     if (filter.value === 'groups' && row.kind === 'course') {
@@ -142,6 +135,25 @@ const visibleRows = computed(() => {
       || row.code.toLowerCase().includes(text)
   })
 })
+
+// Pågående rader ligger i tabellen. Avslutade kurser och klasser ligger i en hopfälld sektion under den.
+const visibleRows = computed(() => matchingRows.value.filter((row) => !row.finished))
+const finishedRows = computed(() => matchingRows.value.filter((row) => row.finished))
+
+// Sektionen är hopfälld tills man öppnar den, men en sökträff fäller ut den så att träffen syns.
+const finishedOpen = ref(false)
+watch(() => search.value.trim() !== '' && finishedRows.value.length > 0, (hasMatch) => {
+  if (hasMatch) {
+    finishedOpen.value = true
+  }
+})
+
+// Finns träffar bara bland de avslutade döljs den tomma tabellen med pågående rader.
+const hideCurrent = computed(() => visibleRows.value.length === 0 && finishedRows.value.length > 0
+  && search.value.trim() !== '')
+const currentEmptyText = computed(() => search.value.trim() === '' && finishedRows.value.length > 0
+  ? 'Inga pågående kurser.'
+  : 'Inga grupper matchar sökningen.')
 
 // Tomt läge med skapa-knappen, för den lista som filtret visar.
 const emptyKind = computed<'group' | 'course' | null>(() => {
@@ -158,7 +170,7 @@ const emptyKind = computed<'group' | 'course' | null>(() => {
     : null
 })
 
-const showTable = computed(() => !(emptyKind.value && visibleRows.value.length === 0))
+const showTable = computed(() => !(emptyKind.value && matchingRows.value.length === 0))
 
 const groupFormOpen = ref(false)
 const groupFormKind = ref<'class' | 'group'>('class')
@@ -227,12 +239,6 @@ function tabClass(value: Filter) {
   return filter.value === value
     ? 'bg-background shadow-sm font-medium'
     : 'text-muted-foreground'
-}
-
-function rowBorder(index: number) {
-  return index < visibleRows.value.length - 1
-    ? 'border-b'
-    : ''
 }
 
 const {run: load, loading, error} = useAsync(async () => {
@@ -329,104 +335,43 @@ load()
       </Button>
     </Empty>
 
-    <section v-if="!error && !isLoading && showTable" aria-label="Grupper" class="bg-card overflow-hidden rounded-[11px] border">
-      <div class="overflow-x-auto">
-        <table class="w-full border-collapse max-md:block md:min-w-[680px]">
-          <thead class="max-md:hidden">
-            <tr class="bg-muted/50 text-muted-foreground text-left text-[13px]">
-              <th scope="col" class="border-b px-4 py-2.5 font-medium">Grupp</th>
-              <th scope="col" class="border-b px-3 py-2.5 font-medium">Kod</th>
-              <th scope="col" class="border-b px-3 py-2.5 font-medium">Typ</th>
-              <th scope="col" class="border-b px-3 py-2.5 font-medium">Status</th>
-              <th scope="col" class="border-b px-4 py-2.5 font-medium">Period</th>
-              <th v-if="isAdmin" scope="col" class="border-b px-4 py-2.5 text-right font-medium">
-                <span class="sr-only">Åtgärder</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody class="max-md:block">
-            <tr
-              v-for="(row, index) in visibleRows"
-              :key="row.key"
-              class="max-md:relative max-md:flex max-md:flex-wrap max-md:items-center max-md:gap-x-3 max-md:gap-y-1 max-md:px-4 max-md:py-3"
-              :class="index < visibleRows.length - 1
-                ? 'max-md:border-b'
-                : ''"
-              data-test="group-row"
-            >
-              <td class="px-4 py-3 max-md:w-full max-md:border-b-0 max-md:p-0 max-md:pr-10" :class="rowBorder(index)">
-                <RouterLink
-                  v-if="row.to"
-                  :to="row.to"
-                  class="font-medium underline underline-offset-3 decoration-border hover:decoration-foreground"
-                >
-                  {{ row.name }}
-                </RouterLink>
-                <span v-else class="font-medium">{{ row.name }}</span>
-              </td>
-              <td
-                class="px-3 py-3 font-mono text-[13px] max-md:border-b-0 max-md:p-0 max-md:text-xs"
-                :class="[rowBorder(index), {'text-muted-foreground max-md:hidden': row.code === '–'}]"
-              >
-                {{ row.code }}
-              </td>
-              <td class="px-3 py-3 max-md:border-b-0 max-md:p-0 max-md:text-[13px]" :class="rowBorder(index)">{{ row.type }}</td>
-              <td
-                class="px-3 py-3 max-md:border-b-0 max-md:p-0"
-                :class="[rowBorder(index), {'max-md:hidden': !row.status}]"
-              >
-                <CourseStatusBadge v-if="row.status" :status="row.status"/>
-                <span v-else class="text-muted-foreground">–</span>
-              </td>
-              <td
-                class="text-muted-foreground px-4 py-3 max-md:border-b-0 max-md:p-0 max-md:text-[13px]"
-                :class="[rowBorder(index), {'max-md:hidden': row.period === '–'}]"
-              >
-                {{ row.period }}
-              </td>
-              <td v-if="isAdmin" class="w-12 px-3 py-1.5 text-right max-md:absolute max-md:top-2 max-md:right-2 max-md:w-auto max-md:border-b-0 max-md:p-0" :class="rowBorder(index)">
-                <DropdownMenu v-if="row.group || row.course">
-                  <DropdownMenuTrigger as-child>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      :aria-label="`Åtgärder för ${row.name}`"
-                      data-test="row-actions"
-                    >
-                      <PhDotsThree/>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" class="min-w-40">
-                    <DropdownMenuItem data-test="row-edit" @select="openEdit(row)">
-                      <PhPencilSimple/>
-                      Redigera
-                    </DropdownMenuItem>
-                    <DropdownMenuItem variant="destructive" data-test="row-delete" @select="openDelete(row)">
-                      <PhTrash/>
-                      Ta bort
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </td>
-            </tr>
-            <tr v-if="visibleRows.length === 0">
-              <td
-                :colspan="isAdmin
-                  ? 6
-                  : 5"
-                class="text-muted-foreground px-4 py-6 text-center"
-              >
-                Inga grupper matchar sökningen.
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+    <GroupsTable
+      v-if="!error && !isLoading && showTable && !hideCurrent"
+      :rows="visibleRows"
+      :is-admin="isAdmin"
+      :empty-text="currentEmptyText"
+      @edit="openEdit"
+      @delete="openDelete"
+    />
 
-    <p v-if="!error && !isLoading && showTable && filter !== 'groups'" class="text-muted-foreground text-[13px]">
-      Avslutade kurser finns kvar här med material, betyg och återkoppling.
-    </p>
+    <Collapsible
+      v-if="!error && !isLoading && finishedRows.length"
+      v-model:open="finishedOpen"
+      class="flex flex-col gap-2.5"
+      data-test="finished-section"
+    >
+      <CollapsibleTrigger as-child>
+        <button
+          type="button"
+          class="text-muted-foreground flex w-fit items-center gap-1.5 text-sm font-medium"
+          data-test="finished-toggle"
+        >
+          <PhCaretDown class="transition-transform" :class="{'-rotate-90': !finishedOpen}"/>
+          Avslutade ({{ finishedRows.length }})
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent class="flex flex-col gap-2.5">
+        <p class="text-muted-foreground text-[13px]">
+          Avslutade kurser finns kvar här med material, betyg och återkoppling.
+        </p>
+        <GroupsTable
+          :rows="finishedRows"
+          :is-admin="isAdmin"
+          @edit="openEdit"
+          @delete="openDelete"
+        />
+      </CollapsibleContent>
+    </Collapsible>
 
     <template v-if="isAdmin">
       <GroupFormDialog

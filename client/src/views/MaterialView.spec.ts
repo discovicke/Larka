@@ -48,6 +48,7 @@ interface Feeds {
   groups?: Record<string, unknown[]>
   attachments?: Record<string, unknown[]>
   fail?: string
+  courseList?: unknown[]
 }
 
 function backend(feeds: Feeds = {}) {
@@ -56,7 +57,7 @@ function backend(feeds: Feeds = {}) {
       return {status: 200, body: meAs('Teacher', ['c1', 'c2'])}
     }
     if (path === '/api/courses') {
-      return {status: 200, body: [devops, databases]}
+      return {status: 200, body: feeds.courseList ?? [devops, databases]}
     }
     if (path === '/api/groups') {
       return {status: 200, body: [group]}
@@ -204,6 +205,24 @@ describe('MaterialView', () => {
     expect(rows(wrapper).map((row) => row.find('a').text()))
       .toEqual([expect.stringContaining('tabeller.xlsx')])
     expect(databasesChip?.attributes('aria-pressed')).toBe('true')
+  })
+
+  it('gömmer avslutade kurser bakom Visa avslutade, men filerna finns kvar', async () => {
+    backend({...twoContents(), courseList: [devops, {...databases, startsOn: '2020-01-01', endsOn: '2020-06-01'}]})
+    const {wrapper} = await renderApp('/material')
+
+    const labels = () => wrapper.findAll('button[aria-pressed]').map((chip) => chip.text())
+    expect(labels()).toEqual(['Allt', 'DevOps', 'Lag 1', 'Visa avslutade'])
+    expect(rows(wrapper)).toHaveLength(2)
+
+    await wrapper.find('[data-test="show-finished"]').trigger('click')
+    await flushPromises()
+
+    expect(labels()).toEqual(['Allt', 'DevOps', 'Lag 1', 'Databaser', 'Visa avslutade'])
+    await wrapper.findAll('button[aria-pressed]').find((chip) => chip.text() === 'Databaser')?.trigger('click')
+    await flushPromises()
+    expect(rows(wrapper).map((row) => row.find('a').text()))
+      .toEqual([expect.stringContaining('tabeller.xlsx')])
   })
 
   it('fillänken öppnar bilagans url i en ny flik', async () => {

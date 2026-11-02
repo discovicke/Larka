@@ -250,7 +250,7 @@ export function publishSteps(form: ContentForm): string[] {
     steps.push('Varje elev får ett eget privat repo från mallen. Du och eleven får åtkomst.')
   }
   if (form.submissionModes.includes('OnSite')) {
-    steps.push('Du bockar av eleverna på lektionen.')
+    steps.push('Du klarmarkerar eleverna på lektionen.')
   }
   if (form.submissionModes.length > 0) {
     steps.push(form.dueAt

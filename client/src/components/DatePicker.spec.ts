@@ -32,6 +32,26 @@ describe('DatePicker', () => {
     expect(wrapper.emitted('update:modelValue')).toEqual([['2027-12-03']])
   })
 
+  it('hoppar direkt till en annan månad och ett annat år med listorna i rubriken', async () => {
+    const wrapper = render({modelValue: '2027-10-11'})
+    await openPicker(wrapper.find('#d').element)
+    const selects = [...document.querySelectorAll<HTMLSelectElement>('[data-slot="calendar"] select')]
+    expect(selects).toHaveLength(2)
+
+    selects[1]!.value = '2030'
+    selects[1]!.dispatchEvent(new Event('change'))
+    await flushPromises()
+    selects[0]!.value = '3'
+    selects[0]!.dispatchEvent(new Event('change'))
+    await flushPromises()
+
+    const day = document.querySelector('[data-slot="calendar-cell-trigger"][data-value="2030-03-14"]:not([data-outside-view])') as HTMLElement
+    expect(day).not.toBeNull()
+    day.click()
+    await flushPromises()
+    expect(wrapper.emitted('update:modelValue')).toEqual([['2030-03-14']])
+  })
+
   it('börjar veckan på måndag', async () => {
     const wrapper = render({modelValue: '2027-10-11'})
     await openPicker(wrapper.find('#d').element)

@@ -73,7 +73,7 @@ export function draftCount(module: {content: {status: Schema<'ContentStatus'>}[]
 }
 
 /**
- * Veckans läge. En vecka där alla delar är utkast är ett utkast, oavsett datum. Annars är veckans eget
+ * Veckans läge. En vecka utan delar eller där alla delar är utkast är ett utkast, oavsett datum. Annars är veckans eget
  * datum en hård grind: innan det är passerat visas "Schemalagd". Efter det sammanfattas delarnas status,
  * så att blandade veckor syns som "Delvis publicerad".
  */
@@ -83,17 +83,13 @@ export function weekPublishState(
     content: {status: Schema<'ContentStatus'>, publishAt: string}[]
   },
   now = new Date(),
-): WeekPublishState | null {
-  if (hasOnlyDrafts(module)) {
+): WeekPublishState {
+  if (module.content.length === 0 || hasOnlyDrafts(module)) {
     return {status: 'publishing.draft'}
   }
 
   if (module.publishAt && new Date(module.publishAt) > now) {
     return {status: 'publishing.scheduled', label: `Schemalagd ${formatDate(module.publishAt, true)}`}
-  }
-
-  if (module.content.length === 0) {
-    return null
   }
 
   const live = module.content.filter((part) =>

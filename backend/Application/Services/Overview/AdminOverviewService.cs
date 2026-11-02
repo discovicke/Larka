@@ -34,8 +34,19 @@ public class AdminOverviewService(
         var teachedCourseIds = await courses.GetCourseIdsWithTeachersAsync(schoolId.Value, ct);
         var groupsById = schoolGroups.ToDictionary(group => group.Id);
 
+        // Avslutade kurser och klasser behöver ingen lärare eller mentor längre, så de hamnar inte i Att ordna.
+        var courseStates = schoolCourses.ToDictionary(
+            course => course.Id, course => StateOf(course.StartsOn, course.EndsOn, today));
+        var finishedGroupIds = groupCourses
+            .GroupBy(groupCourse => groupCourse.GroupId)
+            .Where(grouped => grouped.All(groupCourse =>
+                courseStates.GetValueOrDefault(groupCourse.CourseId) == CourseState.Finished))
+            .Select(grouped => grouped.Key)
+            .ToHashSet();
+
         var withoutTeacher = schoolCourses
-            .Where(course => !teachedCourseIds.Contains(course.Id))
+            .Where(course => courseStates[course.Id] != CourseState.Finished
+                && !teachedCourseIds.Contains(course.Id))
             .Select(course => new AdminCourseWithoutTeacherDto(
                 course.Id,
                 course.Code,
@@ -52,7 +63,9 @@ public class AdminOverviewService(
             .Select(enrollment => enrollment.GroupId)
             .ToHashSet();
         var withoutMentor = schoolGroups
-            .Where(group => group.Type == GroupType.Class && !mentoredGroupIds.Contains(group.Id))
+            .Where(group => group.Type == GroupType.Class
+                && !mentoredGroupIds.Contains(group.Id)
+                && !finishedGroupIds.Contains(group.Id))
             .Select(group => new AdminGroupRefDto(group.Id, group.Name, group.Term))
             .ToList();
 

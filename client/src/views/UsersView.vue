@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {PhDotsThree, PhLinkBreak, PhMagnifyingGlass, PhProhibit, PhUserCheck, PhUserGear} from '@phosphor-icons/vue'
 import {computed, ref} from 'vue'
+import {useRoute} from 'vue-router'
 
 import ChangeRoleDialog from '@/components/users/ChangeRoleDialog.vue'
 import DeactivateUserDialog from '@/components/users/DeactivateUserDialog.vue'
@@ -36,7 +37,10 @@ const filters: {value: Filter, label: string}[] = [
 const {me} = useCurrentUser()
 
 const users = ref<User[]>([])
-const filter = ref<Filter>('all')
+const route = useRoute()
+// Idag länkar hit med ?filter=Student, så att listan redan är avgränsad.
+const initialFilter = filters.find((found) => found.value === route.query.filter)
+const filter = ref<Filter>(initialFilter?.value ?? 'all')
 const search = ref('')
 
 const visibleUsers = computed(() => {

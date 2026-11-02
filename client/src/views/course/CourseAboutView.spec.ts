@@ -110,8 +110,8 @@ describe('CourseAboutView', () => {
     expect(rows[0].find('a').attributes('href')).toBe('mailto:anna@example.com')
     expect(rows[0].find('a').text()).toContain('Meddelande')
 
-    expect(wrapper.text()).toContain('2026-10-12 – 2026-11-13')
-    expect(wrapper.text()).toContain('IG – G – VG')
+    expect(wrapper.text()).toContain('12 okt – 13 nov 2026')
+    expect(wrapper.text()).toContain('Icke godkänd / Godkänd / Väl godkänd')
   })
 
   it('rubriken har ett märke för kursens läge, och inget utan datum', async () => {
@@ -191,7 +191,7 @@ describe('CourseAboutView', () => {
     await submitDialogForm()
 
     expect(document.querySelector('[role="dialog"]')?.textContent)
-      .toContain('points must be between 1 and 400')
+      .toContain('Poängen måste vara mellan 1 och 400.')
   })
 
   it('admin ändrar kursens fakta men inte beskrivningen, som är lärarens', async () => {

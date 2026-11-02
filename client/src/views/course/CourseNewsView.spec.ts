@@ -385,9 +385,23 @@ describe('CourseNewsView', () => {
     await fill('#news-title', 'Studiebesök på tisdag')
     await submitDialogForm()
 
-    expect(document.body.textContent).toContain('Skriv en text.')
+    expect(document.body.textContent).toContain('Skriv något i nyheten.')
     expect(requests.filter((request) => request.method === 'POST')).toEqual([])
     expect(document.querySelector('[role="dialog"]')).not.toBeNull()
+  })
+
+  it('visar fel vid en tom nyhet i stället för att inte göra något', async () => {
+    backend([pinned])
+
+    const {wrapper} = await renderApp('/courses/c1/news')
+
+    await wrapper.find('[data-test="new-news"]').trigger('click')
+    await flushPromises()
+    await submitDialogForm()
+
+    expect(document.body.textContent).toContain('Skriv en rubrik.')
+    expect(document.body.textContent).toContain('Skriv något i nyheten.')
+    expect(requests.filter((request) => request.method === 'POST')).toEqual([])
   })
 
   it('redigerar nyheten och laddar om listan', async () => {

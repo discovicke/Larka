@@ -1,8 +1,14 @@
 import {api, type Schema} from './api'
 
+/**
+ * Systemanvändaren "Placeholder" som migrationen lägger in (admin utan riktig person bakom). Den ska
+ * inte kunna väljas som lärare, mentor eller medlem. Id:t är fast, se PlaceholderIds i backend.
+ */
+export const placeholderUserId = '00000000-0000-0000-0000-000000000001'
+
 /** Användarna i skolan som inte är spärrade, för listor där man väljer lärare, mentor eller elev. */
 export async function fetchUsers() {
-  return (await fetchAllUsers()).filter((user) => !user.deactivatedAt)
+  return (await fetchAllUsers()).filter((user) => !user.deactivatedAt && user.id !== placeholderUserId)
 }
 
 /** Alla användare i skolan, också de spärrade. För sidan Användare. */

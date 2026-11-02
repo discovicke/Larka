@@ -45,6 +45,9 @@ public interface IGroupRepository
     /// <summary>Eleverna i grupperna där användaren är mentor.</summary>
     Task<HashSet<Guid>> GetMentoredStudentIdsAsync(Guid userId, CancellationToken ct);
 
+    /// <summary>Mentorerna i gruppen, också spärrade, för att byta mentor.</summary>
+    Task<List<Enrollment>> GetMentorEnrollmentsAsync(Guid groupId, CancellationToken ct);
+
     /// <summary>Medlemskapen i skolans grupper, för adminöversikten.</summary>
     Task<List<Enrollment>> GetEnrollmentsForSchoolAsync(Guid schoolId, CancellationToken ct);
 
@@ -56,6 +59,10 @@ public interface IGroupRepository
 
     /// <summary>Namnen på grupperna som läser kursen, sorterade.</summary>
     Task<List<string>> GetGroupNamesReadingCourseAsync(Guid courseId, CancellationToken ct);
+
+    /// <summary>Namnen på de andra grupperna som läser varje kurs, per kurs-id.</summary>
+    Task<Dictionary<Guid, List<string>>> GetOtherGroupNamesReadingCoursesAsync(
+        IReadOnlyCollection<Guid> courseIds, Guid exceptGroupId, CancellationToken ct);
 
     /// <summary>Användarens starkaste roll per kurs, Teacher före Mentor före Student.</summary>
     Task<List<CourseRole>> GetCourseRolesAsync(Guid userId, CancellationToken ct);
@@ -80,6 +87,12 @@ public interface IGroupRepository
     Task<Dictionary<Guid, int>> GetMemberCountsAsync(Guid schoolId, CancellationToken ct);
 
     Task<int> CountMembersAsync(Guid groupId, CancellationToken ct);
+
+    /// <summary>
+    /// Sista slutdagen bland gruppens kurser, per grupp i skolan, i en fråga. Grupper utan kurser, och grupper där
+    /// någon kurs saknar slutdatum, saknas i svaret.
+    /// </summary>
+    Task<Dictionary<Guid, DateOnly>> GetLastCourseEndsAsync(Guid schoolId, CancellationToken ct);
 
     Task<Enrollment?> GetMemberAsync(Guid groupId, Guid userId, CancellationToken ct);
 

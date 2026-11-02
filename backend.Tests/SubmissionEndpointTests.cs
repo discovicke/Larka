@@ -75,7 +75,7 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task CreateNews_WithSubmissionMode_ReturnsBadRequest()
     {
         var response = await _client.PostAsJsonAsync("/api/content",
-            new { type = "news", title = "Nyhet", bodyMd = "", submissionModes = new[] { "file" } });
+            new { type = "news", title = "Nyhet", bodyMd = "Text", submissionModes = new[] { "file" } });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -361,7 +361,8 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task Submit_ToNews_ReturnsBadRequest()
     {
         var (groupId, _) = await AddGroupAsync(students: 0);
-        var news = await _client.PostAsJsonAsync("/api/content", new { type = "news", title = "Nyhet", bodyMd = "" });
+        var news = await _client.PostAsJsonAsync(
+            "/api/content", new { type = "news", title = "Nyhet", bodyMd = "Text" });
         var linkId = await LinkAsync((await news.Content.ReadFromJsonAsync<IdResponse>())!.Id, new { groupId });
 
         var result = await SubmitFilesAsync(linkId, "rapport.pdf");
@@ -520,6 +521,35 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
         var graded = (await response.Content.ReadFromJsonAsync<SubmissionResponse>())!;
         Assert.Equal("Graded", graded.Status);
         Assert.Equal("Pass", graded.Grade!.Level);
+    }
+
+    [Fact]
+    public async Task Grade_Fail_WithoutComment_ReturnsBadRequest()
+    {
+        var (groupId, _) = await AddGroupAsync(students: 0);
+        var assignment = await CreateAssignmentAsync(
+            new { submissionModes = new[] { "file" }, gradeScale = "passFail" });
+        var submitted = await SubmitAsync(await LinkAsync(assignment, new { groupId }));
+
+        var response = await _client.PostAsJsonAsync($"/api/submissions/{submitted.Id}/grade",
+            new { level = "fail", feedback = "   " });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Grade_Fail_WithComment_IsGraded()
+    {
+        var (groupId, _) = await AddGroupAsync(students: 0);
+        var assignment = await CreateAssignmentAsync(
+            new { submissionModes = new[] { "file" }, gradeScale = "passFail" });
+        var submitted = await SubmitAsync(await LinkAsync(assignment, new { groupId }));
+
+        var response = await _client.PostAsJsonAsync($"/api/submissions/{submitted.Id}/grade",
+            new { level = "fail", feedback = "Testerna saknas." });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("Fail", (await response.Content.ReadFromJsonAsync<SubmissionResponse>())!.Grade!.Level);
     }
 
     [Fact]

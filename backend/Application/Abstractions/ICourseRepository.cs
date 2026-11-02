@@ -22,6 +22,10 @@ public interface ICourseRepository
 
     /// <summary>Lärarna i kursen, sorterade på namn.</summary>
     Task<List<CourseTeacherInfo>> GetTeachersAsync(Guid courseId, CancellationToken ct);
+
+    /// <summary>Lärarna i flera kurser på en gång, per kurs-id.</summary>
+    Task<Dictionary<Guid, List<CourseTeacherInfo>>> GetTeachersForCoursesAsync(
+        IReadOnlyCollection<Guid> courseIds, CancellationToken ct);
     Task<CourseTeacher?> GetTeacherAsync(Guid courseId, Guid userId, CancellationToken ct);
     void AddTeacher(CourseTeacher courseTeacher);
     void RemoveTeacher(CourseTeacher courseTeacher);

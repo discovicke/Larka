@@ -17,6 +17,9 @@ public class TodayService(
     ICurrentUser currentUser,
     TimeProvider time)
 {
+    // Hur långt bak en komplettering med passerad deadline hämtas. Ett läsår räcker gott.
+    private const int _needsWorkLookbackYears = 1;
+
     private const int _recentSubmissions = 30;
     private const int _listLength = 10;
     private const int _newsLength = 5;
@@ -62,14 +65,17 @@ public class TodayService(
     }
 
     // Publicerade uppgifter i elevens grupper med deadline från nu, som eleven inte lämnat in eller klarmarkerat.
+    // En uppgift som läraren bett eleven komplettera står kvar även när deadline har passerat: annars försvinner
+    // kompletteringen ur Att göra just när den behövs.
     private async Task<List<TodayTodoDto>> GetTodoAsync(DateTimeOffset now, CancellationToken ct)
     {
-        var links = await contents.GetCalendarLinksAsync(currentUser.UserId, now, now.AddYears(10), ct);
+        var links = await contents.GetCalendarLinksAsync(
+            currentUser.UserId, now.AddYears(-_needsWorkLookbackYears), now.AddYears(10), ct);
         var candidates = new List<CalendarLink>();
         foreach (var link in links)
         {
             if (link.Content.Type == ContentType.Assignment
-                && link.Link.DueAt >= now
+                && link.Link.DueAt is not null
                 && ContentVisibility.IsVisible(link.Content, link.Link, now)
                 && ContentVisibility.IsModuleAvailable(link.ModulePublishAt, now)
                 && !await permissions.CanTeachLinkAsync(link.Link.Id, ct))
@@ -86,6 +92,8 @@ public class TodayService(
             .ToHashSet();
 
         return candidates
+            .Where(link => link.Link.DueAt >= now
+                || submissionByLink.GetValueOrDefault(link.Link.Id)?.Status == SubmissionStatus.NeedsWork)
             .Where(link => PartRules.IsManual(link.Content)
                 ? !completedLinks.Contains(link.Link.Id)
                 : submissionByLink.GetValueOrDefault(link.Link.Id)?.Status is null
@@ -212,7 +220,9 @@ public class TodayService(
                 visible.Count(part => IsCompletedForProgress(
                     part,
                     completionByLink.GetValueOrDefault(part.Link.Id),
-                    submissionByLink.GetValueOrDefault(part.Link.Id)))));
+                    submissionByLink.GetValueOrDefault(part.Link.Id))),
+                studentCourse.Course.StartsOn,
+                studentCourse.Course.EndsOn));
         }
 
         return result;

@@ -2,7 +2,7 @@
 import {computed, ref, watch} from 'vue'
 import {useRoute} from 'vue-router'
 
-import {PhCheckCircle, PhCircle, PhDotsThree} from '@phosphor-icons/vue'
+import {PhCaretDown, PhCheckCircle, PhCircle, PhDotsThree} from '@phosphor-icons/vue'
 
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import AddMemberDialog from '@/components/groups/AddMemberDialog.vue'
@@ -16,8 +16,10 @@ import CourseTeachersDialog from '@/components/groups/CourseTeachersDialog.vue'
 import ImportStudentsDialog from '@/components/groups/ImportStudentsDialog.vue'
 import NewCourseDialog from '@/components/groups/NewCourseDialog.vue'
 import SetMentorDialog from '@/components/groups/SetMentorDialog.vue'
+import StudentOverviewDialog from '@/components/groups/StudentOverviewDialog.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import {Button} from '@/components/ui/button'
+import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '@/components/ui/collapsible'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,6 +30,7 @@ import {Skeleton} from '@/components/ui/skeleton'
 import {useCourses} from '@/composables/useCourses'
 import {useCrumbLabels} from '@/composables/useCrumbLabels'
 import {useCurrentUser} from '@/composables/useCurrentUser'
+import {useToast} from '@/composables/useToast'
 import {ApiError, api, unwrap, type Schema} from '@/lib/api'
 import {periodLabel} from '@/lib/coursePeriod'
 import {courseStatus} from '@/lib/courseStatus'
@@ -38,9 +41,10 @@ import {initials} from '@/lib/person'
 import NotFoundView from '@/views/NotFoundView.vue'
 
 const route = useRoute()
-const {can} = useCurrentUser()
+const {can, me} = useCurrentUser()
 const {setCrumbLabel} = useCrumbLabels()
 const {loadCourses} = useCourses()
+const {showToast} = useToast()
 const isAdmin = computed(() => can('admin'))
 const groupId = computed(() => String(route.params.groupId))
 
@@ -61,8 +65,12 @@ const settingMentor = ref(false)
 const courseForTeachers = ref<Schema<'CourseDto'> | null>(null)
 // Lärarna per kurs, bara för admin. En kurs som saknas här har inte fått sina lärare hämtade.
 const teachersByCourse = ref<Record<string, Schema<'CourseTeacherDto'>[]>>({})
+// Namnen på de andra grupperna som läser kursen, så att admin ser att en ändring gäller flera klasser.
+const sharedByCourse = ref<Record<string, string[]>>({})
 const courseToUnlink = ref<Schema<'CourseDto'> | null>(null)
 const memberToChange = ref<Schema<'GroupMemberDto'> | null>(null)
+const studentToOverview = ref<Schema<'GroupMemberDto'> | null>(null)
+const overviewOpen = ref(false)
 
 const subtitle = computed(() => {
   if (!group.value) {
@@ -112,6 +120,18 @@ const courseGroups = computed(() => {
   groups[2].courses.reverse()
   return groups.filter((found) => found.courses.length > 0)
 })
+
+// Avslutade kurser är hopfällda tills man öppnar dem. Kurserna finns kvar och går att nå.
+const openParts = ref<Record<string, boolean>>({running: true, upcoming: true, finished: false})
+
+// Mentorn i klassen och admin kan öppna en elevs läge i klassens kurser.
+const canSeeStudents = computed(() => isAdmin.value
+  || members.value.some((member) => member.userId === me.value?.id && member.role === 'Mentor'))
+
+function showOverview(member: Schema<'GroupMemberDto'>) {
+  studentToOverview.value = member
+  overviewOpen.value = true
+}
 
 // Mentor är en roll i klassen. Admin ser den alltid på en klass, också utan mentor, för att kunna utse en.
 const canSetMentor = computed(() => isAdmin.value && group.value?.type === 'Class')
@@ -164,23 +184,16 @@ async function loadTeachers(id: string) {
     return
   }
 
-  // Ett kurs som inte svarar hoppas över, så att resten av sidan visas.
-  const results = await Promise.all(courses.value.map(async (course) => {
-    try {
-      const result = await api.GET('/api/courses/{id}/teachers', {params: {path: {id: course.id}}})
-      return [course.id, result.data] as const
-    } catch {
-      return [course.id, undefined] as const
-    }
-  }))
+  // Lärarna för alla kurser kommer i ett anrop. Svarar det inte visas resten av sidan utan lärarraderna.
+  let rows: Schema<'GroupCourseTeachersDto'>[] = []
+  try {
+    rows = (await api.GET('/api/groups/{id}/course-teachers', {params: {path: {id}}})).data ?? []
+  } catch {
+    // Raderna visas utan lärare och utan Ändra lärare tills sidan laddas om.
+  }
   if (id === groupId.value) {
-    const found: Record<string, Schema<'CourseTeacherDto'>[]> = {}
-    for (const [courseId, teachers] of results) {
-      if (teachers) {
-        found[courseId] = teachers
-      }
-    }
-    teachersByCourse.value = found
+    teachersByCourse.value = Object.fromEntries(rows.map((row) => [row.courseId, row.teachers]))
+    sharedByCourse.value = Object.fromEntries(rows.map((row) => [row.courseId, row.sharedWith]))
   }
 }
 
@@ -216,10 +229,24 @@ function setTeachers(courseId: string, teachers: Schema<'CourseTeacherDto'>[]) {
 
 function addMember(member: Schema<'GroupMemberDto'>) {
   members.value = [...members.value, member]
+  showToast(`${member.name} är tillagd i ${group.value?.name}.`)
 }
 
 function addMembers(added: Schema<'GroupMemberDto'>[]) {
   members.value = [...members.value, ...added]
+  showToast(added.length === 1
+    ? `1 person är tillagd i ${group.value?.name}.`
+    : `${added.length} personer är tillagda i ${group.value?.name}.`)
+}
+
+async function mentorChanged() {
+  await reloadMembers()
+  showToast('Mentorn är sparad.')
+}
+
+async function roleChanged() {
+  await reloadMembers()
+  showToast('Rollen är ändrad.')
 }
 
 function pasteStudents() {
@@ -228,11 +255,18 @@ function pasteStudents() {
 }
 
 function removeMember(userId: string) {
+  const removed = members.value.find((member) => member.userId === userId)
+  if (removed) {
+    showToast(`${removed.name} är borttagen ur ${group.value?.name}.`)
+  }
   members.value = members.value.filter((member) => member.userId !== userId)
 }
 
-function addCourse(course: Schema<'CourseDto'>) {
+// Den kopplade kursens lärare hämtas direkt, så att raden inte står utan dem tills sidan laddas om.
+async function addCourse(course: Schema<'CourseDto'>) {
   courses.value = [...courses.value, course]
+  showToast(`${course.title} är kopplad till ${group.value?.name}.`)
+  await loadTeachers(groupId.value)
 }
 
 // Sidomenyn visar skolans kurser, så också den listan hämtas om.
@@ -242,6 +276,10 @@ async function courseCreated(message: string) {
 }
 
 function removeCourse(courseId: string) {
+  const removed = courses.value.find((course) => course.id === courseId)
+  if (removed) {
+    showToast(`${removed.title} är frånkopplad från ${group.value?.name}.`)
+  }
   courses.value = courses.value.filter((course) => course.id !== courseId)
 }
 
@@ -345,64 +383,78 @@ watch(isAdmin, (admin) => {
         class="flex flex-col gap-2.5"
         data-test="course-group"
       >
-        <h3 class="text-muted-foreground text-sm font-medium">{{ part.label }}</h3>
-        <div class="overflow-hidden rounded-[11px] border">
-          <div
-            v-for="course in part.courses"
-            :key="course.id"
-            class="flex flex-col gap-2 border-b px-4 py-3 last:border-b-0"
-            data-test="course-row"
-          >
-            <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-              <RouterLink
-                :to="{name: 'course-content', params: {courseId: course.id}}"
-                class="mr-auto font-medium underline underline-offset-3 decoration-border hover:decoration-foreground"
-              >
-                {{ course.title }}
-              </RouterLink>
-              <div class="flex w-full flex-wrap items-center gap-x-3 gap-y-1 md:w-auto">
-                <span class="font-mono text-[13px]">{{ course.code }}</span>
-                <span class="text-muted-foreground text-sm" data-test="course-dates">{{ periodLabel(course.startsOn, course.endsOn) }}</span>
-                <CourseStatusBadge :status="courseStatus(course)"/>
-              </div>
-            </div>
-            <div
-              v-if="isAdmin"
-              class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2"
-              data-test="course-teachers"
+        <Collapsible v-model:open="openParts[part.key]" class="flex flex-col gap-2.5">
+          <CollapsibleTrigger v-if="part.key === 'finished'" as-child>
+            <button
+              type="button"
+              class="text-muted-foreground flex w-fit items-center gap-1.5 text-sm font-medium"
+              data-test="finished-courses-toggle"
             >
-              <template v-if="teachersByCourse[course.id]">
-                <StatusBadge
-                  v-if="teachersByCourse[course.id].length === 0"
-                  status="course.noTeacher"
-                />
-                <span v-else class="text-sm" data-test="course-teacher-names">
-                  <span class="text-muted-foreground">Lärare: </span>{{ teachersByCourse[course.id].map((teacher) => teacher.name).join(', ') }}
-                </span>
-              </template>
-              <span v-else/>
-              <div class="flex items-center gap-2">
-                <Button
-                  v-if="teachersByCourse[course.id]"
-                  variant="outline"
-                  class="h-8"
-                  data-test="edit-teachers"
-                  @click="courseForTeachers = course"
+              <PhCaretDown class="transition-transform" :class="{'-rotate-90': !openParts[part.key]}"/>
+              {{ part.label }} ({{ part.courses.length }})
+            </button>
+          </CollapsibleTrigger>
+          <h3 v-else class="text-muted-foreground text-sm font-medium">{{ part.label }}</h3>
+          <CollapsibleContent>
+            <div class="overflow-hidden rounded-[11px] border">
+              <div
+                v-for="course in part.courses"
+                :key="course.id"
+                class="flex flex-col gap-2 border-b px-4 py-3 last:border-b-0"
+                data-test="course-row"
+              >
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                  <RouterLink
+                    :to="{name: 'course-content', params: {courseId: course.id}}"
+                    class="mr-auto font-medium underline underline-offset-3 decoration-border hover:decoration-foreground"
+                  >
+                    {{ course.title }}
+                  </RouterLink>
+                  <div class="flex w-full flex-wrap items-center gap-x-3 gap-y-1 md:w-auto">
+                    <span class="font-mono text-[13px]">{{ course.code }}</span>
+                    <span class="text-muted-foreground text-sm" data-test="course-dates">{{ periodLabel(course.startsOn, course.endsOn) }}</span>
+                    <CourseStatusBadge :status="courseStatus(course)"/>
+                  </div>
+                </div>
+                <div
+                  v-if="isAdmin"
+                  class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2"
+                  data-test="course-teachers"
                 >
-                  Ändra lärare
-                </Button>
-                <Button
-                  variant="outline"
-                  class="h-8"
-                  data-test="unlink-course"
-                  @click="courseToUnlink = course"
-                >
-                  Koppla bort
-                </Button>
+                  <template v-if="teachersByCourse[course.id]">
+                    <StatusBadge
+                      v-if="teachersByCourse[course.id].length === 0"
+                      status="course.noTeacher"
+                    />
+                    <span v-else class="text-sm" data-test="course-teacher-names">
+                      <span class="text-muted-foreground">Lärare: </span>{{ teachersByCourse[course.id].map((teacher) => teacher.name).join(', ') }}
+                    </span>
+                  </template>
+                  <span v-else/>
+                  <div class="flex items-center gap-2">
+                    <Button
+                      v-if="teachersByCourse[course.id]"
+                      variant="outline"
+                      class="h-8"
+                      data-test="edit-teachers"
+                      @click="courseForTeachers = course"
+                    >
+                      Ändra lärare
+                    </Button>
+                    <Button
+                      variant="outline"
+                      class="h-8"
+                      data-test="unlink-course"
+                      @click="courseToUnlink = course"
+                    >
+                      Koppla bort
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
+          </CollapsibleContent>
+        </Collapsible>
       </section>
     </section>
 
@@ -455,37 +507,55 @@ watch(isAdmin, (admin) => {
               <AvatarFallback class="text-[13px] font-semibold">{{ initials(member.name) }}</AvatarFallback>
             </Avatar>
             <span class="font-medium" data-test="member-name">{{ member.name }}</span>
-            <DropdownMenu v-if="isAdmin">
-              <DropdownMenuTrigger as-child>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  class="ml-auto size-11 md:size-8"
-                  :aria-label="`Fler val för ${member.name}`"
-                  data-test="member-menu"
-                >
-                  <PhDotsThree/>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem data-test="change-member-role" @select="memberToChange = member">
-                  Ändra roll
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  variant="destructive"
-                  data-test="remove-member"
-                  @select="memberToRemove = member"
-                >
-                  Ta bort
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div class="ml-auto flex items-center gap-1">
+              <Button
+                v-if="canSeeStudents && member.role === 'Student'"
+                variant="outline"
+                size="sm"
+                :aria-label="`Visa läget för ${member.name}`"
+                data-test="member-overview"
+                @click="showOverview(member)"
+              >
+                Visa läge
+              </Button>
+              <DropdownMenu v-if="isAdmin">
+                <DropdownMenuTrigger as-child>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    class="size-11 md:size-8"
+                    :aria-label="`Fler val för ${member.name}`"
+                    data-test="member-menu"
+                  >
+                    <PhDotsThree/>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem data-test="change-member-role" @select="memberToChange = member">
+                    Ändra roll
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    data-test="remove-member"
+                    @select="memberToRemove = member"
+                  >
+                    Ta bort
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </div>
       </section>
 
       <p v-if="members.length === 0" class="text-muted-foreground text-sm">{{ groupNoun }} har inga medlemmar ännu.</p>
     </section>
+
+    <StudentOverviewDialog
+      v-model:open="overviewOpen"
+      :group-id="groupId"
+      :student="studentToOverview"
+    />
 
     <template v-if="isAdmin">
       <AddMemberDialog
@@ -494,6 +564,7 @@ watch(isAdmin, (admin) => {
         :group-name="group.name"
         :school-id="group.schoolId"
         :member-ids="members.map((member) => member.userId)"
+        :has-mentor="members.some((member) => member.role === 'Mentor')"
         @added="addMember"
         @paste="pasteStudents"
       />
@@ -509,7 +580,7 @@ watch(isAdmin, (admin) => {
         :group-id="group.id"
         :group-name="group.name"
         :members="members"
-        @changed="reloadMembers"
+        @changed="mentorChanged"
       />
       <NewCourseDialog
         v-model:open="creatingCourse"
@@ -524,6 +595,9 @@ watch(isAdmin, (admin) => {
         :teachers="courseForTeachers
           ? (teachersByCourse[courseForTeachers.id] ?? [])
           : []"
+        :shared-with="courseForTeachers
+          ? (sharedByCourse[courseForTeachers.id] ?? [])
+          : []"
         @update:open="(value) => { if (!value) courseForTeachers = null }"
         @changed="setTeachers"
       />
@@ -534,7 +608,7 @@ watch(isAdmin, (admin) => {
         :member="memberToChange"
         :members="members"
         @update:open="(value) => { if (!value) memberToChange = null }"
-        @changed="reloadMembers"
+        @changed="roleChanged"
       />
       <RemoveMemberDialog
         :open="memberToRemove !== null"

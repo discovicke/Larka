@@ -27,6 +27,19 @@ public class GroupRepository(AppDb db) : IGroupRepository
             .Select(grouped => new { GroupId = grouped.Key, Count = grouped.Count() })
             .ToDictionaryAsync(row => row.GroupId, row => row.Count, ct);
 
+    public async Task<Dictionary<Guid, DateOnly>> GetLastCourseEndsAsync(Guid schoolId, CancellationToken ct)
+    {
+        var rows = await db.GroupCourses
+            .Where(groupCourse => db.Groups.Any(owner => owner.Id == groupCourse.GroupId && owner.SchoolId == schoolId))
+            .Join(db.Courses, groupCourse => groupCourse.CourseId, course => course.Id,
+                (groupCourse, course) => new { groupCourse.GroupId, course.EndsOn })
+            .ToListAsync(ct);
+        return rows
+            .GroupBy(row => row.GroupId)
+            .Where(grouped => grouped.All(row => row.EndsOn is not null))
+            .ToDictionary(grouped => grouped.Key, grouped => grouped.Max(row => row.EndsOn!.Value));
+    }
+
     public Task<int> CountMembersAsync(Guid groupId, CancellationToken ct) =>
         db.Enrollments.CountAsync(enrollment => enrollment.GroupId == groupId, ct);
 
@@ -95,6 +108,11 @@ public class GroupRepository(AppDb db) : IGroupRepository
             .ToHashSet();
     }
 
+    public Task<List<Enrollment>> GetMentorEnrollmentsAsync(Guid groupId, CancellationToken ct) =>
+        db.Enrollments
+            .Where(enrollment => enrollment.GroupId == groupId && enrollment.Role == GroupRole.Mentor)
+            .ToListAsync(ct);
+
     public Task<List<Enrollment>> GetEnrollmentsForSchoolAsync(Guid schoolId, CancellationToken ct) =>
         db.Enrollments
             .Where(enrollment => db.Groups.Any(group => group.Id == enrollment.GroupId && group.SchoolId == schoolId))
@@ -118,6 +136,20 @@ public class GroupRepository(AppDb db) : IGroupRepository
             .Join(db.Groups, groupCourse => groupCourse.GroupId, group => group.Id, (_, group) => group.Name)
             .OrderBy(name => name)
             .ToListAsync(ct);
+
+    public async Task<Dictionary<Guid, List<string>>> GetOtherGroupNamesReadingCoursesAsync(
+        IReadOnlyCollection<Guid> courseIds, Guid exceptGroupId, CancellationToken ct)
+    {
+        var rows = await db.GroupCourses
+            .Where(groupCourse => courseIds.Contains(groupCourse.CourseId) && groupCourse.GroupId != exceptGroupId)
+            .Join(db.Groups, groupCourse => groupCourse.GroupId, group => group.Id,
+                (groupCourse, group) => new { groupCourse.CourseId, group.Name })
+            .OrderBy(row => row.Name)
+            .ToListAsync(ct);
+        return rows
+            .GroupBy(row => row.CourseId)
+            .ToDictionary(grouping => grouping.Key, grouping => grouping.Select(row => row.Name).ToList());
+    }
 
     // Lärare i en kurs är den som står i CourseTeachers. Lärarrollen i en klass räknas inte här, bara mentor och
     // elev, och läraren behöver inte vara medlem i någon klass som läser kursen.

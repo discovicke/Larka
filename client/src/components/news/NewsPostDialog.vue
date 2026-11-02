@@ -15,7 +15,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import {Field, FieldGroup, FieldLabel} from '@/components/ui/field'
+import {Field, FieldError, FieldGroup, FieldLabel} from '@/components/ui/field'
 import {Input} from '@/components/ui/input'
 import {useAsync} from '@/composables/useAsync'
 import {createContentWithLink} from '@/lib/contentApi'
@@ -24,6 +24,7 @@ const props = defineProps<{courseId: string}>()
 const emit = defineEmits<{created: [linkId: string]}>()
 
 const open = ref(false)
+const titleError = ref(false)
 const bodyError = ref(false)
 const form = reactive({title: '', bodyMd: '', isPinned: false})
 
@@ -33,6 +34,7 @@ const {run: send, loading: saving, error} = useAsync(async () => {
     link: {courseId: props.courseId, isPinned: form.isPinned},
   })
   Object.assign(form, {title: '', bodyMd: '', isPinned: false})
+  titleError.value = false
   bodyError.value = false
   open.value = false
   emit('created', created.link.id)
@@ -40,9 +42,10 @@ const {run: send, loading: saving, error} = useAsync(async () => {
 const failed = computed(() => error.value !== '')
 
 async function save() {
-  // MarkdownEditor har ingen required, så texten kontrolleras här.
+  // Fälten kontrolleras här i stället för med required, så att felet står vid fältet.
+  titleError.value = form.title.trim() === ''
   bodyError.value = form.bodyMd.trim() === ''
-  if (bodyError.value) {
+  if (titleError.value || bodyError.value) {
     return
   }
 
@@ -65,19 +68,20 @@ async function save() {
           <DialogDescription>Publiceras direkt i kursens nyhetsflöde.</DialogDescription>
         </DialogHeader>
         <FieldGroup>
-          <Field>
+          <Field :data-invalid="titleError">
             <FieldLabel for="news-title">Rubrik</FieldLabel>
             <Input
               id="news-title"
               v-model="form.title"
               placeholder="Studiebesök på tisdag"
-              required
+              :aria-invalid="titleError"
             />
+            <FieldError v-if="titleError">Skriv en rubrik.</FieldError>
           </Field>
           <Field>
             <FieldLabel for="news-body">Text</FieldLabel>
             <MarkdownEditor id="news-body" v-model="form.bodyMd" label="Text"/>
-            <p v-if="bodyError" class="text-destructive text-sm">Skriv en text.</p>
+            <FieldError v-if="bodyError">Skriv något i nyheten.</FieldError>
           </Field>
           <Field orientation="horizontal">
             <Checkbox

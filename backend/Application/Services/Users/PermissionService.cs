@@ -11,7 +11,8 @@ public class PermissionService(
     ICourseRepository courses,
     IGroupRepository groups,
     IContentRepository contents,
-    ISubmissionRepository submissions) : IPermissions
+    ISubmissionRepository submissions,
+    TimeProvider time) : IPermissions
 {
     public async Task<bool> IsAdminAsync(CancellationToken ct) =>
         (await users.GetAsync(currentUser.UserId, ct))?.Role == UserRole.Admin;
@@ -30,6 +31,9 @@ public class PermissionService(
 
     public Task<bool> CanTeachContentAsync(Guid contentId, CancellationToken ct) =>
         contents.IsTeacherOfContentAsync(contentId, currentUser.UserId, ct);
+
+    public Task<bool> CanReadPublishedContentAsync(Guid contentId, CancellationToken ct) =>
+        contents.IsVisibleToMemberOfContentAsync(contentId, currentUser.UserId, time.GetUtcNow(), ct);
 
     public async Task<bool> CanManageCourseAsync(Guid courseId, CancellationToken ct)
     {

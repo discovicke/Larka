@@ -254,7 +254,16 @@ public class StudentContentService(
                         relatedByLinkId))
                     .ToList());
 
+        // Som i lärarvyn: en vecka utan någon publicerad del är ett utkast och syns inte för eleven. En vecka som
+        // inte öppnat än syns som kommande om den har publicerat innehåll.
+        var moduleIdsWithPublishedParts = links
+            .Where(link => link.Content.Status == ContentStatus.Published)
+            .Select(link => link.Link.ModuleId!.Value)
+            .ToHashSet();
+
         return courseModules
+            .Where(module => itemsByModuleId.ContainsKey(module.Id)
+                || (!availableModuleIds.Contains(module.Id) && moduleIdsWithPublishedParts.Contains(module.Id)))
             .Select(module => new StudentModuleWithContentDto(
                 module.Id,
                 module.CourseId,

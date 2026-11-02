@@ -8,8 +8,8 @@ import {
   PhTrash,
   PhWarning,
 } from '@phosphor-icons/vue'
-import {type Component, computed, onMounted, reactive, ref} from 'vue'
-import {useRoute, useRouter} from 'vue-router'
+import {type Component, computed, onBeforeUnmount, onMounted, reactive, ref} from 'vue'
+import {onBeforeRouteLeave, useRoute, useRouter} from 'vue-router'
 
 import AssignmentGroupEditor from '@/components/course/AssignmentGroupEditor.vue'
 import AttachmentList from '@/components/course/AttachmentList.vue'
@@ -24,6 +24,7 @@ import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
 import {Skeleton} from '@/components/ui/skeleton'
 import {useAssignmentGitHub} from '@/composables/useAssignmentGitHub'
 import {useCurrentUser} from '@/composables/useCurrentUser'
+import {useToast} from '@/composables/useToast'
 import {ApiError, errorMessage, type Schema} from '@/lib/api'
 import {fetchAssignmentGroups, updateAssignmentGroups} from '@/lib/assignmentGroups'
 import {fetchRelatedLinks} from '@/lib/relatedContent'
@@ -48,12 +49,13 @@ import NotFoundView from '@/views/NotFoundView.vue'
 const submissionModes: {value: Schema<'SubmissionMode'>, label: string, description: string, icon: Component}[] = [
   {value: 'File', label: 'Filer och foton', description: 'Dokument, bilder, mätprotokoll. Funkar från mobilen.', icon: PhFiles},
   {value: 'Text', label: 'Text', description: 'Eleven skriver svaret direkt i Lärka.', icon: PhTextAa},
-  {value: 'OnSite', label: 'Bedöms på plats', description: 'Du bockar av moment på lektionen, ingen inlämning.', icon: PhChalkboardTeacher},
+  {value: 'OnSite', label: 'Bedöms på plats', description: 'Du klarmarkerar moment på lektionen, ingen inlämning.', icon: PhChalkboardTeacher},
   {value: 'Repo', label: 'GitHub-repo', description: 'Varje elev får ett eget repo från din mall.', icon: PhGithubLogo},
 ]
 
 const route = useRoute()
 const router = useRouter()
+const {showToast} = useToast()
 const courseId = String(route.params.courseId)
 const moduleId = String(route.params.moduleId)
 const {can} = useCurrentUser()
@@ -221,9 +223,32 @@ async function load() {
   }
 }
 
+// Formuläret som det såg ut när det var inläst, för att se om läraren har ändrat något osparat.
+const savedForm = ref('')
+let leaving = false
+const dirty = computed(() => !loading.value && JSON.stringify(form) !== savedForm.value)
+
 onMounted(async () => {
   await load()
   await loadAll()
+  savedForm.value = JSON.stringify(form)
+  window.addEventListener('beforeunload', warnBeforeUnload)
+})
+
+onBeforeUnmount(() => window.removeEventListener('beforeunload', warnBeforeUnload))
+
+// Webbläsaren visar sin egen text när fliken stängs eller laddas om.
+function warnBeforeUnload(event: BeforeUnloadEvent) {
+  if (!leaving && dirty.value) {
+    event.preventDefault()
+  }
+}
+
+onBeforeRouteLeave(() => {
+  if (leaving || !dirty.value) {
+    return true
+  }
+  return window.confirm('Du har osparade ändringar i delen. Lämna sidan ändå?')
 })
 
 async function save(status: Schema<'ContentStatus'> = 'Published') {
@@ -261,8 +286,15 @@ async function save(status: Schema<'ContentStatus'> = 'Published') {
       await createContentWithLink({content, link})
     }
 
+    leaving = true
     await router.push(backRoute.value)
+    showToast(isEditing.value
+      ? 'Ändringarna i delen är sparade.'
+      : status === 'Draft'
+        ? 'Utkastet är sparat.'
+        : 'Delen är sparad.')
   } catch (exception) {
+    leaving = false
     serverError.value = errorMessage(exception)
   } finally {
     saving.value = false
@@ -285,11 +317,18 @@ async function save(status: Schema<'ContentStatus'> = 'Published') {
         <RouterLink :to="backRoute">Avbryt</RouterLink>
       </Button>
       <template v-if="isEditing">
-        <Button :disabled="saving" @click="save()">Spara</Button>
+        <Button :disabled="saving" data-test="save-part" @click="save()">Spara</Button>
       </template>
       <template v-else>
-        <Button variant="outline" :disabled="saving" @click="save('Draft')">Spara utkast</Button>
-        <Button :disabled="saving" @click="save('Published')">Publicera</Button>
+        <Button
+          variant="outline"
+          :disabled="saving"
+          data-test="save-draft"
+          @click="save('Draft')"
+        >
+          Spara utkast
+        </Button>
+        <Button :disabled="saving" data-test="save-publish" @click="save('Published')">Publicera</Button>
       </template>
     </PageActions>
 

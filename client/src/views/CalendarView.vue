@@ -12,6 +12,7 @@ import {useAsync} from '@/composables/useAsync'
 import {useCourses} from '@/composables/useCourses'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {api, type Schema, unwrap} from '@/lib/api'
+import {splitFinished} from '@/lib/courseStatus'
 import {
   addDays,
   dateKey,
@@ -38,6 +39,7 @@ const view = ref<'week' | 'month'>('week')
 const anchor = ref(new Date())
 const items = ref<Item[]>([])
 const courseFilter = ref('all')
+const splitCourses = computed(() => splitFinished(courses.value))
 const today = new Date()
 
 const weekStart = computed(() => startOfWeek(anchor.value))
@@ -172,7 +174,10 @@ watch([view, anchor], load, {immediate: true})
         <label for="calendar-course" class="sr-only">Kurs</label>
         <NativeSelect id="calendar-course" v-model="courseFilter" size="sm">
           <option value="all">Alla kurser</option>
-          <option v-for="course in courses" :key="course.id" :value="course.id">{{ course.title }}</option>
+          <option v-for="course in splitCourses.current" :key="course.id" :value="course.id">{{ course.title }}</option>
+          <optgroup v-if="splitCourses.finished.length" label="Avslutade">
+            <option v-for="course in splitCourses.finished" :key="course.id" :value="course.id">{{ course.title }}</option>
+          </optgroup>
         </NativeSelect>
 
         <div role="tablist" class="bg-muted flex rounded-[7px] p-[3px]">

@@ -3,7 +3,7 @@ import {describe, expect, it, vi} from 'vitest'
 
 import DatePicker from '@/components/DatePicker.vue'
 import {mockApi, requests, sent} from '@/test/mockApi'
-import {meAs} from '@/test/me'
+import {meAs, mentorAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
 const classGroup = {id: 'g1', schoolId: 's1', type: 'Class', name: 'TE22A', term: 'HT25'}
@@ -18,6 +18,9 @@ const users = [
   {id: 'u2', schoolId: 's1', name: 'Lars Lärare', email: 'lars@example.com', role: 'Teacher'},
   {id: 'u6', schoolId: 's1', name: 'Tina Tränare', email: 'tina@example.com', role: 'Teacher'},
   {id: 'u5', schoolId: 's1', name: 'Nils Ny', email: 'nils@example.com', role: 'Student'},
+  // Den inloggade admin (meAs) och en annan admin. Admin kan välja sig själv som lärare, aldrig en annan admin.
+  {id: 'u-me', schoolId: 's1', name: 'Mia Admin', email: 'anna@example.com', role: 'Admin'},
+  {id: 'u7', schoolId: 's1', name: 'Ada Admin', email: 'ada@example.com', role: 'Admin'},
 ]
 
 const members = [
@@ -33,8 +36,12 @@ interface Backend {
   members?: unknown[]
   membersStatus?: number
   role?: 'Teacher' | 'Admin'
+  // Den inloggade är mentor i klassen (och står i medlemslistan som det).
+  mentor?: boolean
   // Lärarna per kurs-id. Utan post har kursen inga lärare.
   teachers?: Record<string, {userId: string, name: string, email: string}[]>
+  // Namnen på de andra klasserna som läser kursen, per kurs-id.
+  shared?: Record<string, string[]>
   importResult?: unknown
   // Status för skrivande anrop, som POST, PUT och DELETE.
   writeStatus?: number
@@ -42,9 +49,13 @@ interface Backend {
 
 function backend(options: Backend = {}) {
   const group = options.group ?? classGroup
+  // Kurser som kopplats under testet. Lärarsvaret följer med, som på riktigt.
+  const linked: unknown[] = []
   mockApi((method, path, body) => {
     if (path === '/api/me') {
-      return {status: 200, body: meAs(options.role ?? 'Teacher', ['c1'])}
+      return {status: 200, body: options.mentor
+        ? mentorAs(['c1'])
+        : meAs(options.role ?? 'Teacher', ['c1'])}
     }
     if (path === '/api/users') {
       return {status: 200, body: users}
@@ -56,8 +67,16 @@ function backend(options: Backend = {}) {
       return {status: 200, body: [devops, java]}
     }
     const teachersPath = /^\/api\/courses\/([^/]+)\/teachers/.exec(path)
-    if (teachersPath && method === 'GET') {
-      return {status: 200, body: options.teachers?.[teachersPath[1]] ?? []}
+    if (method === 'GET' && path === `/api/groups/${group.id}/course-teachers`) {
+      return {status: 200, body: [...(options.courses ?? [devops]), ...linked].map((course) => ({
+        courseId: (course as {id: string}).id,
+        teachers: options.teachers?.[(course as {id: string}).id] ?? [],
+        sharedWith: options.shared?.[(course as {id: string}).id] ?? [],
+      }))}
+    }
+    const linkPath = /^\/api\/groups\/[^/]+\/courses\/([^/]+)$/.exec(path)
+    if (method === 'POST' && linkPath) {
+      linked.push({id: linkPath[1]})
     }
     if (method !== 'GET' && options.writeStatus) {
       return {status: options.writeStatus, body: 'fel'}
@@ -79,6 +98,26 @@ function backend(options: Backend = {}) {
         ? undefined
         : {}}
     }
+    if (path === `/api/groups/${group.id}/students/u1/overview`) {
+      return {status: 200, body: {
+        studentId: 'u1',
+        name: 'Siv Student',
+        groupId: group.id,
+        courses: [{
+          courseId: 'c1',
+          title: 'DevOps',
+          code: 'DEVOPS',
+          assignmentCount: 6,
+          needsWorkCount: 1,
+          lateCount: 2,
+          submittedCount: 1,
+          gradedCount: 2,
+          failCount: 0,
+          passCount: 1,
+          distinctionCount: 1,
+        }],
+      }}
+    }
     if (path === `/api/groups/${group.id}`) {
       return {status: 200, body: group}
     }
@@ -95,6 +134,39 @@ function backend(options: Backend = {}) {
 }
 
 describe('GroupView', () => {
+  it('låter mentorn öppna en elevs läge i klassens kurser', async () => {
+    backend({mentor: true, members: [...members, {userId: 'u-me', name: 'Malin Ekström', role: 'Mentor'}]})
+
+    const {wrapper} = await renderApp('/groups/g1')
+    const rows = wrapper.findAll('[data-test="member-row"]')
+    const studentRow = rows.find((row) => row.text().includes('Siv Student'))!
+    expect(rows.filter((row) => row.find('[data-test="member-overview"]').exists())).toHaveLength(2)
+    expect(rows.find((row) => row.text().includes('Lars Lärare'))!.find('[data-test="member-overview"]').exists())
+      .toBe(false)
+
+    await studentRow.find('[data-test="member-overview"]').trigger('click')
+    await flushPromises()
+
+    const dialog = document.querySelector('[role="dialog"]')!
+    expect(dialog.textContent).toContain('Siv Student')
+    expect(dialog.textContent).toContain('DevOps')
+    expect(dialog.querySelector('[data-test="overview-needs-work"]')!.textContent).toContain('Komplettera 1')
+    expect(dialog.querySelector('[data-test="overview-late"]')!.textContent).toContain('Försenat 2')
+    expect(dialog.querySelector('[data-test="overview-submitted"]')!.textContent).toContain('Inlämnat, ej bedömt 1')
+    expect(dialog.querySelector('[data-test="overview-graded"]')!.textContent).toContain('Bedömda 2 av 6 (G 1 · VG 1)')
+    expect(requests.some((request) => request.path === '/api/groups/g1/students/u1/overview')).toBe(true)
+  })
+
+  it('visar elevernas läge för admin men inte för en lärare i klassen', async () => {
+    backend({role: 'Admin'})
+    const admin = await renderApp('/groups/g1')
+    expect(admin.wrapper.findAll('[data-test="member-overview"]')).toHaveLength(2)
+
+    backend({role: 'Teacher'})
+    const teacher = await renderApp('/groups/g1')
+    expect(teacher.wrapper.find('[data-test="member-overview"]').exists()).toBe(false)
+  })
+
   it('visar namn, typ och starttermin i rubriken', async () => {
     backend()
 
@@ -148,7 +220,12 @@ describe('GroupView', () => {
       const {wrapper} = await renderApp('/groups/g1')
 
       const parts = wrapper.findAll('[data-test="course-group"]')
-      expect(parts.map((part) => part.find('h3').text())).toEqual(['Pågår', 'Kommande', 'Avslutade'])
+      expect(parts.map((part) => part.find('h3, [data-test="finished-courses-toggle"]').text()))
+        .toEqual(['Pågår', 'Kommande', 'Avslutade (2)'])
+      // Avslutade är hopfällda tills man öppnar dem.
+      expect(parts[2].findAll('[data-test="course-row"]')).toHaveLength(0)
+      await parts[2].find('[data-test="finished-courses-toggle"]').trigger('click')
+      await flushPromises()
       expect(parts[0].findAll('[data-test="course-row"] a').map((link) => link.text())).toEqual(['DevOps', 'DevOps 2'])
       expect(parts[2].findAll('[data-test="course-row"] a').map((link) => link.text())).toEqual(['Databaser', 'C#'])
       const running = parts[0].findAll('[data-test="course-row"]')[1]
@@ -260,17 +337,24 @@ describe('GroupView', () => {
       expect(options.some((text) => text?.includes('Siv Student'))).toBe(false)
       expect(options.some((text) => text?.includes('Nils Ny'))).toBe(true)
 
-      const user = modal().querySelector('[data-test="member-user"]') as HTMLSelectElement
-      user.value = 'u5'
-      user.dispatchEvent(new Event('change'))
+      // Klassen har redan en mentor, så Mentor är inget val här, och bara lärare kan vara lärare i gruppen.
       const role = modal().querySelector('[data-test="member-role-select"]') as HTMLSelectElement
-      role.value = 'Mentor'
+      expect([...role.options].map((option) => option.value)).toEqual(['Teacher', 'Student'])
+      expect(modal().querySelector('[data-test="has-mentor"]')).not.toBeNull()
+      role.value = 'Teacher'
       role.dispatchEvent(new Event('change'))
+      await flushPromises()
+      const teacherOptions = [...modal().querySelectorAll('[data-test="member-user"] option')]
+        .map((option) => option.textContent?.trim())
+      expect(teacherOptions.some((text) => text?.includes('Nils Ny'))).toBe(false)
+      const user = modal().querySelector('[data-test="member-user"]') as HTMLSelectElement
+      user.value = 'u6'
+      user.dispatchEvent(new Event('change'))
       await flushPromises()
       await click(modal().querySelector('[data-test="confirm-add-member"]'))
 
-      expect(sent('POST', '/api/groups/g1/members')).toEqual({userId: 'u5', role: 'Mentor'})
-      expect(roleOf(wrapper, 'Nils Ny')).toBe('Mentor')
+      expect(sent('POST', '/api/groups/g1/members')).toEqual({userId: 'u6', role: 'Teacher'})
+      expect(roleOf(wrapper, 'Tina Tränare')).toBe('Lärare')
       expect(modal()).toBeNull()
     })
 
@@ -347,8 +431,8 @@ describe('GroupView', () => {
       await click(modal().querySelector('[data-test="confirm-change-role"]'))
 
       expect(sent('PUT', '/api/groups/g1/members/u2')).toEqual({role: 'Mentor'})
-      expect(requests.filter((request) => request.method === 'DELETE').map((request) => request.path))
-        .toEqual(['/api/groups/g1/members/u3'])
+      // API:et låter den förra mentorn lämna klassen, så klienten tar inte bort någon själv.
+      expect(requests.some((request) => request.method === 'DELETE')).toBe(false)
     })
 
     it('behåller rollen och visar felet när rollbytet misslyckas', async () => {
@@ -375,7 +459,8 @@ describe('GroupView', () => {
       await click(modal().querySelector('[data-test="confirm-remove-member"]'))
 
       expect(requests.some((request) => request.method === 'DELETE' && request.path === '/api/groups/g1/members/u1')).toBe(true)
-      expect(wrapper.text()).not.toContain('Siv Student')
+      expect(wrapper.find('[data-test="toast"]').text()).toContain('Siv Student är borttagen ur TE22A.')
+      expect(wrapper.text().replace(wrapper.find('[data-test="toaster"]').text(), '')).not.toContain('Siv Student')
     })
 
     it('behåller medlemmen och visar felet när borttagningen misslyckas', async () => {
@@ -405,6 +490,7 @@ describe('GroupView', () => {
 
       expect(requests.some((request) => request.method === 'POST' && request.path === '/api/groups/g1/courses/c2')).toBe(true)
       expect(wrapper.findAll('[data-test="course-row"]').map((row) => row.find('a').text())).toEqual(['DevOps', 'Java'])
+      expect(wrapper.find('[data-test="toast"]').text()).toContain('Java är kopplad till TE22A.')
     })
 
     it('visar att kursen redan är kopplad vid 409', async () => {
@@ -494,8 +580,8 @@ describe('GroupView', () => {
       await wrapper.find('[data-test="edit-teachers"]').trigger('click')
       await flushPromises()
       const options = [...modal().querySelectorAll('[data-test="add-teacher-select"] option')]
-      // Lars undervisar redan och eleverna är inga lärare.
-      expect(options.map((option) => (option as HTMLOptionElement).value)).toEqual(['', 'u6'])
+      // Lars undervisar redan, eleverna är inga lärare och den andra admin kan inte väljas. Admin själv kan det.
+      expect(options.map((option) => (option as HTMLOptionElement).value)).toEqual(['', 'u-me', 'u6'])
       await pick(modal().querySelector('[data-test="add-teacher-select"]'), 'u6')
       await click(modal().querySelector('[data-test="add-teacher"]'))
 
@@ -503,14 +589,90 @@ describe('GroupView', () => {
       expect(wrapper.find('[data-test="course-teacher-names"]').text()).toBe('Lärare: Lars Lärare, Tina Tränare')
 
       await click(modal().querySelectorAll('[data-test="remove-teacher"]')[0])
+      // Den sista läraren tas inte bort förrän admin bekräftat.
       await click(modal().querySelectorAll('[data-test="remove-teacher"]')[0])
+      expect(requests.filter((request) => request.method === 'DELETE')).toHaveLength(1)
+      await click(document.querySelector('[data-test="confirm-remove-last"]'))
 
       expect(requests.filter((request) => request.method === 'DELETE').map((request) => request.path))
         .toEqual(['/api/courses/c1/teachers/u2', '/api/courses/c1/teachers/u6'])
       expect(wrapper.find('[data-status="course.noTeacher"]').exists()).toBe(true)
     })
 
-    it('utser en mentor som redan är med i klassen och tar bort den förra', async () => {
+    it('behåller den sista läraren om admin avbryter', async () => {
+      backend({role: 'Admin', teachers: {c1: [{userId: 'u2', name: 'Lars Lärare', email: 'lars@example.com'}]}})
+      const {wrapper} = await renderApp('/groups/g1')
+
+      await wrapper.find('[data-test="edit-teachers"]').trigger('click')
+      await flushPromises()
+      await click(modal().querySelector('[data-test="remove-teacher"]'))
+
+      expect(document.querySelector('[data-test="confirm-last-teacher"]')?.textContent).toContain('enda lärare')
+      const cancel = [...document.querySelectorAll('[data-test="confirm-last-teacher"] button')]
+        .find((button) => button.textContent?.trim() === 'Avbryt')
+      await click(cancel ?? null)
+
+      expect(requests.some((request) => request.method === 'DELETE')).toBe(false)
+      expect(wrapper.find('[data-test="course-teacher-names"]').text()).toBe('Lärare: Lars Lärare')
+    })
+
+    it('ersätter en lärare i ett steg: lägger till den nya och tar bort den gamla', async () => {
+      backend({role: 'Admin', teachers: {c1: [{userId: 'u2', name: 'Lars Lärare', email: 'lars@example.com'}]}})
+      const {wrapper} = await renderApp('/groups/g1')
+
+      await wrapper.find('[data-test="edit-teachers"]').trigger('click')
+      await flushPromises()
+      await click(modal().querySelector('[data-test="replace-teacher"]'))
+      expect(modal().textContent).toContain('Ersätt Lars Lärare med')
+      await pick(modal().querySelector('[data-test="add-teacher-select"]'), 'u6')
+      await click(modal().querySelector('[data-test="add-teacher"]'))
+
+      expect(requests.filter((request) => request.method !== 'GET').map((request) => `${request.method} ${request.path}`))
+        .toEqual(['POST /api/courses/c1/teachers', 'DELETE /api/courses/c1/teachers/u2'])
+      expect(wrapper.find('[data-test="course-teacher-names"]').text()).toBe('Lärare: Tina Tränare')
+      // Ersätt är ett byte och kräver ingen bekräftelse för att kursen står utan lärare.
+      expect(document.querySelector('[data-test="confirm-last-teacher"]')).toBeNull()
+    })
+
+    it('säger att kursen delas med en annan klass', async () => {
+      backend({
+        role: 'Admin',
+        teachers: {c1: [{userId: 'u2', name: 'Lars Lärare', email: 'lars@example.com'}]},
+        shared: {c1: ['.NET24']},
+      })
+      const {wrapper} = await renderApp('/groups/g1')
+
+      await wrapper.find('[data-test="edit-teachers"]').trigger('click')
+      await flushPromises()
+
+      expect(modal().querySelector('[data-test="shared-with"]')?.textContent).toContain('Delas med .NET24')
+    })
+
+    it('hämtar lärarna för alla kurser i ett anrop', async () => {
+      backend({role: 'Admin', courses: [devops, java]})
+
+      await renderApp('/groups/g1')
+
+      expect(requests.filter((request) => request.path.endsWith('/teachers'))).toHaveLength(0)
+      expect(requests.filter((request) => request.path === '/api/groups/g1/course-teachers')).toHaveLength(1)
+    })
+
+    it('visar lärarna på en nykopplad kurs utan att sidan laddas om', async () => {
+      backend({
+        role: 'Admin',
+        teachers: {c2: [{userId: 'u6', name: 'Tina Tränare', email: 'tina@example.com'}]},
+      })
+      const {wrapper} = await renderApp('/groups/g1')
+
+      await click(wrapper.find('[data-test="link-course-button"]').element)
+      await pick(modal().querySelector('[data-test="link-course"]'), 'c2')
+      await click(modal().querySelector('[data-test="confirm-link-course"]'))
+
+      const rows = wrapper.findAll('[data-test="course-row"]')
+      expect(rows[1].find('[data-test="course-teacher-names"]').text()).toBe('Lärare: Tina Tränare')
+    })
+
+    it('utser en mentor som redan är med i klassen, och den förra lämnar via API:et', async () => {
       backend({role: 'Admin'})
       const {wrapper} = await renderApp('/groups/g1')
 
@@ -522,7 +684,7 @@ describe('GroupView', () => {
       await click(modal().querySelector('[data-test="confirm-mentor"]'))
 
       expect(sent('PUT', '/api/groups/g1/members/u2')).toEqual({role: 'Mentor'})
-      expect(requests.some((request) => request.method === 'DELETE' && request.path === '/api/groups/g1/members/u3')).toBe(true)
+      expect(requests.some((request) => request.method === 'DELETE')).toBe(false)
       expect(modal()).toBeNull()
     })
 

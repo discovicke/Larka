@@ -52,6 +52,17 @@ function badgeStatus(course: StudyPlanCourse): CourseStatus {
   return courseStatus(course) ?? {Completed: 'finished', Ongoing: 'running', Upcoming: 'upcoming'}[course.status] as CourseStatus
 }
 
+// Avslutad kurs där alla kursdelar är bedömda men kursbetyget saknas: det är läraren som ska sätta det.
+function courseGradeText(course: StudyPlanCourse): string {
+  const awaitsTeacher = !course.grade
+    && badgeStatus(course) === 'finished'
+    && course.assignmentCount > 0
+    && course.gradedCount >= course.assignmentCount
+  return awaitsTeacher
+    ? 'Betygssätts av läraren'
+    : gradeText(course.grade)
+}
+
 function assignmentStatusClass(assignment: StudyPlanAssignment): string {
   if (assignment.status === 'Graded' && assignment.grade) {
     return assignment.grade === 'Fail'
@@ -186,7 +197,7 @@ load()
               <Badge v-if="course.grade" :variant="gradeBadgeVariant(course.grade)">
                 {{ gradeText(course.grade) }}
               </Badge>
-              <span v-else class="text-muted-foreground text-sm">{{ gradeText(course.grade) }}</span>
+              <span v-else class="text-muted-foreground text-sm">{{ courseGradeText(course) }}</span>
             </div>
           </li>
         </ul>
@@ -222,7 +233,7 @@ load()
                   <Badge v-if="course.grade" :variant="gradeBadgeVariant(course.grade)">
                     {{ gradeText(course.grade) }}
                   </Badge>
-                  <span v-else class="text-muted-foreground">{{ gradeText(course.grade) }}</span>
+                  <span v-else class="text-muted-foreground">{{ courseGradeText(course) }}</span>
                 </td>
               </tr>
             </tbody>

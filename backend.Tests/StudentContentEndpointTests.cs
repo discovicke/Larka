@@ -135,6 +135,22 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     }
 
     [Fact]
+    public async Task LockedPart_KeepsItsTitle_ButTheBodyTextIsNotInTheResponse()
+    {
+        var setup = await AddCourseWithGroupAsync();
+        var week = await CreateModuleAsync(setup.CourseId);
+        var theory = await LinkTheoryAsync(setup.CourseId, week.Id, "Teori A");
+        var locked = await LinkTheoryAsync(setup.CourseId, week.Id, "Teori B", "Texten som är låst");
+        await SaveRoadmapAsync(setup.CourseId, week.Id, (theory, []), (locked, [theory]));
+
+        using var student = StudentClient(setup.StudentIds[0]);
+        var raw = await student.GetStringAsync($"/api/courses/{setup.CourseId}/student-modules");
+
+        Assert.Contains("Teori B", raw);
+        Assert.DoesNotContain("Texten som är låst", raw);
+    }
+
+    [Fact]
     public async Task FutureWeek_IsAShellWithoutContent_AndCannotBeCompleted()
     {
         var setup = await AddCourseWithGroupAsync();

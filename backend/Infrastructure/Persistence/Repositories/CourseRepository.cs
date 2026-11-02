@@ -54,6 +54,29 @@ public class CourseRepository(AppDb db) : ICourseRepository
             .Select(user => new CourseTeacherInfo(user.Id, user.Name, user.Email))
             .ToListAsync(ct);
 
+    public async Task<Dictionary<Guid, List<CourseTeacherInfo>>> GetTeachersForCoursesAsync(
+        IReadOnlyCollection<Guid> courseIds, CancellationToken ct)
+    {
+        var rows = await db.CourseTeachers
+            .Where(courseTeacher => courseIds.Contains(courseTeacher.CourseId))
+            .Join(
+                db.Users,
+                courseTeacher => courseTeacher.UserId,
+                user => user.Id,
+                (courseTeacher, user) => new { courseTeacher.CourseId, user })
+            .OrderBy(row => row.user.Name)
+            .ThenBy(row => row.user.Email)
+            .Select(row => new
+            {
+                row.CourseId,
+                Info = new CourseTeacherInfo(row.user.Id, row.user.Name, row.user.Email)
+            })
+            .ToListAsync(ct);
+        return rows
+            .GroupBy(row => row.CourseId)
+            .ToDictionary(grouping => grouping.Key, grouping => grouping.Select(row => row.Info).ToList());
+    }
+
     public Task<CourseTeacher?> GetTeacherAsync(Guid courseId, Guid userId, CancellationToken ct) =>
         db.CourseTeachers.FirstOrDefaultAsync(
             courseTeacher => courseTeacher.CourseId == courseId && courseTeacher.UserId == userId, ct);

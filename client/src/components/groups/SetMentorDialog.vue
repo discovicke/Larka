@@ -15,11 +15,11 @@ import {FieldLabel} from '@/components/ui/field'
 import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
 import {useAsync} from '@/composables/useAsync'
 import {errorMessage, type Schema} from '@/lib/api'
-import {addGroupMember, changeMemberRole, removeGroupMember} from '@/lib/groupsApi'
+import {addGroupMember, changeMemberRole} from '@/lib/groupsApi'
 import {fetchUsers} from '@/lib/usersApi'
 
 const props = defineProps<{groupId: string, groupName: string, members: Schema<'GroupMemberDto'>[]}>()
-// changed kommer när mentorn är satt, också om den förra mentorn inte kunde tas bort, så att sidan visar läget.
+// changed kommer när mentorn är satt. API:et tar bort den förra mentorn i samma steg.
 const emit = defineEmits<{changed: []}>()
 
 const open = defineModel<boolean>('open', {required: true})
@@ -31,9 +31,9 @@ const saving = ref(false)
 const {run: loadUsers, loading, error} = useAsync(fetchUsers)
 
 const mentors = computed(() => props.members.filter((member) => member.role === 'Mentor'))
-// Mentorn är en lärare eller admin i skolan. En som redan är mentor väljs inte igen.
+// Mentorn är en lärare i skolan, inte admin eller elev. En som redan är mentor väljs inte igen.
 const candidates = computed(() => users.value
-  .filter((user) => user.role !== 'Student')
+  .filter((user) => user.role === 'Teacher')
   .filter((user) => !mentors.value.some((mentor) => mentor.userId === user.id))
   .sort((first, second) => first.name.localeCompare(second.name, 'sv')))
 const chosen = computed(() => candidates.value.find((user) => user.id === userId.value))
@@ -59,26 +59,15 @@ async function save() {
   error.value = ''
   try {
     // Mentor är en roll i klassen. Är läraren redan med byter rollen, annars läggs hen till.
+    // En klass har en mentor, så API:et låter den förra lämna klassen i samma steg.
     const isMember = props.members.some((member) => member.userId === chosen.value!.id)
     await (isMember
       ? changeMemberRole(props.groupId, chosen.value.id, 'Mentor')
       : addGroupMember(props.groupId, chosen.value.id, 'Mentor'))
-  } catch (exception) {
-    error.value = `Kunde inte utse ${chosen.value.name} till mentor. ${errorMessage(exception)}`
-    saving.value = false
-    return
-  }
-
-  try {
-    // En klass har en mentor, så den förra lämnar klassen.
-    for (const mentor of mentors.value) {
-      await removeGroupMember(props.groupId, mentor.userId)
-    }
     emit('changed')
     open.value = false
   } catch (exception) {
-    emit('changed')
-    error.value = `${chosen.value.name} är mentor, men den förra mentorn kunde inte tas bort ur klassen. ${errorMessage(exception)}`
+    error.value = `Kunde inte utse ${chosen.value.name} till mentor. ${errorMessage(exception)}`
   } finally {
     saving.value = false
   }
@@ -96,7 +85,7 @@ async function save() {
               : 'Utse mentor' }} för {{ groupName }}
           </DialogTitle>
           <DialogDescription>
-            Mentorn läser klasslistan och följer klassen. Välj en lärare eller admin.
+            Mentorn läser klasslistan och följer klassen. Välj en lärare.
           </DialogDescription>
         </DialogHeader>
 

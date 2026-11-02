@@ -10,6 +10,7 @@ import {
 import {useCourses} from '@/composables/useCourses'
 import {useCrumbLabels} from '@/composables/useCrumbLabels'
 import {useCurrentUser} from '@/composables/useCurrentUser'
+import {useToast} from '@/composables/useToast'
 import AppLayout from '@/layouts/AppLayout.vue'
 import {auth} from '@/lib/auth'
 import type {Action} from '@/lib/permissions'
@@ -235,6 +236,9 @@ function authGuard(to: RouteLocationNormalizedLoaded): RouteLocationRaw | true {
     : {name: 'login', query: {redirect: to.fullPath}}
 }
 
+/** Texten när en sida kräver en behörighet som användaren saknar. */
+export const noAccessMessage = 'Du har inte behörighet till den sidan.'
+
 export function createAppRouter(history: RouterHistory = createWebHistory()) {
   const router = createRouter({history, routes})
   router.beforeEach(authGuard)
@@ -258,9 +262,12 @@ export function createAppRouter(history: RouterHistory = createWebHistory()) {
     const courseId = typeof to.params.courseId === 'string'
       ? to.params.courseId
       : undefined
-    return can(requires, courseId)
-      ? true
-      : {name: 'today'}
+    if (can(requires, courseId)) {
+      return true
+    }
+    // Ingen tyst omdirigering: användaren får veta varför sidan inte öppnades.
+    useToast().showToast(noAccessMessage)
+    return {name: 'today'}
   })
   router.afterEach((to) => {
     document.title = to.meta.title

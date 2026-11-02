@@ -3,6 +3,7 @@ import createClient, {type Middleware} from 'openapi-fetch'
 import type {components, paths} from './api-types'
 import {clearSession, currentToken} from './auth/session'
 import {redirectToLogin} from './auth/redirect'
+import {fallbackForStatus, isSwedish, swedishServerMessage} from './serverMessages'
 
 // Klienten och API:et har samma origin (Vite-proxy lokalt, backend serverar klienten i prod),
 // så alla anrop går till samma origin som sidan. Ingen CORS behövs.
@@ -43,11 +44,25 @@ export function multipart<T>(form: FormData): T {
   return form as unknown as T
 }
 
-/** Felmeddelandet att visa för användaren, t.ex. "title is required" från backend. */
+/**
+ * Felmeddelandet att visa för användaren, alltid på svenska. Backend svarar oftast med korta engelska
+ * texter ("title is required"); de översätts i serverMessages.ts. Svenska meddelanden från backend
+ * visas som de är, och allt annat blir en allmän text efter statuskoden.
+ */
 export function errorMessage(exception: unknown): string {
-  // 403 betyder att API:et nekat åtgärden, oavsett vad svaret heter i övrigt.
-  if (exception instanceof ApiError && exception.status === 403) {
-    return 'Du har inte behörighet.'
+  if (exception instanceof ApiError) {
+    // 403 betyder att API:et nekat åtgärden, oavsett vad svaret heter i övrigt.
+    if (exception.status === 403) {
+      return 'Du har inte behörighet.'
+    }
+    return swedishServerMessage(exception.message)
+      ?? (exception.status < 500 && isSwedish(exception.message)
+        ? exception.message
+        : fallbackForStatus(exception.status))
+  }
+  // fetch kastar TypeError ("Failed to fetch") när servern inte går att nå alls.
+  if (exception instanceof TypeError) {
+    return 'Kunde inte nå servern. Kontrollera anslutningen och försök igen.'
   }
   return exception instanceof Error
     ? exception.message

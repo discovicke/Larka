@@ -45,7 +45,7 @@ describe('useAsync', () => {
     })
 
     expect(await run()).toBeUndefined()
-    expect(error.value).toBe('title is required')
+    expect(error.value).toBe('Titeln saknas.')
     expect(loading.value).toBe(false)
   })
 

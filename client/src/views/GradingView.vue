@@ -8,23 +8,15 @@ import {Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/co
 import {Skeleton} from '@/components/ui/skeleton'
 import {useAsync} from '@/composables/useAsync'
 import {useCourses} from '@/composables/useCourses'
-import {type Schema} from '@/lib/api'
+import {useFlash} from '@/composables/useFlash'
 import {formatDate} from '@/lib/content'
-import {fetchCourseModules} from '@/lib/modulesApi'
-import {fetchLinkSubmissions} from '@/lib/submissionsApi'
-
-interface GradingRow {
-  submission: Schema<'SubmissionDto'>
-  courseId: string
-  courseTitle: string
-  linkId: string
-  title: string
-  name: string
-}
+import {fetchGradingRows, type GradingRow} from '@/lib/gradingQueue'
 
 const {courses, status} = useCourses()
 
 const rows = ref<GradingRow[]>([])
+// Beskedet från bedömningen som skickade läraren hit, t.ex. "Bedömningen är sparad."
+const notice = ref(useFlash().takeFlash())
 
 const orderedRows = computed(() => [...rows.value]
   .sort((left, right) => Date.parse(left.submission.submittedAt ?? '')
@@ -36,29 +28,10 @@ function rowBorder(index: number) {
     : ''
 }
 
-const {run: loadRows, loading, error} = useAsync(async () => {
-  const moduleResults = await Promise.all(courses.value.map((course) => fetchCourseModules(course.id)))
-
-  const assignments = moduleResults.flatMap((weeks, index) => {
-    const course = courses.value[index]
-    return weeks.flatMap((week) => week.content
-      .filter((item) => item.type === 'Assignment')
-      .map((item) => ({course, item})))
-  })
-
-  const submissionResults = await Promise.all(assignments.map(({item}) => fetchLinkSubmissions(item.linkId)))
-
-  return assignments.flatMap(({course, item}, index) => submissionResults[index]
-    .filter((submission) => submission.status === 'Submitted')
-    .map((submission) => ({
-      submission,
-      courseId: course.id,
-      courseTitle: course.title,
-      linkId: item.linkId,
-      title: item.title,
-      name: submission.studentName,
-    })))
-}, 'Kunde inte hämta inlämningarna.')
+const {run: loadRows, loading, error} = useAsync(
+  () => fetchGradingRows(courses.value),
+  'Kunde inte hämta inlämningarna.',
+)
 
 async function load() {
   const loaded = await loadRows()
@@ -80,6 +53,10 @@ watch(status, (value) => {
       <h1 class="font-heading text-[30px] leading-tight font-semibold">Att bedöma</h1>
       <p class="text-muted-foreground">Inlämningar som väntar på bedömning i dina kurser</p>
     </div>
+
+    <Alert v-if="notice" data-test="grading-notice">
+      <AlertDescription>{{ notice }}</AlertDescription>
+    </Alert>
 
     <Alert v-if="error" variant="destructive">
       <AlertDescription>{{ error }}</AlertDescription>

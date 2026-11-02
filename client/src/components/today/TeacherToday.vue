@@ -10,6 +10,7 @@ import {useAsync} from '@/composables/useAsync'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {useGradingCount} from '@/composables/useGradingCount'
 import {type Schema} from '@/lib/api'
+import {isFinished} from '@/lib/courseStatus'
 import {fetchTeaching} from '@/lib/coursesApi'
 import {deadlineStatusKey} from '@/lib/status'
 import {
@@ -38,7 +39,10 @@ const {setGradingCount} = useGradingCount()
 const teaching = ref<Teaching | null>(null)
 
 const name = computed(() => firstName(me.value?.name))
-const needsPreparation = computed(() => teaching.value?.courses.filter((course) => course.needsPreparation) ?? [])
+// Pågående kurser, och avslutade som fortfarande har inlämningar att bedöma.
+const shownCourses = computed(() => (teaching.value?.courses ?? [])
+  .filter((course) => !isFinished(course) || course.toGrade > 0))
+const needsPreparation = computed(() => shownCourses.value.filter((course) => course.needsPreparation && !isFinished(course)))
 const mobileGreeting = computed(() => name.value
   ? `Hej ${name.value}`
   : 'Hej')
@@ -144,6 +148,27 @@ load()
       <h1 class="text-2xl leading-[1.2] md:hidden">{{ mobileGreeting }}</h1>
       <p class="text-muted-foreground text-sm md:text-base">{{ dateLine(now) }} · {{ toGradeLine }}</p>
     </div>
+
+    <section
+      v-if="needsPreparation.length"
+      aria-labelledby="t-prepare-heading"
+      class="flex flex-col gap-1.5"
+      data-test="needs-preparation"
+    >
+      <h2 id="t-prepare-heading" class="text-base">Behöver förberedas</h2>
+      <p class="text-muted-foreground text-sm">Beskrivning eller publicerade delar saknas.</p>
+      <ul class="flex flex-col">
+        <li v-for="course in needsPreparation" :key="course.courseId" data-test="needs-preparation-item">
+          <RouterLink
+            :to="courseLink(course.courseId)"
+            class="inline-flex min-h-11 items-center gap-2 font-medium underline underline-offset-3 decoration-border hover:decoration-foreground"
+          >
+            {{ course.title }}
+            <span class="text-muted-foreground font-mono text-xs font-normal">{{ course.code }}</span>
+          </RouterLink>
+        </li>
+      </ul>
+    </section>
 
     <div class="grid grid-cols-1 gap-4 md:grid-cols-[repeat(auto-fit,minmax(min(340px,100%),1fr))]">
       <section
@@ -258,35 +283,14 @@ load()
       </div>
     </div>
 
-    <section
-      v-if="needsPreparation.length"
-      aria-labelledby="t-prepare-heading"
-      class="flex flex-col gap-1.5"
-      data-test="needs-preparation"
-    >
-      <h2 id="t-prepare-heading" class="text-base">Behöver förberedas</h2>
-      <p class="text-muted-foreground text-sm">Beskrivning eller publicerade delar saknas.</p>
-      <ul class="flex flex-col">
-        <li v-for="course in needsPreparation" :key="course.courseId" data-test="needs-preparation-item">
-          <RouterLink
-            :to="courseLink(course.courseId)"
-            class="inline-flex min-h-11 items-center gap-2 font-medium underline underline-offset-3 decoration-border hover:decoration-foreground"
-          >
-            {{ course.title }}
-            <span class="text-muted-foreground font-mono text-xs font-normal">{{ course.code }}</span>
-          </RouterLink>
-        </li>
-      </ul>
-    </section>
-
     <section aria-labelledby="t-courses-heading" class="flex flex-col gap-3">
       <h2 id="t-courses-heading" class="text-base">Mina kurser</h2>
-      <p v-if="!teaching.courses.length" class="text-muted-foreground text-sm" data-test="teacher-courses-empty">
+      <p v-if="!shownCourses.length" class="text-muted-foreground text-sm" data-test="teacher-courses-empty">
         Du undervisar inte i någon kurs än.
       </p>
       <div class="grid grid-cols-1 gap-4 md:grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))]">
         <RouterLink
-          v-for="course in teaching.courses"
+          v-for="course in shownCourses"
           :key="course.courseId"
           :to="courseLink(course.courseId)"
           data-test="teacher-course-card"

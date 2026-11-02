@@ -101,7 +101,7 @@ function showItemBadge(item: Schema<'ModuleContentItem'>): boolean {
   if (badge.status === 'publishing.published') {
     return false
   }
-  return !(weekState.value?.status === badge.status && weekState.value.label === badge.label)
+  return !(weekState.value.status === badge.status && weekState.value.label === badge.label)
 }
 
 function badgeOf(item: Schema<'ModuleContentItem'>): {status: StatusKey, label?: string} {
@@ -135,7 +135,7 @@ function badgeOf(item: Schema<'ModuleContentItem'>): {status: StatusKey, label?:
         </Button>
       </CollapsibleTrigger>
       <h2 class="min-w-32 flex-1 font-sans text-sm font-semibold">{{ module.title }}</h2>
-      <StatusBadge v-if="weekState" :status="weekState.status" :label="weekState.label"/>
+      <StatusBadge :status="weekState.status" :label="weekState.label"/>
       <span v-if="canEdit && plannedDate" class="text-muted-foreground text-[13px]" data-test="week-planned">
         Planerad {{ plannedDate }}
       </span>
@@ -299,31 +299,21 @@ function badgeOf(item: Schema<'ModuleContentItem'>): {status: StatusKey, label?:
       </Item>
 
       <div v-if="canEdit" class="border-t px-3 pt-2 pb-3 pl-10">
-        <DropdownMenu>
-          <DropdownMenuTrigger as-child>
-            <Button
-              variant="ghost"
-              size="sm"
-              class="text-muted-foreground"
-              data-test="add-part-menu"
-            >
-              <PhPlus/>
-              Lägg till del
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" class="min-w-60">
-            <!-- Typen väljs i formuläret. -->
-            <DropdownMenuItem as-child class="min-h-10">
-              <RouterLink
-                :to="{name: 'create-content', params: {courseId: module.courseId, moduleId: module.id}}"
-                data-test="add-part"
-              >
-                <PhPlus/>
-                Ny del
-              </RouterLink>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <!-- Typen väljs i formuläret, så knappen går direkt dit. -->
+        <Button
+          as-child
+          variant="ghost"
+          size="sm"
+          class="text-muted-foreground"
+        >
+          <RouterLink
+            :to="{name: 'create-content', params: {courseId: module.courseId, moduleId: module.id}}"
+            data-test="add-part"
+          >
+            <PhPlus/>
+            Lägg till del
+          </RouterLink>
+        </Button>
       </div>
     </CollapsibleContent>
   </Collapsible>

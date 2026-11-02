@@ -2614,6 +2614,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/groups/{id}/course-teachers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GroupCourseTeachersDto"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/groups/{id}/courses/{courseId}": {
         parameters: {
             query?: never;
@@ -2823,6 +2887,71 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/groups/{id}/students/{studentId}/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    studentId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StudentOverviewDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -6557,7 +6686,18 @@ export interface components {
             /** @default false */
             needsWork: boolean;
         };
-        /** @description Gruppen med antal medlemmar (alla roller), så att listan slipper hämta medlemmarna en och en. */
+        /** @description Lärarna i en kurs som en klass läser, och namnen på de andra grupperna som läser samma kurs. */
+        GroupCourseTeachersDto: {
+            /** Format: uuid */
+            courseId: string;
+            teachers: components["schemas"]["CourseTeacherDto"][];
+            sharedWith: string[];
+        };
+        /**
+         * @description Gruppen med antal medlemmar (alla roller), så att listan slipper hämta medlemmarna en och en.
+         *     LastCourseEndsOn är den sista slutdagen bland gruppens kurser. Den är null när gruppen saknar kurser eller när
+         *     någon kurs saknar slutdatum, så att klienten kan avgöra om en klass är avslutad utan att hämta kurserna.
+         */
         GroupDto: {
             /** Format: uuid */
             id: string;
@@ -6568,6 +6708,8 @@ export interface components {
             term: string;
             /** Format: int32 */
             memberCount: number;
+            /** Format: date */
+            lastCourseEndsOn: null | string;
         };
         /** @description En medlem i en grupp, med namn och rollen i just den gruppen. */
         GroupMemberDto: {
@@ -6921,6 +7063,41 @@ export interface components {
             isAvailable: boolean;
             content: components["schemas"]["StudentContentItem"][];
         };
+        /**
+         * @description Läget i en kurs. NeedsWork är uppgifter läraren vill ha kompletterade, Late uppgifter som passerat deadline
+         *     utan att lämnas in, Submitted lämnade och ännu inte bedömda, och Graded de som har betyg (fördelade på nivå).
+         */
+        StudentOverviewCourseDto: {
+            /** Format: uuid */
+            courseId: string;
+            title: string;
+            code: string;
+            /** Format: int32 */
+            assignmentCount: number;
+            /** Format: int32 */
+            needsWorkCount: number;
+            /** Format: int32 */
+            lateCount: number;
+            /** Format: int32 */
+            submittedCount: number;
+            /** Format: int32 */
+            gradedCount: number;
+            /** Format: int32 */
+            failCount: number;
+            /** Format: int32 */
+            passCount: number;
+            /** Format: int32 */
+            distinctionCount: number;
+        };
+        /** @description En elev i klassen sett av mentorn: läget i varje kurs klassen läser. Bara läsning. */
+        StudentOverviewDto: {
+            /** Format: uuid */
+            studentId: string;
+            name: string;
+            /** Format: uuid */
+            groupId: string;
+            courses: components["schemas"]["StudentOverviewCourseDto"][];
+        };
         StudentRepoDto: {
             repoFullName: string;
             lastSha: null | string;
@@ -7059,6 +7236,10 @@ export interface components {
             /** Format: int32 */
             toGrade: number;
             needsPreparation: boolean;
+            /** Format: date */
+            startsOn: null | string;
+            /** Format: date */
+            endsOn: null | string;
         };
         /** @description En publicerad uppgift med deadline de närmaste två veckorna. */
         TeachingDeadlineDto: {
@@ -7127,6 +7308,10 @@ export interface components {
             totalParts: number;
             /** Format: int32 */
             completedParts: number;
+            /** Format: date */
+            startsOn: null | string;
+            /** Format: date */
+            endsOn: null | string;
         };
         /** @description Elevens Idag-sida. Tomma listor när det inte finns något att visa. */
         TodayDto: {

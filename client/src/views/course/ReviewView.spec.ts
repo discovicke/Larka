@@ -94,6 +94,7 @@ function backend(options: {
   submission?: unknown
   me?: ReturnType<typeof meAs>
   queue?: unknown[]
+  otherAssignment?: unknown[]
 } = {}) {
   mockApi((method, path) => {
     if (path === '/api/me') {
@@ -103,7 +104,13 @@ function backend(options: {
       return {status: 200, body: [course]}
     }
     if (path === '/api/courses/c1/modules') {
-      return {status: 200, body: [week(options.scale ?? 'PassFail')]}
+      const first = week(options.scale ?? 'PassFail')
+      return {
+        status: 200,
+        body: [options.otherAssignment
+          ? {...first, content: [...first.content, {...first.content[0], linkId: 'l2', contentId: 'x2', title: 'Docker'}]}
+          : first],
+      }
     }
     if (path === '/api/content/x1') {
       return {status: 200, body: content}
@@ -123,6 +130,13 @@ function backend(options: {
     }
     if (path === '/api/submissions/s1/grade' && method === 'POST') {
       return {status: 200, body: baseSubmission}
+    }
+    if (path === '/api/links/l2/submissions') {
+      return {status: 200, body: (options.otherAssignment ?? []).map((entry) => ({...(entry as object), contentLinkId: 'l2'}))}
+    }
+    if (path === '/api/submissions/s6' || path === '/api/submissions/s7') {
+      const found = (options.otherAssignment ?? []).find((entry) => `/api/submissions/${(entry as {id: string}).id}` === path)
+      return {status: 200, body: {...(found as object), contentLinkId: 'l2'}}
     }
     if (path === '/api/links/l1/submissions') {
       return {status: 200, body: options.queue ?? []}
@@ -159,7 +173,7 @@ describe('ReviewView', () => {
 
     expect(wrapper.find('h1').text()).toBe('Anna Andersson')
     expect(wrapper.find('strong').text()).toBe('lösning')
-    expect(wrapper.find('[data-test="read-only-grade"]').text()).toBe('G · Godkänt')
+    expect(wrapper.find('[data-test="read-only-grade"]').text()).toBe('Godkänd')
     expect(wrapper.text()).toContain('Tidigare kommentar')
     expect(wrapper.findAll('[role="radio"]')).toHaveLength(0)
     expect(wrapper.find('textarea').exists()).toBe(false)
@@ -205,9 +219,9 @@ describe('ReviewView', () => {
 
     expect(radios(wrapper)).toHaveLength(2)
     expect(radios(wrapper)[0]).toContain('IG')
-    expect(radios(wrapper)[0]).toContain('Icke godkänt')
+    expect(radios(wrapper)[0]).toContain('Icke godkänd')
     expect(radios(wrapper)[1]).toContain('G')
-    expect(radios(wrapper)[1]).toContain('Godkänt')
+    expect(radios(wrapper)[1]).toContain('Godkänd')
   })
 
   it('visar IG, G och VG för skalan IG-VG', async () => {
@@ -219,7 +233,7 @@ describe('ReviewView', () => {
     expect(radios(wrapper)[0]).toContain('IG')
     expect(radios(wrapper)[1]).toContain('G')
     expect(radios(wrapper)[2]).toContain('VG')
-    expect(radios(wrapper)[2]).toContain('Väl godkänt')
+    expect(radios(wrapper)[2]).toContain('Väl godkänd')
   })
 
   it('visar bara återkoppling när uppgiften saknar betyg', async () => {
@@ -236,7 +250,7 @@ describe('ReviewView', () => {
 
     const {wrapper} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
 
-    await button(wrapper, 'Spara').trigger('click')
+    await button(wrapper, 'Spara och tillbaka').trigger('click')
     await flushPromises()
 
     expect(wrapper.text()).toContain('Välj ett betyg.')
@@ -286,22 +300,21 @@ describe('ReviewView', () => {
     expect(list.text()).toContain('Att lämna in')
   })
 
-  it('publicerar betyget och går tillbaka till inlämningarna', async () => {
+  it('publicerar betyget och går tillbaka till Att bedöma när inget annat väntar', async () => {
     backend()
 
     const {wrapper, router} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
 
     await wrapper.findAll('[role="radio"]')[1].trigger('click')
     await wrapper.find('#feedback').setValue('Bra jobbat')
-    await button(wrapper, 'Spara').trigger('click')
+    await button(wrapper, 'Spara och tillbaka').trigger('click')
     await flushPromises()
     await flushPromises()
 
     expect(sent('POST', '/api/submissions/s1/grade'))
       .toEqual({feedback: 'Bra jobbat', level: 'Pass', needsWork: false})
-    expect(router.currentRoute.value.name).toBe('part')
-    expect(router.currentRoute.value.query.tab).toBe('inlamningar')
-    expect(wrapper.find('[data-test="part-notice"]').text()).toBe('Bedömningen är sparad.')
+    expect(router.currentRoute.value.name).toBe('grading')
+    expect(wrapper.find('[data-test="grading-notice"]').text()).toBe('Bedömningen är sparad.')
   })
 
   describe('bedömningskön', () => {
@@ -359,7 +372,7 @@ describe('ReviewView', () => {
       const {wrapper, router} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
 
       expect(text(wrapper.find('[data-test="review-remaining"]'))).toBe('1 kvar att bedöma')
-      expect(text(wrapper.find('[data-test="review-save"]'))).toBe('Spara')
+      expect(text(wrapper.find('[data-test="review-save"]'))).toBe('Spara och tillbaka')
       expect(wrapper.find('[data-test="review-skip"]').exists()).toBe(false)
 
       await wrapper.findAll('[role="radio"]')[1].trigger('click')
@@ -367,9 +380,25 @@ describe('ReviewView', () => {
       await flushPromises()
       await flushPromises()
 
-      expect(router.currentRoute.value.name).toBe('part')
-      expect(router.currentRoute.value.query.tab).toBe('inlamningar')
-      expect(wrapper.find('[data-test="part-notice"]').text()).toBe('Bedömningen är sparad.')
+      expect(router.currentRoute.value.name).toBe('grading')
+      expect(wrapper.find('[data-test="grading-notice"]').text()).toBe('Bedömningen är sparad.')
+    })
+
+    it('går vidare till nästa uppgift med obedömt arbete när kön är slut', async () => {
+      backend({queue: [baseSubmission], otherAssignment: [queued('s7', 'Zeta Ek'), queued('s6', 'Ada Ek')]})
+
+      const {wrapper, router} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
+      await flushPromises()
+
+      expect(text(wrapper.find('[data-test="review-save"]'))).toBe('Spara och nästa')
+
+      await wrapper.findAll('[role="radio"]')[1].trigger('click')
+      await wrapper.find('[data-test="review-save"]').trigger('click')
+      await flushPromises()
+      await flushPromises()
+
+      expect(router.currentRoute.value.params.linkId).toBe('l2')
+      expect(router.currentRoute.value.params.submissionId).toBe('s6')
     })
 
     it('hoppar över till nästa utan att spara', async () => {
@@ -442,6 +471,21 @@ describe('ReviewView', () => {
       expect(wrapper.find('[data-test="review-skip"]').exists()).toBe(false)
       expect(requests.some((request) => request.path === '/api/links/l1/submissions')).toBe(false)
     })
+  })
+
+  it('kräver en kommentar för IG och låser Spara tills den finns', async () => {
+    backend()
+
+    const {wrapper} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
+    await wrapper.findAll('[role="radio"]')[0].trigger('click')
+
+    expect(wrapper.find('[data-test="review-fail-hint"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="review-save"]').attributes('disabled')).toBeDefined()
+
+    await wrapper.find('#feedback').setValue('Testerna saknas.')
+
+    expect(wrapper.find('[data-test="review-fail-hint"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="review-save"]').attributes('disabled')).toBeUndefined()
   })
 
   it('kräver en kommentar när eleven ska komplettera', async () => {

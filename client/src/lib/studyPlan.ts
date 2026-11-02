@@ -1,5 +1,5 @@
 import type {Schema} from '@/lib/api'
-import {gradeLabel} from '@/lib/submissions'
+import {gradeName} from '@/lib/submissions'
 
 /** Svaret från GET /api/me/study-plan: poängsummor och kurserna eleven läser. */
 export type StudyPlan = Schema<'StudyPlanDto'>
@@ -19,10 +19,10 @@ export function courseStatusLabel(status: Schema<'StudyPlanCourseStatus'>): stri
   return courseStatusLabels[status]
 }
 
-/** Betygsbokstaven, eller "Ej satt" när kursdelen inte har något betyg än. */
+/** Betygets namn, t.ex. "Godkänd", eller "Ej satt" när kursdelen inte har något betyg än. */
 export function gradeText(level: Schema<'GradeLevel'> | null): string {
   return level
-    ? gradeLabel(level)
+    ? gradeName(level)
     : 'Ej satt'
 }
 
@@ -61,12 +61,12 @@ export function shortDate(value: string): string {
     .replaceAll('.', '')
 }
 
-/** Inlämningens status i listan, t.ex. "Pågår · slutar 23 okt" eller "G". */
+/** Inlämningens status i listan, t.ex. "Pågår · deadline 23 okt" eller "Godkänd". */
 export function assignmentStatus(assignment: StudyPlanAssignment, now = new Date()): string {
   switch (assignment.status) {
     case 'Graded':
       return assignment.grade
-        ? gradeLabel(assignment.grade)
+        ? gradeName(assignment.grade)
         : 'Bedömd'
     case 'NeedsWork':
       return 'Komplettera'
@@ -77,8 +77,8 @@ export function assignmentStatus(assignment: StudyPlanAssignment, now = new Date
         return 'Ej inlämnad'
       }
       return new Date(assignment.dueAt) >= now
-        ? `Pågår · slutar ${shortDate(assignment.dueAt)}`
-        : `Slutade ${shortDate(assignment.dueAt)}`
+        ? `Pågår · deadline ${shortDate(assignment.dueAt)}`
+        : `Deadline passerade ${shortDate(assignment.dueAt)}`
   }
 }
 

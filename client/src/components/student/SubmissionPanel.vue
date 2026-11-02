@@ -8,6 +8,7 @@ import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Button} from '@/components/ui/button'
 import {Input} from '@/components/ui/input'
 import {useAsync} from '@/composables/useAsync'
+import {useToast} from '@/composables/useToast'
 import {api, errorMessage, multipart, type Schema} from '@/lib/api'
 import {formatDate} from '@/lib/content'
 import {formatSize} from '@/lib/material'
@@ -18,6 +19,7 @@ import {fetchLinkSubmissions} from '@/lib/submissionsApi'
 const props = defineProps<{item: Schema<'StudentContentItem'>}>()
 const emit = defineEmits<{submitted: []}>()
 
+const {showToast} = useToast()
 const submission = ref<Schema<'SubmissionDto'> | null>(null)
 const bodyMd = ref('')
 const keptFiles = ref<Schema<'SubmissionFileDto'>[]>([])
@@ -54,6 +56,11 @@ const canSubmit = computed(() => hasRepo.value
   || (hasFiles.value && keptFiles.value.length + addedFiles.value.length > 0))
 
 const {run: submit, loading: saving, error} = useAsync(async () => {
+  const doneText = status.value === 'NotStarted'
+    ? 'Uppgiften är inlämnad.'
+    : status.value === 'NeedsWork'
+      ? 'Uppgiften är inlämnad igen.'
+      : 'Ändringarna är sparade.'
   const body = new FormData()
   if (hasText.value && bodyMd.value.trim() !== '') {
     body.append('bodyMd', bodyMd.value)
@@ -77,6 +84,7 @@ const {run: submit, loading: saving, error} = useAsync(async () => {
   editing.value = false
   fillForm()
   emit('submitted')
+  showToast(doneText)
 })
 
 watch(() => props.item.linkId, load, {immediate: true})

@@ -170,7 +170,7 @@ describe('PartView', () => {
 
     expect(wrapper.find('h1').text()).toBe('Release-pipeline')
     expect(text(wrapper.find('[data-test="part-facts"]')))
-      .toMatch(/^Inlämning · Vecka 4 · Slutar fre 23 okt \d\d:59 · Betygsskala IG–VG · Lämnas in som text, GitHub-repo$/)
+      .toMatch(/^Inlämning · Vecka 4 · Deadline fre 23 okt \d\d:59 · Betygsskala Icke godkänd \/ Godkänd \/ Väl godkänd · Lämnas in som text, GitHub-repo$/)
     expect(wrapper.find('[data-test="part-content"]').text()).toContain('länken')
     expect(wrapper.find('[data-test="edit-part"]').attributes('href'))
       .toBe('/courses/c1/modules/m1/content/l1/edit')

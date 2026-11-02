@@ -43,10 +43,14 @@ const withoutPassword = computed<ClassCount[]>(() => {
   return [...byClass.values()]
 })
 
+// Räknas per kurs och per klass, inte per användare: en klass där tolv saknar lösenord är en sak att ordna.
+// Elever utan klass är en sak, eftersom de ordnas på samma ställe.
 const attentionCount = computed(() => (overview.value?.coursesWithoutTeacher.length ?? 0)
   + (overview.value?.classesWithoutMentor.length ?? 0)
-  + (overview.value?.usersWithoutPassword.length ?? 0)
-  + (overview.value?.studentsWithoutClass.length ?? 0))
+  + withoutPassword.value.length
+  + ((overview.value?.studentsWithoutClass.length ?? 0) > 0
+    ? 1
+    : 0))
 
 const summary = computed(() => attentionCount.value === 0
   ? 'Inget behöver ordnas'
@@ -170,10 +174,15 @@ load()
             {{ item.name }}
             <span class="text-muted-foreground text-xs font-normal">{{ item.count }} användare</span>
           </RouterLink>
-          <span v-else class="inline-flex min-h-11 items-center gap-2 font-medium">
+          <RouterLink
+            v-else
+            :to="{name: 'users'}"
+            :class="linkClass"
+            data-test="no-password-unplaced"
+          >
             {{ item.name }}
             <span class="text-muted-foreground text-xs font-normal">{{ item.count }} användare</span>
-          </span>
+          </RouterLink>
         </li>
       </ul>
     </section>
@@ -189,18 +198,14 @@ load()
         Lägg in dem i en klass med Lägg till medlem på klassens sida, eller gör dem till lärare under Användare.
       </p>
       <ul class="flex flex-col">
-        <li
-          v-for="student in overview.studentsWithoutClass"
-          :key="student.userId"
-          class="flex min-h-11 items-center font-medium"
-          data-test="no-class-item"
-        >
-          {{ student.name }}
+        <li data-test="no-class-item">
+          <RouterLink :to="{name: 'users', query: {filter: 'Student'}}" :class="linkClass">
+            {{ countLabel(overview.studentsWithoutClass.length, 'elev', 'elever') }}
+          </RouterLink>
         </li>
       </ul>
       <div class="flex flex-wrap gap-x-5">
         <RouterLink :to="{name: 'groups', query: {filter: 'groups'}}" :class="linkClass">Visa klasserna</RouterLink>
-        <RouterLink :to="{name: 'users'}" :class="linkClass">Visa användarna</RouterLink>
       </div>
     </section>
 

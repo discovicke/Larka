@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using Backend.Application.Abstractions;
 using Backend.Application.Dtos;
 using Backend.Application.Results;
@@ -17,7 +16,7 @@ namespace Backend.Application.Services;
 // Undantaget är den som körde infra/entra-setup.sh (Auth:Entra:AdminObjectId). När ingen skola är kopplad till
 // tenanten än kopplar hens första inloggning skolan och ger den organisationens namn, och hen skapas som admin.
 // Så kommer en ny skola igång utan lösenord och utan att någon först loggar in på annat sätt.
-public partial class MicrosoftSignInService(
+public class MicrosoftSignInService(
     IMicrosoftTokenValidator validator,
     ISchoolRepository schools,
     IUserRepository users,
@@ -86,7 +85,7 @@ public partial class MicrosoftSignInService(
                 user = new User
                 {
                     SchoolId = school.Id,
-                    Name = identity.Name.Trim(),
+                    Name = SchoolAddress.DisplayName(identity.Name, identity.Email),
                     Email = email,
                     Role = isSetupAdmin
                         ? UserRole.Admin
@@ -137,46 +136,22 @@ public partial class MicrosoftSignInService(
         return school;
     }
 
-    /// <summary>
-    /// Klasskoden i adressen: sista delen före @ efter en punkt, och bara om den har en siffra, så att ett
-    /// efternamn aldrig räknas som klass. "christian.gennari.net25@edu.edugrade.se" ger "net25".
-    /// </summary>
-    public static string? ClassCodeFromEmail(string email)
-    {
-        var local = email.Split('@')[0];
-        var dot = local.LastIndexOf('.');
-        if (dot <= 0)
-        {
-            return null;
-        }
-
-        var code = Normalize(local[(dot + 1)..]);
-        return code.Any(char.IsDigit) && code.Any(char.IsLetter)
-            ? code
-            : null;
-    }
-
     // Bara om exakt en klass i skolan har namnet, utan hänsyn till versaler och tecken: ".NET25" och "NET 25" blir
     // "net25".
     private async Task JoinClassFromEmailAsync(User user, CancellationToken ct)
     {
-        var code = ClassCodeFromEmail(user.Email);
+        var code = SchoolAddress.ClassCode(user.Email);
         if (code is null)
         {
             return;
         }
 
         var matches = (await groups.GetForSchoolAsync(user.SchoolId, ct))
-            .Where(group => group.Type == GroupType.Class && Normalize(group.Name) == code)
+            .Where(group => group.Type == GroupType.Class && SchoolAddress.NormalizeCode(group.Name) == code)
             .ToList();
         if (matches.Count == 1)
         {
             groups.AddMember(new Enrollment { GroupId = matches[0].Id, UserId = user.Id, Role = GroupRole.Student });
         }
     }
-
-    private static string Normalize(string text) => NonAlphanumeric().Replace(text, "").ToLowerInvariant();
-
-    [GeneratedRegex("[^\\p{L}\\p{N}]")]
-    private static partial Regex NonAlphanumeric();
 }

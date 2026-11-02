@@ -24,7 +24,7 @@ public class ModuleService(
     /// <summary>
     /// Kursens veckor med innehåll. Läraren ser allt, med utkast, schemalagt och antal inlämningar. Admin i skolan
     /// läser också allt, men utan inlämningar. Mentor och elev ser bara det som är publicerat och öppet,
-    /// och aldrig en vecka där alla delar är dolda.
+    /// och aldrig en vecka där alla delar är dolda. En ny, tom vecka är ett utkast tills den har en publicerad del.
     /// Övriga får 403.
     /// </summary>
     public async Task<ServiceResult<List<ModuleWithContentDto>>> GetForCourseAsync(Guid courseId, CancellationToken ct)
@@ -47,9 +47,7 @@ public class ModuleService(
         return ServiceResult<List<ModuleWithContentDto>>.Ok(
             courseModules
                 .Where(module => seesEverything || ContentVisibility.IsModuleAvailable(module.PublishAt, now))
-                .Where(module => seesEverything
-                    || !content[module.Id].Any()
-                    || content[module.Id].Any(item => IsVisible(item, now)))
+                .Where(module => seesEverything || content[module.Id].Any(item => IsVisible(item, now)))
                 .Select(module => ModuleWithContentDto.From(
                     module,
                     content[module.Id]

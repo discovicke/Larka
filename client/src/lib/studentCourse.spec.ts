@@ -1,7 +1,7 @@
 import {describe, expect, it} from 'vitest'
 
 import type {Schema} from '@/lib/api'
-import {sectionsFor} from '@/lib/studentCourse'
+import {openableParts, sectionsFor} from '@/lib/studentCourse'
 
 type Item = Schema<'StudentContentItem'>
 type Module = Schema<'StudentModuleWithContentDto'>
@@ -90,5 +90,16 @@ describe('sectionsFor', () => {
     ['submissions', week([open, done]), 'Inga inlämningar att göra just nu.'],
   ] as const)('tomtexten för %s', (filter, module, empty) => {
     expect(sectionsFor(module, filter)[0].empty).toBe(empty)
+  })
+})
+
+describe('openableParts', () => {
+  it('ger delarna i kursordning utan låsta delar och låsta veckor', () => {
+    const modules = [
+      {id: 'a', isAvailable: true, content: [item('x'), item('y', {isLocked: true})]},
+      {id: 'b', isAvailable: false, content: [item('hidden')]},
+      {id: 'c', isAvailable: true, content: [item('z')]},
+    ] as unknown as Module[]
+    expect(openableParts(modules).map((entry) => entry.part.linkId)).toEqual(['x', 'z'])
   })
 })

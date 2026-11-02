@@ -390,7 +390,7 @@ public class CourseTeacherEndpointTests(TestWebApplicationFactory factory) : ICl
     private async Task<LinkedNews> LinkNewsAsync(object link)
     {
         var created = await _client.PostAsJsonAsync(
-            "/api/content", new { type = "news", title = "Nyhet", bodyMd = "" });
+            "/api/content", new { type = "news", title = "Nyhet", bodyMd = "Text" });
         created.EnsureSuccessStatusCode();
         var contentId = (await created.Content.ReadFromJsonAsync<IdResponse>())!.Id;
         var response = await _client.PostAsJsonAsync($"/api/content/{contentId}/links", link);

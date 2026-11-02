@@ -128,7 +128,7 @@ public class SubmissionService(
 
         if (submission.StudentId != currentUser.UserId
             && !await MayReadAllAsync(submission.ContentLinkId, ct)
-            && !await permissions.IsMentorOfStudentAsync(submission.StudentId, ct))
+            && !await IsMentorAsync(submission.StudentId, ct))
         {
             return await permissions.IsAdminAsync(ct)
                 ? ServiceResult<SubmissionDto>.Forbidden()
@@ -137,6 +137,10 @@ public class SubmissionService(
 
         return ServiceResult<SubmissionDto>.Ok(await ToDtoAsync(submission, ct));
     }
+
+    // En admin som av misstag står som mentor läser ändå inte inlämningar: de hör till lärarna.
+    private async Task<bool> IsMentorAsync(Guid studentId, CancellationToken ct) =>
+        !await permissions.IsAdminAsync(ct) && await permissions.IsMentorOfStudentAsync(studentId, ct);
 
     // Lärarna ser alla inlämningar på utdelningen. Mentorn ser dem som tillhör elever i mentorns klass, och
     // eleven bara sin egen. Admin som inte är lärare på länken får 403: inlämningar och betyg är lärarens.
@@ -379,9 +383,18 @@ public class SubmissionService(
             return "a submission that needs work gets feedback, not a grade";
         }
 
-        return dto.NeedsWork
-            ? null
-            : CheckLevel(spec.GradeScale, dto.Level);
+        if (dto.NeedsWork)
+        {
+            return null;
+        }
+
+        // Ett IG måste motiveras så att eleven vet vad som saknas.
+        if (dto.Level == GradeLevel.Fail && string.IsNullOrWhiteSpace(dto.Feedback))
+        {
+            return "a fail grade requires a comment";
+        }
+
+        return CheckLevel(spec.GradeScale, dto.Level);
     }
 
     private void ApplyGrade(Submission submission, GradeSubmissionDto dto)

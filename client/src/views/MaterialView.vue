@@ -10,6 +10,7 @@ import {useAsync} from '@/composables/useAsync'
 import {useCourses} from '@/composables/useCourses'
 import {type Schema} from '@/lib/api'
 import {formatDate} from '@/lib/content'
+import {isFinished, isGroupFinished} from '@/lib/courseStatus'
 import {fetchAttachments} from '@/lib/contentApi'
 import {fetchCourseContent} from '@/lib/coursesApi'
 import {fetchGroupContent, fetchGroups} from '@/lib/groupsApi'
@@ -45,6 +46,30 @@ const targetNames = computed(() => {
     ...groups.value.map((group) => group.name),
   ].filter((name, index, all) => present.has(name) && all.indexOf(name) === index)
 })
+
+// Avslutade kurser och klasser får sina flikar först när man trycker på Visa avslutade.
+// Filerna syns ändå under Allt och i sökningen, och en vald flik försvinner aldrig.
+const showFinished = ref(false)
+const finishedNames = computed(() => {
+  const finished = new Set<string>()
+  const current = new Set<string>()
+  for (const course of courses.value) {
+    (isFinished(course)
+      ? finished
+      : current).add(course.title)
+  }
+  for (const group of groups.value) {
+    (group.type === 'Class' && isGroupFinished(group)
+      ? finished
+      : current).add(group.name)
+  }
+  return new Set([...finished].filter((name) => !current.has(name)))
+})
+const currentTargets = computed(() => targetNames.value.filter((name) => !finishedNames.value.has(name)))
+const finishedTargets = computed(() => targetNames.value.filter((name) => finishedNames.value.has(name)))
+const shownFinishedTargets = computed(() => showFinished.value
+  ? finishedTargets.value
+  : finishedTargets.value.filter((name) => name === target.value))
 
 const visibleRows = computed(() => {
   const text = search.value.trim().toLowerCase()
@@ -165,7 +190,7 @@ watch(status, (value) => {
           Allt
         </button>
         <button
-          v-for="name in targetNames"
+          v-for="name in [...currentTargets, ...shownFinishedTargets]"
           :key="name"
           type="button"
           :aria-pressed="target === name"
@@ -174,6 +199,19 @@ watch(status, (value) => {
           @click="target = name"
         >
           {{ name }}
+        </button>
+        <button
+          v-if="finishedTargets.length"
+          type="button"
+          :aria-pressed="showFinished"
+          class="h-7 rounded-[5px] border px-2 text-xs font-medium"
+          :class="showFinished
+            ? 'bg-muted'
+            : 'bg-background text-muted-foreground'"
+          data-test="show-finished"
+          @click="showFinished = !showFinished"
+        >
+          Visa avslutade
         </button>
       </div>
 

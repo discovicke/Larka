@@ -1,0 +1,79 @@
+name: E2E journeys
+
+# Användarflödena (e2e/tests/journeys) mot en färsk stack: Postgres och appen byggd av Dockerfilen, med demodata.
+# Journeys skriver data, så de körs aldrig mot produktion. Rökproven mot prod ligger i e2e.yml.
+on:
+  pull_request:
+    branches: [main]
+  schedule:
+    # Varje natt 02:23 UTC.
+    - cron: '23 2 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-journeys-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  journeys:
+    name: 'Journeys against a fresh stack'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      E2E_APP_PORT: 8080
+      E2E_BASE_URL: http://localhost:8080
+      E2E_JOURNEYS: '1'
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      # Bygger image från Dockerfilen (klienten byggs med) och startar Postgres och appen med demodata.
+      - name: Start stack
+        run: docker compose -f e2e/docker-compose.e2e.yml up -d --build --wait
+
+      - name: Install
+        working-directory: e2e
+        run: npm ci
+
+      - name: Install browser
+        working-directory: e2e
+        run: npx playwright install --with-deps chromium
+
+      # global-setup väntar också på /health, men ett tydligt fel här är lättare att läsa än en timeout i Playwright.
+      - name: Wait for health
+        run: |
+          for i in $(seq 1 60); do
+            curl -fsS "$E2E_BASE_URL/health" && exit 0
+            sleep 2
+          done
+          docker compose -f e2e/docker-compose.e2e.yml logs app
+          exit 1
+
+      - name: Journeys
+        working-directory: e2e
+        run: npx playwright test --project=journeys --project=journeys-mobile
+
+      - name: App logs
+        if: ${{ failure() }}
+        run: docker compose -f e2e/docker-compose.e2e.yml logs app
+
+      - name: Stop stack
+        if: ${{ always() }}
+        run: docker compose -f e2e/docker-compose.e2e.yml down -v
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-journeys-report
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+          retention-days: 14

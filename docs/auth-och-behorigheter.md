@@ -17,9 +17,10 @@ Skolans elever och personal loggar in med sitt Microsoft-konto (Microsoft Entra 
 1. `GET /api/auth/providers` berättar om Microsoft-inloggning finns (`microsoft: {clientId, tenantId}` eller `null`). Klienten loggar in hos Microsoft med MSAL (redirect, auth code med PKCE, `openid profile email`) och får ett ID-token.
 2. Klienten skickar det en gång till `POST /api/auth/microsoft` `{idToken}`. Backend kontrollerar signaturen mot tenantens nycklar, utfärdaren (skolans tenant), mottagaren (`Auth:Entra:ClientId`) och tiden, och svarar med samma token som inloggning med lösenord, plus `firstSignIn`. Resten av API:et ser ingen skillnad.
 3. Användaren hittas på Microsofts id (`oid`, sparat som `User.ExternalId`). Saknas det kopplas en användare i skolan med samma e-post (utan hänsyn till versaler) som inte redan är kopplad, till exempel en elev från en inklistrad elevlista. Annars skapas en ny **elev**.
-4. En ny elev läggs i klassen som adressen slutar på: `fornamn.efternamn.net25@...` ger `net25`, som matchar klassen `.NET25` (versaler, punkter och mellanslag räknas inte). Bara om exakt en klass i skolan har namnet, och bara när användaren skapas. Annars har eleven ingen klass förrän admin lägger in hen. En kopplad användare behåller sin roll och sina klasser.
+4. Namnet är Microsofts `name`. Saknas det, eller är det bara e-postadressen, byggs namnet ur adressen (`SchoolAddress.NameFromEmail`): `christian.gennari.net25@...` ger `Christian Gennari` och `anna-karin.berg.net25@...` ger `Anna-Karin Berg`. Adressen delas på punkt och understreck, klasskoden sist tas bort och varje del (och varje del av ett bindestreck) får stor första bokstav. Ger adressen inget namn används själva adressen. Eleven kan rätta namnet på _Välkommen_.
+5. En ny elev läggs i klassen som adressen slutar på: `fornamn.efternamn.net25@...` ger `net25`, som matchar klassen `.NET25` (versaler, punkter och mellanslag räknas inte; samma regel i `SchoolAddress.NormalizeCode`). Bara om exakt en klass i skolan har namnet, och bara när användaren skapas. Annars har eleven ingen klass förrän admin lägger in hen. Dialogerna _Ny klass_ och _Redigera klass_ visar vilken kod namnet fångar ("Elever med adresser som slutar på `.net25@…` hamnar här", regeln speglas i `client/src/lib/classCode.ts`) och varnar när namnet inte ger någon kod, till exempel "NET 25 DevOps". En kopplad användare behåller sin roll och sina klasser.
 
-På `/login` står _Logga in med Microsoft_ överst och lösenordet under (för demokontona). Microsoft skickar tillbaka till `/login` (redirect URI:n), där klienten tar emot svaret och öppnar sidan användaren ville till. Första gången öppnas _Välkommen_ (`/valkommen`) i stället: namnet från Microsoft kan rättas (`PUT /api/me/profile` `{name}`) och notiserna väljas. En elev utan klass och kurser ser _Du är inte med i någon klass än_ på Idag. _Logga ut_ loggar bara ut ur Lärka, inte ur Microsoft. MSAL laddas först när någon loggar in med Microsoft.
+På `/login` står _Logga in med Microsoft_ överst och lösenordet under (för demokontona). Microsoft skickar tillbaka till `/login` (redirect URI:n), där klienten tar emot svaret och öppnar sidan användaren ville till. Första gången öppnas _Välkommen_ (`/valkommen`) i stället: namnet från Microsoft (eller ur adressen) kan rättas (`PUT /api/me/profile` `{name}`) och notiserna väljas. En elev utan klass och kurser ser _Du är inte med i någon klass än_ på Idag. _Logga ut_ loggar bara ut ur Lärka, inte ur Microsoft. MSAL laddas först när någon loggar in med Microsoft.
 
 En ny skola kopplas av den som körde `entra-setup.sh` (`Auth:Entra:AdminObjectId`): när ingen skola har tenanten än och hen loggar in med Microsoft kopplas skolan från migrationen till tenanten, får organisationens namn (`Auth:Entra:SchoolName`), och hen skapas som **admin**. Pekar skolan på en gammal tenant (appen har flyttats till en ny tenant) byts den ut på samma sätt. Ingen annan kan koppla skolan så, och alla andra får `403` tills den är kopplad. `GET /api/auth/providers` skickar också skolans namn (`schoolName`), som inloggningssidan visar.
 
@@ -163,11 +164,17 @@ En spärrad användare som loggar in med rätt lösenord får `403` med texten `
 
 `POST /api/groups/{id}/members/import` tar en inklistrad elevlista (`{lines: [{name, email}]}`, högst 500 rader) och är bara för admin (`403` för alla andra, `404` för en annan skolas grupp). Nya elever skapas utan lösenord, alla läggs till som elever i klassen i ett enda sparsteg, och svaret redovisar varje rad: `Created`, `Added`, `AlreadyMember`, `NotStudent`, `Duplicate` eller `Invalid`. Lärare och admin läggs inte till på det här sättet.
 
+E-postadresser kontrolleras med en enda regel på servern (`EmailRule`), samma som klientens förhandsvisning av inklistrade listor: något före och efter `@` och en punkt i domänen, utan mellanslag. `POST /api/users` svarar `400` för en adress som inte klarar den, och importen markerar raden som `Invalid`.
+
+Bara en användare vars skolroll är Lärare kan vara mentor eller lärare i en klass: `POST /api/groups/{id}/members` och `PUT /api/groups/{id}/members/{userId}` svarar `400` när admin eller en elev får rollen Mentor eller Lärare. Klassen har en mentor. Får någon rollen Mentor lämnar den förra klassen i samma steg, precis som i _Byt mentor_ på klassens sida, så ingen klass får två mentorer. I _Lägg till medlem_ finns därför inte Mentor som val när klassen redan har en, och där pekar texten på _Byt mentor_. Mentorer och lärare i klassen väljs bland lärare. Lärare i en kurs är däremot kvar som ovan: lärare eller admin, eftersom en admin som också undervisar står i `CourseTeacher`.
+
+En admin som mot förmodan står som mentor läser ändå inga inlämningar eller betyg genom mentorvägen: `GET /api/submissions/{id}` ger `403`, som för alla andra admin utan lärarrad.
+
 Lärare i en kurs som gruppen läser får också medlemslistan, utan att vara medlemmar i gruppen. Övriga i skolan får `403`.
 
 Medlemslistan (`GroupMemberDto`) har bara id, namn och personens roll i just den gruppen, aldrig e-post eller global roll. En elev ser alltså klasskamraterna med namn och grupproll. Det finns ingen profilbild i datamodellen. Lärare, mentorer och admin får samma lista.
 
-Lärarnas kontaktuppgifter (namn, e-post och vilka grupper de undervisar) visas för alla i skolan via kursens egen lärarlista, `GET /api/courses/{id}/staff`, och inte via `/api/users`.
+Lärarnas kontaktuppgifter (namn, e-post och vilka grupper de undervisar) visas via kursens egen lärarlista, `GET /api/courses/{id}/staff`, och inte via `/api/users`. Listan är bara för dem som hör till kursen: kursens lärare, eleverna och mentorn i klasserna som läser den, och admin i kursens skola. Alla andra, också lärare och elever i andra kurser och admin i en annan skola, får `404`.
 
 Admin hanterar klasser, grupper och kurser direkt på _Alla grupper_: knappen _Ny_ uppe till höger skapar en klass eller grupp och öppnar dess sida, där kurser skapas, och menyn `⋯` på varje rad har _Redigera_ och _Ta bort_. Borttagningen frågar alltid först och namnger det som tas bort. Nya användare skapas från _Lägg till medlem_ på gruppens sida ("Finns inte i listan? Skapa användare"). Den gamla sidan _Program och klasser_ under Inställningar finns inte kvar, och `/settings/groups` skickar vidare till _Alla grupper_.
 
@@ -185,7 +192,7 @@ Samma regel gäller överallt: `GET /api/me` (rollen per kurs), Idag-sidan för 
 | `POST /api/courses/{id}/teachers` `{userId}` | `201`, lägger till läraren | `403`                 |
 | `DELETE /api/courses/{id}/teachers/{userId}` | `204`, tar bort läraren    | `403`                 |
 
-Användaren ska finnas i kursens skola och vara lärare eller admin i systemet (`400` annars, och `409` om hen redan är lärare i kursen). En kurs i en annan skola svarar `404`, även för admin. `GET /api/courses/{id}/staff` visar kursens lärare för alla i skolan, med namnen på klasserna som läser kursen.
+Användaren ska finnas i kursens skola och vara lärare eller admin i systemet (`400` annars, och `409` om hen redan är lärare i kursen). En kurs i en annan skola svarar `404`, även för admin. `GET /api/courses/{id}/staff` visar kursens lärare, med e-post och namnen på klasserna som läser kursen, för dem som hör till kursen (se ovan).
 
 Demodatan (`DemoCatalog`) anger lärarna per kurs. `larare` undervisar i DevOps och Webbapplikationer i C# i `.NET25`, men inte i klassens övriga kurser trots att hen är lärare i klassen. När `DemoContentRefresh.ContentVersion` höjs rättar uppdateringen lärarna i prod efter katalogen: den tar bara bort lärare ur katalogens personer som katalogen inte har i kursen, och lägger till de som saknas. Riktiga konton lämnas orörda.
 
@@ -193,21 +200,35 @@ Demodatan (`DemoCatalog`) anger lärarna per kurs. `larare` undervisar i DevOps 
 
 Admin bestämmer vem som undervisar vad, och läraren bestämmer vad som händer i kursen. Tabellen visar vad som gäller i en kurs. "Admin" är en admin i kursens skola som inte också står som lärare i kursen. En admin i en annan skola får `404` eller `403`, som alla andra utanför kursen.
 
-| Anrop                                            | Lärare i kursen              | Mentor i klassen          | Elev i klassen       | Admin                      | Övriga        |
-| ------------------------------------------------ | ---------------------------- | ------------------------- | -------------------- | -------------------------- | ------------- |
-| `GET /api/courses/{id}/modules`                  | Allt, med antal inlämningar  | Publicerat och öppet      | Publicerat och öppet | Allt, utan antal           | `403`         |
-| `GET /api/courses/{id}/content`                  | Läser                        | Läser                     | Läser                | Läser                      | `403`         |
-| `GET /api/groups/{id}/content`                   | Läser (kursen gruppen läser) | Läser (är medlem)         | Läser (är medlem)    | Läser                      | `403`         |
-| `GET /api/content/{id}` (ett utkast)             | Läser                        | `404`                     | `404`                | Läser                      | `404`         |
-| `PUT /api/courses/{id}`                          | Allt, med beskrivningen      | `403`                     | `403`                | Titel, datum och poäng     | `403`         |
-| `DELETE /api/courses/{id}`                       | `403`                        | `403`                     | `403`                | `204` eller `409`          | `403`         |
-| `GET /api/links/{id}/submissions`                | Alla elever                  | Eleverna i mentorns klass | Bara den egna        | `403`                      | Bara den egna |
-| `GET /api/submissions/{id}`, filerna och betyget | Läser                        | Läser eleverna i klassen  | Läser den egna       | `403`                      | `404`         |
-| `POST /api/submissions/{id}/grade`               | Bedömer                      | `403`                     | `403`                | `403`                      | `403`         |
-| `POST /api/content`, `/api/content/with-link`    | Skapar                       | `403`                     | `403`                | `403`                      | `403`         |
-| `POST /api/courses/{id}/runs`                    | `403`                        | `403`                     | `403`                | Från vilken kurs som helst | `403`         |
-| `POST /api/courses/{id}/modules/publish`         | Publicerar veckornas utkast  | `403`                     | `403`                | `403`                      | `403`         |
-| `GET /api/me/admin-overview`                     | `403`                        | `403`                     | `403`                | Skolans översikt           | `403`         |
+| Anrop                                                | Lärare i kursen              | Mentor i klassen          | Elev i klassen       | Admin                      | Övriga        |
+| ---------------------------------------------------- | ---------------------------- | ------------------------- | -------------------- | -------------------------- | ------------- |
+| `GET /api/courses/{id}/modules`                      | Allt, med antal inlämningar  | Publicerat och öppet      | Publicerat och öppet | Allt, utan antal           | `403`         |
+| `GET /api/courses/{id}/content`                      | Läser                        | Läser                     | Läser                | Läser                      | `403`         |
+| `GET /api/groups/{id}/content`                       | Läser (kursen gruppen läser) | Läser (är medlem)         | Läser (är medlem)    | Läser                      | `403`         |
+| `GET /api/content/{id}` (publicerat, se nedan)       | Läser                        | Läser                     | Läser                | Läser                      | `404`         |
+| `GET /api/content/{id}` (ett utkast)                 | Läser                        | `404`                     | `404`                | Läser                      | `404`         |
+| `PUT /api/courses/{id}`                              | Allt, med beskrivningen      | `403`                     | `403`                | Titel, datum och poäng     | `403`         |
+| `DELETE /api/courses/{id}`                           | `403`                        | `403`                     | `403`                | `204` eller `409`          | `403`         |
+| `GET /api/links/{id}/submissions`                    | Alla elever                  | Eleverna i mentorns klass | Bara den egna        | `403`                      | Bara den egna |
+| `GET /api/groups/{id}/students/{studentId}/overview` | `404`                        | Eleverna i mentorns klass | `404`                | Eleverna i skolans klasser | `404`         |
+| `GET /api/submissions/{id}`, filerna och betyget     | Läser                        | Läser eleverna i klassen  | Läser den egna       | `403`                      | `404`         |
+| `POST /api/submissions/{id}/grade`                   | Bedömer                      | `403`                     | `403`                | `403`                      | `403`         |
+| `POST /api/content`, `/api/content/with-link`        | Skapar                       | `403`                     | `403`                | `403`                      | `403`         |
+| `POST /api/courses/{id}/runs`                        | `403`                        | `403`                     | `403`                | Från vilken kurs som helst | `403`         |
+| `POST /api/courses/{id}/modules/publish`             | Publicerar veckornas utkast  | `403`                     | `403`                | `403`                      | `403`         |
+| `GET /api/me/admin-overview`                         | `403`                        | `403`                     | `403`                | Skolans översikt           | `403`         |
+
+**Elevens läge i klassen (`GET /api/groups/{id}/students/{studentId}/overview`).** Mentorn i klassen och admin i skolan ser läget för en elev i klassen: per kurs klassen läser antal uppgifter att komplettera, försenade, inlämnade men inte bedömda, och betygen hittills. Det är bara läsning och bygger på studieplanen, begränsad till klassens kurser. Alla andra, också en lärare som bara undervisar i en av klassens kurser, får `404`, och det får också den som frågar efter någon som inte är elev i klassen.
+
+**Läsa ett innehåll (`GET /api/content/{id}`, kommentarer och bilagor).** Att innehållet är publicerat räcker inte. Det läses bara av
+
+- den som får ändra det (lärare i en kurs, eller i en grupp för länkar utan kurs, där en länk pekar), författaren har ingen genväg,
+- elever och mentorer i en grupp som läser en kurs där en länk pekar på innehållet och länken syns för eleverna: innehållet är publicerat, länkens `PublishAt` har passerat och veckan (om länken ligger i en) har öppnat. En länk till en viss grupp räknas bara för den gruppen, och en länk bara till en grupp (en nyhet) för gruppens medlemmar. Det är samma datumregler som flödena och elevvyn (`ContentVisibility`),
+- admin i skolan där innehållet skrevs (`ContentAccess.MayReadAsync`): admin läser kursernas innehåll, med utkast, men undervisar inte.
+
+Alla andra, också inloggade i en annan kurs eller skola, får `404` som för innehåll som inte finns. Kontrollen är en enda fråga per innehåll (`IPermissions.CanReadPublishedContentAsync`), flödena och veckovyerna har egna frågor och gör ingen kontroll per rad. Att redigera kräver lärarrätt på en länk (`MayEditAsync`, `403` annars): den som skrev innehållet men inte längre undervisar i kursen kan inte ändra det. Nytt innehåll skapas med `POST /api/content/with-link`, som prövar lärarrätt på kursen eller gruppen där det länkas, inte författarskap. Ett innehåll utan länk kan därför bara läsas av admin i skolan.
+
+I `GET /api/courses/{id}/student-modules` har en låst del (beroende som inte är uppfyllt) kvar titel och blockerare men `bodyMd` är `null`, så texten går inte att läsa i förväg.
 
 Filerna i en inlämning nås med kortlivade länkar som skapas när inlämningen läses, så en admin som inte får läsa inlämningen får inga länkar. Nyheter till en grupp kräver lärarrollen i gruppen (`CanTeachGroupAsync`), vilket mentorn inte har.
 

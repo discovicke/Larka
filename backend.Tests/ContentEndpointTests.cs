@@ -89,6 +89,34 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task CreateContent_NewsWithoutText_ReturnsBadRequest(string bodyMd)
+    {
+        var response = await _client.PostAsJsonAsync(
+            "/api/content", new { type = "news", title = "Rubrik", bodyMd });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("news text is required", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task UpdateContent_NewsWithoutText_ReturnsBadRequest()
+    {
+        var news = await _client.PostAsJsonAsync(
+            "/api/content", new { type = "news", title = "Rubrik", bodyMd = "Text" });
+        var content = (await news.Content.ReadFromJsonAsync<ContentResponse>())!;
+        var (groupId, _) = await AddGroupWithCourseAsync();
+        await LinkToGroupAsync(content.Id, groupId);
+
+        var response = await _client.PutAsJsonAsync(
+            $"/api/content/{content.Id}", new { title = "Rubrik", bodyMd = " " });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("news text is required", await response.Content.ReadAsStringAsync());
+    }
+
     [Fact]
     public async Task CreateContentWithLink_CreatesContentAndLinkInOneRequest()
     {
@@ -175,7 +203,7 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     {
         var (groupId, _) = await AddGroupWithCourseAsync();
         var response = await _client.PostAsJsonAsync("/api/content",
-            new { type = "news", title = "Utkast", bodyMd = "", status = "draft" });
+            new { type = "news", title = "Utkast", bodyMd = "Text", status = "draft" });
         var draft = await response.Content.ReadFromJsonAsync<ContentResponse>();
         await _client.PostAsJsonAsync($"/api/content/{draft!.Id}/links", new { groupId });
 
@@ -296,6 +324,8 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task UpdateContent_ChangesFields_ButNotTypeOrStatus()
     {
         var content = await CreateTheoryAsync("Gammal", "draft");
+        var (groupId, _) = await AddGroupWithCourseAsync();
+        await LinkToGroupAsync(content.Id, groupId);
 
         var response = await _client.PutAsJsonAsync(
             $"/api/content/{content.Id}", new { title = " Ny ", bodyMd = "**text**" });
@@ -316,6 +346,8 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task UpdateAssignment_ChangesGradeScaleAndModes()
     {
         var content = await CreateAssignmentAsync("Labb", gradeScale: "passFail", submissionModes: ["file"]);
+        var (groupId, _) = await AddGroupWithCourseAsync();
+        await LinkToGroupAsync(content.Id, groupId);
 
         var response = await _client.PutAsJsonAsync($"/api/content/{content.Id}", new
         {
@@ -1019,9 +1051,9 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     {
         var (groupId, _) = await AddGroupWithCourseAsync();
         var content = await CreateTheoryAsync("Material med bilaga");
+        var link = await LinkToGroupAsync(content.Id, groupId);
         await UploadAttachmentAsync(content.Id);
         var key = Assert.Single(Storage.Keys, storageKey => storageKey.StartsWith($"content/{content.Id}/"));
-        var link = await LinkToGroupAsync(content.Id, groupId);
 
         var response = await _client.DeleteAsync($"/api/content/{content.Id}/links/{link.Id}");
 
@@ -1067,8 +1099,10 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     [Fact]
     public async Task Comment_OnPublishedContent_IsAllowedForAStudent()
     {
+        var (groupId, _) = await AddGroupWithCourseAsync();
         var published = await CreateTheoryAsync("Publicerad");
-        using var student = await StudentClientAsync();
+        await LinkToGroupAsync(published.Id, groupId);
+        using var student = await StudentClientAsync(groupId);
 
         var response = await student.PostAsJsonAsync($"/api/content/{published.Id}/comments", new { bodyMd = "Tack" });
 
@@ -1088,9 +1122,21 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
         return client;
     }
 
+    private async Task<HttpClient> StudentClientAsync(Guid groupId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var group = await db.Groups.FindAsync(groupId);
+        var student = await TestData.AddMemberAsync(db, group!);
+
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add(TestAuthHandler.Header, student.Id.ToString());
+        return client;
+    }
+
     private async Task<ContentResponse> CreateAsync(string type, string title)
     {
-        var response = await _client.PostAsJsonAsync("/api/content", new { type, title, bodyMd = "" });
+        var response = await _client.PostAsJsonAsync("/api/content", new { type, title, bodyMd = "Text" });
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<ContentResponse>())!;
     }

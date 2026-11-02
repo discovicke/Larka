@@ -3,6 +3,7 @@ import {useRoute} from 'vue-router'
 
 import AppHeader from '@/components/layout/AppHeader.vue'
 import AppSidebar from '@/components/layout/AppSidebar.vue'
+import AppToaster from '@/components/layout/AppToaster.vue'
 import {SidebarInset, SidebarProvider} from '@/components/ui/sidebar'
 import {useCourses} from '@/composables/useCourses'
 import {useCurrentUser} from '@/composables/useCurrentUser'
@@ -36,5 +37,6 @@ loadUnreadCount()
         </div>
       </main>
     </SidebarInset>
+    <AppToaster/>
   </SidebarProvider>
 </template>

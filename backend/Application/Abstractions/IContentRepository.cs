@@ -35,6 +35,14 @@ public interface IContentRepository
     /// Lärare på någon av innehållets länkar: lärare i länkens kurs, eller i länkens grupp när länken saknar kurs.
     /// </summary>
     Task<bool> IsTeacherOfContentAsync(Guid contentId, Guid userId, CancellationToken ct);
+
+    /// <summary>
+    /// Elev eller mentor på någon av innehållets länkar, och länken är synlig för eleverna: innehållet är publicerat,
+    /// länkens PublishAt har passerat och veckan (om länken ligger i en) har öppnat. Samma datumregler som flödena
+    /// och elevvyn. Länken räknas bara för grupper som läser kursen, och en länk till en viss grupp bara för den gruppen.
+    /// </summary>
+    Task<bool> IsVisibleToMemberOfContentAsync(
+        Guid contentId, Guid userId, DateTimeOffset now, CancellationToken ct);
     void Add(Content content);
     void AddLink(ContentLink link);
     Task<LinkedContent?> GetLinkWithContentAsync(Guid linkId, CancellationToken ct);

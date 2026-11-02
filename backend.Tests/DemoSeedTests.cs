@@ -262,10 +262,10 @@ public class DemoSeedTests(DemoSeedTests.DemoFixture fixture) : IClassFixture<De
             plan.Courses.Where(course => course.Status == "Completed"),
             course => Assert.Equal(course.AssignmentCount, course.GradedCount));
 
-        // Något ska in i veckan och något längre fram. Den försenade uppgiften visas inte som att göra, och
+        // Något ska in i veckan och något längre fram. En komplettering står kvar även efter deadline, och
         // veckan med sista uppgiften öppnar först fredag.
         Assert.Equal(
-            ["Laboration: Testautomation i CI", "Inlämning: Vald LIA-plats"],
+            ["Laboration: CI/CD", "Laboration: Testautomation i CI", "Inlämning: Vald LIA-plats"],
             today.Todo.Select(item => item.Title));
         Assert.Contains(today.Feedback, item => item.Title == "Laboration: CI/CD");
         Assert.NotEmpty(today.News);

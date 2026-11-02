@@ -9,9 +9,10 @@ import {
   PhLock,
   PhPaperPlaneTilt,
 } from '@phosphor-icons/vue'
-import {computed} from 'vue'
+import {computed, nextTick, onMounted} from 'vue'
 
 import StatusBadge from '@/components/StatusBadge.vue'
+import {Badge} from '@/components/ui/badge'
 import {Button} from '@/components/ui/button'
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '@/components/ui/collapsible'
 import {Item, ItemMedia} from '@/components/ui/item'
@@ -66,6 +67,17 @@ const activeModuleId = computed(() => availableModules.value
 const progressPercent = computed(() => completable.value.length === 0
   ? 0
   : Math.round((completedCount.value / completable.value.length) * 100))
+
+// Veckan som pågår (den första som inte är klar) är den enda som startar öppen. Den får ett märke,
+// och sidan scrollar dit när den öppnas.
+const currentId = activeModuleId
+
+onMounted(async () => {
+  await nextTick()
+  if (currentId.value && availableModules.value.length > 1) {
+    document.querySelector(`[data-module-id="${currentId.value}"]`)?.scrollIntoView?.({block: 'start'})
+  }
+})
 
 const filters: {value: StudentFilter, label: string}[] = [
   {value: 'all', label: 'Allt'},
@@ -146,7 +158,8 @@ function rowBadge(item: Schema<'StudentContentItem'>) {
           :default-open="moduleDefaultOpen(module)"
           as="section"
           :aria-label="module.title"
-          class="bg-card text-card-foreground overflow-hidden rounded-[11px] border"
+          :data-module-id="module.id"
+          class="bg-card scroll-mt-4 text-card-foreground overflow-hidden rounded-[11px] border"
         >
           <CollapsibleTrigger
             class="group bg-muted/50 hover:bg-muted/70 flex w-full items-center gap-3 px-4 py-[14px] text-left transition-colors"
@@ -162,6 +175,9 @@ function rowBadge(item: Schema<'StudentContentItem'>) {
                 <template v-if="module.description"> · {{ module.description }}</template>
               </span>
             </span>
+            <Badge v-if="module.id === currentId && availableModules.length > 1" variant="secondary" data-test="student-module-current">
+              Den här veckan
+            </Badge>
             <StatusBadge
               v-if="moduleProgress(module).total > 0
                 && moduleProgress(module).done === moduleProgress(module).total"

@@ -10,6 +10,7 @@ import {Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTit
 import {Skeleton} from '@/components/ui/skeleton'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {useMobileDetail} from '@/composables/useMobileDetail'
+import {useToast} from '@/composables/useToast'
 import {type Schema} from '@/lib/api'
 import {formatDate} from '@/lib/content'
 import {fetchCourseContent} from '@/lib/coursesApi'
@@ -55,7 +56,10 @@ function select(post: Schema<'ContentFeedItem'>) {
   open(post.linkId)
 }
 
+const {showToast} = useToast()
+
 async function created(linkId: string) {
+  showToast('Nyheten är publicerad.')
   await loadPosts()
   await router.replace({query: {post: linkId}})
 }

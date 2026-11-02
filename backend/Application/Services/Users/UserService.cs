@@ -1,4 +1,3 @@
-using System.Net.Mail;
 using Backend.Application.Abstractions;
 using Backend.Application.Dtos;
 using Backend.Application.Results;
@@ -65,7 +64,7 @@ public class UserService(
 
         // E-post lagras med små bokstäver så att samma adress inte kan finnas två gånger med olika versaler.
         var email = dto.Email?.Trim().ToLowerInvariant() ?? "";
-        if (!MailAddress.TryCreate(email, out var parsed) || parsed.Address != email)
+        if (!EmailRule.IsValid(email))
         {
             return ServiceResult<UserDto>.Invalid("email is not a valid address");
         }

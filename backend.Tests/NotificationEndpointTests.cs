@@ -141,7 +141,7 @@ public class NotificationEndpointTests(TestWebApplicationFactory factory) : ICla
     {
         var setup = await AddSetupAsync();
         var created = await CreateAsync(
-            new { type = "news", title = "Utkast", bodyMd = "", status = "draft" },
+            new { type = "news", title = "Utkast", bodyMd = "Text", status = "draft" },
             new { groupId = setup.GroupId });
         Assert.Empty((await ListForAsync(setup.StudentId)).Items);
 
@@ -368,7 +368,7 @@ public class NotificationEndpointTests(TestWebApplicationFactory factory) : ICla
         Assert.Null(item.ContentId);
     }
 
-    private static object News(string title) => new { type = "news", title, bodyMd = "" };
+    private static object News(string title) => new { type = "news", title, bodyMd = "Text" };
 
     private async Task<CreatedResponse> CreateAsync(object content, object link)
     {

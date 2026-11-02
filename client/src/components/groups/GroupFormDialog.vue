@@ -11,11 +11,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {Field, FieldError, FieldGroup, FieldLabel} from '@/components/ui/field'
+import {Field, FieldDescription, FieldError, FieldGroup, FieldLabel} from '@/components/ui/field'
 import {Input} from '@/components/ui/input'
 import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
 import {useAsync} from '@/composables/useAsync'
 import {api, unwrap, type Schema} from '@/lib/api'
+import {classCodeFromName} from '@/lib/classCode'
 import {groupTypeLabels} from '@/lib/groups'
 
 // Utan group skapas en ny klass eller grupp i skolan, med group ändras den.
@@ -38,6 +39,10 @@ const typeOptions = computed(() => Object.entries(groupTypeLabels)
 const nameError = computed(() => submitted.value && !form.name.trim()
   ? 'Ange ett namn.'
   : '')
+
+// Bara klasser fångar elever på adressen. Ett tomt namn visar ingenting förrän det finns något att säga om.
+const classCode = computed(() => classCodeFromName(form.name))
+const showCodeHint = computed(() => isClass.value && form.name.trim().length > 0)
 
 const {run: send, loading: saving, error} = useAsync(async (name: string, term: string | null) => {
   const saved = props.group
@@ -114,6 +119,13 @@ async function save() {
               data-test="group-name"
             />
             <FieldError v-if="nameError" data-test="group-name-error">{{ nameError }}</FieldError>
+            <FieldDescription v-if="showCodeHint && classCode" data-test="group-code-hint">
+              Elever med adresser som slutar på <strong>.{{ classCode }}@…</strong> hamnar här.
+            </FieldDescription>
+            <FieldDescription v-else-if="showCodeHint" data-test="group-code-hint-missing">
+              Namnet ger ingen kod som adresser kan sluta på, till exempel NET25. Elever hamnar inte här av sig
+              själva, du lägger in dem på klassens sida.
+            </FieldDescription>
           </Field>
           <Field v-if="isEdit || !isClass">
             <FieldLabel for="group-type">Typ</FieldLabel>

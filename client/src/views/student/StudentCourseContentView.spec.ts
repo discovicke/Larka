@@ -383,6 +383,7 @@ describe('StudentCourseContentView', () => {
     await flushPromises()
 
     expect(sent('PUT', '/api/courses/c1/links/l1/completion')).toEqual({completed: true})
+    expect(wrapper.find('[data-test="toast"]').text()).toContain('Delen är klarmarkerad.')
     await openSection(wrapper, 'completed')
     expect(wrapper.find('[data-test="undo-l1"]').exists()).toBe(true)
   })
@@ -635,6 +636,15 @@ describe('StudentCourseContentView', () => {
     expect(wrapper.find('[data-test="student-help"]').exists()).toBe(true)
   })
 
+  it('lägger lärarens kommentar i Din status och döljer väntetexten när uppgiften är bedömd', async () => {
+    backend([graded])
+    const {wrapper} = await renderApp('/courses/c1/content?del=l4')
+
+    const status = wrapper.find('[aria-labelledby="status-h"]')
+    expect(status.find('[data-test="student-feedback"]').text()).toContain('Snyggt arbete med pipelinen')
+    expect(wrapper.text()).not.toContain('Statusen uppdateras när du lämnar in')
+  })
+
   it('visar ingen kommentar på en uppgift som inte är bedömd', async () => {
     backend([submitted])
     const {wrapper} = await renderApp('/courses/c1/content?del=l3')
@@ -718,7 +728,7 @@ describe('StudentCourseContentView', () => {
       const {wrapper} = await renderApp('/courses/c1/content?del=l10')
 
       const facts = wrapper.find('[data-test="facts"]')
-      expect(facts.find('[data-test="fact-scale"]').text()).toContain('IG–G')
+      expect(facts.find('[data-test="fact-scale"]').text()).toContain('Icke godkänd / Godkänd')
       expect(facts.find('[data-test="fact-handin"]').text()).toContain('text, filer')
       expect(facts.find('[data-test="fact-due"]').exists()).toBe(false)
       expect(facts.find('[data-slot="badge"]').exists()).toBe(false)
@@ -752,7 +762,81 @@ describe('StudentCourseContentView', () => {
       } else {
         expect(badge.exists()).toBe(false)
       }
-      expect(wrapper.find('aside').text()).not.toContain('Deadline')
+      expect(wrapper.find('[aria-labelledby="status-h"]').text()).not.toContain('Deadline')
+    })
+  })
+
+  describe('flödet genom kursen', () => {
+    const second = {...theory, linkId: 'l20', contentId: 'x20', title: 'Teori D'}
+    const weekOne = week([theory], {id: 'm1', title: 'Vecka 1', publishAt: '2026-01-05T08:00:00Z'})
+    const weekTwo = week([second], {id: 'm2', title: 'Vecka 2', position: 2, publishAt: '2026-01-12T08:00:00Z'})
+
+    function twoWeeks() {
+      mockApi((_method, path) => {
+        if (path === '/api/me') {
+          return {status: 200, body: meAs('Student', ['c1'], 'Anna Elev')}
+        }
+        if (path === '/api/courses') {
+          return {status: 200, body: [course]}
+        }
+        if (path === '/api/courses/c1/student-modules') {
+          return {status: 200, body: [weekOne, weekTwo]}
+        }
+        return {status: 200, body: []}
+      })
+    }
+
+    it('märker den pågående veckan, den första som inte är klar', async () => {
+      twoWeeks()
+      const {wrapper} = await renderApp('/courses/c1/content')
+
+      const badges = wrapper.findAll('[data-test="student-module-current"]')
+      expect(badges).toHaveLength(1)
+      expect(badges[0]!.text()).toBe('Den här veckan')
+      expect(wrapper.find('[data-module-id="m1"]').text()).toContain('Den här veckan')
+    })
+
+    it('visar inget märke när kursen bara har en vecka', async () => {
+      backend([theory])
+      const {wrapper} = await renderApp('/courses/c1/content')
+
+      expect(wrapper.find('[data-test="student-module-current"]').exists()).toBe(false)
+    })
+
+    it('länkar till nästa och föregående del i kursordning, även över veckor', async () => {
+      twoWeeks()
+      const {wrapper, router} = await renderApp('/courses/c1/content?del=l1')
+
+      expect(wrapper.find('[data-test="student-previous"]').exists()).toBe(false)
+      await wrapper.find('[data-test="student-next"]').trigger('click')
+      await flushPromises()
+
+      expect(router.currentRoute.value.query.del).toBe('l20')
+      expect(wrapper.find('[data-test="student-detail"]').text()).toContain('Teori D')
+      expect(wrapper.find('[data-test="student-next"]').exists()).toBe(false)
+
+      await wrapper.find('[data-test="student-previous"]').trigger('click')
+      await flushPromises()
+      expect(router.currentRoute.value.query.del).toBe('l1')
+    })
+
+    it('visar Kurs och del i brödsmulan', async () => {
+      twoWeeks()
+      const {wrapper} = await renderApp('/courses/c1/content?del=l20')
+
+      const crumbs = wrapper.find('header nav').text()
+      expect(crumbs).toContain('DevOps')
+      expect(crumbs).toContain('Teori D')
+    })
+
+    it('har inlämningsformuläret i sidopanelen under Din status', async () => {
+      const open = {...submitted, linkId: 'l8', isCompleted: false, submissionStatus: null}
+      backend([open])
+      const {wrapper} = await renderApp('/courses/c1/content?del=l8')
+
+      const aside = wrapper.find('[data-test="student-detail"] aside')
+      expect(aside.find('[data-test="submission-form"]').exists()).toBe(true)
+      expect(aside.text().indexOf('Din status')).toBeLessThan(aside.text().indexOf('Din inlämning'))
     })
   })
 })

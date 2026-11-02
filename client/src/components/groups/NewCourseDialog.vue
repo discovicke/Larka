@@ -15,14 +15,17 @@ import {
 } from '@/components/ui/dialog'
 import {Field, FieldDescription, FieldError, FieldGroup, FieldLabel} from '@/components/ui/field'
 import {Input} from '@/components/ui/input'
-import {api, errorMessage, unwrap, type Schema} from '@/lib/api'
+import {api, ApiError, errorMessage, unwrap, type Schema} from '@/lib/api'
 import {countLabel} from '@/lib/content'
 import {periodLabel} from '@/lib/coursePeriod'
-import {addDays, courseLengthDays, suggestCourseCode} from '@/lib/courseSuggestions'
+import {addDays, courseLengthDays, suggestCourseCode, suggestCourseTitle} from '@/lib/courseSuggestions'
 import {addCourseTeacher, createCourse, fetchCourses} from '@/lib/coursesApi'
 import {linkCourseToGroup} from '@/lib/groupsApi'
 import {fetchCourseModules} from '@/lib/modulesApi'
 import {fetchUsers} from '@/lib/usersApi'
+import {useCurrentUser} from '@/composables/useCurrentUser'
+
+const {me} = useCurrentUser()
 
 const props = defineProps<{groupId: string, groupName: string, schoolId: string}>()
 // created kommer när något har sparats, också om ett senare steg misslyckades, så att sidan visar det som finns.
@@ -130,8 +133,9 @@ watch(open, async (isOpen) => {
   try {
     const [courseList, userList] = await Promise.all([fetchCourses(), fetchUsers()])
     courses.value = courseList
+    // Lärare, och admin själv om hen också undervisar. Andra admin kan inte väljas.
     teachers.value = userList
-      .filter((user) => user.role !== 'Student')
+      .filter((user) => user.role === 'Teacher' || user.id === me.value?.id)
       .sort((first, second) => first.name.localeCompare(second.name, 'sv'))
   } catch (exception) {
     error.value = errorMessage(exception)
@@ -176,7 +180,7 @@ function startEmpty() {
 async function pickSource(course: Schema<'CourseDto'>) {
   source.value = course
   resetForm()
-  form.title = course.title
+  form.title = suggestCourseTitle(props.groupName, course.title)
   form.code = suggestCourseCode(props.groupName, course.code)
   form.points = course.points === null || course.points === undefined
     ? ''
@@ -239,10 +243,10 @@ function createdNotice(partsCopied: {modules: number, parts: number} | null): st
   return `${form.title.trim()} skapades${content}. ${teachersLabel} ser kursen under Behöver förberedas.`
 }
 
-// Svaren från API:et är på engelska, så det vanligaste översätts och visas vid fältet.
+// Att koden redan finns visas vid kodfältet, övriga fel i dialogen.
 function showCreateError(exception: unknown) {
   const message = errorMessage(exception)
-  if (message.includes('already has a course with this code')) {
+  if (exception instanceof ApiError && exception.message.includes('already has a course with this code')) {
     codeTaken.value = true
   } else {
     error.value = message

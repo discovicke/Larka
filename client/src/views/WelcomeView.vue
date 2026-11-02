@@ -11,7 +11,7 @@ import {useAsync} from '@/composables/useAsync'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {api, unwrap} from '@/lib/api'
 
-// Första inloggningen med Microsoft: namnet kommer från Microsoft och kan rättas, och notiserna väljs. Allt går att
+// Första inloggningen med Microsoft: namnet kommer från Microsoft, eller ur skoladressen när Microsoft inte har något, och kan rättas, och notiserna väljs. Allt går att
 // ändra senare under Inställningar.
 const route = useRoute()
 const router = useRouter()

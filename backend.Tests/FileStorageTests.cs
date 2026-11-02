@@ -165,7 +165,23 @@ public class FileStorageTests(TestWebApplicationFactory factory) : IClassFixture
     {
         var response = await _client.PostAsJsonAsync("/api/content", new { type, title = "Material", bodyMd = "" });
         response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<IdResponse>())!.Id;
+        var id = (await response.Content.ReadFromJsonAsync<IdResponse>())!.Id;
+        await LinkToTeachersGroupAsync(id);
+        return id;
+    }
+
+    // Författaren har ingen genväg: bilagor och ändringar kräver att innehållet ligger hos en lärare i en länk.
+    private async Task LinkToTeachersGroupAsync(Guid contentId)
+    {
+        Guid groupId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            groupId = (await TestData.AddGroupAsync(
+                scope.ServiceProvider.GetRequiredService<AppDb>(), placeholderTeaches: true)).Id;
+        }
+
+        var link = await _client.PostAsJsonAsync($"/api/content/{contentId}/links", new { groupId });
+        link.EnsureSuccessStatusCode();
     }
 
     private async Task<Guid> CreateFileAssignmentLinkAsync(string[]? modes = null)

@@ -24,9 +24,12 @@ import {Skeleton} from '@/components/ui/skeleton'
 import {useAsync} from '@/composables/useAsync'
 import {useCourses} from '@/composables/useCourses'
 import {useCurrentUser} from '@/composables/useCurrentUser'
+import {useToast} from '@/composables/useToast'
 import {api, type Schema} from '@/lib/api'
 import {updateCourse as saveCourse} from '@/lib/coursesApi'
+import {periodLabel} from '@/lib/coursePeriod'
 import {initials} from '@/lib/person'
+import {gradeScaleName} from '@/lib/submissions'
 import NotFoundView from '@/views/NotFoundView.vue'
 
 const route = useRoute()
@@ -52,15 +55,7 @@ const staff = ref<Schema<'CourseStaffDto'>[]>([])
 
 const hasDescription = computed(() => (course.value?.description ?? '').trim() !== '')
 
-const period = computed(() => {
-  if (!course.value) {
-    return '–'
-  }
-  if (course.value.startsOn && course.value.endsOn) {
-    return `${course.value.startsOn} – ${course.value.endsOn}`
-  }
-  return course.value.startsOn ?? course.value.endsOn ?? '–'
-})
+const period = computed(() => periodLabel(course.value?.startsOn ?? null, course.value?.endsOn ?? null) || '–')
 
 const pointsText = computed(() => {
   const points = course.value?.points
@@ -104,6 +99,7 @@ function openEdit() {
   editOpen.value = true
 }
 
+const {showToast} = useToast()
 const {run: send, loading: saving, error: saveError} = useAsync(async () => {
   updateCourse(await saveCourse(courseId.value, {
     title: form.title,
@@ -119,6 +115,7 @@ const {run: send, loading: saving, error: saveError} = useAsync(async () => {
       : form.endsOn,
   }))
   editOpen.value = false
+  showToast('Kursen är sparad.')
 })
 
 async function save() {
@@ -239,7 +236,7 @@ watch(() => route.hash, scrollToStaff)
             </div>
             <div class="flex justify-between gap-2">
               <dt class="text-muted-foreground">Kursbetyg</dt>
-              <dd>IG – G – VG</dd>
+              <dd>{{ gradeScaleName('PassFailDistinction') }}</dd>
             </div>
           </dl>
         </section>

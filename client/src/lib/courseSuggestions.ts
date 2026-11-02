@@ -9,6 +9,14 @@ export function suggestCourseCode(groupName: string, sourceCode: string): string
   return `${prefix}_${suffix}`
 }
 
+/** Föreslår en egen titel för kopian så att två kurser inte heter lika: DevOps för NET27 ger "DevOps – NET27". */
+export function suggestCourseTitle(groupName: string, sourceTitle: string): string {
+  const group = groupName.trim()
+  return !group || sourceTitle.toLocaleLowerCase('sv').includes(group.toLocaleLowerCase('sv'))
+    ? sourceTitle
+    : `${sourceTitle} – ${group}`
+}
+
 /** Antal dagar mellan två datum på formen yyyy-mm-dd, eller null om något saknas. */
 export function courseLengthDays(startsOn: string | null | undefined, endsOn: string | null | undefined): number | null {
   if (!startsOn || !endsOn) {

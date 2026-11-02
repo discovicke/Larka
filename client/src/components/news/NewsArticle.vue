@@ -31,6 +31,7 @@ import {
 import {Skeleton} from '@/components/ui/skeleton'
 import {Textarea} from '@/components/ui/textarea'
 import {useAsync} from '@/composables/useAsync'
+import {useToast} from '@/composables/useToast'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {api, type Schema} from '@/lib/api'
 import {deleteContentLink, updateContentLink} from '@/lib/contentApi'
@@ -77,6 +78,7 @@ const {run: fetchComments, loading: commentsLoading} = useAsync(async (contentId
   return data ?? []
 })
 
+const {showToast} = useToast()
 const {run: sendComment, loading: sending, error: sendError} = useAsync(async (bodyMd: string) => {
   const {data} = await api.POST('/api/content/{id}/comments', {
     params: {path: {id: props.post.contentId}},
@@ -86,6 +88,7 @@ const {run: sendComment, loading: sending, error: sendError} = useAsync(async (b
     comments.value = [...comments.value, data]
   }
   commentBody.value = ''
+  showToast('Kommentaren är skickad.')
 }, 'Kunde inte skicka kommentaren.')
 const commentFailed = computed(() => sendError.value !== '')
 

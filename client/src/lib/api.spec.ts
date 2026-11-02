@@ -105,7 +105,39 @@ describe('api', () => {
     const error = await api.POST('/api/content', {body: {type: 'News', title: '', bodyMd: ''}})
       .catch((thrown: unknown) => thrown)
 
-    expect(errorMessage(error)).toBe('title is required')
+    expect(errorMessage(error)).toBe('Titeln saknas.')
+  })
+})
+
+describe('errorMessage på svenska', () => {
+  it('översätter backendens engelska meddelanden', () => {
+    expect(errorMessage(new ApiError(400, 'the school already has a group with this name and term')))
+      .toBe('Det finns redan en klass med det namnet.')
+    expect(errorMessage(new ApiError(400, 'password must be at least 8 characters')))
+      .toBe('Lösenordet måste vara minst 8 tecken.')
+    expect(errorMessage(new ApiError(409, 'the week contains student activity in "Lab 1" and cannot be deleted')))
+      .toBe('Veckan har elevaktivitet i "Lab 1" och kan inte tas bort.')
+  })
+
+  it('släpper igenom meddelanden som backend redan skrivit på svenska', () => {
+    expect(errorMessage(new ApiError(403, 'Ditt konto är spärrat.'))).toBe('Du har inte behörighet.')
+    expect(errorMessage(new ApiError(400, 'GitHub är inte konfigurerat. Saknas: App-id.')))
+      .toBe('GitHub är inte konfigurerat. Saknas: App-id.')
+  })
+
+  it('ger en svensk text efter statuskoden när meddelandet är okänt', () => {
+    expect(errorMessage(new ApiError(404, 'something we never mapped'))).toBe('Det du söker finns inte längre.')
+    expect(errorMessage(new ApiError(409, 'something we never mapped')))
+      .toBe('Det går inte att göra just nu, eftersom det krockar med något som redan finns.')
+    expect(errorMessage(new ApiError(400, 'Bad Request')))
+      .toBe('Det gick inte att spara. Kontrollera uppgifterna och försök igen.')
+    expect(errorMessage(new ApiError(500, 'Internal Server Error')))
+      .toBe('Något gick fel hos servern. Försök igen om en stund.')
+  })
+
+  it('säger det när servern inte går att nå', () => {
+    expect(errorMessage(new TypeError('Failed to fetch')))
+      .toBe('Kunde inte nå servern. Kontrollera anslutningen och försök igen.')
   })
 })
 

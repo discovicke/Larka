@@ -13,11 +13,16 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
 {
     private readonly HttpClient _client = factory.CreateClient();
 
-    private record GroupResponse(Guid Id, Guid SchoolId, string Type, string Name, string Term, int MemberCount);
+    private record GroupResponse(
+        Guid Id, Guid SchoolId, string Type, string Name, string Term, int MemberCount, DateOnly? LastCourseEndsOn);
 
     private record CourseResponse(Guid Id, string Code);
 
     private record MemberResponse(Guid UserId, Guid GroupId, string Role);
+
+    private record CourseTeachersResponse(Guid CourseId, List<TeacherResponse> Teachers, List<string> SharedWith);
+
+    private record TeacherResponse(Guid UserId, string Name, string Email);
 
     private record GroupMemberResponse(Guid UserId, string Name, string Role);
 
@@ -101,6 +106,30 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
     }
 
     [Fact]
+    public async Task ListGroups_GivesTheLastCourseEnd_OnlyWhenEveryCourseHasOne()
+    {
+        var withoutCourses = await CreateGroupAsync();
+        var allDated = await CreateGroupAsync();
+        var oneUndated = await CreateGroupAsync();
+        var early = await CreateCourseAsync(allDated.SchoolId, new DateOnly(2025, 1, 10));
+        var late = await CreateCourseAsync(allDated.SchoolId, new DateOnly(2025, 6, 1));
+        var undated = await CreateCourseAsync(allDated.SchoolId, null);
+        foreach (var (group, course) in new[]
+                 {
+                     (allDated, early), (allDated, late), (oneUndated, early), (oneUndated, undated)
+                 })
+        {
+            (await _client.PostAsync($"/api/groups/{group.Id}/courses/{course.Id}", null)).EnsureSuccessStatusCode();
+        }
+
+        var groups = await _client.GetFromJsonAsync<List<GroupResponse>>("/api/groups");
+
+        Assert.Null(groups!.Single(item => item.Id == withoutCourses.Id).LastCourseEndsOn);
+        Assert.Equal(new DateOnly(2025, 6, 1), groups!.Single(item => item.Id == allDated.Id).LastCourseEndsOn);
+        Assert.Null(groups!.Single(item => item.Id == oneUndated.Id).LastCourseEndsOn);
+    }
+
+    [Fact]
     public async Task AddCourse_ThatDoesNotExist_Returns404()
     {
         var group = await CreateGroupAsync();
@@ -114,7 +143,7 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
     public async Task AddMember_ReturnsCreated_ThenBadRequestForSameUser()
     {
         var group = await CreateGroupAsync();
-        var userId = await AddUserAsync(group.SchoolId);
+        var userId = await AddUserInSchoolAsync(group.SchoolId, UserRole.Teacher);
 
         var first = await _client.PostAsJsonAsync($"/api/groups/{group.Id}/members", new { userId, role = "teacher" });
         var second = await _client.PostAsJsonAsync($"/api/groups/{group.Id}/members", new { userId });
@@ -273,6 +302,15 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
         var response = await _client.PostAsJsonAsync("/api/groups", new { schoolId, type = "class", name });
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<GroupResponse>())!;
+    }
+
+    private async Task<CourseResponse> CreateCourseAsync(Guid schoolId, DateOnly? endsOn)
+    {
+        var response = await _client.PostAsJsonAsync(
+            "/api/courses",
+            new { schoolId, title = "DevOps", code = $"D{Guid.NewGuid():N}"[..10], endsOn });
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<CourseResponse>())!;
     }
 
     private async Task<CourseResponse> CreateCourseAsync(Guid schoolId)
@@ -495,7 +533,7 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
         var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
-        var student = await TestData.AddMemberAsync(db, group);
+        var student = await TestData.AddMemberAsync(db, group, GroupRole.Student, UserRole.Teacher);
 
         var response = await _client.PutAsJsonAsync(
             $"/api/groups/{group.Id}/members/{student.Id}", new { role = "mentor" });
@@ -626,6 +664,44 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
         };
 
         Assert.All(responses, response => Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode));
+    }
+
+    [Fact]
+    public async Task GetCourseTeachers_ReturnsTeachersPerCourse_AndTheOtherGroupsSharingIt()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
+        var other = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
+        var shared = await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId, group.Id, placeholderTeaches: false);
+        db.GroupCourses.Add(new GroupCourse { GroupId = other.Id, CourseId = shared.Id });
+        var own = await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId, group.Id, placeholderTeaches: false);
+        await db.SaveChangesAsync();
+        var teacher = await TestData.AddCourseTeacherAsync(db, shared);
+
+        var response = await _client.GetFromJsonAsync<List<CourseTeachersResponse>>(
+            $"/api/groups/{group.Id}/course-teachers");
+
+        Assert.Equal(2, response!.Count);
+        var sharedRow = response.Single(row => row.CourseId == shared.Id);
+        Assert.Equal(teacher.Id, Assert.Single(sharedRow.Teachers).UserId);
+        Assert.Equal([other.Name], sharedRow.SharedWith);
+        var ownRow = response.Single(row => row.CourseId == own.Id);
+        Assert.Empty(ownRow.Teachers);
+        Assert.Empty(ownRow.SharedWith);
+    }
+
+    [Fact]
+    public async Task GetCourseTeachers_AsTeacher_IsForbidden()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
+        var teacher = await TestData.AddMemberAsync(db, group, GroupRole.Teacher, UserRole.Teacher);
+
+        var response = await GetAsync($"/api/groups/{group.Id}/course-teachers", teacher.Id);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     // Innehåll publicerat till gruppen, och till kursen om courseId är satt.

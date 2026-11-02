@@ -21,12 +21,13 @@ const props = withDefaults(
     max?: string
     clearable?: boolean
     invalid?: boolean
+    // Klockslaget en nyvald dag får, t.ex. 23:59 för en deadline.
+    defaultTime?: string
   }>(),
-  {modelValue: '', id: undefined, min: undefined, max: undefined, placeholder: 'Välj datum och tid'},
+  {modelValue: '', defaultTime: '09:00', id: undefined, min: undefined, max: undefined, placeholder: 'Välj datum och tid'},
 )
 const emit = defineEmits<{'update:modelValue': [value: string]}>()
 
-const DEFAULT_TIME = '09:00'
 const open = ref(false)
 const parts = computed(() => splitDateTime(props.modelValue))
 const selected = computed(() => toCalendarDate(parts.value.date))
@@ -35,7 +36,7 @@ const label = computed(() => formatDateTime(props.modelValue))
 function onSelect(value: unknown) {
   if (!value) return
   const date = fromCalendarDate(value as {year: number, month: number, day: number})
-  emit('update:modelValue', `${date}T${parts.value.time || DEFAULT_TIME}`)
+  emit('update:modelValue', `${date}T${parts.value.time || props.defaultTime}`)
 }
 
 function onTime(value: string | number) {
@@ -71,9 +72,11 @@ function clear() {
       <Calendar
         :model-value="selected"
         locale="sv-SE"
+        calendar-label="Datum"
         :week-starts-on="1"
         :min-value="toCalendarDate(min)"
         :max-value="toCalendarDate(max)"
+        layout="month-and-year"
         fixed-weeks
         initial-focus
         @update:model-value="onSelect"

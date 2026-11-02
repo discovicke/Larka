@@ -121,6 +121,29 @@ public class AdminSeparationTests(TestWebApplicationFactory factory) : IClassFix
     }
 
     [Fact]
+    public async Task Admin_SetAsMentor_CannotReadSubmissionsThroughTheMentorPath()
+    {
+        var scenario = await AddScenarioAsync();
+        await using (var db = OpenDb())
+        {
+            db.Enrollments.Add(new Enrollment
+            {
+                UserId = scenario.AdminId,
+                GroupId = scenario.ClassA,
+                Role = GroupRole.Mentor
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var single = await SendAsync(HttpMethod.Get, $"/api/submissions/{scenario.SubmissionA}", scenario.AdminId);
+        var list = await SendAsync(
+            HttpMethod.Get, $"/api/links/{scenario.AssignmentLinkId}/submissions", scenario.AdminId);
+
+        Assert.Equal(HttpStatusCode.Forbidden, single.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, list.StatusCode);
+    }
+
+    [Fact]
     public async Task Admin_CannotReadSubmissionsOrGrades_ButAnAdminWithATeacherRowCan()
     {
         var scenario = await AddScenarioAsync();
@@ -312,7 +335,7 @@ public class AdminSeparationTests(TestWebApplicationFactory factory) : IClassFix
         var draft = await SendAsync(HttpMethod.Get, $"/api/content/{scenario.DraftContentId}", scenario.MentorId);
         var news = await SendAsync(HttpMethod.Post, "/api/content/with-link", scenario.MentorId, new
         {
-            content = new { type = "news", title = "Nyhet", bodyMd = "" },
+            content = new { type = "news", title = "Nyhet", bodyMd = "Text" },
             link = new { groupId = scenario.ClassA }
         });
 
@@ -437,6 +460,38 @@ public class AdminSeparationTests(TestWebApplicationFactory factory) : IClassFix
             await CountCoursesAsync(scenario.SchoolId));
         Assert.Equal(HttpStatusCode.Forbidden, teacher.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, student2.StatusCode);
+    }
+
+    [Fact]
+    public async Task AdminOverview_SkipsFinishedCoursesAndClasses_ButKeepsUndatedOnes()
+    {
+        var scenario = await AddScenarioAsync();
+        Guid finishedClass;
+        Guid finishedCourse;
+        Guid mixedClass;
+        Guid undatedCourse;
+        await using (var db = OpenDb())
+        {
+            var past = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-5);
+            var finished = await TestData.AddGroupAsync(db, scenario.SchoolId);
+            var mixed = await TestData.AddGroupAsync(db, scenario.SchoolId);
+            var old = await TestData.AddCourseAsync(db, scenario.SchoolId, finished.Id, placeholderTeaches: false);
+            var undated = await TestData.AddCourseAsync(db, scenario.SchoolId, mixed.Id, placeholderTeaches: false);
+            db.GroupCourses.Add(new GroupCourse { GroupId = mixed.Id, CourseId = old.Id });
+            old.EndsOn = past;
+            await db.SaveChangesAsync();
+            finishedClass = finished.Id;
+            finishedCourse = old.Id;
+            mixedClass = mixed.Id;
+            undatedCourse = undated.Id;
+        }
+
+        var overview = await GetAsync<OverviewResponse>("/api/me/admin-overview", scenario.AdminId);
+
+        Assert.DoesNotContain(overview.ClassesWithoutMentor, group => group.GroupId == finishedClass);
+        Assert.Contains(overview.ClassesWithoutMentor, group => group.GroupId == mixedClass);
+        Assert.DoesNotContain(overview.CoursesWithoutTeacher, course => course.CourseId == finishedCourse);
+        Assert.Contains(overview.CoursesWithoutTeacher, course => course.CourseId == undatedCourse);
     }
 
     private async Task<int> CountCoursesAsync(Guid schoolId)

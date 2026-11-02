@@ -224,10 +224,14 @@ public class CourseService(
         return ServiceResult<bool>.Ok(true);
     }
 
-    /// <summary>Kursens lärare, med namnen på grupperna som läser kursen. Null om kursen inte finns.</summary>
+    /// <summary>
+    /// Kursens lärare, med e-post och namnen på grupperna som läser kursen. Null (404) om kursen inte finns eller
+    /// användaren inte hör till den: bara kursens lärare, eleverna och mentorerna i klasserna som läser den och
+    /// admin i skolan får se uppgifterna.
+    /// </summary>
     public async Task<List<CourseStaffDto>?> GetStaffAsync(Guid id, CancellationToken ct)
     {
-        if (await GetOwnAsync(id, ct) is null)
+        if (await GetOwnAsync(id, ct) is null || !await permissions.CanReadCourseAsync(id, ct))
         {
             return null;
         }

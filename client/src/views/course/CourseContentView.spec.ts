@@ -177,11 +177,12 @@ describe('CourseContentView', () => {
     backend([week('m1', 'Vecka 1')])
 
     const {wrapper} = await renderApp('/courses/c1/content')
-    await wrapper.find('[data-test="add-part-menu"]').trigger('keydown', {key: 'Enter'})
     await flushPromises()
 
-    expect(document.querySelector('[data-test="add-part"]')?.getAttribute('href'))
-      .toBe('/courses/c1/modules/m1/new')
+    // Knappen är en direkt länk till formuläret, utan mellansteg.
+    const add = wrapper.find('[data-test="add-part"]')
+    expect(add.text()).toBe('Lägg till del')
+    expect(add.attributes('href')).toBe('/courses/c1/modules/m1/new')
   })
 
   it('publicerar och avpublicerar från raden', async () => {
@@ -259,7 +260,7 @@ describe('CourseContentView', () => {
         return {status: 200, body: [week('m1', 'Vecka 1', [submission])]}
       }
       if (method === 'DELETE') {
-        return {status: 409, body: 'unpublish the assignment before deleting it'}
+        return {status: 409, body: 'the part has student activity, files or a repository and cannot be deleted'}
       }
       return {status: 200, body: []}
     })
@@ -273,7 +274,7 @@ describe('CourseContentView', () => {
     ;(confirm as HTMLElement).click()
     await flushPromises()
 
-    expect(document.body.textContent).toContain('unpublish the assignment before deleting it')
+    expect(document.body.textContent).toContain('Delen har elevaktivitet, filer eller ett repo och kan inte tas bort.')
   })
 
   it('titeln öppnar delen och redigera går till redigeringssidan', async () => {
@@ -389,7 +390,7 @@ describe('CourseContentView', () => {
     expect(items[1]).toContain('Changelog')
     expect(items[1]).toContain('Utkast')
     expect(wrapper.find('[data-test="add-module"]').exists()).toBe(false)
-    expect(wrapper.find('[data-test="add-part-menu"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="add-part"]').exists()).toBe(false)
     expect(wrapper.find('[aria-label="Fler val för veckan"]').exists()).toBe(false)
     expect(wrapper.find('[aria-label="Fler val för Release-pipeline"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="submissions-link"]').exists()).toBe(false)
@@ -426,7 +427,7 @@ describe('CourseContentView', () => {
     expect(wrapper.findAll('[data-test="module-item"]')).toHaveLength(1)
     expect(wrapper.text()).toContain('Release-pipeline')
     expect(wrapper.find('[data-test="add-module"]').exists()).toBe(false)
-    expect(wrapper.find('[data-test="add-part-menu"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="add-part"]').exists()).toBe(false)
     expect(wrapper.find('[aria-label="Fler val för veckan"]').exists()).toBe(false)
     expect(wrapper.find('[aria-label="Fler val för Release-pipeline"]').exists()).toBe(false)
     expect(wrapper.find('a[href="/courses/c1/modules/m1/content/l1/edit"]').exists()).toBe(false)

@@ -4,6 +4,7 @@ import type {Component} from 'vue'
 import type {Schema} from '@/lib/api'
 import {formatDate, partOf} from '@/lib/content'
 import {deadlineStatusKey, partStatusKey, statuses, toneTextClasses} from '@/lib/status'
+import {gradeScaleName} from '@/lib/submissions'
 
 type Item = Schema<'StudentContentItem'>
 type Module = Schema<'StudentModuleWithContentDto'>
@@ -124,14 +125,17 @@ export function sectionsFor(module: Module, filter: StudentFilter): PartSection[
     section.items.length > 0 || (section.key === 'next' && !complete))
 }
 
+/** Delarna eleven kan öppna, i kursordning: vecka för vecka, utan låsta delar och låsta veckor. */
+export function openableParts(modules: Module[]): {part: Item, module: Module}[] {
+  return modules
+    .filter((module) => module.isAvailable)
+    .flatMap((module) => module.content
+      .filter((item) => !item.isLocked)
+      .map((part) => ({part, module})))
+}
+
 export function gradeScaleLabel(scale: Schema<'GradeScale'> | null): string | null {
-  if (scale === 'PassFail') {
-    return 'IG–G'
-  }
-  if (scale === 'PassFailDistinction') {
-    return 'IG–VG'
-  }
-  return null
+  return gradeScaleName(scale) || null
 }
 
 // Etiketten, ikonen och färgen kommer från samma läge (lib/status.ts), så de kan inte skilja sig åt.
@@ -153,7 +157,7 @@ export function statusHeading(item: Item): string {
 
 export function dueLabel(item: Item): string {
   return item.dueAt
-    ? `Slutar ${formatDate(item.dueAt, true)}`
+    ? `Deadline ${formatDate(item.dueAt, true)}`
     : ''
 }
 

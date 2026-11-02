@@ -3,7 +3,7 @@ import {type Locator, type Page} from '@playwright/test'
 import {expect, test} from '../fixtures'
 
 // Testerna är bara läsning: de öppnar sidor och tittar, och klickar aldrig på något som sparar.
-// Med inloggning, som eleven, om inget annat anges (fixtures.ts).
+// Med inloggning, som eleven, om inget annat anges (fixtures.ts). Lärare och admin har egna block längst ner.
 
 const mobileSidebar = (page: Page) => page.locator('[data-slot="sidebar"][data-mobile="true"]')
 
@@ -95,6 +95,33 @@ test('okänd sökväg visar sidan finns inte', async ({page}) => {
   await page.goto('/finns-inte')
 
   await expect(page.getByRole('heading', {name: 'Sidan finns inte'})).toBeVisible()
+})
+
+test.describe('som lärare', () => {
+  test.use({role: 'larare'})
+
+  test('Idag visar lärarens översikt och Att bedöma öppnas', async ({page}) => {
+    await page.goto('/')
+    await expect(page).toHaveTitle(/Idag · Lärka$/)
+    await expect(page.getByTestId('teacher-dashboard')).toBeVisible()
+
+    await page.goto('/grading')
+    await expect(page.getByRole('heading', {name: 'Att bedöma', level: 1})).toBeVisible()
+  })
+})
+
+test.describe('som admin', () => {
+  test.use({role: 'admin'})
+
+  test('Idag visar adminöversikten och Användare öppnas', async ({page}) => {
+    await page.goto('/')
+    await expect(page).toHaveTitle(/Idag · Lärka$/)
+    await expect(page.getByTestId('admin-dashboard')).toBeVisible()
+
+    await page.goto('/users')
+    await expect(page.getByRole('heading', {name: 'Användare', level: 1})).toBeVisible()
+    await expect(page.locator('table tbody tr').first()).toBeVisible()
+  })
 })
 
 test.describe('utan inloggning', () => {

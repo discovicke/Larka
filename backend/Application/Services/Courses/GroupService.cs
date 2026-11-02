@@ -1,4 +1,3 @@
-using System.Net.Mail;
 using Backend.Application.Abstractions;
 using Backend.Application.Dtos;
 using Backend.Application.Results;
@@ -29,8 +28,14 @@ public class GroupService(
             ? await groups.GetForSchoolAsync(schoolId.Value, ct)
             : await groups.GetForMemberAsync(schoolId.Value, currentUser.UserId, ct);
         var counts = await groups.GetMemberCountsAsync(schoolId.Value, ct);
+        var lastEnds = await groups.GetLastCourseEndsAsync(schoolId.Value, ct);
         return schoolGroups
-            .Select(group => GroupDto.From(group, counts.GetValueOrDefault(group.Id)))
+            .Select(group => GroupDto.From(
+                group,
+                counts.GetValueOrDefault(group.Id),
+                lastEnds.TryGetValue(group.Id, out var endsOn)
+                    ? endsOn
+                    : null))
             .ToList();
     }
 
@@ -39,7 +44,7 @@ public class GroupService(
         var group = await GetOwnAsync(id, ct);
         return group is null
             ? null
-            : GroupDto.From(group, await groups.CountMembersAsync(id, ct));
+            : GroupDto.From(group, await groups.CountMembersAsync(id, ct), null);
     }
 
     // Typen är en enum i DTO:n, så okända typer stoppas redan när JSON läses in (400).
@@ -71,7 +76,7 @@ public class GroupService(
         var group = new Group { SchoolId = dto.SchoolId, Type = dto.Type, Name = name, Term = term };
         groups.Add(group);
         await unitOfWork.SaveChangesAsync(ct);
-        return ServiceResult<GroupDto>.Ok(GroupDto.From(group, 0));
+        return ServiceResult<GroupDto>.Ok(GroupDto.From(group, 0, null));
     }
 
     public async Task<ServiceResult<GroupDto>> UpdateAsync(Guid id, UpdateGroupDto dto, CancellationToken ct)
@@ -110,7 +115,7 @@ public class GroupService(
         group.Name = name;
         group.Term = term;
         await unitOfWork.SaveChangesAsync(ct);
-        return ServiceResult<GroupDto>.Ok(GroupDto.From(group, await groups.CountMembersAsync(id, ct)));
+        return ServiceResult<GroupDto>.Ok(GroupDto.From(group, await groups.CountMembersAsync(id, ct), null));
     }
 
     // Medlemskap och kurskopplingar tas bort med gruppen. Innehåll publicerat till gruppen
@@ -149,6 +154,36 @@ public class GroupService(
 
         var courses = await groups.GetCoursesAsync(groupId, ct);
         return courses.Select(CourseDto.From).ToList();
+    }
+
+    /// <summary>
+    /// Lärarna i alla kurser som gruppen läser, i en fråga i stället för en per kurs. Bara admin.
+    /// SharedWith är de andra grupperna som läser samma kurs.
+    /// </summary>
+    public async Task<ServiceResult<List<GroupCourseTeachersDto>>> GetCourseTeachersAsync(
+        Guid groupId, CancellationToken ct)
+    {
+        if (!await permissions.IsAdminAsync(ct))
+        {
+            return ServiceResult<List<GroupCourseTeachersDto>>.Forbidden();
+        }
+
+        if (await GetOwnAsync(groupId, ct) is null)
+        {
+            return ServiceResult<List<GroupCourseTeachersDto>>.NotFound("group not found");
+        }
+
+        var courseIds = (await groups.GetCoursesAsync(groupId, ct)).Select(course => course.Id).ToList();
+        var teachers = await courses.GetTeachersForCoursesAsync(courseIds, ct);
+        var shared = await groups.GetOtherGroupNamesReadingCoursesAsync(courseIds, groupId, ct);
+        return ServiceResult<List<GroupCourseTeachersDto>>.Ok(courseIds
+            .Select(courseId => new GroupCourseTeachersDto(
+                courseId,
+                teachers.GetValueOrDefault(courseId, [])
+                    .Select(teacher => new CourseTeacherDto(teacher.UserId, teacher.Name, teacher.Email))
+                    .ToList(),
+                shared.GetValueOrDefault(courseId, [])))
+            .ToList());
     }
 
     /// <summary>Värdet är false om gruppen redan läser kursen.</summary>
@@ -258,6 +293,18 @@ public class GroupService(
             return ServiceResult<MemberDto>.Invalid("user is already in the group");
         }
 
+        var roleError = RoleError(user, dto.Role);
+        if (roleError is not null)
+        {
+            return ServiceResult<MemberDto>.Invalid(roleError);
+        }
+
+        // Klassen har en mentor. En ny mentor ersätter den förra, som i Byt mentor på klassens sida.
+        if (dto.Role == GroupRole.Mentor)
+        {
+            await RemoveOtherMentorsAsync(groupId, dto.UserId, ct);
+        }
+
         var enrollment = new Enrollment { GroupId = groupId, UserId = dto.UserId, Role = dto.Role };
         groups.AddMember(enrollment);
         await unitOfWork.SaveChangesAsync(ct);
@@ -306,7 +353,7 @@ public class GroupService(
     private async Task<ImportStudentOutcome> ImportLineAsync(
         Group group, string name, string email, HashSet<string> seen, List<GroupMemberDto> added, CancellationToken ct)
     {
-        if (!MailAddress.TryCreate(email, out var parsed) || parsed.Address != email)
+        if (!EmailRule.IsValid(email))
         {
             return ImportStudentOutcome.Invalid;
         }
@@ -362,9 +409,40 @@ public class GroupService(
             return ServiceResult<MemberDto>.NotFound("member not found");
         }
 
+        var member = await users.GetAsync(userId, ct);
+        var roleError = member is null
+            ? null
+            : RoleError(member, dto.Role);
+        if (roleError is not null)
+        {
+            return ServiceResult<MemberDto>.Invalid(roleError);
+        }
+
+        if (dto.Role == GroupRole.Mentor)
+        {
+            await RemoveOtherMentorsAsync(groupId, userId, ct);
+        }
+
         enrollment.Role = dto.Role;
         await unitOfWork.SaveChangesAsync(ct);
         return ServiceResult<MemberDto>.Ok(MemberDto.From(enrollment));
+    }
+
+    // Bara en lärare i skolan kan vara mentor eller lärare i en klass. Admin och elever kan det inte.
+    private static string? RoleError(User user, GroupRole role) =>
+        role != GroupRole.Student && user.Role != UserRole.Teacher
+            ? "only a teacher can be a mentor or a teacher in a group"
+            : null;
+
+    private async Task RemoveOtherMentorsAsync(Guid groupId, Guid keepUserId, CancellationToken ct)
+    {
+        foreach (var mentor in await groups.GetMentorEnrollmentsAsync(groupId, ct))
+        {
+            if (mentor.UserId != keepUserId)
+            {
+                groups.RemoveMember(mentor);
+            }
+        }
     }
 
     // Elevens inlämningar ligger kvar, de hör till användaren och inte till medlemskapet.

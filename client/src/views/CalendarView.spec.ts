@@ -37,13 +37,13 @@ const thisWeek = [
 
 let calendarUrls: URL[] = []
 
-function backend(options: {calendar?: Schema<'CalendarItemDto'>[], fail?: boolean, role?: 'Student' | 'Teacher'} = {}) {
+function backend(options: {calendar?: Schema<'CalendarItemDto'>[], fail?: boolean, courses?: Schema<'CourseDto'>[], role?: 'Student' | 'Teacher'} = {}) {
   mockApi((_method, path) => {
     if (path === '/api/me') {
       return respond<'/api/me', 'get'>(meAs(options.role ?? 'Student', ['c1', 'c2']))
     }
     if (path === '/api/courses') {
-      return respond<'/api/courses', 'get'>([devops, databases])
+      return respond<'/api/courses', 'get'>(options.courses ?? [devops, databases])
     }
     if (path === '/api/calendar') {
       return options.fail
@@ -158,6 +158,20 @@ describe('CalendarView', () => {
 
     expect(chipTexts(wrapper, '2026-10-23')).toHaveLength(3)
     expect(wrapper.find('[data-test="day-2026-10-23"] [data-test="calendar-more"]').text()).toBe('+2 till')
+  })
+
+  it('lägger avslutade kurser sist i en egen grupp i kursväljaren', async () => {
+    backend({calendar: thisWeek, courses: [
+      {...devops, startsOn: '2020-01-01', endsOn: '2020-06-01'},
+      databases,
+    ]})
+    const {wrapper} = await renderApp('/calendar')
+
+    const select = wrapper.find('#calendar-course')
+    expect(select.findAll('option').map((option) => option.text()))
+      .toEqual(['Alla kurser', 'Databaser', 'DevOps'])
+    expect(select.find('optgroup').attributes('label')).toBe('Avslutade')
+    expect(select.findAll('optgroup option').map((option) => option.text())).toEqual(['DevOps'])
   })
 
   it('filtrerar bort andra kurser med kursväljaren', async () => {

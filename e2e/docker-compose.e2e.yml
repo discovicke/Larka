@@ -1,0 +1,45 @@
+# En färsk stack för journeys (e2e/tests/journeys): Postgres och appen byggd av Dockerfilen, med demodata.
+# Allt är engångsvärden. Hemligheterna här finns bara i den här stacken och skyddar ingenting.
+#
+#   docker compose -f e2e/docker-compose.e2e.yml up -d --build --wait
+#   E2E_BASE_URL=http://localhost:8080 E2E_JOURNEYS=1 npx playwright test --project=journeys --project=journeys-mobile
+#   docker compose -f e2e/docker-compose.e2e.yml down -v
+#
+# Värdporten byts med E2E_APP_PORT om 8080 är upptagen. Ta alltid ner stacken med -v så att databasen försvinner.
+name: larka-e2e
+
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: larka
+      POSTGRES_PASSWORD: larka
+      POSTGRES_DB: larka
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U larka']
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - '127.0.0.1:${E2E_APP_PORT:-8080}:8080'
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Default: Host=db;Port=5432;Database=larka;Username=larka;Password=larka
+      # Minst 32 byte. Appen startar inte utan nyckeln.
+      Auth__Jwt__Key: e2e-only-signing-key-not-a-secret-0123456789abcdef
+      # Demokontona admin, larare och elev, med klasser, kurser och inlämningar.
+      Database__SeedDemoData: 'true'
+      # Fillagringen kräver adress och nyckel utanför Development. Journeys laddar inte upp filer, så värdena
+      # pekar ingenstans och ingen Supabase-tjänst behövs.
+      Storage__Supabase__Url: http://storage.invalid
+      Storage__Supabase__ServiceRoleKey: e2e-only-not-a-secret
+      # Inget bakgrundsjobb som skapar notiser under testerna.
+      Notifications__Job__Enabled: 'false'

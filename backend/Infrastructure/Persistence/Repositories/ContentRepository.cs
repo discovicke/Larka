@@ -37,6 +37,31 @@ public class ContentRepository(AppDb db) : IContentRepository
                 ct);
     }
 
+    public Task<bool> IsVisibleToMemberOfContentAsync(
+        Guid contentId, Guid userId, DateTimeOffset now, CancellationToken ct)
+    {
+        // Elev eller mentor i gruppen. Lärarrollen i en grupp ger ingen läsrätt här, den prövas som undervisning.
+        var myGroupIds = db.Enrollments
+            .Where(enrollment => enrollment.UserId == userId && enrollment.Role != GroupRole.Teacher)
+            .Select(enrollment => enrollment.GroupId);
+
+        return db.ContentLinks
+            .Where(link => link.ContentId == contentId && link.PublishAt <= now)
+            .Where(link => db.Content.Any(content =>
+                content.Id == link.ContentId && content.Status == ContentStatus.Published))
+            .Where(link => link.ModuleId == null
+                || !db.Modules.Any(module => module.Id == link.ModuleId
+                    && module.PublishAt != null
+                    && module.PublishAt > now))
+            .AnyAsync(link =>
+                (link.CourseId == null && link.GroupId != null && myGroupIds.Contains(link.GroupId.Value))
+                || (link.CourseId != null && db.GroupCourses.Any(groupCourse =>
+                    groupCourse.CourseId == link.CourseId
+                    && myGroupIds.Contains(groupCourse.GroupId)
+                    && (link.GroupId == null || link.GroupId == groupCourse.GroupId))),
+                ct);
+    }
+
     public void Add(Content content) => db.Content.Add(content);
 
     public void AddLink(ContentLink link) => db.ContentLinks.Add(link);

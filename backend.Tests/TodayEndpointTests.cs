@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Backend.Domain.Entities;
 using Backend.Domain.Enums;
 using Backend.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace backend.Tests;
@@ -30,7 +31,8 @@ public class TodayEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
 
     private record NewsResponse(string Title, string? Source);
 
-    private record CourseResponse(Guid CourseId, string Code, int TotalParts, int CompletedParts);
+    private record CourseResponse(Guid CourseId, string Code, int TotalParts, int CompletedParts,
+        DateOnly? StartsOn, DateOnly? EndsOn);
 
     private record ContentResponse(Guid Id);
 
@@ -114,6 +116,29 @@ public class TodayEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
             today.Todo.Select(item => item.Title).Order());
         Assert.Equal("NeedsWork", today.Todo.Single(item => item.Title == "Komplettera").Status);
         Assert.DoesNotContain(today.Todo, item => item.Title == "Inlämnad");
+    }
+
+    [Fact]
+    public async Task Todo_KeepsANeedsWorkAssignment_AfterItsDeadline()
+    {
+        var setup = await AddSetupAsync();
+        var week = await CreateModuleAsync(setup.CourseId);
+        var passed = DateTimeOffset.UtcNow.AddDays(-5);
+        var needsWork = await CreateAssignmentLinkAsync("Komplettera efter deadline",
+            new { courseId = setup.CourseId, moduleId = week.Id, dueAt = passed });
+        await CreateAssignmentLinkAsync("Missad",
+            new { courseId = setup.CourseId, moduleId = week.Id, dueAt = passed });
+        var graded = await CreateAssignmentLinkAsync("Bedömd",
+            new { courseId = setup.CourseId, moduleId = week.Id, dueAt = passed });
+        await AddSubmissionAsync(needsWork, setup.StudentId, SubmissionStatus.NeedsWork, feedback: "Lägg till tester");
+        await AddSubmissionAsync(graded, setup.StudentId, SubmissionStatus.Graded);
+
+        var today = await GetTodayAsync(setup.StudentId);
+
+        // Kompletteringen står kvar trots passerad deadline. Annat med passerad deadline gör det inte.
+        var item = Assert.Single(today.Todo);
+        Assert.Equal("Komplettera efter deadline", item.Title);
+        Assert.Equal("NeedsWork", item.Status);
     }
 
     [Fact]
@@ -206,6 +231,25 @@ public class TodayEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
         Assert.Empty(today.Courses);
     }
 
+    [Fact]
+    public async Task Courses_CarryTheCourseDates()
+    {
+        var setup = await AddSetupAsync();
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            var course = await db.Courses.SingleAsync(row => row.Id == setup.CourseId);
+            course.StartsOn = new DateOnly(2025, 1, 10);
+            course.EndsOn = new DateOnly(2025, 6, 1);
+            await db.SaveChangesAsync();
+        }
+
+        var today = await GetTodayAsync(setup.StudentId);
+
+        var result = Assert.Single(today.Courses);
+        Assert.Equal((new DateOnly(2025, 1, 10), new DateOnly(2025, 6, 1)), (result.StartsOn, result.EndsOn));
+    }
+
     private async Task<Setup> AddSetupAsync()
     {
         using var scope = factory.Services.CreateScope();
@@ -281,7 +325,7 @@ public class TodayEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
 
     private async Task CreateNewsAsync(string title, object link)
     {
-        var content = await CreateContentAsync(new { type = "news", title, bodyMd = "" });
+        var content = await CreateContentAsync(new { type = "news", title, bodyMd = "Text" });
         await CreateLinkAsync(content.Id, link);
     }
 

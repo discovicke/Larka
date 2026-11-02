@@ -14,9 +14,11 @@ import {useAsync} from '@/composables/useAsync'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {api, type Schema, unwrap} from '@/lib/api'
 import {formatDate} from '@/lib/content'
+import {splitFinished} from '@/lib/courseStatus'
 import {isStudentEverywhere, teachesAnywhere} from '@/lib/permissions'
 import {deadlineStatusKey, submissionStatusKey} from '@/lib/status'
 import {gradeText} from '@/lib/studyPlan'
+import {gradeLabel, gradeName} from '@/lib/submissions'
 import {
   dateLine,
   dueThisWeekText,
@@ -27,6 +29,7 @@ import {
   relativeText,
   deadlineText,
   groupByDue,
+  isOverdue,
   shortDate,
   splitByWeek,
   weekdayAndTime,
@@ -44,6 +47,8 @@ const now = new Date()
 const {me, loadMe} = useCurrentUser()
 
 const today = ref<Today | null>(null)
+// Avslutade kurser ligger kvar i Studieplan och i sidomenyn, men inte bland dagens kurser.
+const currentCourses = computed(() => splitFinished(today.value?.courses ?? []).current)
 const tab = ref<Tab>('upcoming')
 // Idag följer relationen: admin ser skolans översikt, den som undervisar i en kurs ser lärarens, och alla andra,
 // eleven och mentorn, ser elevens. Båda hämtar sin egen data. En admin som också undervisar ser båda.
@@ -57,17 +62,34 @@ const name = computed(() => firstName(me.value?.name))
 const mobileGreeting = computed(() => name.value
   ? `Hej ${name.value}`
   : 'Hej')
-const todo = computed(() => today.value?.todo ?? [])
-const groups = computed(() => {
-  const {overdue, thisWeek, later} = groupByDue(todo.value, now)
+// Delar som läraren vill att eleven kompletterar kommer först, före allt annat att göra.
+const todo = computed(() => {
+  const items = today.value?.todo ?? []
   return [
+    ...items.filter((item) => item.status === 'NeedsWork'),
+    ...items.filter((item) => item.status !== 'NeedsWork'),
+  ]
+})
+const groups = computed(() => {
+  const needsWork = todo.value.filter((item) => item.status === 'NeedsWork')
+  const {overdue, thisWeek, later} = groupByDue(todo.value.filter((item) => item.status !== 'NeedsWork'), now)
+  return [
+    {heading: 'Att komplettera', items: needsWork},
     {heading: 'Försenat', items: overdue},
     {heading: 'Den här veckan', items: thisWeek},
     {heading: 'Senare', items: later},
   ].filter((group) => group.items.length > 0)
 })
-const dueThisWeek = computed(() => splitByWeek(todo.value, now).thisWeek.length)
+// Bara det som förfaller från nu räknas: en komplettering med passerad deadline står i Att göra men förfaller inte.
+const dueThisWeek = computed(() => splitByWeek(
+  (today.value?.todo ?? []).filter((item) => !isOverdue(item.dueAt, now)),
+  now,
+).thisWeek.length)
 const nextUp = computed(() => todo.value[0])
+// Lärarens kommentar till det som ska kompletteras, så att Närmast på mobilen säger vad som behövs.
+const nextUpFeedback = computed(() => nextUp.value?.status === 'NeedsWork'
+  ? today.value?.feedback?.find((item) => item.linkId === nextUp.value?.linkId)?.feedback ?? ''
+  : '')
 const moreTodo = computed(() => todo.value.slice(1))
 
 // "Nytt" på mobilen: betyg och nyheter i en lista, de senaste först.
@@ -88,8 +110,13 @@ const recent = computed(() => {
     feedback: null,
     news: item,
   }))
+  // Återkoppling på det som ska kompletteras står först, så att den syns även när nyheterna är nyare.
+  const needsWorkIds = new Set(todo.value.filter((item) => item.status === 'NeedsWork').map((item) => item.linkId))
+  const first = (entry: {feedback: {linkId: string} | null}) => entry.feedback && needsWorkIds.has(entry.feedback.linkId)
+    ? 0
+    : 1
   return [...feedback, ...news]
-    .sort((left, right) => Date.parse(right.at) - Date.parse(left.at))
+    .sort((left, right) => first(left) - first(right) || Date.parse(right.at) - Date.parse(left.at))
     .slice(0, 5)
 })
 
@@ -124,10 +151,17 @@ function feedbackLabel(item: Feedback): string {
     : 'Komplettera'
 }
 
+// Brickan är en bokstav i en rund ruta, och får hela namnet som etikett.
 function gradeTile(item: Feedback): string {
   return item.grade
-    ? gradeText(item.grade)
+    ? gradeLabel(item.grade)
     : 'K'
+}
+
+function gradeTileName(item: Feedback): string {
+  return item.grade
+    ? gradeName(item.grade)
+    : 'Komplettera'
 }
 
 function gradeTileClass(item: Feedback): string {
@@ -140,9 +174,9 @@ function gradeTileClass(item: Feedback): string {
 }
 
 function statusText(item: Submission): string {
-  return `Bedömd${item.grade
-    ? ` · ${gradeText(item.grade)}`
-    : ''}`
+  return item.grade
+    ? gradeText(item.grade)
+    : 'Bedömd'
 }
 
 function dueStatus(item: Todo) {
@@ -338,6 +372,8 @@ load()
               <span
                 class="flex size-9 shrink-0 items-center justify-center rounded-[7px] font-bold"
                 :class="gradeTileClass(item)"
+                role="img"
+                :aria-label="gradeTileName(item)"
               >
                 {{ gradeTile(item) }}
               </span>
@@ -381,12 +417,12 @@ load()
 
       <section aria-labelledby="courses-heading" class="flex flex-col gap-3">
         <h2 id="courses-heading" class="text-base">Mina kurser</h2>
-        <p v-if="!today.courses.length" class="text-muted-foreground text-sm" data-test="courses-empty">
+        <p v-if="!currentCourses.length" class="text-muted-foreground text-sm" data-test="courses-empty">
           Du läser inga kurser än
         </p>
         <div class="grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-4">
           <RouterLink
-            v-for="course in today.courses"
+            v-for="course in currentCourses"
             :key="course.courseId"
             :to="courseLink(course.courseId)!"
             data-test="course-card"
@@ -434,11 +470,22 @@ load()
         data-test="next-up"
         class="flex flex-col gap-2.5 rounded-[11px] bg-sidebar p-4 text-sidebar-foreground"
       >
-        <span class="text-xs font-medium tracking-[0.04em] text-sidebar-foreground/70 uppercase">Närmast</span>
+        <span class="text-xs font-medium tracking-[0.04em] text-sidebar-foreground/70 uppercase" data-test="next-up-label">
+          {{ nextUp.status === 'NeedsWork'
+            ? 'Att komplettera'
+            : 'Närmast' }}
+        </span>
         <span class="text-[17px] leading-[1.3] font-semibold">{{ nextUp.title }}</span>
+        <span v-if="nextUpFeedback" class="line-clamp-2 text-sm text-sidebar-foreground/85" data-test="next-up-feedback">
+          {{ nextUpFeedback }}
+        </span>
         <span class="flex justify-between gap-3 text-[13px] text-sidebar-foreground/70">
           <span>{{ nextUp.courseTitle }}</span>
-          <span class="font-medium text-sidebar-primary">{{ weekdayAndTime(nextUp.dueAt) }}</span>
+          <span class="font-medium text-sidebar-primary">
+            {{ isOverdue(nextUp.dueAt, now)
+              ? `Deadline passerad ${weekdayAndTime(nextUp.dueAt)}`
+              : weekdayAndTime(nextUp.dueAt) }}
+          </span>
         </span>
       </component>
 
@@ -465,7 +512,10 @@ load()
             </span>
             <span class="flex min-w-0 flex-1 flex-col">
               <span class="truncate font-medium">{{ item.title }}</span>
-              <span class="text-muted-foreground text-[13px]">{{ metaLine(item.courseTitle, item.dueAt) }}</span>
+              <span class="text-muted-foreground flex flex-wrap items-center gap-x-2 text-[13px]">
+                <span>{{ metaLine(item.courseTitle, item.dueAt) }}</span>
+                <StatusBadge v-if="item.status === 'NeedsWork'" status="submission.needsWork"/>
+              </span>
             </span>
             <PhCaretRight class="text-muted-foreground size-4 shrink-0" aria-hidden="true"/>
           </component>
@@ -489,6 +539,8 @@ load()
               v-if="entry.feedback"
               class="flex size-8 shrink-0 items-center justify-center rounded-[7px] font-bold"
               :class="gradeTileClass(entry.feedback)"
+              role="img"
+              :aria-label="gradeTileName(entry.feedback)"
             >
               {{ gradeTile(entry.feedback) }}
             </span>

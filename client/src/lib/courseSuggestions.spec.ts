@@ -1,6 +1,16 @@
 import {describe, expect, it} from 'vitest'
 
-import {addDays, courseLengthDays, suggestCourseCode} from './courseSuggestions'
+import {addDays, courseLengthDays, suggestCourseCode, suggestCourseTitle} from './courseSuggestions'
+
+describe('suggestCourseTitle', () => {
+  it('lägger klassen efter källkursens titel så att kopian får ett eget namn', () => {
+    expect(suggestCourseTitle('NET27', 'DevOps')).toBe('DevOps – NET27')
+  })
+
+  it('låter titeln vara när den redan nämner klassen', () => {
+    expect(suggestCourseTitle('NET27', 'DevOps NET27')).toBe('DevOps NET27')
+  })
+})
 
 describe('suggestCourseCode', () => {
   it('byter klassen i koden och behåller kursens del', () => {

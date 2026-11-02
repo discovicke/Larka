@@ -84,6 +84,40 @@ public class ModulePublishEndpointTests(TestWebApplicationFactory factory) : ICl
         Assert.Equal(scenario.WeekOne, Assert.Single(after).Id);
     }
 
+    [Fact]
+    public async Task NewWeek_IsADraftForStudents_UntilItHasAPublishedPart()
+    {
+        var scenario = await AddScenarioAsync();
+        var create = new HttpRequestMessage(HttpMethod.Post, $"/api/courses/{scenario.CourseId}/modules")
+        {
+            Content = JsonContent.Create(new { title = "Vecka 3" })
+        };
+        AddUser(create, scenario.TeacherId);
+        var created = await _client.SendAsync(create);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var newWeek = (await created.Content.ReadFromJsonAsync<WeekResponse>())!;
+
+        var teacherSees = await GetWeeksAsync(scenario, scenario.TeacherId);
+        var studentBefore = await GetWeeksAsync(scenario, scenario.StudentId);
+        await PublishAsync(scenario, scenario.TeacherId, new { });
+        var studentAfterPublish = await GetWeeksAsync(scenario, scenario.StudentId);
+
+        Assert.Contains(teacherSees, week => week.Id == newWeek.Id);
+        Assert.DoesNotContain(studentBefore, week => week.Id == newWeek.Id);
+        // Publicera alla veckor släpper delarna, men en vecka utan delar förblir ett utkast.
+        Assert.DoesNotContain(studentAfterPublish, week => week.Id == newWeek.Id);
+        Assert.Equal(2, studentAfterPublish.Count);
+
+        // Elevens veckovy (student-modules) följer samma regel.
+        var studentModules = new HttpRequestMessage(
+            HttpMethod.Get, $"/api/courses/{scenario.CourseId}/student-modules");
+        AddUser(studentModules, scenario.StudentId);
+        var studentWeeks = await (await _client.SendAsync(studentModules)).Content
+            .ReadFromJsonAsync<List<WeekResponse>>();
+        Assert.DoesNotContain(studentWeeks!, week => week.Id == newWeek.Id);
+        Assert.Equal(2, studentWeeks!.Count);
+    }
+
     private async Task<HttpResponseMessage> PublishAsync(Scenario scenario, Guid asUser, object body)
     {
         var request = new HttpRequestMessage(HttpMethod.Post, $"/api/courses/{scenario.CourseId}/modules/publish")

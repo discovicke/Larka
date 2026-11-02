@@ -21,7 +21,7 @@ import {addGroupMember} from '@/lib/groupsApi'
 import {fetchMicrosoftSettings} from '@/lib/auth/microsoft'
 import {fetchUsers} from '@/lib/usersApi'
 
-const props = defineProps<{groupId: string, groupName: string, schoolId: string, memberIds: string[]}>()
+const props = defineProps<{groupId: string, groupName: string, schoolId: string, memberIds: string[], hasMentor?: boolean}>()
 const emit = defineEmits<{added: [member: Schema<'GroupMemberDto'>], paste: []}>()
 
 const open = defineModel<boolean>('open', {required: true})
@@ -58,11 +58,26 @@ const passwordError = computed(() => form.password !== '' && form.password.lengt
   ? 'Lösenordet måste vara minst 8 tecken.'
   : '')
 
+// Mentor och lärare i gruppen är alltid lärare i skolan. Admin och elever kan bara vara elever. Klassen har en
+// mentor, och den byts med Byt mentor på sidan, så Mentor finns inte som val när klassen redan har en.
+const roleOptions = computed(() => groupRoles.filter((option) => {
+  if (option.value === 'Student') {
+    return true
+  }
+
+  if (creating.value && form.schoolRole !== 'Teacher') {
+    return false
+  }
+
+  return option.value !== 'Mentor' || !props.hasMentor
+}))
+
 // Den som redan är medlem kan inte läggas till igen.
 const candidates = computed(() => {
   const query = search.value.trim().toLowerCase()
   return users.value
     .filter((user) => !props.memberIds.includes(user.id))
+    .filter((user) => role.value === 'Student' || user.role === 'Teacher')
     .filter((user) => query === ''
       || user.name.toLowerCase().includes(query)
       || user.email.toLowerCase().includes(query))
@@ -93,6 +108,13 @@ watch(open, async (isOpen) => {
   }
 })
 
+// En roll som inte längre finns som val ska inte skickas.
+watch(roleOptions, (options) => {
+  if (!options.some((option) => option.value === role.value)) {
+    role.value = 'Student'
+  }
+})
+
 // Ett val som filtret döljer ska inte skickas.
 watch(candidates, (list) => {
   if (!list.some((user) => user.id === userId.value)) {
@@ -108,14 +130,6 @@ function showCreate() {
 function showPick() {
   error.value = ''
   creating.value = false
-}
-
-// Svaren från API:et är på engelska, så de vanligaste översätts.
-function createError(exception: unknown): string {
-  const message = errorMessage(exception)
-  return message.includes('email is already in use')
-    ? 'E-postadressen används redan av en annan användare.'
-    : message
 }
 
 async function submit() {
@@ -144,7 +158,7 @@ async function submit() {
   } catch (exception) {
     error.value = creating.value && createdUser
       ? `Användaren skapades men kunde inte läggas till i gruppen: ${errorMessage(exception)}`
-      : createError(exception)
+      : errorMessage(exception)
   } finally {
     saving.value = false
   }
@@ -317,10 +331,13 @@ async function addToGroup(user: Schema<'UserDto'> | null | undefined) {
             class="w-full"
             data-test="member-role-select"
           >
-            <NativeSelectOption v-for="option in groupRoles" :key="option.value" :value="option.value">
+            <NativeSelectOption v-for="option in roleOptions" :key="option.value" :value="option.value">
               {{ option.label }}
             </NativeSelectOption>
           </NativeSelect>
+          <p v-if="hasMentor" class="text-muted-foreground text-sm" data-test="has-mentor">
+            Klassen har redan en mentor. Använd Byt mentor på klassens sida för att byta.
+          </p>
         </div>
 
         <Alert v-if="error" variant="destructive">

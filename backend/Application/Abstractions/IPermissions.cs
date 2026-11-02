@@ -26,6 +26,12 @@ public interface IPermissions
     Task<bool> CanTeachContentAsync(Guid contentId, CancellationToken ct);
 
     /// <summary>
+    /// Elev eller mentor i en grupp som läser en kurs där innehållet ligger i en länk som eleverna ser (publicerat,
+    /// PublishAt passerat, veckan öppen), eller i en grupp som innehållet är riktat till.
+    /// </summary>
+    Task<bool> CanReadPublishedContentAsync(Guid contentId, CancellationToken ct);
+
+    /// <summary>
     /// Admin i kursens skola får ändra kursens titel, datum och poäng och ta bort den. Det ger ingen
     /// undervisningsrätt: beskrivning, veckor, innehåll och betyg hör till kursens lärare.
     /// </summary>

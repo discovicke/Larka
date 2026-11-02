@@ -15,11 +15,23 @@ public class StudyPlanService(
     ICurrentUser currentUser,
     TimeProvider time)
 {
-    public async Task<StudyPlanDto> GetAsync(CancellationToken ct)
+    public async Task<StudyPlanDto> GetAsync(CancellationToken ct) =>
+        await GetForStudentAsync(currentUser.UserId, null, ct);
+
+    /// <summary>
+    /// Studieplanen för en elev. Med onlyGroupId räknas bara kurserna som just den gruppen läser, med
+    /// gruppens egna länkar. Behörigheten prövas av den som anropar.
+    /// </summary>
+    public async Task<StudyPlanDto> GetForStudentAsync(Guid studentId, Guid? onlyGroupId, CancellationToken ct)
     {
         var now = time.GetUtcNow();
         var today = DateOnly.FromDateTime(now.UtcDateTime);
-        var studentCourses = await groups.GetStudentCoursesAsync(currentUser.UserId, ct);
+        var studentCourses = (await groups.GetStudentCoursesAsync(studentId, ct))
+            .Where(studentCourse => onlyGroupId is null || studentCourse.GroupIds.Contains(onlyGroupId.Value))
+            .Select(studentCourse => onlyGroupId is null
+                ? studentCourse
+                : studentCourse with { GroupIds = [onlyGroupId.Value] })
+            .ToList();
         var ordered = studentCourses
             .OrderBy(studentCourse => studentCourse.Course.StartsOn is null
                 ? 1
@@ -31,7 +43,7 @@ public class StudyPlanService(
         var courseDtos = new List<StudyPlanCourseDto>();
         foreach (var studentCourse in ordered)
         {
-            courseDtos.Add(await ToDtoAsync(studentCourse, now, today, ct));
+            courseDtos.Add(await ToDtoAsync(studentCourse, studentId, now, today, ct));
         }
 
         var completedPoints = courseDtos
@@ -43,7 +55,7 @@ public class StudyPlanService(
     }
 
     private async Task<StudyPlanCourseDto> ToDtoAsync(
-        StudentCourse studentCourse, DateTimeOffset now, DateOnly today, CancellationToken ct)
+        StudentCourse studentCourse, Guid studentId, DateTimeOffset now, DateOnly today, CancellationToken ct)
     {
         var course = studentCourse.Course;
         var courseModules = await modules.GetForCourseAsync(course.Id, ct);
@@ -70,7 +82,7 @@ public class StudyPlanService(
             .ToList();
 
         var linkIds = assignments.Select(link => link.Link.Id).ToList();
-        var studentSubmissions = await submissions.GetForStudentAsync(currentUser.UserId, linkIds, ct);
+        var studentSubmissions = await submissions.GetForStudentAsync(studentId, linkIds, ct);
         var submissionByLinkId = studentSubmissions.ToDictionary(submission => submission.ContentLinkId);
         var assignmentDtos = assignments
             .Select(link => ToAssignmentDto(link, submissionByLinkId.GetValueOrDefault(link.Link.Id)))

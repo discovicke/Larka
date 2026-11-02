@@ -15,7 +15,7 @@ import {FieldLabel} from '@/components/ui/field'
 import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
 import {errorMessage, type Schema} from '@/lib/api'
 import {groupRoles} from '@/lib/groupRoles'
-import {changeMemberRole, removeGroupMember} from '@/lib/groupsApi'
+import {changeMemberRole} from '@/lib/groupsApi'
 
 const props = defineProps<{
   groupId: string
@@ -23,7 +23,6 @@ const props = defineProps<{
   member: Schema<'GroupMemberDto'> | null
   members: Schema<'GroupMemberDto'>[]
 }>()
-// changed kommer också när den förra mentorn inte kunde tas bort, så att sidan visar läget.
 const emit = defineEmits<{changed: []}>()
 
 const open = defineModel<boolean>('open', {required: true})
@@ -53,22 +52,12 @@ async function save() {
   saving.value = true
   error.value = ''
   try {
+    // API:et låter den förra mentorn lämna klassen i samma steg.
     await changeMemberRole(props.groupId, member.userId, role.value)
-  } catch (exception) {
-    error.value = `Kunde inte ändra rollen för ${member.name}. ${errorMessage(exception)}`
-    saving.value = false
-    return
-  }
-
-  try {
-    for (const mentor of leavingMentors.value) {
-      await removeGroupMember(props.groupId, mentor.userId)
-    }
     emit('changed')
     open.value = false
   } catch (exception) {
-    emit('changed')
-    error.value = `${member.name} är mentor, men den förra mentorn kunde inte tas bort ur klassen. ${errorMessage(exception)}`
+    error.value = `Kunde inte ändra rollen för ${member.name}. ${errorMessage(exception)}`
   } finally {
     saving.value = false
   }

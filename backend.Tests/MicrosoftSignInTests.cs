@@ -94,6 +94,37 @@ public class MicrosoftSignInTests(MicrosoftTestWebApplicationFactory factory)
             row.UserId == user.Id && row.GroupId == classId && row.Role == GroupRole.Student));
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("same-as-email")]
+    public async Task FirstSignIn_WithoutANameClaim_UsesTheNameFromTheAddress(string? tokenName)
+    {
+        await AddLinkedSchoolAsync(className: ".NET25");
+        var oid = Guid.NewGuid().ToString();
+        var email = $"anna-karin.berg{Guid.NewGuid():N}.net25@skola.se";
+        var name = tokenName is null
+            ? null
+            : email;
+
+        var response = await SignInAsync(IdToken(oid, email, name));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var me = await MeAsync((await response.Content.ReadFromJsonAsync<SignInResponse>())!.AccessToken);
+        Assert.StartsWith("Anna-Karin Berg", me.Name);
+    }
+
+    [Fact]
+    public async Task FirstSignIn_KeepsTheNameFromTheToken()
+    {
+        await AddLinkedSchoolAsync();
+        var email = $"ny.elev{Guid.NewGuid():N}.net25@skola.se";
+
+        var response = await SignInAsync(IdToken(Guid.NewGuid().ToString(), email, "Kim Lind"));
+
+        var me = await MeAsync((await response.Content.ReadFromJsonAsync<SignInResponse>())!.AccessToken);
+        Assert.Equal("Kim Lind", me.Name);
+    }
+
     [Fact]
     public async Task FirstSignIn_WithoutAMatchingClass_CreatesAStudentWithoutClass()
     {
@@ -211,17 +242,6 @@ public class MicrosoftSignInTests(MicrosoftTestWebApplicationFactory factory)
         using var scope = factory.Services.CreateScope();
         Assert.False(await scope.ServiceProvider.GetRequiredService<AppDb>().Users
             .AnyAsync(user => user.ExternalId == oid));
-    }
-
-    [Theory]
-    [InlineData("christian.gennari.net25@edu.edugrade.se", "net25")]
-    [InlineData("Anna.Svensson.FIB25@skola.se", "fib25")]
-    [InlineData("anna.svensson@skola.se", null)]
-    [InlineData("anna@skola.se", null)]
-    [InlineData("anna.svensson.2@skola.se", null)]
-    public void ClassCodeFromEmail_TakesTheLastPartWithLettersAndDigits(string email, string? expected)
-    {
-        Assert.Equal(expected, MicrosoftSignInService.ClassCodeFromEmail(email));
     }
 
     [Fact]
@@ -380,7 +400,7 @@ public class MicrosoftSignInTests(MicrosoftTestWebApplicationFactory factory)
     internal static string IdToken(
         string oid,
         string email,
-        string name,
+        string? name,
         string? audience = null,
         string? tenant = null,
         DateTime? expires = null,
@@ -399,7 +419,9 @@ public class MicrosoftSignInTests(MicrosoftTestWebApplicationFactory factory)
                 new Claim("oid", oid),
                 new Claim("tid", tid),
                 new Claim("preferred_username", email),
-                new Claim("name", name)
+                ..name is null
+                    ? Array.Empty<Claim>()
+                    : [new Claim("name", name)]
             ]),
             SigningCredentials = new SigningCredentials(
                 key ?? MicrosoftTestWebApplicationFactory.SigningKey, SecurityAlgorithms.RsaSha256)

@@ -249,6 +249,36 @@ describe('AppLayout', () => {
     expect(sidebar.text()).not.toContain('Att bedöma')
   })
 
+  it('märker en kurs som läraren bara läser som mentor', async () => {
+    mockApi((_method, path) => {
+      if (path === '/api/me') {
+        return {status: 200, body: {
+          ...meAs('Teacher', ['c1', 'c9']),
+          courses: [{courseId: 'c1', role: 'Teacher'}, {courseId: 'c9', role: 'Mentor'}],
+        }}
+      }
+      if (path === '/api/courses') {
+        return {status: 200, body: [devOps, {...devOps, id: 'c9', code: 'NET26-JAVA', title: 'Java'}]}
+      }
+      return {status: 404}
+    })
+
+    const page = await render('/')
+
+    const marks = page.findAll('[data-test="mentor-course"]')
+    expect(marks).toHaveLength(1)
+    expect(marks[0].text()).toBe('Läser som mentor')
+    expect(marks[0].element.parentElement?.textContent).toContain('Java')
+  })
+
+  it('märker inte kurserna när användaren bara är mentor', async () => {
+    meBackend(mentorAs(['c1']))
+
+    const page = await render('/')
+
+    expect(page.find('[data-test="mentor-course"]').exists()).toBe(false)
+  })
+
   it('läraren ser Mina kurser och Att bedöma', async () => {
     const page = await render('/')
 

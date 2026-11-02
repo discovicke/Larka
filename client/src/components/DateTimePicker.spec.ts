@@ -38,6 +38,13 @@ describe('DateTimePicker', () => {
     expect(String(wrapper.emitted('update:modelValue')![0]![0])).toMatch(/-15T09:00$/)
   })
 
+  it('en ny dag får klockslaget från defaultTime, t.ex. 23:59 för en deadline', async () => {
+    const wrapper = render({defaultTime: '23:59'})
+    await openPicker(wrapper.find('#dt').element)
+    await clickDay(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-15`)
+    expect(String(wrapper.emitted('update:modelValue')![0]![0])).toMatch(/-15T23:59$/)
+  })
+
   it('ändrad tid behåller datumet', async () => {
     const wrapper = render({modelValue: '2027-10-11T09:00'})
     await openPicker(wrapper.find('#dt').element)

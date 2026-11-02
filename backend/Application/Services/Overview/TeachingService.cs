@@ -70,7 +70,9 @@ public class TeachingService(
                     course.Title,
                     studentsByCourse.GetValueOrDefault(course.Id)?.Count ?? 0,
                     toGradeCounts.GetValueOrDefault(course.Id),
-                    NeedsPreparation(course, preparedCourseIds, now)))
+                    NeedsPreparation(course, preparedCourseIds, now),
+                    course.StartsOn,
+                    course.EndsOn))
                 .ToList());
     }
 

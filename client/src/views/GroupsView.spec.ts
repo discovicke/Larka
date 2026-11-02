@@ -148,11 +148,88 @@ describe('GroupsView', () => {
 
     const {wrapper} = await renderApp('/groups?filter=courses')
 
-    expect(rowNames(wrapper)).toEqual(['C pågår', 'B kommande', 'A klar'])
+    expect(rowNames(wrapper)).toEqual(['C pågår', 'B kommande'])
     const badges = wrapper.findAll('[data-test="course-status"]').map((badge) => badge.text())
-    expect(badges).toEqual(['Pågår', 'Kommande', 'Avslutad'])
+    expect(badges).toEqual(['Pågår', 'Kommande'])
     expect(wrapper.findAll('[data-test="group-row"]')[1].text()).toContain('från ')
+    expect(wrapper.find('[data-test="finished-toggle"]').text()).toBe('Avslutade (1)')
+
+    await wrapper.find('[data-test="finished-toggle"]').trigger('click')
+    await flushPromises()
+
+    expect(rowNames(wrapper)).toEqual(['C pågår', 'B kommande', 'A klar'])
+    expect(wrapper.findAll('[data-test="course-status"]').map((badge) => badge.text()))
+      .toEqual(['Pågår', 'Kommande', 'Avslutad'])
     expect(wrapper.text()).toContain('Avslutade kurser finns kvar här')
+  })
+
+  describe('Avslutade', () => {
+    const day = (offset: number) => {
+      const date = new Date()
+      date.setDate(date.getDate() + offset)
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+    }
+    const oldClass = {...classGroup, id: 'g3', name: 'TE20A', lastCourseEndsOn: day(-10)}
+    const liveClass = {...classGroup, id: 'g4', name: 'TE23B', lastCourseEndsOn: day(10)}
+    const emptyClass = {...classGroup, id: 'g5', name: 'TE24C', lastCourseEndsOn: null}
+
+    function withFinished() {
+      mockApi((_method, path) => {
+        if (path === '/api/me') {
+          return {status: 200, body: meAs('Teacher', ['c1', 'c2'])}
+        }
+        if (path === '/api/courses') {
+          return {
+            status: 200,
+            body: [
+              {...devops, title: 'Gammal kurs', startsOn: day(-60), endsOn: day(-30)},
+              {...java, title: 'Aktuell kurs', startsOn: day(-5), endsOn: day(5)},
+            ],
+          }
+        }
+        if (path === '/api/groups') {
+          return {status: 200, body: [oldClass, liveClass, emptyClass, committee]}
+        }
+        return {status: 404}
+      })
+    }
+
+    it('lägger avslutade kurser och klasser i en hopfälld sektion', async () => {
+      withFinished()
+
+      const {wrapper} = await renderApp('/groups')
+
+      expect(rowNames(wrapper)).toEqual(['Edugrade', 'Elevrådet', 'TE23B', 'TE24C', 'Aktuell kurs'])
+      expect(wrapper.find('[data-test="finished-toggle"]').text()).toBe('Avslutade (2)')
+
+      await wrapper.find('[data-test="finished-toggle"]').trigger('click')
+      await flushPromises()
+
+      const finished = wrapper.find('[data-test="finished-section"]')
+      expect(finished.findAll('[data-test="group-row"]').map((row) => row.find('td').text()))
+        .toEqual(['TE20A', 'Gammal kurs'])
+      expect(finished.text()).toContain('Avslutade kurser finns kvar här')
+    })
+
+    it('sökningen letar bland de avslutade och öppnar sektionen vid träff', async () => {
+      withFinished()
+      const {wrapper} = await renderApp('/groups')
+
+      await wrapper.find('#group-search').setValue('gammal')
+      await flushPromises()
+
+      expect(wrapper.find('[data-test="finished-toggle"]').text()).toBe('Avslutade (1)')
+      expect(rowNames(wrapper)).toEqual(['Gammal kurs'])
+    })
+
+    it('utan avslutade finns ingen sektion', async () => {
+      backend()
+
+      const {wrapper} = await renderApp('/groups')
+
+      expect(wrapper.find('[data-test="finished-section"]').exists()).toBe(false)
+      expect(wrapper.text()).not.toContain('Avslutade kurser finns kvar här')
+    })
   })
 
   it('visar ett fel när grupperna inte kan hämtas', async () => {

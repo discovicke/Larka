@@ -28,9 +28,9 @@ describe('courseStatusLabel', () => {
 
 describe('gradeText', () => {
   it('visar betygsbokstaven och Ej satt', () => {
-    expect(gradeText('Fail')).toBe('IG')
-    expect(gradeText('Pass')).toBe('G')
-    expect(gradeText('Distinction')).toBe('VG')
+    expect(gradeText('Fail')).toBe('Icke godkänd')
+    expect(gradeText('Pass')).toBe('Godkänd')
+    expect(gradeText('Distinction')).toBe('Väl godkänd')
     expect(gradeText(null)).toBe('Ej satt')
   })
 })
@@ -62,15 +62,15 @@ describe('shortDate', () => {
 describe('assignmentStatus', () => {
   it('visar pågår med deadline, slutade och ej inlämnad', () => {
     expect(assignmentStatus(assignment('NotStarted', '2026-11-06T16:00:00Z'), now))
-      .toBe('Pågår · slutar 6 nov')
+      .toBe('Pågår · deadline 6 nov')
     expect(assignmentStatus(assignment('NotStarted', '2026-10-23T16:00:00Z'), now))
-      .toBe('Slutade 23 okt')
+      .toBe('Deadline passerade 23 okt')
     expect(assignmentStatus(assignment('NotStarted'), now)).toBe('Ej inlämnad')
   })
 
   it('visar inlämnad, komplettering och betyg', () => {
     expect(assignmentStatus(assignment('Submitted'), now)).toBe('Inlämnad')
     expect(assignmentStatus(assignment('NeedsWork'), now)).toBe('Komplettera')
-    expect(assignmentStatus(assignment('Graded'), now)).toBe('G')
+    expect(assignmentStatus(assignment('Graded'), now)).toBe('Godkänd')
   })
 })

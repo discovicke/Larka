@@ -60,9 +60,9 @@ describe('gradeBadgeVariant', () => {
 
 describe('gradeName', () => {
   it('skriver ut betygsstegen', () => {
-    expect(gradeName('Fail')).toBe('Icke godkänt')
-    expect(gradeName('Pass')).toBe('Godkänt')
-    expect(gradeName('Distinction')).toBe('Väl godkänt')
+    expect(gradeName('Fail')).toBe('Icke godkänd')
+    expect(gradeName('Pass')).toBe('Godkänd')
+    expect(gradeName('Distinction')).toBe('Väl godkänd')
   })
 })
 

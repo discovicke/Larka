@@ -34,8 +34,8 @@ defineProps<{
 const form = defineModel<ContentForm>('form', {required: true})
 
 const gradeScales: {value: Schema<'GradeScale'>, label: string}[] = [
-  {value: 'PassFail', label: 'IG – G'},
-  {value: 'PassFailDistinction', label: 'IG – G – VG'},
+  {value: 'PassFail', label: 'Icke godkänd / Godkänd'},
+  {value: 'PassFailDistinction', label: 'Icke godkänd / Godkänd / Väl godkänd'},
 ]
 
 // Valt kort: mörk ram som i mockupen, i stället för shadcns tonade bakgrund.
@@ -108,11 +108,12 @@ function toggleMode(mode: Schema<'SubmissionMode'>, checked: boolean) {
         <FieldDescription class="text-xs">Tomt = direkt.</FieldDescription>
       </Field>
       <Field v-if="isAssignment(form)" :data-invalid="!!errors.dueAt">
-        <FieldLabel for="due-at">Slutar</FieldLabel>
+        <FieldLabel for="due-at">Deadline</FieldLabel>
         <DateTimePicker
           id="due-at"
           v-model="form.dueAt"
           clearable
+          default-time="23:59"
           :invalid="!!errors.dueAt"
         />
         <FieldError v-if="errors.dueAt">{{ errors.dueAt }}</FieldError>

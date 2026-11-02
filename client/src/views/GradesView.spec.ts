@@ -106,7 +106,7 @@ describe('GradesView', () => {
     const rows = wrapper.findAll('[data-test="study-plan-course"]')
     expect(rows).toHaveLength(2)
     expect(rows[0].findAll('td').map((cell) => cell.text()))
-      .toEqual(['Objektorienterad programmering', 'sep – nov 2025', '60', 'Avslutad', 'VG'])
+      .toEqual(['Objektorienterad programmering', 'sep – nov 2025', '60', 'Avslutad', 'Väl godkänd'])
     expect(rows[1].text()).toContain('Pågår')
     expect(rows[1].text()).toContain('Ej satt')
     // Samma kurser som staplade kort för små skärmar: titel, period · poäng, status och betyg.
@@ -115,7 +115,7 @@ describe('GradesView', () => {
     expect(cards[0].text()).toContain('Objektorienterad programmering')
     expect(cards[0].text()).toContain('sep – nov 2025 · 60 p')
     expect(cards[0].text()).toContain('Avslutad')
-    expect(cards[0].text()).toContain('VG')
+    expect(cards[0].text()).toContain('Väl godkänd')
     expect(cards[1].text()).toContain('Ej satt')
     expect(wrapper.text()).toContain('60 p')
     expect(wrapper.text()).toContain('av 85 p')
@@ -160,8 +160,8 @@ describe('GradesView', () => {
     const rows = wrapper.findAll('[data-test="study-plan-assignment"]')
     expect(rows).toHaveLength(2)
     expect(rows[0].text()).toContain('Laboration: CI/CD')
-    expect(rows[0].text()).toContain('G')
-    expect(rows[1].text()).toContain('Pågår · slutar 1 jan')
+    expect(rows[0].text()).toContain('Godkänd')
+    expect(rows[1].text()).toContain('Pågår · deadline 1 jan')
     expect(wrapper.find('[data-test="study-plan-feedback"]').exists()).toBe(false)
 
     await rows[0].find('button').trigger('click')
@@ -212,5 +212,24 @@ describe('GradesView', () => {
     const {wrapper} = await renderApp('/')
 
     expect(wrapper.find('[data-slot="sidebar"] a[href="/grades"]').exists()).toBe(false)
+  })
+
+  it('säger att läraren betygsätter en avslutad kurs där alla kursdelar är bedömda', async () => {
+    backend({
+      plan: planOf([
+        course({courseId: 'c1', title: 'Klar kurs', status: 'Completed', endsOn: '2025-11-30', assignmentCount: 2, gradedCount: 2}),
+        course({courseId: 'c2', title: 'Pågående', status: 'Ongoing', assignmentCount: 2, gradedCount: 2}),
+        course({courseId: 'c3', title: 'Delvis bedömd', status: 'Completed', endsOn: '2025-11-30', assignmentCount: 2, gradedCount: 1}),
+      ]),
+    })
+
+    const {wrapper} = await renderApp('/grades')
+
+    const rows = wrapper.findAll('[data-test="study-plan-course"]')
+    expect(rows[0]!.text()).toContain('Betygssätts av läraren')
+    expect(rows[0]!.text()).not.toContain('Ej satt')
+    expect(rows[1]!.text()).toContain('Ej satt')
+    expect(rows[2]!.text()).toContain('Ej satt')
+    expect(wrapper.findAll('[data-test="study-plan-course-card"]')[0]!.text()).toContain('Betygssätts av läraren')
   })
 })

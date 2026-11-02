@@ -8,9 +8,10 @@ import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Skeleton} from '@/components/ui/skeleton'
 import {useCrumbLabels} from '@/composables/useCrumbLabels'
 import {useCurrentUser} from '@/composables/useCurrentUser'
+import {useToast} from '@/composables/useToast'
 import {api, errorMessage, type Schema} from '@/lib/api'
 import {fetchStudentModules} from '@/lib/modulesApi'
-import type {StudentFilter} from '@/lib/studentCourse'
+import {openableParts, type StudentFilter} from '@/lib/studentCourse'
 
 // Elevens vy av en kurs: veckor, låsta delar och klarmarkering. Den visas i stället för redigeraren
 // på kursens innehållssida för den som inte kan redigera. Servern vet vilka grupper eleven går i,
@@ -22,6 +23,7 @@ const route = useRoute()
 const router = useRouter()
 const {loadMe} = useCurrentUser()
 const {setCrumbLabel} = useCrumbLabels()
+const {showToast} = useToast()
 const modules = ref<Schema<'StudentModuleWithContentDto'>[]>([])
 const loading = ref(true)
 const error = ref('')
@@ -44,6 +46,16 @@ watch(selectedItem, (item) => {
     setCrumbLabel(`assignment:${item.linkId}`, item.title)
   }
 }, {immediate: true})
+
+// Delarna i kursordning, för Föregående och Nästa del.
+const orderedParts = computed(() => openableParts(modules.value).map((entry) => entry.part))
+const selectedIndex = computed(() => orderedParts.value.findIndex((item) => item.linkId === selectedLinkId.value))
+const previousPart = computed(() => selectedIndex.value > 0
+  ? orderedParts.value[selectedIndex.value - 1]!
+  : null)
+const nextPart = computed(() => selectedIndex.value >= 0
+  ? orderedParts.value[selectedIndex.value + 1] ?? null
+  : null)
 
 watch(() => props.courseId, async () => {
   selectedLinkId.value = ''
@@ -89,6 +101,9 @@ async function setCompleted(linkId: string, completed: boolean) {
         ? data
         : module)
     }
+    showToast(completed
+      ? 'Delen är klarmarkerad.'
+      : 'Klarmarkeringen är borttagen.')
   } catch (exception) {
     error.value = errorMessage(exception)
     await load()
@@ -176,6 +191,9 @@ function closePart() {
       :part="selectedItem"
       :module="selectedModule"
       :saving-link-id="savingLinkId"
+      :previous-part="previousPart"
+      :next-part="nextPart"
+      @open="openPart"
       @close="closePart"
       @complete="setCompleted"
       @submitted="load(true)"

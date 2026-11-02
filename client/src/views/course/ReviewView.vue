@@ -15,6 +15,7 @@ import {Button} from '@/components/ui/button'
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '@/components/ui/collapsible'
 import {Skeleton} from '@/components/ui/skeleton'
 import {Textarea} from '@/components/ui/textarea'
+import {useCourses} from '@/composables/useCourses'
 import {useCrumbLabels} from '@/composables/useCrumbLabels'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {useAsync} from '@/composables/useAsync'
@@ -23,6 +24,7 @@ import {api, type Schema} from '@/lib/api'
 import {parseChecklist} from '@/lib/checklist'
 import {formatDate} from '@/lib/content'
 import {fetchContent} from '@/lib/contentApi'
+import {fetchGradingRows, type GradingRow, nextGradingRow} from '@/lib/gradingQueue'
 import {formatSize} from '@/lib/material'
 import {fetchCourseModules} from '@/lib/modulesApi'
 import {initials} from '@/lib/person'
@@ -39,6 +41,7 @@ const submissionId = computed(() => String(route.params.submissionId))
 const {can} = useCurrentUser()
 const canGrade = computed(() => can('grade', courseId.value))
 const {setFlash, takeFlash} = useFlash()
+const {courses, status: coursesStatus} = useCourses()
 
 const submission = ref<Schema<'SubmissionDto'> | null>(null)
 const assignment = ref<Schema<'ModuleContentItem'> | null>(null)
@@ -74,6 +77,18 @@ const next = computed(() => submission.value && inQueue.value
   ? nextInQueue(queue.value, submission.value)
   : null)
 const remaining = computed(() => queue.value.filter((candidate) => candidate.status === 'Submitted').length)
+// IG måste motiveras, så sparaknappen väntar på en kommentar.
+const needsComment = computed(() => level.value === 'Fail' && !feedback.value.trim())
+// Är kön tom går läraren vidare till nästa uppgift med obedömt arbete, annars tillbaka till Att bedöma.
+const otherRow = ref<GradingRow | null>(null)
+const saveLabel = computed(() => {
+  if (!inQueue.value) {
+    return 'Spara'
+  }
+  return next.value || otherRow.value
+    ? 'Spara och nästa'
+    : 'Spara och tillbaka'
+})
 const dirty = computed(() => canGrade.value
   && (feedback.value !== savedFeedback.value || level.value !== savedLevel.value))
 
@@ -144,14 +159,47 @@ const {run: save, loading: saving, error: saveError} = useAsync(async (body: Sch
     const following = inQueue.value
       ? nextInQueue(fresh, current)
       : null
-    await (following
-      ? router.push({name: 'submission-review', params: {courseId: courseId.value, linkId: linkId.value, submissionId: following.id}})
-      : router.push({name: 'assignment-submissions', params: {courseId: courseId.value, linkId: linkId.value}}))
+    if (following) {
+      await router.push({name: 'submission-review', params: {courseId: courseId.value, linkId: linkId.value, submissionId: following.id}})
+      return
+    }
+
+    if (!inQueue.value) {
+      await router.push({name: 'assignment-submissions', params: {courseId: courseId.value, linkId: linkId.value}})
+      return
+    }
+
+    // Uppgiftens kö är klar: fortsätt med nästa uppgift som har obedömt arbete, annars Att bedöma.
+    const elsewhere = nextGradingRow(await fetchGradableRows(), linkId.value)
+    await (elsewhere
+      ? router.push({name: 'submission-review', params: {courseId: elsewhere.courseId, linkId: elsewhere.linkId, submissionId: elsewhere.submission.id}})
+      : router.push({name: 'grading'}))
   } catch (exception) {
     leaving = false
     throw exception
   }
 }, 'Kunde inte spara bedömningen.')
+
+async function fetchGradableRows(): Promise<GradingRow[]> {
+  try {
+    return await fetchGradingRows(courses.value.filter((course) => can('grade', course.id)))
+  } catch {
+    return []
+  }
+}
+
+// Slår upp vart Spara leder när det inte finns fler i den här uppgiftens kö.
+watch([loading, coursesStatus, inQueue, next], async () => {
+  otherRow.value = null
+  if (loading.value || coursesStatus.value === 'loading' || !inQueue.value || next.value) {
+    return
+  }
+  const lookedUpFor = submissionId.value
+  const found = nextGradingRow(await fetchGradableRows(), linkId.value)
+  if (lookedUpFor === submissionId.value) {
+    otherRow.value = found
+  }
+})
 
 async function publish() {
   formError.value = ''
@@ -385,7 +433,7 @@ watch([courseId, linkId, submissionId], () => {
                   : ''"
                 @click="level = option"
               >
-                <span class="font-bold">{{ gradeLabel(option) }}</span>
+                <span class="font-bold" aria-hidden="true">{{ gradeLabel(option) }}</span>
                 <span
                   class="text-[11px] text-muted-foreground"
                   :class="level === option
@@ -396,7 +444,7 @@ watch([courseId, linkId, submissionId], () => {
             </div>
             <p v-else-if="hasGrades" class="text-sm" data-test="read-only-grade">
               {{ level
-                ? `${gradeLabel(level)} · ${gradeName(level)}`
+                ? gradeName(level)
                 : 'Inte bedömd än.' }}
             </p>
             <p v-else class="text-muted-foreground text-sm">Uppgiften har inget betyg, bara återkoppling.</p>
@@ -438,20 +486,22 @@ watch([courseId, linkId, submissionId], () => {
               <p v-if="inQueue" class="text-sm font-medium" data-test="review-remaining">
                 {{ remaining }} kvar att bedöma
               </p>
+              <p v-if="needsComment" class="text-muted-foreground text-[13px]" data-test="review-fail-hint">
+                Skriv en kommentar som förklarar varför eleven får IG.
+              </p>
               <Button
                 class="w-full"
-                :disabled="saving"
+                :disabled="saving || needsComment"
                 data-test="review-save"
                 @click="publish"
               >
-                {{ next
-                  ? 'Spara och nästa'
-                  : 'Spara' }}
+                {{ saveLabel }}
               </Button>
               <Button
                 variant="outline"
                 class="w-full"
                 :disabled="saving"
+                data-test="review-request-work"
                 @click="requestWork"
               >
                 Begär komplettering

@@ -54,4 +54,6 @@ public record TodayCourseDto(
     string Code,
     string Title,
     int TotalParts,
-    int CompletedParts);
+    int CompletedParts,
+    DateOnly? StartsOn,
+    DateOnly? EndsOn);

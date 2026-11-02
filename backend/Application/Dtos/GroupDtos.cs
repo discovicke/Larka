@@ -3,11 +3,22 @@ using Backend.Domain.Enums;
 
 namespace Backend.Application.Dtos;
 
-/// <summary>Gruppen med antal medlemmar (alla roller), så att listan slipper hämta medlemmarna en och en.</summary>
-public record GroupDto(Guid Id, Guid SchoolId, GroupType Type, string Name, string Term, int MemberCount)
+/// <summary>
+/// Gruppen med antal medlemmar (alla roller), så att listan slipper hämta medlemmarna en och en.
+/// LastCourseEndsOn är den sista slutdagen bland gruppens kurser. Den är null när gruppen saknar kurser eller när
+/// någon kurs saknar slutdatum, så att klienten kan avgöra om en klass är avslutad utan att hämta kurserna.
+/// </summary>
+public record GroupDto(
+    Guid Id,
+    Guid SchoolId,
+    GroupType Type,
+    string Name,
+    string Term,
+    int MemberCount,
+    DateOnly? LastCourseEndsOn)
 {
-    public static GroupDto From(Group group, int memberCount) =>
-        new(group.Id, group.SchoolId, group.Type, group.Name, group.Term, memberCount);
+    public static GroupDto From(Group group, int memberCount, DateOnly? lastCourseEndsOn) =>
+        new(group.Id, group.SchoolId, group.Type, group.Name, group.Term, memberCount, lastCourseEndsOn);
 }
 
 public record CourseDto(
@@ -37,6 +48,11 @@ public record CourseStaffDto(Guid UserId, string Name, string Email, List<string
 
 /// <summary>En lärare i kursen, som admin ser den.</summary>
 public record CourseTeacherDto(Guid UserId, string Name, string Email);
+
+/// <summary>
+/// Lärarna i en kurs som en klass läser, och namnen på de andra grupperna som läser samma kurs.
+/// </summary>
+public record GroupCourseTeachersDto(Guid CourseId, List<CourseTeacherDto> Teachers, List<string> SharedWith);
 
 /// <summary>Gör användaren till lärare i kursen. Användaren ska vara lärare eller admin i kursens skola.</summary>
 public record AddCourseTeacherDto(Guid UserId);

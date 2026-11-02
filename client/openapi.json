@@ -2344,6 +2344,69 @@
         }
       }
     },
+    "/api/groups/{id}/course-teachers": {
+      "get": {
+        "tags": [
+          "Groups"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GroupCourseTeachersDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/groups/{id}/courses/{courseId}": {
       "post": {
         "tags": [
@@ -2543,6 +2606,75 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MemberDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/groups/{id}/students/{studentId}/overview": {
+      "get": {
+        "tags": [
+          "Groups"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "studentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentOverviewDto"
                 }
               }
             }
@@ -7638,6 +7770,33 @@
           }
         }
       },
+      "GroupCourseTeachersDto": {
+        "required": [
+          "courseId",
+          "teachers",
+          "sharedWith"
+        ],
+        "type": "object",
+        "properties": {
+          "courseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "teachers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CourseTeacherDto"
+            }
+          },
+          "sharedWith": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "description": "Lärarna i en kurs som en klass läser, och namnen på de andra grupperna som läser samma kurs."
+      },
       "GroupDto": {
         "required": [
           "id",
@@ -7645,7 +7804,8 @@
           "type",
           "name",
           "term",
-          "memberCount"
+          "memberCount",
+          "lastCourseEndsOn"
         ],
         "type": "object",
         "properties": {
@@ -7669,9 +7829,16 @@
           "memberCount": {
             "type": "integer",
             "format": "int32"
+          },
+          "lastCourseEndsOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
           }
         },
-        "description": "Gruppen med antal medlemmar (alla roller), så att listan slipper hämta medlemmarna en och en."
+        "description": "Gruppen med antal medlemmar (alla roller), så att listan slipper hämta medlemmarna en och en.\nLastCourseEndsOn är den sista slutdagen bland gruppens kurser. Den är null när gruppen saknar kurser eller när\nnågon kurs saknar slutdatum, så att klienten kan avgöra om en klass är avslutad utan att hämta kurserna."
       },
       "GroupMemberDto": {
         "required": [
@@ -8954,6 +9121,96 @@
         },
         "description": "En vecka som eleven ser den: bara publicerat innehåll, med lås och avklarande."
       },
+      "StudentOverviewCourseDto": {
+        "required": [
+          "courseId",
+          "title",
+          "code",
+          "assignmentCount",
+          "needsWorkCount",
+          "lateCount",
+          "submittedCount",
+          "gradedCount",
+          "failCount",
+          "passCount",
+          "distinctionCount"
+        ],
+        "type": "object",
+        "properties": {
+          "courseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "assignmentCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "needsWorkCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "lateCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "submittedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "gradedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "failCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "passCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "distinctionCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "description": "Läget i en kurs. NeedsWork är uppgifter läraren vill ha kompletterade, Late uppgifter som passerat deadline\nutan att lämnas in, Submitted lämnade och ännu inte bedömda, och Graded de som har betyg (fördelade på nivå)."
+      },
+      "StudentOverviewDto": {
+        "required": [
+          "studentId",
+          "name",
+          "groupId",
+          "courses"
+        ],
+        "type": "object",
+        "properties": {
+          "studentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "groupId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "courses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StudentOverviewCourseDto"
+            }
+          }
+        },
+        "description": "En elev i klassen sett av mentorn: läget i varje kurs klassen läser. Bara läsning."
+      },
       "StudentRepoDto": {
         "required": [
           "repoFullName",
@@ -9477,7 +9734,9 @@
           "title",
           "students",
           "toGrade",
-          "needsPreparation"
+          "needsPreparation",
+          "startsOn",
+          "endsOn"
         ],
         "type": "object",
         "properties": {
@@ -9501,6 +9760,20 @@
           },
           "needsPreparation": {
             "type": "boolean"
+          },
+          "startsOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "endsOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
           }
         },
         "description": "En kurs användaren undervisar i, med antal elever och inlämningar att bedöma. NeedsPreparation är sant när\nbeskrivningen är tom, eller när kursen ännu inte har börjat och saknar publicerade delar."
@@ -9684,7 +9957,9 @@
           "code",
           "title",
           "totalParts",
-          "completedParts"
+          "completedParts",
+          "startsOn",
+          "endsOn"
         ],
         "type": "object",
         "properties": {
@@ -9705,6 +9980,20 @@
           "completedParts": {
             "type": "integer",
             "format": "int32"
+          },
+          "startsOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "endsOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
           }
         },
         "description": "En kurs eleven läser, med hur många av delarna som är klara."

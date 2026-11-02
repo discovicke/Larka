@@ -8,9 +8,9 @@ const gradeLabels: Record<Schema<'GradeLevel'>, string> = {
 }
 
 const gradeNames: Record<Schema<'GradeLevel'>, string> = {
-  Fail: 'Icke godkänt',
-  Pass: 'Godkänt',
-  Distinction: 'Väl godkänt',
+  Fail: 'Icke godkänd',
+  Pass: 'Godkänd',
+  Distinction: 'Väl godkänd',
 }
 
 const levelsByScale: Record<Schema<'GradeScale'>, Schema<'GradeLevel'>[]> = {
@@ -19,7 +19,7 @@ const levelsByScale: Record<Schema<'GradeScale'>, Schema<'GradeLevel'>[]> = {
   PassFailDistinction: ['Fail', 'Pass', 'Distinction'],
 }
 
-/** Betygsbokstaven i listan, t.ex. "VG". */
+/** Betygsbokstaven i den runda stämpeln, t.ex. "VG". Stämpeln får hela namnet som etikett, se gradeName. */
 export function gradeLabel(level: Schema<'GradeLevel'>): string {
   return gradeLabels[level]
 }
@@ -34,9 +34,15 @@ export function gradeBadgeVariant(level: Schema<'GradeLevel'>): 'gradePass' | 'g
     : 'gradeFail'
 }
 
-/** Betygets namn i bedömningspanelen, t.ex. "Väl godkänt". */
+/** Betygets namn i klartext, t.ex. "Väl godkänd". Används i all löpande text och som etikett på stämpeln. */
 export function gradeName(level: Schema<'GradeLevel'>): string {
   return gradeNames[level]
+}
+
+/** Betygsskalan i klartext, t.ex. "Icke godkänd / Godkänd / Väl godkänd". Tom när det inte finns någon skala. */
+export function gradeScaleName(scale: Schema<'GradeScale'> | null): string {
+  const levels = levelsFor(scale)
+  return levels.map((level) => gradeNames[level]).join(' / ')
 }
 
 /** Betygsstegen som uppgiftens skala erbjuder. Tom när uppgiften bara har återkoppling. */

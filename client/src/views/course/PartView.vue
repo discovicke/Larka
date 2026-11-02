@@ -18,7 +18,7 @@ import {parseChecklist} from '@/lib/checklist'
 import {formatDate, partOf} from '@/lib/content'
 import {fetchContent, setContentStatus} from '@/lib/contentApi'
 import {fetchCourseModules} from '@/lib/modulesApi'
-import {handInLabel} from '@/lib/submissions'
+import {gradeScaleName, handInLabel} from '@/lib/submissions'
 import {fetchLinkSubmissions} from '@/lib/submissionsApi'
 
 // Delens sida för den som inte är elev: läraren, mentorn och admin läser delen här och går vidare till
@@ -69,7 +69,7 @@ const facts = computed(() => {
     partOf(item).label,
     weekTitle.value,
     item.dueAt
-      ? `Slutar ${formatDate(item.dueAt, true)}`
+      ? `Deadline ${formatDate(item.dueAt, true)}`
       : '',
     scaleLabel(item.gradeScale),
     handIn
@@ -83,13 +83,9 @@ const isScheduled = computed(() =>
   !isDraft.value && part.value !== null && new Date(part.value.publishAt) > new Date())
 
 function scaleLabel(scale: Schema<'GradeScale'> | null): string {
-  if (scale === 'PassFail') {
-    return 'Betygsskala IG–G'
-  }
-  if (scale === 'PassFailDistinction') {
-    return 'Betygsskala IG–VG'
-  }
-  return ''
+  return scale
+    ? `Betygsskala ${gradeScaleName(scale)}`
+    : ''
 }
 
 function tabClass(value: 'content' | 'submissions') {

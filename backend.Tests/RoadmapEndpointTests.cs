@@ -74,7 +74,7 @@ public class RoadmapEndpointTests(TestWebApplicationFactory factory) : IClassFix
         var courseId = await AddCourseAsync();
         var week = await CreateModuleAsync(courseId);
         var news = await LinkContentAsync(
-            courseId, week.Id, new { type = "news", title = "Nyhet", bodyMd = "" });
+            courseId, week.Id, new { type = "news", title = "Nyhet", bodyMd = "Text" });
         var theory = await LinkTheoryAsync(courseId, week.Id, "Teori");
 
         var response = await SaveAsync(courseId, week.Id, (news, []), (theory, []));
@@ -191,7 +191,7 @@ public class RoadmapEndpointTests(TestWebApplicationFactory factory) : IClassFix
     {
         var courseId = await AddCourseAsync();
         var week = await CreateModuleAsync(courseId);
-        var news = await LinkContentAsync(courseId, week.Id, new { type = "news", title = "Nyhet", bodyMd = "" });
+        var news = await LinkContentAsync(courseId, week.Id, new { type = "news", title = "Nyhet", bodyMd = "Text" });
         var theory = await LinkTheoryAsync(courseId, week.Id, "Teori");
 
         var response = await SaveAsync(courseId, week.Id, (news, []), (theory, [news]));
