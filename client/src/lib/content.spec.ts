@@ -9,6 +9,13 @@ function part(status: 'Draft' | 'Published', publishAt: string) {
 }
 
 describe('weekPublishState', () => {
+  it('visar utkast när alla delar är utkast, också med ett framtida datum', () => {
+    expect(weekPublishState({
+      publishAt: '2026-11-03T08:00:00Z',
+      content: [part('Draft', '2026-11-03T08:00:00Z')],
+    }, now)).toEqual({status: 'publishing.draft'})
+  })
+
   it('visar veckans datum före delarnas status', () => {
     const state = weekPublishState({
       publishAt: '2026-11-03T08:00:00Z',

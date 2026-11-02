@@ -55,7 +55,7 @@ const filters: {value: Filter, label: string}[] = [
 
 const route = useRoute()
 const router = useRouter()
-const {courses, status, addCourse, updateCourse, removeCourse} = useCourses()
+const {courses, status, updateCourse, removeCourse} = useCourses()
 const {can} = useCurrentUser()
 // Bara admin skapar, ändrar och tar bort. Övriga ser sidan som en vanlig lista.
 const isAdmin = computed(() => can('admin'))
@@ -161,6 +161,7 @@ const emptyKind = computed<'group' | 'course' | null>(() => {
 const showTable = computed(() => !(emptyKind.value && visibleRows.value.length === 0))
 
 const groupFormOpen = ref(false)
+const groupFormKind = ref<'class' | 'group'>('class')
 const editingGroup = ref<Group>()
 const deleteGroupOpen = ref(false)
 const deletingGroup = ref<Group>()
@@ -169,14 +170,10 @@ const editingCourse = ref<Course>()
 const deleteCourseOpen = ref(false)
 const deletingCourse = ref<Course>()
 
-function openCreateGroup() {
+function openCreate(kind: 'class' | 'group') {
   editingGroup.value = undefined
+  groupFormKind.value = kind
   groupFormOpen.value = true
-}
-
-function openCreateCourse() {
-  editingCourse.value = undefined
-  courseFormOpen.value = true
 }
 
 function openEdit(row: GroupRow) {
@@ -200,24 +197,24 @@ function openDelete(row: GroupRow) {
 }
 
 // Listorna uppdateras direkt med svaret, utan att hämtas om.
+// En ny klass eller grupp öppnas direkt, för det är där nästa steg finns. Meddelandet följer med i historiken.
 function onGroupSaved(saved: Group) {
-  groups.value = groups.value.some((group) => group.id === saved.id)
-    ? groups.value.map((group) => group.id === saved.id
-        ? saved
-        : group)
-    : [...groups.value, saved]
+  if (groups.value.some((group) => group.id === saved.id)) {
+    groups.value = groups.value.map((group) => group.id === saved.id
+      ? saved
+      : group)
+    return
+  }
+
+  groups.value = [...groups.value, saved]
+  const notice = `${saved.name} skapades. Lägg till det ${saved.type === 'Class'
+    ? 'klassen'
+    : 'gruppen'} behöver.`
+  void router.push({name: 'group', params: {groupId: saved.id}, state: {notice}})
 }
 
 function onGroupDeleted(removed: Group) {
   groups.value = groups.value.filter((group) => group.id !== removed.id)
-}
-
-function onCourseSaved(saved: Course) {
-  if (courses.value.some((course) => course.id === saved.id)) {
-    updateCourse(saved)
-  } else {
-    addCourse(saved)
-  }
 }
 
 function setFilter(value: Filter) {
@@ -290,11 +287,11 @@ load()
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" class="min-w-48">
-            <DropdownMenuItem data-test="new-group" @select="openCreateGroup">
-              Ny klass eller grupp
+            <DropdownMenuItem data-test="new-class" @select="openCreate('class')">
+              Ny klass
             </DropdownMenuItem>
-            <DropdownMenuItem data-test="new-course" @select="openCreateCourse">
-              Ny kurs
+            <DropdownMenuItem data-test="new-group" @select="openCreate('group')">
+              Ny grupp
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -319,20 +316,16 @@ load()
         <EmptyDescription>
           {{ emptyKind === 'group'
             ? 'Skapa en klass eller grupp, sedan kan du lägga till medlemmar och koppla kurser.'
-            : 'Skapa en kurs, sedan kan du koppla den till grupper.' }}
+            : 'Kurser skapas på klassens sida. Öppna en klass och välj Ny kurs.' }}
         </EmptyDescription>
       </EmptyHeader>
       <Button
         v-if="emptyKind === 'group'"
         data-test="empty-new-group"
-        @click="openCreateGroup"
+        @click="openCreate('class')"
       >
         <PhPlus/>
         Skapa skolans första klass
-      </Button>
-      <Button v-else data-test="empty-new-course" @click="openCreateCourse">
-        <PhPlus/>
-        Skapa skolans första kurs
       </Button>
     </Empty>
 
@@ -440,6 +433,7 @@ load()
         v-model:open="groupFormOpen"
         :school-id="school?.id ?? ''"
         :group="editingGroup"
+        :kind="groupFormKind"
         @saved="onGroupSaved"
       />
       <DeleteGroupDialog
@@ -449,10 +443,10 @@ load()
         @deleted="onGroupDeleted"
       />
       <CourseFormDialog
+        v-if="editingCourse"
         v-model:open="courseFormOpen"
-        :school-id="school?.id ?? ''"
         :course="editingCourse"
-        @saved="onCourseSaved"
+        @saved="updateCourse"
       />
       <DeleteCourseDialog
         v-if="deletingCourse"

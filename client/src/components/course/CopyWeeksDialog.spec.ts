@@ -72,11 +72,7 @@ function checkbox(weekId: string): HTMLElement {
 
 async function openDialog() {
   const {wrapper} = await renderApp('/courses/c1/content')
-  await wrapper.find('[data-test="add-part-menu"]').trigger('keydown', {key: 'Enter'})
-  await flushPromises()
-  const entry = [...document.querySelectorAll('[role="menuitem"]')]
-    .find((item) => item.textContent?.trim() === 'Kopiera från annan kurs') as HTMLElement
-  entry.click()
+  await wrapper.find('[data-test="copy-weeks"]').trigger('click')
   await flushPromises()
   return wrapper
 }
@@ -89,13 +85,26 @@ async function chooseSource(id: string) {
 }
 
 describe('CopyWeeksDialog', () => {
+  it('Välj alla markerar alla veckor', async () => {
+    backend()
+    await openDialog()
+    await chooseSource('c2')
+
+    ;(dialog().querySelector('[data-test="copy-all"]') as HTMLElement).click()
+    await flushPromises()
+
+    expect(dialog().querySelector('[data-test="copy-preview"]')?.textContent).toContain('veckor')
+    expect(dialog().querySelector('[data-test="copy-all"]')?.textContent?.trim()).toBe('Avmarkera alla')
+  })
+
   it('erbjuder bara andra kurser som läraren undervisar i', async () => {
     backend()
     await openDialog()
 
     const options = [...dialog().querySelectorAll('option')].map((option) => option.textContent?.trim())
 
-    expect(options).toEqual(['Välj kurs…', 'DevOps HT25'])
+    expect(options).toHaveLength(2)
+    expect(options[1]).toContain('DevOps HT25')
   })
 
   it('listar källkursens veckor med antal delar och räknar ihop vad som kopieras', async () => {

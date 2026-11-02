@@ -122,7 +122,7 @@ Medlemslistan (`GroupMemberDto`) har bara id, namn och personens roll i just den
 
 Lärarnas kontaktuppgifter (namn, e-post och vilka grupper de undervisar) visas för alla i skolan via kursens egen lärarlista, `GET /api/courses/{id}/staff`, och inte via `/api/users`.
 
-Admin hanterar klasser, grupper och kurser direkt på _Alla grupper_: knappen _Ny_ uppe till höger skapar en klass, grupp eller kurs, och menyn `⋯` på varje rad har _Redigera_ och _Ta bort_. Borttagningen frågar alltid först och namnger det som tas bort. Nya användare skapas från _Lägg till medlem_ på gruppens sida ("Finns inte i listan? Skapa användare"). Den gamla sidan _Program och klasser_ under Inställningar finns inte kvar, och `/settings/groups` skickar vidare till _Alla grupper_.
+Admin hanterar klasser, grupper och kurser direkt på _Alla grupper_: knappen _Ny_ uppe till höger skapar en klass eller grupp och öppnar dess sida, där kurser skapas, och menyn `⋯` på varje rad har _Redigera_ och _Ta bort_. Borttagningen frågar alltid först och namnger det som tas bort. Nya användare skapas från _Lägg till medlem_ på gruppens sida ("Finns inte i listan? Skapa användare"). Den gamla sidan _Program och klasser_ under Inställningar finns inte kvar, och `/settings/groups` skickar vidare till _Alla grupper_.
 
 ### Lärare i en kurs
 
@@ -146,20 +146,21 @@ Demodatan (`DemoCatalog`) anger lärarna per kurs. `larare` undervisar i DevOps 
 
 Admin bestämmer vem som undervisar vad, och läraren bestämmer vad som händer i kursen. Tabellen visar vad som gäller i en kurs. "Admin" är en admin i kursens skola som inte också står som lärare i kursen. En admin i en annan skola får `404` eller `403`, som alla andra utanför kursen.
 
-| Anrop                                            | Lärare i kursen                                                 | Mentor i klassen          | Elev i klassen       | Admin                      | Övriga        |
-| ------------------------------------------------ | --------------------------------------------------------------- | ------------------------- | -------------------- | -------------------------- | ------------- |
-| `GET /api/courses/{id}/modules`                  | Allt, med antal inlämningar                                     | Publicerat och öppet      | Publicerat och öppet | Allt, utan antal           | `403`         |
-| `GET /api/courses/{id}/content`                  | Läser                                                           | Läser                     | Läser                | Läser                      | `403`         |
-| `GET /api/groups/{id}/content`                   | Läser (kursen gruppen läser)                                    | Läser (är medlem)         | Läser (är medlem)    | Läser                      | `403`         |
-| `GET /api/content/{id}` (ett utkast)             | Läser                                                           | `404`                     | `404`                | Läser                      | `404`         |
-| `PUT /api/courses/{id}`                          | Allt, med beskrivningen                                         | `403`                     | `403`                | Titel, datum och poäng     | `403`         |
-| `DELETE /api/courses/{id}`                       | `403`                                                           | `403`                     | `403`                | `204` eller `409`          | `403`         |
-| `GET /api/links/{id}/submissions`                | Alla elever                                                     | Eleverna i mentorns klass | Bara den egna        | `403`                      | Bara den egna |
-| `GET /api/submissions/{id}`, filerna och betyget | Läser                                                           | Läser eleverna i klassen  | Läser den egna       | `403`                      | `404`         |
-| `POST /api/submissions/{id}/grade`               | Bedömer                                                         | `403`                     | `403`                | `403`                      | `403`         |
-| `POST /api/content`, `/api/content/with-link`    | Skapar                                                          | `403`                     | `403`                | `403`                      | `403`         |
-| `POST /api/courses/{id}/runs`                    | Från sin kurs, till en klass som läser en kurs hen undervisar i | `403`                     | `403`                | Från vilken kurs som helst | `403`         |
-| `GET /api/me/admin-overview`                     | `403`                                                           | `403`                     | `403`                | Skolans översikt           | `403`         |
+| Anrop                                            | Lärare i kursen              | Mentor i klassen          | Elev i klassen       | Admin                      | Övriga        |
+| ------------------------------------------------ | ---------------------------- | ------------------------- | -------------------- | -------------------------- | ------------- |
+| `GET /api/courses/{id}/modules`                  | Allt, med antal inlämningar  | Publicerat och öppet      | Publicerat och öppet | Allt, utan antal           | `403`         |
+| `GET /api/courses/{id}/content`                  | Läser                        | Läser                     | Läser                | Läser                      | `403`         |
+| `GET /api/groups/{id}/content`                   | Läser (kursen gruppen läser) | Läser (är medlem)         | Läser (är medlem)    | Läser                      | `403`         |
+| `GET /api/content/{id}` (ett utkast)             | Läser                        | `404`                     | `404`                | Läser                      | `404`         |
+| `PUT /api/courses/{id}`                          | Allt, med beskrivningen      | `403`                     | `403`                | Titel, datum och poäng     | `403`         |
+| `DELETE /api/courses/{id}`                       | `403`                        | `403`                     | `403`                | `204` eller `409`          | `403`         |
+| `GET /api/links/{id}/submissions`                | Alla elever                  | Eleverna i mentorns klass | Bara den egna        | `403`                      | Bara den egna |
+| `GET /api/submissions/{id}`, filerna och betyget | Läser                        | Läser eleverna i klassen  | Läser den egna       | `403`                      | `404`         |
+| `POST /api/submissions/{id}/grade`               | Bedömer                      | `403`                     | `403`                | `403`                      | `403`         |
+| `POST /api/content`, `/api/content/with-link`    | Skapar                       | `403`                     | `403`                | `403`                      | `403`         |
+| `POST /api/courses/{id}/runs`                    | `403`                        | `403`                     | `403`                | Från vilken kurs som helst | `403`         |
+| `POST /api/courses/{id}/modules/publish`         | Publicerar veckornas utkast  | `403`                     | `403`                | `403`                      | `403`         |
+| `GET /api/me/admin-overview`                     | `403`                        | `403`                     | `403`                | Skolans översikt           | `403`         |
 
 Filerna i en inlämning nås med kortlivade länkar som skapas när inlämningen läses, så en admin som inte får läsa inlämningen får inga länkar. Nyheter till en grupp kräver lärarrollen i gruppen (`CanTeachGroupAsync`), vilket mentorn inte har.
 

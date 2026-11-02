@@ -32,6 +32,11 @@ public record CopyWeeksDto(Guid SourceCourseId, List<Guid> ModuleIds);
 /// <summary>Veckorna som skapades i målkursen, i ordning, och hur många delar de innehåller.</summary>
 public record CopyWeeksResultDto(List<ModuleDto> Modules, int PartCount);
 
+// Veckorna vars utkast ska publiceras. Utan lista gäller det alla kursens veckor.
+public record PublishWeeksDto(List<Guid>? ModuleIds = null);
+
+public record PublishWeeksResultDto(int WeekCount, int PartCount);
+
 
 public record ModuleDto(
     Guid Id,

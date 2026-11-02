@@ -187,7 +187,7 @@ describe('GroupView', () => {
 
     const {wrapper} = await renderApp('/groups/g1')
 
-    expect(wrapper.text()).toContain('Gruppen har inga medlemmar ännu.')
+    expect(wrapper.text()).toContain('Klassen har inga medlemmar ännu.')
   })
 
   it('visar sidan som saknas när gruppen inte finns', async () => {
@@ -246,7 +246,7 @@ describe('GroupView', () => {
       const {wrapper} = await renderApp('/groups/g1')
 
       expect(wrapper.find('[data-test="add-member"]').text()).toBe('Lägg till medlem')
-      expect(wrapper.text()).toContain('Gruppen har inga kurser ännu.')
+      expect(wrapper.text()).toContain('Klassen har inga kurser ännu.')
       expect(wrapper.find('[data-test="link-course-button"]').text()).toBe('Koppla kurs')
     })
 
@@ -433,7 +433,7 @@ describe('GroupView', () => {
 
       expect(requests.some((request) => request.method === 'DELETE' && request.path === '/api/groups/g1/courses/c1')).toBe(true)
       expect(wrapper.findAll('[data-test="course-row"]')).toHaveLength(0)
-      expect(wrapper.text()).toContain('Gruppen har inga kurser ännu.')
+      expect(wrapper.text()).toContain('Klassen har inga kurser ännu.')
     })
 
     function pick(element: Element | null, value: string) {
@@ -601,8 +601,45 @@ describe('GroupView', () => {
       expect(roleOf(wrapper, 'Olle Ovan')).toBe('Elev')
     })
 
+    async function addFirstTeacher() {
+      await click(modal().querySelector('[data-test="new-course-add-teacher"]'))
+      await click(modal().querySelector('[data-test="new-course-teacher-option"]'))
+    }
+
+    it('visar vad som återstår för en ny klass', async () => {
+      backend({role: 'Admin', courses: [], members: []})
+      const {wrapper} = await renderApp('/groups/g1')
+
+      const steps = wrapper.findAll('[data-test="group-setup-step"]').map((step) => step.text())
+      expect(steps).toEqual(['Lägg till kurser', 'Lägg in elever', 'Utse mentor'])
+    })
+
+    it('fyller i formuläret från en tidigare kurs och skapar allt i ett anrop', async () => {
+      backend({role: 'Admin', courses: []})
+      const {wrapper} = await renderApp('/groups/g1')
+
+      await click(wrapper.find('[data-test="new-course-button"]').element)
+      await click(modal().querySelector('[data-test="new-course-source"]'))
+
+      const input = (name: string) => modal().querySelector(`[data-test="new-course-${name}"]`) as HTMLInputElement
+      expect(input('title').value).not.toBe('')
+      expect(input('code').value).toContain('TE22A_')
+      const pickers = wrapper.findAllComponents(DatePicker)
+      pickers[0].vm.$emit('update:modelValue', '2026-11-02')
+      pickers[1].vm.$emit('update:modelValue', '2026-12-18')
+      await flushPromises()
+      await addFirstTeacher()
+      await click(modal().querySelector('[data-test="save-new-course"]'))
+
+      const paths = requests.filter((request) => request.method === 'POST').map((request) => request.path)
+      expect(paths).toHaveLength(1)
+      expect(paths[0]).toMatch(/\/api\/courses\/[^/]+\/runs$/)
+      expect(wrapper.find('[data-test="group-notice"]').text()).toContain('skapades')
+    })
+
     async function fillNewCourse(wrapper: Awaited<ReturnType<typeof renderApp>>['wrapper'], title: string, code: string) {
       await click(wrapper.find('[data-test="new-course-button"]').element)
+      await click(modal().querySelector('[data-test="new-course-empty"]'))
       await type('[data-test="new-course-title"]', title)
       await type('[data-test="new-course-code"]', code)
       const pickers = wrapper.findAllComponents(DatePicker)
@@ -616,9 +653,8 @@ describe('GroupView', () => {
       const {wrapper} = await renderApp('/groups/g1')
 
       await fillNewCourse(wrapper, 'Testning', 'TEST25')
-      const teachers = modal().querySelectorAll('[data-test="new-course-teacher"]')
-      await click(teachers[0])
-      await click(teachers[1])
+      await addFirstTeacher()
+      await addFirstTeacher()
       await click(modal().querySelector('[data-test="save-new-course"]'))
 
       expect(requests.filter((request) => request.method === 'POST').map((request) => request.path)).toEqual([
@@ -638,6 +674,7 @@ describe('GroupView', () => {
       const {wrapper} = await renderApp('/groups/g1')
 
       await click(wrapper.find('[data-test="new-course-button"]').element)
+      await click(modal().querySelector('[data-test="new-course-empty"]'))
       await click(modal().querySelector('[data-test="save-new-course"]'))
 
       for (const name of ['title', 'code', 'dates', 'teacher']) {
@@ -665,7 +702,7 @@ describe('GroupView', () => {
       })
 
       await fillNewCourse(wrapper, 'Java', 'JAVA25')
-      await click(modal().querySelectorAll('[data-test="new-course-teacher"]')[0])
+      await addFirstTeacher()
       await click(modal().querySelector('[data-test="save-new-course"]'))
 
       const message = modal().querySelector('[data-test="new-course-error"]')?.textContent ?? ''

@@ -51,25 +51,16 @@ public class CourseRunEndpointTests(TestWebApplicationFactory factory) : IClassF
     }
 
     [Fact]
-    public async Task Run_AsTeacherOfTheSource_Succeeds_AndCanTeachTheNewCourse()
+    public async Task Run_AsTeacherOfTheSource_IsForbidden_AndCreatesNothing()
     {
         var scenario = await AddScenarioAsync();
 
-        // Läraren lägger omgången i en klass som läser en kurs hen undervisar i.
-        var response = await RunAsync(scenario, scenario.TeacherId, groupId: scenario.OldGroupId);
+        var response = await RunAsync(scenario, scenario.TeacherId);
 
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        var run = (await response.Content.ReadFromJsonAsync<RunResponse>())!;
-        var edit = await SendAsync(HttpMethod.Put, $"/api/courses/{run.CourseId}", scenario.TeacherId,
-            new
-            {
-                title = "Ny titel",
-                description = "",
-                points = (int?)null,
-                startsOn = (string?)null,
-                endsOn = (string?)null
-            });
-        Assert.Equal(HttpStatusCode.OK, edit.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        await using var db = OpenDb();
+        Assert.False(await db.Courses.AnyAsync(
+            course => course.SchoolId == scenario.SchoolId && course.Code == scenario.RunCode));
     }
 
     [Fact]
@@ -88,20 +79,6 @@ public class CourseRunEndpointTests(TestWebApplicationFactory factory) : IClassF
         await using var check = OpenDb();
         Assert.False(await check.Courses.AnyAsync(
             course => course.SchoolId == scenario.SchoolId && course.Code == scenario.RunCode));
-    }
-
-    [Fact]
-    public async Task Run_AsTeacher_IntoAClassThatReadsNoCourseTheyTeach_IsForbidden_AndCreatesNothing()
-    {
-        var scenario = await AddScenarioAsync();
-
-        var response = await RunAsync(scenario, scenario.TeacherId);
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        await using var db = OpenDb();
-        Assert.False(await db.Courses.AnyAsync(
-            course => course.SchoolId == scenario.SchoolId && course.Code == scenario.RunCode));
-        Assert.False(await db.GroupCourses.AnyAsync(groupCourse => groupCourse.GroupId == scenario.NewGroupId));
     }
 
     [Fact]
@@ -295,6 +272,97 @@ public class CourseRunEndpointTests(TestWebApplicationFactory factory) : IClassF
             .ToListAsync());
         Assert.True(await check.CourseTeachers.AnyAsync(courseTeacher =>
             courseTeacher.CourseId == run.CourseId && courseTeacher.UserId == scenario.TeacherId));
+    }
+
+    [Fact]
+    public async Task Run_WithOwnValues_UsesThemInsteadOfTheSource()
+    {
+        var scenario = await AddScenarioAsync();
+        Guid otherTeacherId;
+        await using (var db = OpenDb())
+        {
+            otherTeacherId = (await TestData.AddUserAsync(db, scenario.SchoolId, UserRole.Teacher)).Id;
+        }
+
+        var response = await SendAsync(HttpMethod.Post, $"/api/courses/{scenario.CourseId}/runs", Guid.Empty, new
+        {
+            code = scenario.RunCode,
+            groupId = scenario.NewGroupId,
+            startsOn = "2027-01-04",
+            endsOn = "2027-03-01",
+            copyContent = true,
+            title = "Nytt namn",
+            points = 30,
+            teacherIds = new[] { otherTeacherId },
+            moduleIds = Array.Empty<Guid>()
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var run = (await response.Content.ReadFromJsonAsync<RunResponse>())!;
+        Assert.Equal((0, 1), (run.ModuleCount, run.StaffCount));
+        await using var check = OpenDb();
+        var course = await check.Courses.SingleAsync(found => found.Id == run.CourseId);
+        Assert.Equal(("Nytt namn", 30), (course.Title, course.Points));
+        var teacher = await check.CourseTeachers.SingleAsync(found => found.CourseId == run.CourseId);
+        Assert.Equal(otherTeacherId, teacher.UserId);
+    }
+
+    [Fact]
+    public async Task Run_WithChosenWeeks_CopiesOnlyThem()
+    {
+        var scenario = await AddScenarioAsync();
+        Guid weekId;
+        await using (var db = OpenDb())
+        {
+            var extra = new Module { CourseId = scenario.CourseId, Title = "Vecka 2", Position = 2 };
+            db.Modules.Add(extra);
+            await db.SaveChangesAsync();
+            weekId = extra.Id;
+        }
+
+        var response = await SendAsync(HttpMethod.Post, $"/api/courses/{scenario.CourseId}/runs", Guid.Empty, new
+        {
+            code = scenario.RunCode,
+            groupId = scenario.NewGroupId,
+            startsOn = "2027-01-04",
+            endsOn = "2027-03-01",
+            copyContent = true,
+            moduleIds = new[] { weekId }
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var run = (await response.Content.ReadFromJsonAsync<RunResponse>())!;
+        await using var check = OpenDb();
+        var week = await check.Modules.SingleAsync(found => found.CourseId == run.CourseId);
+        Assert.Equal("Vecka 2", week.Title);
+    }
+
+    [Fact]
+    public async Task Run_WithAStudentAsTeacherOrAWeekFromAnotherCourse_ReturnsBadRequest()
+    {
+        var scenario = await AddScenarioAsync();
+
+        var student = await SendAsync(HttpMethod.Post, $"/api/courses/{scenario.CourseId}/runs", Guid.Empty, new
+        {
+            code = scenario.RunCode,
+            groupId = scenario.NewGroupId,
+            startsOn = "2027-01-04",
+            endsOn = "2027-03-01",
+            copyContent = true,
+            teacherIds = new[] { scenario.StudentId }
+        });
+        var week = await SendAsync(HttpMethod.Post, $"/api/courses/{scenario.CourseId}/runs", Guid.Empty, new
+        {
+            code = scenario.RunCode,
+            groupId = scenario.NewGroupId,
+            startsOn = "2027-01-04",
+            endsOn = "2027-03-01",
+            copyContent = true,
+            moduleIds = new[] { Guid.NewGuid() }
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, student.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, week.StatusCode);
     }
 
     private async Task<RunResponse> CreateRunAsync(Scenario scenario, bool copyContent = true)

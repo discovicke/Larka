@@ -54,6 +54,9 @@ function backend(modules: unknown[]) {
     if (path === '/api/courses/c1/modules') {
       return {status: 200, body: modules}
     }
+    if (path === '/api/courses/c1/modules/publish') {
+      return {status: 200, body: {weekCount: 1, partCount: 1}}
+    }
     return {status: 200, body: []}
   })
 }
@@ -78,6 +81,49 @@ async function openWeekMenu(wrapper: Awaited<ReturnType<typeof renderApp>>['wrap
 }
 
 describe('CourseContentView', () => {
+  it('visar en vecka med bara utkast som utkast med planerat datum och utan märke per del', async () => {
+    backend([week('m1', 'Vecka 1', [draft], '2099-11-16T05:00:00Z')])
+    const {wrapper} = await renderApp('/courses/c1/content')
+
+    expect(wrapper.find('[data-test="week-planned"]').text()).toContain('Planerad')
+    expect(wrapper.text()).not.toContain('Schemalagd')
+  })
+
+  it('Publicera veckan skickar veckan och säger när eleverna ser den', async () => {
+    backend([week('m1', 'Vecka 1', [draft], '2099-11-16T05:00:00Z')])
+    const {wrapper} = await renderApp('/courses/c1/content')
+
+    await wrapper.find('[data-test="publish-week"]').trigger('click')
+    await flushPromises()
+
+    expect(sent('POST', '/api/courses/c1/modules/publish')).toEqual({moduleIds: ['m1']})
+    expect(wrapper.text()).toContain('Vecka 1 publicerades. Eleverna ser veckan')
+  })
+
+  it('Publicera alla veckor listar veckorna med utkast och publicerar dem', async () => {
+    backend([week('m1', 'Vecka 1', [draft]), week('m2', 'Vecka 2', [submission])])
+    const {wrapper} = await renderApp('/courses/c1/content')
+
+    await wrapper.find('[data-test="publish-all"]').trigger('click')
+    await flushPromises()
+
+    const dialog = document.querySelector('[role="dialog"]') as HTMLElement
+    expect(dialog.querySelectorAll('[data-test="publish-week"]')).toHaveLength(1)
+    ;(dialog.querySelector('[data-test="confirm-publish"]') as HTMLElement).click()
+    await flushPromises()
+
+    expect(sent('POST', '/api/courses/c1/modules/publish')).toEqual({moduleIds: ['m1']})
+  })
+
+  it('utan utkast finns ingen publiceringsknapp', async () => {
+    backend([week('m1', 'Vecka 1', [submission])])
+    const {wrapper} = await renderApp('/courses/c1/content')
+
+    expect(wrapper.find('[data-test="publish-all"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="publish-week"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="copy-weeks"]').exists()).toBe(true)
+  })
+
   it('visar veckorna med sina delar, typ, deadline och status', async () => {
     backend([week('m1', 'Vecka 1', [submission, exercise, draft]), week('m2', 'Vecka 2')])
 

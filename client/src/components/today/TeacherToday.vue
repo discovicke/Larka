@@ -265,7 +265,7 @@ load()
       data-test="needs-preparation"
     >
       <h2 id="t-prepare-heading" class="text-base">Behöver förberedas</h2>
-      <p class="text-muted-foreground text-sm">Beskrivning eller delar saknas.</p>
+      <p class="text-muted-foreground text-sm">Beskrivning eller publicerade delar saknas.</p>
       <ul class="flex flex-col">
         <li v-for="course in needsPreparation" :key="course.courseId" data-test="needs-preparation-item">
           <RouterLink

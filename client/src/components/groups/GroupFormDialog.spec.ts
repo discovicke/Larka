@@ -12,9 +12,9 @@ const existing: Schema<'GroupDto'> = {
   id: 'g1', schoolId: 's1', type: 'Class', name: 'NET25', term: 'HT25', memberCount: 4,
 }
 
-async function render(group?: Schema<'GroupDto'>) {
+async function render(group?: Schema<'GroupDto'>, kind: 'class' | 'group' = 'class') {
   const wrapper = mount(GroupFormDialog, {
-    props: {open: true, schoolId: 's1', group},
+    props: {open: true, schoolId: 's1', group, kind},
     attachTo: document.body,
   })
   await flushPromises()
@@ -38,18 +38,23 @@ async function submit() {
 }
 
 describe('GroupFormDialog', () => {
-  it('frågar efter starttermin för en klass och period för andra typer', async () => {
+  it('Ny klass frågar efter starttermin och visar ingen typ', async () => {
     await render()
-    const label = () => document.querySelector('label[for="group-term"]')?.textContent?.trim()
 
-    expect(label()).toBe('Startade (termin)')
-    expect(document.querySelector('[data-test="group-term-help"]')?.textContent)
-      .toContain('En klass är hela årskullen genom programmet, t.ex. HT25.')
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Ny klass')
+    expect(document.querySelector('label[for="group-term"]')?.textContent?.trim()).toBe('Startade (termin)')
+    expect(field('group-type')).toBeNull()
+    expect(field('save-group').textContent?.trim()).toBe('Skapa klass')
+  })
 
-    await type('group-type', 'Committee', 'change')
+  it('Ny grupp frågar efter period och erbjuder inte klass', async () => {
+    await render(undefined, 'group')
 
-    expect(label()).toBe('Period/termin')
-    expect(document.querySelector('[data-test="group-term-help"]')).toBeNull()
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Ny grupp')
+    expect(document.querySelector('label[for="group-term"]')?.textContent?.trim()).toBe('Period/termin')
+    expect([...field('group-type').querySelectorAll('option')].map((option) => option.textContent?.trim()))
+      .toEqual(['Kommitté', 'Grupp'])
+    expect(field('save-group').textContent?.trim()).toBe('Skapa grupp')
   })
 
   it('kräver ett namn och skickar inget förrän det finns', async () => {
@@ -65,7 +70,7 @@ describe('GroupFormDialog', () => {
 
   it('skapar en grupp i skolan med trimmat namn och period', async () => {
     mockApi(() => ({status: 201, body: {...existing, id: 'g9', name: 'NET26', memberCount: 0}}))
-    const wrapper = await render()
+    const wrapper = await render(undefined, 'group')
 
     await type('group-name', '  NET26 ')
     await type('group-type', 'Committee', 'change')

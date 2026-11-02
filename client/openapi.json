@@ -2853,6 +2853,76 @@
         }
       }
     },
+    "/api/courses/{id}/modules/publish": {
+      "post": {
+        "tags": [
+          "Modules"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishWeeksDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishWeeksResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/courses/{id}/modules/{moduleId}": {
       "put": {
         "tags": [
@@ -6172,6 +6242,39 @@
           },
           "copyContent": {
             "type": "boolean"
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "points": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "teacherIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "moduleIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         }
       },
@@ -7262,6 +7365,38 @@
           }
         },
         "description": "Slag av notiser användaren har stängt av i appen."
+      },
+      "PublishWeeksDto": {
+        "type": "object",
+        "properties": {
+          "moduleIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "PublishWeeksResultDto": {
+        "required": [
+          "weekCount",
+          "partCount"
+        ],
+        "type": "object",
+        "properties": {
+          "weekCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "partCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
       },
       "ReorderContentDto": {
         "required": [

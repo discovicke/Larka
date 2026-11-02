@@ -33,32 +33,11 @@ function updateCourse(updated: Course) {
 }
 
 /** Lägger till en nyskapad kurs, så att sidomenyn och Alla grupper visar den utan omladdning. */
-function addCourse(course: Course) {
-  courses.value = [...courses.value, course]
-}
-
 /** Tar bort en borttagen kurs ur listan. */
 function removeCourse(id: string) {
   courses.value = courses.value.filter((course) => course.id !== id)
 }
 
-// Texten som den nya kursens innehållssida visar när man kommer dit från Ny kursomgång.
-const pendingNotice = ref<{courseId: string, text: string} | null>(null)
-
-function setPendingNotice(courseId: string, text: string) {
-  pendingNotice.value = {courseId, text}
-}
-
-/** Hämtar och glömmer meddelandet för kursen, så att det bara visas en gång. */
-function takePendingNotice(courseId: string): string {
-  const pending = pendingNotice.value
-  if (pending?.courseId !== courseId) {
-    return ''
-  }
-  pendingNotice.value = null
-  return pending.text
-}
-
 export function useCourses() {
-  return {courses, status, loadCourses, findCourse, updateCourse, addCourse, removeCourse, setPendingNotice, takePendingNotice}
+  return {courses, status, loadCourses, findCourse, updateCourse, removeCourse}
 }

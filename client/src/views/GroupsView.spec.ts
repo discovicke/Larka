@@ -300,31 +300,27 @@ describe('GroupsView som admin', () => {
     expect(wrapper.findAll('thead th')).toHaveLength(5)
   })
 
-  it('Ny klass eller grupp skapar en grupp som hamnar i listan utan omladdning', async () => {
+  it('Ny klass skapar en klass och öppnar dess sida', async () => {
     adminBackend()
-    const {wrapper} = await renderApp('/groups')
+    const {wrapper, router} = await renderApp('/groups')
 
     await openNewMenu(wrapper)
-    await choose('Ny klass eller grupp')
+    await choose('Ny klass')
     await type('[data-test="group-name"]', 'Alfa')
     await click(dialog().querySelector('[data-test="save-group"]'))
 
-    expect(sent('POST', '/api/groups')).toMatchObject({schoolId: 's1', name: 'Alfa'})
-    expect(rowNames(wrapper)).toEqual(['Edugrade', 'Alfa', 'Elevrådet', 'NET25', 'DevOps', 'Java'])
+    expect(sent('POST', '/api/groups')).toMatchObject({schoolId: 's1', name: 'Alfa', type: 'Class'})
+    expect(router.currentRoute.value.name).toBe('group')
   })
 
-  it('Ny kurs skapar en kurs som hamnar i listan', async () => {
+  it('menyn Ny har inget val för kurs, de skapas på klassens sida', async () => {
     adminBackend()
     const {wrapper} = await renderApp('/groups')
 
     await openNewMenu(wrapper)
-    await choose('Ny kurs')
-    await type('[data-test="course-title"]', 'Python')
-    await type('[data-test="course-code"]', 'PY')
-    await click(dialog().querySelector('[data-test="save-course"]'))
 
-    expect(sent('POST', '/api/courses')).toMatchObject({schoolId: 's1', title: 'Python', code: 'PY'})
-    expect(rowNames(wrapper)).toEqual(['Edugrade', 'Elevrådet', 'NET25', 'DevOps', 'Java', 'Python'])
+    const items = [...document.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent?.trim())
+    expect(items).toEqual(['Ny klass', 'Ny grupp'])
   })
 
   it('Redigera ändrar en grupp i listan', async () => {
@@ -408,15 +404,14 @@ describe('GroupsView som admin', () => {
 
     expect(wrapper.find('[data-test="groups-empty"]').exists()).toBe(true)
     await click(wrapper.find('[data-test="empty-new-group"]').element)
-    expect(dialog().textContent).toContain('Ny grupp')
+    expect(dialog().textContent).toContain('Ny klass')
     await type('[data-test="group-name"]', 'NET26')
     await click(dialog().querySelector('[data-test="save-group"]'))
 
-    expect(wrapper.find('[data-test="groups-empty"]').exists()).toBe(false)
-    expect(rowNames(wrapper)).toContain('NET26')
+    expect(sent('POST', '/api/groups')).toMatchObject({name: 'NET26'})
   })
 
-  it('utan kurser har fliken Kurser en knapp för att skapa den första', async () => {
+  it('utan kurser säger fliken Kurser att de skapas på klassens sida', async () => {
     adminBackend({courses: []})
     const {wrapper} = await renderApp('/groups')
 
@@ -424,7 +419,7 @@ describe('GroupsView som admin', () => {
     await kurser?.trigger('click')
     await flushPromises()
 
-    expect(wrapper.find('[data-test="empty-new-course"]').text()).toContain('Skapa skolans första kurs')
+    expect(wrapper.find('[data-test="groups-empty"]').text()).toContain('Kurser skapas på klassens sida.')
     expect(wrapper.find('table').exists()).toBe(false)
   })
 

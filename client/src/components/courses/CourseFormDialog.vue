@@ -16,12 +16,11 @@ import {Field, FieldDescription, FieldError, FieldGroup, FieldLabel} from '@/com
 import {Input} from '@/components/ui/input'
 import {useAsync} from '@/composables/useAsync'
 import {type Schema} from '@/lib/api'
-import {createCourse, updateCourse} from '@/lib/coursesApi'
+import {updateCourse} from '@/lib/coursesApi'
 
-// Utan course skapas en ny kurs i skolan, med course ändras den. Koden är låst efter att kursen skapats.
+// Dialogen ändrar en befintlig kurs. Koden är låst efter att kursen skapats.
 const props = defineProps<{
-  schoolId: string
-  course?: Schema<'CourseDto'>
+  course: Schema<'CourseDto'>
 }>()
 
 const open = defineModel<boolean>('open', {required: true})
@@ -30,12 +29,8 @@ const emit = defineEmits<{saved: [course: Schema<'CourseDto'>]}>()
 const submitted = ref(false)
 const form = reactive({title: '', code: '', points: '', startsOn: '', endsOn: ''})
 
-const isEdit = computed(() => props.course !== undefined)
 const titleError = computed(() => submitted.value && !form.title.trim()
   ? 'Ange en titel.'
-  : '')
-const codeError = computed(() => submitted.value && !isEdit.value && !form.code.trim()
-  ? 'Ange en kurskod.'
   : '')
 const pointsError = computed(() => {
   if (form.points === '') {
@@ -49,30 +44,27 @@ const pointsError = computed(() => {
 
 interface CourseFields {
   title: string
-  code: string
   points: number | null
   startsOn: string | null
   endsOn: string | null
 }
 
-const {run: send, loading: saving, error} = useAsync(async ({title, code, points, startsOn, endsOn}: CourseFields) => {
-  const saved = props.course
-    // Beskrivningen skrivs på kursens egen sida, så den följer med oförändrad.
-    ? await updateCourse(props.course.id, {title, description: props.course.description, points, startsOn, endsOn})
-    : await createCourse({schoolId: props.schoolId, title, code, points, startsOn, endsOn})
+const {run: send, loading: saving, error} = useAsync(async ({title, points, startsOn, endsOn}: CourseFields) => {
+  // Beskrivningen skrivs på kursens egen sida, så den följer med oförändrad.
+  const saved = await updateCourse(props.course.id, {title, description: props.course.description, points, startsOn, endsOn})
   emit('saved', saved)
   open.value = false
 })
 
 watch(open, (isOpen) => {
   if (isOpen) {
-    form.title = props.course?.title ?? ''
-    form.code = props.course?.code ?? ''
-    form.points = props.course?.points == null
+    form.title = props.course.title
+    form.code = props.course.code
+    form.points = props.course.points == null
       ? ''
       : String(props.course.points)
-    form.startsOn = props.course?.startsOn ?? ''
-    form.endsOn = props.course?.endsOn ?? ''
+    form.startsOn = props.course.startsOn ?? ''
+    form.endsOn = props.course.endsOn ?? ''
     error.value = ''
     submitted.value = false
   }
@@ -81,15 +73,14 @@ watch(open, (isOpen) => {
 async function save() {
   submitted.value = true
   const title = form.title.trim()
-  const code = form.code.trim()
-  if (!title || (!isEdit.value && !code) || pointsError.value) {
+  if (!title || pointsError.value) {
     return
   }
 
   const points = form.points === ''
     ? null
     : Number(form.points)
-  await send({title, code, points, startsOn: form.startsOn || null, endsOn: form.endsOn || null})
+  await send({title, points, startsOn: form.startsOn || null, endsOn: form.endsOn || null})
 }
 </script>
 
@@ -98,15 +89,9 @@ async function save() {
     <DialogContent class="sm:max-w-lg">
       <form class="flex flex-col gap-4" novalidate @submit.prevent="save">
         <DialogHeader>
-          <DialogTitle>
-            {{ isEdit
-              ? 'Redigera kurs'
-              : 'Ny kurs' }}
-          </DialogTitle>
+          <DialogTitle>Redigera kurs</DialogTitle>
           <DialogDescription>
-            {{ isEdit
-              ? 'Ändra titel, omfattning eller datum. Beskrivningen ändras på kursens egen sida.'
-              : 'Skapa en kurs i skolan. Grupper kopplas till kursen från gruppens sida.' }}
+            Ändra titel, omfattning eller datum. Beskrivningen ändras på kursens egen sida.
           </DialogDescription>
         </DialogHeader>
 
@@ -129,26 +114,17 @@ async function save() {
             />
             <FieldError v-if="titleError" data-test="course-title-error">{{ titleError }}</FieldError>
           </Field>
-          <Field
-            :data-invalid="codeError
-              ? true
-              : undefined"
-          >
+          <Field>
             <FieldLabel for="course-code">Kurskod</FieldLabel>
             <Input
               id="course-code"
               v-model="form.code"
               class="font-mono"
-              placeholder="DEVOPS25"
-              :disabled="isEdit"
-              :aria-invalid="codeError
-                ? true
-                : undefined"
+              disabled
               autocomplete="off"
               data-test="course-code"
             />
-            <FieldDescription v-if="isEdit">Koden går inte att ändra.</FieldDescription>
-            <FieldError v-if="codeError" data-test="course-code-error">{{ codeError }}</FieldError>
+            <FieldDescription>Koden går inte att ändra.</FieldDescription>
           </Field>
           <Field
             :data-invalid="pointsError
@@ -206,9 +182,7 @@ async function save() {
             Avbryt
           </Button>
           <Button type="submit" :disabled="saving" data-test="save-course">
-            {{ isEdit
-              ? 'Spara'
-              : 'Skapa kurs' }}
+            Spara
           </Button>
         </DialogFooter>
       </form>

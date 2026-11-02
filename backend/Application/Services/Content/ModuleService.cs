@@ -15,6 +15,7 @@ public class ModuleService(
     ISubmissionRepository submissions,
     IPartCompletionRepository completions,
     IPermissions permissions,
+    NotificationService notifications,
     IFileStorage storage,
     IUnitOfWork unitOfWork,
     TimeProvider time,
@@ -22,7 +23,8 @@ public class ModuleService(
 {
     /// <summary>
     /// Kursens veckor med innehåll. Läraren ser allt, med utkast, schemalagt och antal inlämningar. Admin i skolan
-    /// läser också allt, men utan inlämningar. Mentor och elev ser bara det som är publicerat och öppet.
+    /// läser också allt, men utan inlämningar. Mentor och elev ser bara det som är publicerat och öppet,
+    /// och aldrig en vecka där alla delar är dolda.
     /// Övriga får 403.
     /// </summary>
     public async Task<ServiceResult<List<ModuleWithContentDto>>> GetForCourseAsync(Guid courseId, CancellationToken ct)
@@ -45,13 +47,70 @@ public class ModuleService(
         return ServiceResult<List<ModuleWithContentDto>>.Ok(
             courseModules
                 .Where(module => seesEverything || ContentVisibility.IsModuleAvailable(module.PublishAt, now))
+                .Where(module => seesEverything
+                    || !content[module.Id].Any()
+                    || content[module.Id].Any(item => IsVisible(item, now)))
                 .Select(module => ModuleWithContentDto.From(
                     module,
                     content[module.Id]
-                        .Where(item => seesEverything
-                            || (item.Status == ContentStatus.Published && item.PublishAt <= now))
+                        .Where(item => seesEverything || IsVisible(item, now))
                         .ToList()))
                 .ToList());
+    }
+
+    private static bool IsVisible(ModuleContentItem item, DateTimeOffset now) =>
+        item.Status == ContentStatus.Published && item.PublishAt <= now;
+
+    /// <summary>
+    /// Publicerar veckornas utkast. Delarna syns för eleverna på sina egna datum, och notiserna kommer när de
+    /// blir synliga. Veckor utan utkast räknas inte.
+    /// </summary>
+    public async Task<ServiceResult<PublishWeeksResultDto>> PublishAsync(
+        Guid courseId, PublishWeeksDto dto, CancellationToken ct)
+    {
+        if (await courses.GetAsync(courseId, ct) is null)
+        {
+            return ServiceResult<PublishWeeksResultDto>.NotFound("course not found");
+        }
+
+        if (!await permissions.CanTeachCourseAsync(courseId, ct))
+        {
+            return ServiceResult<PublishWeeksResultDto>.Forbidden();
+        }
+
+        var weeks = await modules.GetForCourseAsync(courseId, ct);
+        if (dto.ModuleIds is not null)
+        {
+            weeks = weeks.Where(week => dto.ModuleIds.Contains(week.Id)).ToList();
+            if (weeks.Count != dto.ModuleIds.Distinct().Count())
+            {
+                return ServiceResult<PublishWeeksResultDto>.Invalid(
+                    "moduleIds must only contain weeks in the course");
+            }
+        }
+
+        var weekCount = 0;
+        var partCount = 0;
+        foreach (var week in weeks)
+        {
+            var drafts = (await contents.GetLinksWithContentForModuleAsync(week.Id, ct))
+                .Where(part => part.Content.Status == ContentStatus.Draft)
+                .ToList();
+            if (drafts.Count > 0)
+            {
+                weekCount++;
+            }
+
+            foreach (var part in drafts)
+            {
+                part.Content.Status = ContentStatus.Published;
+                await notifications.NotifyContentPublishedAsync(part.Content, ct);
+                partCount++;
+            }
+        }
+
+        await unitOfWork.SaveChangesAsync(ct);
+        return ServiceResult<PublishWeeksResultDto>.Ok(new PublishWeeksResultDto(weekCount, partCount));
     }
 
     /// <summary>Den nya modulen hamnar sist i kursen.</summary>

@@ -11,18 +11,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {Field, FieldDescription, FieldError, FieldGroup, FieldLabel} from '@/components/ui/field'
+import {Field, FieldError, FieldGroup, FieldLabel} from '@/components/ui/field'
 import {Input} from '@/components/ui/input'
 import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
 import {useAsync} from '@/composables/useAsync'
 import {api, unwrap, type Schema} from '@/lib/api'
 import {groupTypeLabels} from '@/lib/groups'
 
-// Utan group skapas en ny grupp i skolan, med group ändras den.
-const props = defineProps<{
+// Utan group skapas en ny klass eller grupp i skolan, med group ändras den.
+const props = withDefaults(defineProps<{
   schoolId: string
   group?: Schema<'GroupDto'>
-}>()
+  kind?: 'class' | 'group'
+}>(), {group: undefined, kind: 'group'})
 
 const open = defineModel<boolean>('open', {required: true})
 const emit = defineEmits<{saved: [group: Schema<'GroupDto'>]}>()
@@ -31,6 +32,9 @@ const submitted = ref(false)
 const form = reactive({name: '', type: 'Class' as Schema<'GroupType'>, term: ''})
 
 const isEdit = computed(() => props.group !== undefined)
+const isClass = computed(() => form.type === 'Class')
+const typeOptions = computed(() => Object.entries(groupTypeLabels)
+  .filter(([value]) => isEdit.value || value !== 'Class'))
 const nameError = computed(() => submitted.value && !form.name.trim()
   ? 'Ange ett namn.'
   : '')
@@ -51,7 +55,9 @@ const {run: send, loading: saving, error} = useAsync(async (name: string, term: 
 watch(open, (isOpen) => {
   if (isOpen) {
     form.name = props.group?.name ?? ''
-    form.type = props.group?.type ?? 'Class'
+    form.type = props.group?.type ?? (props.kind === 'class'
+      ? 'Class'
+      : 'Committee')
     form.term = props.group?.term ?? ''
     error.value = ''
     submitted.value = false
@@ -75,14 +81,18 @@ async function save() {
       <form class="flex flex-col gap-4" novalidate @submit.prevent="save">
         <DialogHeader>
           <DialogTitle>
-            {{ isEdit
-              ? 'Redigera grupp'
-              : 'Ny grupp' }}
+            {{ `${isEdit
+              ? 'Redigera'
+              : 'Ny'} ${isClass
+              ? 'klass'
+              : 'grupp'}` }}
           </DialogTitle>
           <DialogDescription>
-            {{ isEdit
-              ? 'Ändra namn, typ eller termin. Medlemmarna påverkas inte.'
-              : 'Skapa en klass eller grupp i skolan. Medlemmar läggs till efteråt.' }}
+            <template v-if="isEdit">Ändra namn, typ eller termin. Medlemmarna påverkas inte.</template>
+            <template v-else-if="isClass">
+              En klass är en årskull. Kurser, elever och mentor lägger du till på klassens sida.
+            </template>
+            <template v-else>Medlemmar och kurser lägger du till på gruppens sida.</template>
           </DialogDescription>
         </DialogHeader>
 
@@ -105,7 +115,7 @@ async function save() {
             />
             <FieldError v-if="nameError" data-test="group-name-error">{{ nameError }}</FieldError>
           </Field>
-          <Field>
+          <Field v-if="isEdit || !isClass">
             <FieldLabel for="group-type">Typ</FieldLabel>
             <NativeSelect
               id="group-type"
@@ -113,14 +123,14 @@ async function save() {
               class="w-full"
               data-test="group-type"
             >
-              <NativeSelectOption v-for="(label, value) in groupTypeLabels" :key="value" :value="value">
+              <NativeSelectOption v-for="[value, label] in typeOptions" :key="value" :value="value">
                 {{ label }}
               </NativeSelectOption>
             </NativeSelect>
           </Field>
           <Field>
             <FieldLabel for="group-term">
-              {{ form.type === 'Class'
+              {{ isClass
                 ? 'Startade (termin)'
                 : 'Period/termin' }}
             </FieldLabel>
@@ -131,9 +141,6 @@ async function save() {
               autocomplete="off"
               data-test="group-term"
             />
-            <FieldDescription v-if="form.type === 'Class'" data-test="group-term-help">
-              En klass är hela årskullen genom programmet, t.ex. HT25. Kurserna kopplas på gruppens sida.
-            </FieldDescription>
           </Field>
         </FieldGroup>
 
@@ -153,7 +160,9 @@ async function save() {
           <Button type="submit" :disabled="saving" data-test="save-group">
             {{ isEdit
               ? 'Spara'
-              : 'Skapa grupp' }}
+              : isClass
+                ? 'Skapa klass'
+                : 'Skapa grupp' }}
           </Button>
         </DialogFooter>
       </form>

@@ -3039,6 +3039,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/courses/{id}/modules/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PublishWeeksDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PublishWeeksResultDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/courses/{id}/modules/{moduleId}": {
         parameters: {
             query?: never;
@@ -5552,6 +5620,11 @@ export interface components {
             /** Format: date */
             endsOn: null | string;
             copyContent: boolean;
+            title?: null | string;
+            /** Format: int32 */
+            points?: null | number;
+            teacherIds?: null | string[];
+            moduleIds?: null | string[];
         };
         CreatedContentWithLinkDto: {
             content: components["schemas"]["ContentDto"];
@@ -5862,6 +5935,15 @@ export interface components {
         /** @description Slag av notiser användaren har stängt av i appen. */
         NotificationSettingsDto: {
             muted: components["schemas"]["NotificationKind"][];
+        };
+        PublishWeeksDto: {
+            moduleIds?: null | string[];
+        };
+        PublishWeeksResultDto: {
+            /** Format: int32 */
+            weekCount: number;
+            /** Format: int32 */
+            partCount: number;
         };
         ReorderContentDto: {
             linkIds: string[];

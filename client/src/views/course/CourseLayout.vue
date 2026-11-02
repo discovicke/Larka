@@ -1,16 +1,11 @@
 <script setup lang="ts">
-import {PhDotsThree, PhPlus} from '@phosphor-icons/vue'
-import {computed, ref, watch} from 'vue'
+import {computed} from 'vue'
 import {useRoute} from 'vue-router'
 
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import CourseStatusBadge from '@/components/course/CourseStatusBadge.vue'
-import NewCourseRunDialog from '@/components/course/NewCourseRunDialog.vue'
-import {Button} from '@/components/ui/button'
-import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from '@/components/ui/dropdown-menu'
 import {Skeleton} from '@/components/ui/skeleton'
 import {useCourses} from '@/composables/useCourses'
-import {useCurrentUser} from '@/composables/useCurrentUser'
 import {periodLabel} from '@/lib/coursePeriod'
 import {courseStatus} from '@/lib/courseStatus'
 import NotFoundView from '@/views/NotFoundView.vue'
@@ -24,15 +19,6 @@ const tabs = [
 const route = useRoute()
 const {status, findCourse} = useCourses()
 const course = computed(() => findCourse(String(route.params.courseId)))
-const {can} = useCurrentUser()
-// Admin får skapa en ny omgång av vilken kurs som helst, läraren bara av en kurs hen undervisar i.
-const canCreateRun = computed(() => course.value !== undefined
-  && (can('manageCourse') || can('editContent', course.value.id)))
-const runOpen = ref(false)
-// Layouten återanvänds när man byter kurs, så dialogen får inte följa med.
-watch(() => route.params.courseId, () => {
-  runOpen.value = false
-})
 
 // Period och omfattning under rubriken, som i mockupen. Delar som saknar data lämnas borta.
 const subtitle = computed(() => {
@@ -68,25 +54,6 @@ const subtitle = computed(() => {
           </div>
           <p v-if="subtitle" class="text-muted-foreground">{{ subtitle }}</p>
         </div>
-        <DropdownMenu v-if="canCreateRun">
-          <DropdownMenuTrigger as-child>
-            <Button
-              variant="outline"
-              size="icon"
-              class="shrink-0"
-              aria-label="Kursens åtgärder"
-              data-test="course-menu"
-            >
-              <PhDotsThree weight="bold"/>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" class="min-w-52">
-            <DropdownMenuItem class="min-h-10" data-test="new-run" @select="runOpen = true">
-              <PhPlus/>
-              Ny kursomgång…
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
 
       <nav aria-label="Kursens sidor" class="flex flex-wrap gap-5">
@@ -109,7 +76,5 @@ const subtitle = computed(() => {
     </div>
 
     <RouterView/>
-
-    <NewCourseRunDialog v-if="canCreateRun" v-model:open="runOpen" :course="course"/>
   </template>
 </template>

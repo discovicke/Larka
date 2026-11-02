@@ -19,9 +19,9 @@ const existing: Schema<'CourseDto'> = {
   endsOn: null,
 }
 
-async function render(course?: Schema<'CourseDto'>) {
+async function render() {
   const wrapper = mount(CourseFormDialog, {
-    props: {open: true, schoolId: 's1', course},
+    props: {open: true, course: existing},
     attachTo: document.body,
   })
   await flushPromises()
@@ -45,23 +45,21 @@ async function submit() {
 }
 
 describe('CourseFormDialog', () => {
-  it('kräver titel och kod och skickar inget förrän de finns', async () => {
-    mockApi(() => ({status: 201, body: existing}))
+  it('kräver en titel och skickar inget förrän den finns', async () => {
+    mockApi(() => ({status: 200, body: existing}))
     await render()
 
+    await type('course-title', ' ')
     await submit()
 
     expect(document.querySelector('[data-test="course-title-error"]')?.textContent).toBe('Ange en titel.')
-    expect(document.querySelector('[data-test="course-code-error"]')?.textContent).toBe('Ange en kurskod.')
     expect(requests).toHaveLength(0)
   })
 
   it('stoppar omfattning utanför 1–400', async () => {
-    mockApi(() => ({status: 201, body: existing}))
+    mockApi(() => ({status: 200, body: existing}))
     await render()
 
-    await type('course-title', 'DevOps')
-    await type('course-code', 'DEVOPS')
     await type('course-points', '500')
     await submit()
 
@@ -70,25 +68,9 @@ describe('CourseFormDialog', () => {
     expect(requests).toHaveLength(0)
   })
 
-  it('skapar en kurs i skolan med trimmad titel och kod', async () => {
-    mockApi(() => ({status: 201, body: {...existing, id: 'c9', title: 'Java', code: 'JAVA'}}))
-    const wrapper = await render()
-
-    await type('course-title', '  Java ')
-    await type('course-code', ' JAVA ')
-    await type('course-points', '30')
-    await submit()
-
-    expect(sent('POST', '/api/courses')).toEqual({
-      schoolId: 's1', title: 'Java', code: 'JAVA', points: 30, startsOn: null, endsOn: null,
-    })
-    expect(wrapper.emitted('saved')?.[0]).toEqual([{...existing, id: 'c9', title: 'Java', code: 'JAVA'}])
-    expect(wrapper.emitted('update:open')?.at(-1)).toEqual([false])
-  })
-
-  it('i redigeringsläge är koden låst och beskrivningen följer med oförändrad', async () => {
+  it('låser koden och låter beskrivningen följa med oförändrad', async () => {
     mockApi(() => ({status: 200, body: {...existing, title: 'DevOps 2'}}))
-    const wrapper = await render(existing)
+    const wrapper = await render()
 
     expect(field('course-code').disabled).toBe(true)
     expect(field('course-code').value).toBe('DEVOPS')
@@ -103,11 +85,9 @@ describe('CourseFormDialog', () => {
   })
 
   it('visar felet från API:et och stänger inte', async () => {
-    mockApi(() => ({status: 400, body: {title: 'the school already has a course with this code'}}))
+    mockApi(() => ({status: 400, body: {title: 'något gick fel'}}))
     const wrapper = await render()
 
-    await type('course-title', 'Java')
-    await type('course-code', 'JAVA')
     await submit()
 
     expect(document.querySelector('[data-test="course-form-error"]')).not.toBeNull()

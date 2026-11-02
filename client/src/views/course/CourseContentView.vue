@@ -9,6 +9,7 @@ import DeleteModuleDialog from '@/components/course/DeleteModuleDialog.vue'
 import EditModuleDialog from '@/components/course/EditModuleDialog.vue'
 import ModuleSection from '@/components/course/ModuleSection.vue'
 import MovePartDialog from '@/components/course/MovePartDialog.vue'
+import PublishWeeksDialog from '@/components/course/PublishWeeksDialog.vue'
 import RoadmapDialog from '@/components/course/RoadmapDialog.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Button} from '@/components/ui/button'
@@ -22,18 +23,16 @@ import {
 } from '@/components/ui/dialog'
 import {Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty'
 import {Skeleton} from '@/components/ui/skeleton'
-import {useCourses} from '@/composables/useCourses'
 import {useAsync} from '@/composables/useAsync'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {api, errorMessage, type Schema} from '@/lib/api'
-import {countLabel} from '@/lib/content'
+import {countLabel, draftCount, formatDate} from '@/lib/content'
 import {deleteContentLink, setContentStatus} from '@/lib/contentApi'
 import {fetchCourseModules} from '@/lib/modulesApi'
 
 const route = useRoute()
 const courseId = computed(() => String(route.params.courseId))
 const {can} = useCurrentUser()
-const {takePendingNotice} = useCourses()
 // Bara kursens lärare redigerar. Admin och mentorn läser, och eleven har en egen vy.
 const canEdit = computed(() => can('editContent', courseId.value))
 const canReadSubmissions = computed(() => can('readSubmissions', courseId.value))
@@ -54,6 +53,8 @@ const deleteModuleOpen = ref(false)
 const deleteModuleTarget = ref<Schema<'ModuleWithContentDto'> | null>(null)
 const copyOpen = ref(false)
 const notice = ref('')
+const publishOpen = ref(false)
+const weeksWithDrafts = computed(() => modules.value.filter((week) => draftCount(week) > 0))
 
 async function load() {
   error.value = ''
@@ -165,6 +166,39 @@ async function weeksCopied(result: Schema<'CopyWeeksResultDto'>) {
     countLabel(result.partCount, 'del', 'delar')} kopierades som utkast.`
 }
 
+// Veckan syns när både datumet har passerat och delarna är publicerade. Datumet säger läraren när det blir.
+function visibleFrom(week: Schema<'ModuleWithContentDto'> | undefined): string {
+  return week?.publishAt && new Date(week.publishAt) > new Date()
+    ? formatDate(week.publishAt)
+    : ''
+}
+
+async function publishWeek(week: Schema<'ModuleWithContentDto'>) {
+  error.value = ''
+  try {
+    await api.POST('/api/courses/{id}/modules/publish', {
+      params: {path: {id: courseId.value}},
+      body: {moduleIds: [week.id]},
+    })
+    const date = visibleFrom(week)
+    await load()
+    notice.value = date
+      ? `${week.title} publicerades. Eleverna ser veckan ${date}.`
+      : `${week.title} publicerades.`
+  } catch (exception) {
+    error.value = errorMessage(exception)
+  }
+}
+
+async function weeksPublished(result: Schema<'PublishWeeksResultDto'>) {
+  const date = visibleFrom(weeksWithDrafts.value[0])
+  await load()
+  const published = `${countLabel(result.weekCount, 'vecka', 'veckor')} publicerades.`
+  notice.value = date
+    ? `${published} Eleverna ser första veckan ${date}.`
+    : published
+}
+
 async function moduleDeleted() {
   await load()
   notice.value = 'Veckan togs bort.'
@@ -184,9 +218,8 @@ const {run: deletePart, loading: deleting, error: deleteError} = useAsync(async 
 
 watch(courseId, async () => {
   loading.value = true
+  notice.value = ''
   await load()
-  // Kommer man från Ny kursomgång väntar ett meddelande om vad som skapades.
-  notice.value = takePendingNotice(courseId.value)
 }, {immediate: true})
 </script>
 
@@ -198,6 +231,24 @@ watch(courseId, async () => {
     <Alert v-if="notice">
       <AlertDescription>{{ notice }}</AlertDescription>
     </Alert>
+
+    <div
+      v-if="canEdit && !loading && modules.length > 0"
+      class="flex flex-wrap justify-end gap-2"
+      data-test="course-actions"
+    >
+      <Button variant="outline" data-test="copy-weeks" @click="copyOpen = true">
+        <PhCopy/>
+        Kopiera från annan kurs
+      </Button>
+      <Button
+        v-if="weeksWithDrafts.length > 0"
+        data-test="publish-all"
+        @click="publishOpen = true"
+      >
+        Publicera alla veckor
+      </Button>
+    </div>
 
     <template v-if="loading">
       <Skeleton v-for="i in 2" :key="i" class="h-32 w-full rounded-[11px]"/>
@@ -237,7 +288,7 @@ watch(courseId, async () => {
         @open-roadmap="openRoadmap(module)"
         @rename-module="askRenameModule(module)"
         @delete-module="askDeleteModule(module)"
-        @copy-weeks="copyOpen = true"
+        @publish-week="publishWeek(module)"
       />
 
       <RoadmapDialog
@@ -272,6 +323,14 @@ watch(courseId, async () => {
       />
       <AddModuleDialog v-if="canEdit" :course-id="courseId" @created="load"/>
     </template>
+
+    <PublishWeeksDialog
+      v-if="canEdit"
+      v-model:open="publishOpen"
+      :course-id="courseId"
+      :weeks="weeksWithDrafts"
+      @published="weeksPublished"
+    />
 
     <CopyWeeksDialog
       v-if="canEdit"

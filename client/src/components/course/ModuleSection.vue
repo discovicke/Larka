@@ -4,7 +4,6 @@ import {
   PhArrowUp,
   PhCalendarBlank,
   PhCaretDown,
-  PhCopy,
   PhDotsThree,
   PhEye,
   PhEyeSlash,
@@ -31,7 +30,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import {Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle} from '@/components/ui/item'
 import type {Schema} from '@/lib/api'
-import {countLabel, formatDate, partOf, weekPublishState} from '@/lib/content'
+import {countLabel, draftCount, formatDate, hasOnlyDrafts, partOf, weekPublishState} from '@/lib/content'
 import type {StatusKey} from '@/lib/status'
 
 const props = defineProps<{
@@ -53,11 +52,18 @@ const emit = defineEmits<{
   movePartToWeek: [item: Schema<'ModuleContentItem'>]
   togglePartStatus: [item: Schema<'ModuleContentItem'>]
   deletePart: [item: Schema<'ModuleContentItem'>]
-  copyWeeks: []
+  publishWeek: []
 }>()
 
 const open = ref(true)
 const weekState = computed(() => weekPublishState(props.module))
+const hasDrafts = computed(() => draftCount(props.module) > 0)
+// Datumet veckan är planerad till, tills den publiceras och blir schemalagd.
+const plannedDate = computed(() => hasOnlyDrafts(props.module)
+  && props.module.publishAt
+  && new Date(props.module.publishAt) > new Date()
+  ? formatDate(props.module.publishAt)
+  : '')
 
 function lockedByCount(item: Schema<'ModuleContentItem'>): number {
   return (item.blockedBy ?? []).length
@@ -130,7 +136,19 @@ function badgeOf(item: Schema<'ModuleContentItem'>): {status: StatusKey, label?:
       </CollapsibleTrigger>
       <h2 class="min-w-32 flex-1 font-sans text-sm font-semibold">{{ module.title }}</h2>
       <StatusBadge v-if="weekState" :status="weekState.status" :label="weekState.label"/>
+      <span v-if="canEdit && plannedDate" class="text-muted-foreground text-[13px]" data-test="week-planned">
+        Planerad {{ plannedDate }}
+      </span>
       <span class="text-muted-foreground text-[13px]">{{ countLabel(module.content.length, 'del', 'delar') }}</span>
+      <Button
+        v-if="canEdit && hasDrafts"
+        variant="outline"
+        class="h-8"
+        data-test="publish-week"
+        @click="emit('publishWeek')"
+      >
+        Publicera veckan
+      </Button>
       <DropdownMenu v-if="canEdit">
         <DropdownMenuTrigger as-child>
           <Button variant="ghost" size="icon" aria-label="Fler val för veckan">
@@ -303,11 +321,6 @@ function badgeOf(item: Schema<'ModuleContentItem'>): {status: StatusKey, label?:
                 <PhPlus/>
                 Ny del
               </RouterLink>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator/>
-            <DropdownMenuItem class="min-h-10" data-test="copy-weeks" @select="emit('copyWeeks')">
-              <PhCopy/>
-              Kopiera från annan kurs
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

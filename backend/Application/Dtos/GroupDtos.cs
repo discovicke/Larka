@@ -45,7 +45,16 @@ public record AddCourseTeacherDto(Guid UserId);
 public record UnlinkedGitHubStudentDto(Guid Id, string Name, string Email);
 
 // Kursomgången ligger i samma skola som källkursen. Klassen är den som ska läsa den.
-public record CreateCourseRunDto(string? Code, Guid GroupId, DateOnly? StartsOn, DateOnly? EndsOn, bool CopyContent);
+public record CreateCourseRunDto(
+    string? Code,
+    Guid GroupId,
+    DateOnly? StartsOn,
+    DateOnly? EndsOn,
+    bool CopyContent,
+    string? Title = null,
+    int? Points = null,
+    List<Guid>? TeacherIds = null,
+    List<Guid>? ModuleIds = null);
 
 /// <summary>Den nya kursomgången: kursens id, klassen och hur många veckor, delar och lärare som följde med.</summary>
 public record CourseRunResultDto(Guid CourseId, Guid GroupId, int ModuleCount, int PartCount, int StaffCount);

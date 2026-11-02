@@ -2,7 +2,7 @@
 import {computed, ref, watch} from 'vue'
 import {useRoute} from 'vue-router'
 
-import {PhDotsThree} from '@phosphor-icons/vue'
+import {PhCheckCircle, PhCircle, PhDotsThree} from '@phosphor-icons/vue'
 
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import AddMemberDialog from '@/components/groups/AddMemberDialog.vue'
@@ -25,6 +25,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {Skeleton} from '@/components/ui/skeleton'
+import {useCourses} from '@/composables/useCourses'
 import {useCrumbLabels} from '@/composables/useCrumbLabels'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {ApiError, api, unwrap, type Schema} from '@/lib/api'
@@ -39,6 +40,7 @@ import NotFoundView from '@/views/NotFoundView.vue'
 const route = useRoute()
 const {can} = useCurrentUser()
 const {setCrumbLabel} = useCrumbLabels()
+const {loadCourses} = useCourses()
 const isAdmin = computed(() => can('admin'))
 const groupId = computed(() => String(route.params.groupId))
 
@@ -48,6 +50,7 @@ const members = ref<Schema<'GroupMemberDto'>[]>([])
 const loading = ref(true)
 const loadFailed = ref(false)
 const notFound = ref(false)
+const notice = ref('')
 
 const addingMember = ref(false)
 const memberToRemove = ref<Schema<'GroupMemberDto'> | null>(null)
@@ -72,6 +75,25 @@ const subtitle = computed(() => {
   return [groupTypeLabels[group.value.type], term]
     .filter((part) => part !== '')
     .join(' · ')
+})
+
+const groupNoun = computed(() => group.value?.type === 'Class'
+  ? 'Klassen'
+  : 'Gruppen')
+
+// Vad som återstår för en ny klass. Listan försvinner när allt är gjort.
+const setupSteps = computed(() => {
+  if (!isAdmin.value || group.value?.type !== 'Class') {
+    return []
+  }
+  const steps = [
+    {label: 'Lägg till kurser', done: courses.value.length > 0},
+    {label: 'Lägg in elever', done: members.value.some((member) => member.role === 'Student')},
+    {label: 'Utse mentor', done: members.value.some((member) => member.role === 'Mentor')},
+  ]
+  return steps.every((step) => step.done)
+    ? []
+    : steps
 })
 
 // Kurser utan datum räknas som pågående, så de syns överst i stället för att gömmas.
@@ -213,11 +235,26 @@ function addCourse(course: Schema<'CourseDto'>) {
   courses.value = [...courses.value, course]
 }
 
+// Sidomenyn visar skolans kurser, så också den listan hämtas om.
+async function courseCreated(message: string) {
+  notice.value = message
+  await Promise.all([reloadCourses(), loadCourses()])
+}
+
 function removeCourse(courseId: string) {
   courses.value = courses.value.filter((course) => course.id !== courseId)
 }
 
-watch(groupId, load, {immediate: true})
+watch(groupId, () => {
+  // Kommer man från Ny klass väntar ett meddelande i historiken. Det tas bort så att det bara visas en gång.
+  notice.value = typeof history.state?.notice === 'string'
+    ? history.state.notice
+    : ''
+  if (notice.value) {
+    history.replaceState({...history.state, notice: undefined}, '')
+  }
+  void load()
+}, {immediate: true})
 // Rollen kan komma efter sidan, och då hämtas lärarna först nu.
 watch(isAdmin, (admin) => {
   if (admin && !loading.value) {
@@ -244,6 +281,37 @@ watch(isAdmin, (admin) => {
       <p v-if="subtitle" class="text-muted-foreground" data-test="group-subtitle">{{ subtitle }}</p>
     </div>
 
+    <Alert v-if="notice" data-test="group-notice">
+      <AlertDescription>{{ notice }}</AlertDescription>
+    </Alert>
+
+    <section
+      v-if="setupSteps.length > 0"
+      aria-labelledby="setup-heading"
+      class="flex flex-col gap-2.5"
+      data-test="group-setup"
+    >
+      <h2 id="setup-heading" class="text-lg font-semibold">Att ordna</h2>
+      <ul class="flex flex-col gap-1">
+        <li
+          v-for="step in setupSteps"
+          :key="step.label"
+          class="flex min-h-8 items-center gap-2.5"
+          :class="{'text-muted-foreground': step.done}"
+          data-test="group-setup-step"
+        >
+          <PhCheckCircle
+            v-if="step.done"
+            class="text-success size-5 shrink-0"
+            weight="fill"
+            aria-label="Klart"
+          />
+          <PhCircle v-else class="text-muted-foreground size-5 shrink-0" aria-hidden="true"/>
+          {{ step.label }}
+        </li>
+      </ul>
+    </section>
+
     <section
       v-if="courses.length > 0 || isAdmin"
       aria-labelledby="courses-heading"
@@ -269,7 +337,7 @@ watch(isAdmin, (admin) => {
           </Button>
         </div>
       </div>
-      <p v-if="courses.length === 0" class="text-muted-foreground text-sm">Gruppen har inga kurser ännu.</p>
+      <p v-if="courses.length === 0" class="text-muted-foreground text-sm">{{ groupNoun }} har inga kurser ännu.</p>
       <section
         v-for="part in courseGroups"
         :key="part.key"
@@ -416,7 +484,7 @@ watch(isAdmin, (admin) => {
         </div>
       </section>
 
-      <p v-if="members.length === 0" class="text-muted-foreground text-sm">Gruppen har inga medlemmar ännu.</p>
+      <p v-if="members.length === 0" class="text-muted-foreground text-sm">{{ groupNoun }} har inga medlemmar ännu.</p>
     </section>
 
     <template v-if="isAdmin">
@@ -448,7 +516,7 @@ watch(isAdmin, (admin) => {
         :group-id="group.id"
         :group-name="group.name"
         :school-id="group.schoolId"
-        @created="reloadCourses"
+        @created="courseCreated"
       />
       <CourseTeachersDialog
         :open="courseForTeachers !== null"

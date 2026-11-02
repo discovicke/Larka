@@ -20,6 +20,7 @@ import {useCurrentUser} from '@/composables/useCurrentUser'
 import {useAsync} from '@/composables/useAsync'
 import {api, errorMessage, type Schema} from '@/lib/api'
 import {countLabel} from '@/lib/content'
+import {periodLabel} from '@/lib/coursePeriod'
 import {fetchCourseModules} from '@/lib/modulesApi'
 
 const props = defineProps<{courseId: string}>()
@@ -40,6 +41,7 @@ const {run: loadWeeks, loading: loadingWeeks, error} = useAsync(fetchCourseModul
 // Kurser läraren kan undervisa i, förutom den som veckorna ska in i.
 const sources = computed(() => courses.value
   .filter((course) => course.id !== props.courseId && can('editContent', course.id)))
+const allChosen = computed(() => weeks.value.length > 0 && selected.value.length === weeks.value.length)
 const chosenWeeks = computed(() => weeks.value.filter((week) => selected.value.includes(week.id)))
 const partTotal = computed(() => chosenWeeks.value.reduce((sum, week) => sum + week.content.length, 0))
 const preview = computed(() => `${countLabel(chosenWeeks.value.length, 'vecka', 'veckor')}, ${
@@ -72,6 +74,18 @@ function toggle(weekId: string, checked: boolean) {
   selected.value = checked
     ? [...selected.value, weekId]
     : selected.value.filter((id) => id !== weekId)
+}
+
+function toggleAll() {
+  selected.value = allChosen.value
+    ? []
+    : weeks.value.map((week) => week.id)
+}
+
+function sourceLabel(course: Schema<'CourseDto'>): string {
+  return [course.title, course.code, periodLabel(course.startsOn ?? null, course.endsOn ?? null)]
+    .filter((part) => part !== '')
+    .join(' · ')
 }
 
 async function copy() {
@@ -119,7 +133,7 @@ async function copy() {
         >
           <NativeSelectOption value="">Välj kurs…</NativeSelectOption>
           <NativeSelectOption v-for="course in sources" :key="course.id" :value="course.id">
-            {{ course.title }}
+            {{ sourceLabel(course) }}
           </NativeSelectOption>
         </NativeSelect>
         <p v-if="sources.length === 0" class="text-muted-foreground text-sm">
@@ -139,6 +153,19 @@ async function copy() {
           <p v-if="!loadingWeeks && weeks.length === 0" class="text-muted-foreground text-sm">
             Kursen har inga veckor att kopiera.
           </p>
+          <div v-else-if="weeks.length > 0" class="flex justify-end">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              data-test="copy-all"
+              @click="toggleAll"
+            >
+              {{ allChosen
+                ? 'Avmarkera alla'
+                : 'Välj alla' }}
+            </Button>
+          </div>
           <FieldLabel
             v-for="week in weeks"
             :key="week.id"

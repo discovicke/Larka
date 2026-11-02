@@ -62,9 +62,20 @@ export interface WeekPublishState {
   label?: string
 }
 
+/** Har veckan delar som alla är utkast? Då syns den inte för eleverna, oavsett datum. */
+export function hasOnlyDrafts(module: {content: {status: Schema<'ContentStatus'>}[]}): boolean {
+  return module.content.length > 0 && module.content.every((part) => part.status === 'Draft')
+}
+
+/** Antal utkast i veckan. */
+export function draftCount(module: {content: {status: Schema<'ContentStatus'>}[]}): number {
+  return module.content.filter((part) => part.status === 'Draft').length
+}
+
 /**
- * Veckans läge. Veckans eget datum är en hård grind: innan det är passerat visas "Schemalagd".
- * Efter det sammanfattas delarnas status, så att blandade veckor syns som "Delvis publicerad".
+ * Veckans läge. En vecka där alla delar är utkast är ett utkast, oavsett datum. Annars är veckans eget
+ * datum en hård grind: innan det är passerat visas "Schemalagd". Efter det sammanfattas delarnas status,
+ * så att blandade veckor syns som "Delvis publicerad".
  */
 export function weekPublishState(
   module: {
@@ -73,6 +84,10 @@ export function weekPublishState(
   },
   now = new Date(),
 ): WeekPublishState | null {
+  if (hasOnlyDrafts(module)) {
+    return {status: 'publishing.draft'}
+  }
+
   if (module.publishAt && new Date(module.publishAt) > now) {
     return {status: 'publishing.scheduled', label: `Schemalagd ${formatDate(module.publishAt, true)}`}
   }

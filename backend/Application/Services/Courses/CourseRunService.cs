@@ -6,15 +6,16 @@ using Backend.Domain.Enums;
 
 namespace Backend.Application.Services;
 
-// En ny omgång av en kurs för en annan klass: kursen med samma titel, beskrivning och poäng, klassen som
-// läsare, lärarna som i källkursen och, om man vill, alla veckor. Allt sparas i ett enda anrop till
-// databasen, alltså i en transaktion. Elever, inlämningar, betyg och framsteg följer aldrig med.
+// En ny kurs som utgår från en tidigare kurs. Bara admin skapar kurser. Beskrivningen följer med, och titel,
+// poäng och lärare är källkursens om admin inte anger andra. Gruppen blir läsare, och valda veckor (alla om
+// inga anges) kopieras som utkast. Allt sparas i ett enda anrop till databasen, alltså i en transaktion.
+// Elever, inlämningar, betyg och framsteg följer aldrig med.
 public class CourseRunService(
     ICourseRepository courses,
     IModuleRepository modules,
     IGroupRepository groups,
+    IUserRepository users,
     IPermissions permissions,
-    ICurrentUser currentUser,
     ICurrentSchool currentSchool,
     CourseCopyService copyService,
     IUnitOfWork unitOfWork)
@@ -28,9 +29,7 @@ public class CourseRunService(
             return ServiceResult<CourseRunResultDto>.NotFound("course not found");
         }
 
-        // Admin från vilken kurs som helst i skolan, lärare bara från en kurs hen undervisar i.
-        var isAdmin = await permissions.IsAdminAsync(ct);
-        if (!isAdmin && !await permissions.CanTeachCourseAsync(sourceCourseId, ct))
+        if (!await permissions.IsAdminAsync(ct))
         {
             return ServiceResult<CourseRunResultDto>.Forbidden();
         }
@@ -62,50 +61,64 @@ public class CourseRunService(
             return ServiceResult<CourseRunResultDto>.Invalid("the group belongs to another school");
         }
 
-        if (group.Type != GroupType.Class)
-        {
-            return ServiceResult<CourseRunResultDto>.Invalid("the group must be a class");
-        }
-
-        // En lärare lägger omgången bara i en klass som läser en kurs hen undervisar i.
-        if (!isAdmin && !await groups.TeachesCourseOfGroupAsync(group.Id, currentUser.UserId, ct))
-        {
-            return ServiceResult<CourseRunResultDto>.Forbidden();
-        }
-
         if (await courses.CodeExistsAsync(source.SchoolId, code, ct))
         {
             return ServiceResult<CourseRunResultDto>.Invalid("the school already has a course with this code");
         }
 
+        if (dto.Title is not null && dto.Title.Trim() == "")
+        {
+            return ServiceResult<CourseRunResultDto>.Invalid("title must not be empty");
+        }
+
+        var teacherIds = dto.TeacherIds?.Distinct().ToList()
+            ?? (await courses.GetTeachersAsync(sourceCourseId, ct)).Select(teacher => teacher.UserId).ToList();
+        foreach (var teacherId in teacherIds)
+        {
+            var user = await users.GetAsync(teacherId, ct);
+            if (user is null || user.SchoolId != source.SchoolId || user.Role == UserRole.Student)
+            {
+                return ServiceResult<CourseRunResultDto>.Invalid("teachers must be staff at the school");
+            }
+        }
+
+        List<Module> weeks = dto.CopyContent
+            ? await modules.GetForCourseAsync(sourceCourseId, ct)
+            : [];
+        if (dto.CopyContent && dto.ModuleIds is not null)
+        {
+            weeks = weeks.Where(week => dto.ModuleIds.Contains(week.Id)).ToList();
+            if (weeks.Count != dto.ModuleIds.Distinct().Count())
+            {
+                return ServiceResult<CourseRunResultDto>.Invalid(
+                    "moduleIds must only contain weeks in the source course");
+            }
+        }
+
         var course = new Course
         {
             SchoolId = source.SchoolId,
-            Title = source.Title,
+            Title = dto.Title?.Trim() ?? source.Title,
             Code = code,
             Description = source.Description,
-            Points = source.Points,
+            Points = dto.Points ?? source.Points,
             StartsOn = dto.StartsOn,
             EndsOn = dto.EndsOn
         };
         courses.Add(course);
         groups.AddCourse(new GroupCourse { GroupId = group.Id, CourseId = course.Id });
 
-        // Kursens lärare följer med till den nya kursen. Klassen får inga lärare, den har bara elever och en mentor.
-        var teachers = await courses.GetTeachersAsync(sourceCourseId, ct);
-        foreach (var teacher in teachers)
+        // Lärarna hör till kursen. Klassen får inga lärare, den har bara elever och en mentor.
+        foreach (var teacherId in teacherIds)
         {
-            courses.AddTeacher(new CourseTeacher { CourseId = course.Id, UserId = teacher.UserId });
+            courses.AddTeacher(new CourseTeacher { CourseId = course.Id, UserId = teacherId });
         }
-
-        var staffCount = teachers.Count;
 
         var plan = new CourseCopyService.CopyPlan();
         try
         {
-            if (dto.CopyContent)
+            if (weeks.Count > 0)
             {
-                var weeks = await modules.GetForCourseAsync(sourceCourseId, ct);
                 await copyService.AddCopiesAsync(
                     weeks, course.Id, 1, CourseCopyService.DateShift(source.StartsOn, course.StartsOn), plan, ct);
             }
@@ -119,6 +132,6 @@ public class CourseRunService(
         }
 
         return ServiceResult<CourseRunResultDto>.Ok(
-            new CourseRunResultDto(course.Id, group.Id, plan.Modules.Count, plan.PartCount, staffCount));
+            new CourseRunResultDto(course.Id, group.Id, plan.Modules.Count, plan.PartCount, teacherIds.Count));
     }
 }
