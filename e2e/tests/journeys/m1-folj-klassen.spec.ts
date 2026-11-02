@@ -42,7 +42,7 @@ test('M1: mentorn läser klassen utan att kunna ändra', async ({apiAs, pageAs, 
 
   // API:et håller med: mentorn får inte sätta betyg.
   const mentorApi = await apiAs(await login(request, world.mentor!.email))
-  const response = await mentorApi.post(`/api/submissions/${submission.id}/grade`, {data: {feedback: 'x', level: 'Pass', needsWork: false}})
+  const response = await mentorApi.post(`/api/submissions/${submission.id}/grade`, {data: {feedback: 'x', level: 'Pass', outcome: 'Graded'}})
   expect(response.status()).toBeGreaterThanOrEqual(400)
   expect(response.status()).toBeLessThan(500)
 })

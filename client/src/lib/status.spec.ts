@@ -41,6 +41,7 @@ describe('statuses', () => {
     ['progress.done', 'Klar', 'success'],
     ['submission.submitted', 'Inlämnad', 'info'],
     ['submission.needsWork', 'Komplettera', 'destructive'],
+    ['submission.missed', 'Ej inlämnat', 'destructive'],
     ['deadline.soon', 'Deadline snart', 'warning'],
     ['deadline.overdue', 'Försenad', 'destructive'],
   ])('%s heter %s och har tonen %s', (key, label, tone) => {
@@ -72,6 +73,7 @@ describe('submissionStatusKey', () => {
     ['Submitted', 'submission.submitted'],
     ['NeedsWork', 'submission.needsWork'],
     ['Graded', 'submission.graded'],
+    ['NotSubmitted', 'submission.missed'],
     ['NotStarted', 'submission.notSubmitted'],
     [null, 'submission.notSubmitted'],
     [undefined, 'submission.notSubmitted'],
@@ -111,6 +113,10 @@ describe('partStatusKey', () => {
 
   it('en inlämnad men obedömd uppgift är Inlämnad, även när isCompleted är sann', () => {
     expect(part({isCompleted: true, submissionStatus: 'Submitted'})).toBe('submission.submitted')
+  })
+
+  it('en uppgift som läraren markerat som ej inlämnad är Ej inlämnat', () => {
+    expect(part({isCompleted: false, submissionStatus: 'NotSubmitted'})).toBe('submission.missed')
   })
 
   it('en uppgift som ska kompletteras är Komplettera', () => {

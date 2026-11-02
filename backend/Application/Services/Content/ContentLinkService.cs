@@ -165,9 +165,18 @@ public class ContentLinkService(
             return ServiceResult<ContentLinkDto>.Invalid(relatedError);
         }
 
+        // Utelämnade kompletteringsdeadlines behålls, precis som relaterade delar.
+        var resubmitDueAt = dto.ResubmitDueAt ?? linked.Link.ResubmitDueAt;
+        var resubmitError = ResubmitDeadlines.Validate(dto.DueAt, resubmitDueAt);
+        if (resubmitError is not null)
+        {
+            return ServiceResult<ContentLinkDto>.Invalid(resubmitError);
+        }
+
         var previousPublishAt = linked.Link.PublishAt;
         linked.Link.PublishAt = dto.PublishAt ?? time.GetUtcNow();
         linked.Link.DueAt = dto.DueAt;
+        linked.Link.ResubmitDueAt = ResubmitDeadlines.Sorted(resubmitDueAt);
         linked.Link.IsPinned = dto.IsPinned;
         if (dto.RelatedLinkIds is not null)
         {
@@ -350,8 +359,9 @@ public class ContentLinkService(
             groups,
             users,
             ct);
-        return groupError ?? await CheckRelatedLinksAsync(
-            dto.CourseId, dto.GroupId, dto.RelatedLinkIds, null, ct);
+        return groupError
+            ?? ResubmitDeadlines.Validate(dto.DueAt, dto.ResubmitDueAt)
+            ?? await CheckRelatedLinksAsync(dto.CourseId, dto.GroupId, dto.RelatedLinkIds, null, ct);
     }
 
     /// <summary>Lägger till länken och delar ut uppgiften. Sparar inte.</summary>
@@ -371,6 +381,7 @@ public class ContentLinkService(
             Position = position,
             PublishAt = dto.PublishAt ?? time.GetUtcNow(),
             DueAt = dto.DueAt,
+            ResubmitDueAt = ResubmitDeadlines.Sorted(dto.ResubmitDueAt),
             IsPinned = dto.IsPinned
         };
         if (dto.Groups is not null && dto.Groups.Count > 0)

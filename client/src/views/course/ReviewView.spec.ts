@@ -68,6 +68,7 @@ function week(scale: string) {
       groupId: null,
       publishAt: '2026-10-01T08:00:00Z',
       dueAt: '2026-10-23T21:59:00Z',
+      resubmitDueAt: [],
       isPinned: false,
       blockedBy: [],
     }],
@@ -312,7 +313,7 @@ describe('ReviewView', () => {
     await flushPromises()
 
     expect(sent('POST', '/api/submissions/s1/grade'))
-      .toEqual({feedback: 'Bra jobbat', level: 'Pass', needsWork: false})
+      .toEqual({feedback: 'Bra jobbat', level: 'Pass', outcome: 'Graded'})
     expect(router.currentRoute.value.name).toBe('grading')
     expect(wrapper.find('[data-test="grading-notice"]').text()).toBe('Bedömningen är sparad.')
   })
@@ -346,7 +347,7 @@ describe('ReviewView', () => {
       await flushPromises()
       await flushPromises()
 
-      expect(sent('POST', '/api/submissions/s1/grade')).toMatchObject({level: 'Pass', needsWork: false})
+      expect(sent('POST', '/api/submissions/s1/grade')).toMatchObject({level: 'Pass', outcome: 'Graded'})
       // Anna följs av Bo Carlsson, inte Örjan, och Cecilia (Bedömd) och Dag (Komplettera) hoppas över.
       expect(router.currentRoute.value.params.submissionId).toBe('s3')
       expect(wrapper.find('h1').text()).toBe('Bo Carlsson')
@@ -510,7 +511,28 @@ describe('ReviewView', () => {
     await flushPromises()
 
     expect(sent('POST', '/api/submissions/s1/grade'))
-      .toEqual({feedback: 'Komplettera testerna.', level: null, needsWork: true})
+      .toEqual({feedback: 'Komplettera testerna.', level: null, outcome: 'NeedsWork'})
+  })
+
+  it('markerar som ej inlämnat med frivillig kommentar och utan betyg', async () => {
+    backend({submission: {...baseSubmission, status: 'NotStarted', files: []}})
+
+    const {wrapper} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
+
+    expect(wrapper.find('[data-test="review-panel"]').exists()).toBe(true)
+    await button(wrapper, 'Markera som ej inlämnat').trigger('click')
+    await flushPromises()
+
+    expect(sent('POST', '/api/submissions/s1/grade'))
+      .toEqual({feedback: '', level: null, outcome: 'NotSubmitted'})
+  })
+
+  it('visar inte Markera som ej inlämnat när eleven lämnat in', async () => {
+    backend()
+
+    const {wrapper} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
+
+    expect(wrapper.text()).not.toContain('Markera som ej inlämnat')
   })
 
   it('fyller i en tidigare bedömning', async () => {

@@ -30,6 +30,7 @@ import {
   dueStatus,
   gradeScaleLabel,
   kindOf,
+  resubmitLabel,
   rowIcon,
   rowIconClass,
   statusHeading,
@@ -113,12 +114,22 @@ async function toggleChecklist(index: number, checked: boolean) {
   }
 }
 
+const feedbackHeading = computed(() => {
+  if (props.part.submissionStatus === 'NeedsWork') {
+    return 'Läraren vill att du kompletterar'
+  }
+  return props.part.submissionStatus === 'NotSubmitted'
+    ? 'Ej inlämnat'
+    : 'Lärarens kommentar'
+})
+
 // Lärarens kommentar och betyg hör till inlämningen, så de hämtas när en bedömd uppgift öppnas.
 const feedback = ref<Schema<'GradeDto'> | null>(null)
 
 watch(() => {
   const item = props.part
-  return item.type === 'Assignment' && (item.submissionStatus === 'Graded' || item.submissionStatus === 'NeedsWork')
+  return item.type === 'Assignment' && (item.submissionStatus === 'Graded' || item.submissionStatus === 'NeedsWork'
+    || item.submissionStatus === 'NotSubmitted')
     ? item.linkId
     : ''
 }, async (linkId) => {
@@ -189,6 +200,7 @@ function handInOf(item: Schema<'StudentContentItem'>): string {
           {{ dueLabel(part) }}
           <StatusBadge v-if="dueStatus(part)" :status="dueStatus(part)!"/>
         </span>
+        <span v-if="resubmitLabel(part)" data-test="fact-resubmit">{{ resubmitLabel(part) }}</span>
         <span v-if="gradeScaleLabel(part.gradeScale)" data-test="fact-scale">
           Betygsskala {{ gradeScaleLabel(part.gradeScale) }}
         </span>
@@ -346,12 +358,10 @@ function handInOf(item: Schema<'StudentContentItem'>): string {
           >
             <div class="flex flex-wrap items-center justify-between gap-2">
               <h2 id="feedback-h" class="text-sm font-semibold">
-                {{ part.submissionStatus === 'NeedsWork'
-                  ? 'Läraren vill att du kompletterar'
-                  : 'Lärarens kommentar' }}
+                {{ feedbackHeading }}
               </h2>
               <Badge
-                v-if="feedback.level && part.submissionStatus !== 'NeedsWork'"
+                v-if="feedback.level && part.submissionStatus === 'Graded'"
                 :variant="gradeBadgeVariant(feedback.level)"
                 role="img"
                 :aria-label="gradeName(feedback.level)"

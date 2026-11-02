@@ -6433,6 +6433,7 @@ export interface components {
             /** Format: date-time */
             dueAt: null | string;
             isPinned: boolean;
+            resubmitDueAt: string[];
         };
         /** @enum {unknown} */
         ContentStatus: "Draft" | "Published";
@@ -6539,6 +6540,7 @@ export interface components {
             isPinned: boolean;
             groups?: null | components["schemas"]["AssignmentGroupInput"][];
             relatedLinkIds?: null | string[];
+            resubmitDueAt?: null | string[];
         };
         CreateContentWithLinkDto: {
             content: components["schemas"]["CreateContentDto"];
@@ -6678,13 +6680,17 @@ export interface components {
         };
         /** @enum {unknown} */
         GradeLevel: "Fail" | "Pass" | "Distinction";
+        /**
+         * @default Graded
+         * @enum {unknown}
+         */
+        GradeOutcome: "Graded" | "NeedsWork" | "NotSubmitted";
         /** @enum {unknown} */
         GradeScale: "None" | "PassFail" | "PassFailDistinction";
         GradeSubmissionDto: {
             feedback: string;
             level?: null | components["schemas"]["GradeLevel"];
-            /** @default false */
-            needsWork: boolean;
+            outcome?: components["schemas"]["GradeOutcome"];
         };
         /** @description Lärarna i en kurs som en klass läser, och namnen på de andra grupperna som läser samma kurs. */
         GroupCourseTeachersDto: {
@@ -6828,6 +6834,7 @@ export interface components {
             publishAt: string;
             /** Format: date-time */
             dueAt: null | string;
+            resubmitDueAt: string[];
             isPinned: boolean;
             blockedBy: string[];
             hasStudentActivity: boolean;
@@ -6901,7 +6908,7 @@ export interface components {
             readAt: null | string;
         };
         /** @enum {unknown} */
-        NotificationKind: "NewsPublished" | "AssignmentPublished" | "DeadlineSoon" | "SubmissionNeedsWork" | "SubmissionGraded" | "StudentHelpRequested";
+        NotificationKind: "NewsPublished" | "AssignmentPublished" | "DeadlineSoon" | "SubmissionNeedsWork" | "SubmissionGraded" | "StudentHelpRequested" | "SubmissionNotSubmitted";
         /** @description De senaste notiserna, och antalet olästa i alla (inte bara de som skickas med). */
         NotificationListDto: {
             items: components["schemas"]["NotificationDto"][];
@@ -7027,6 +7034,7 @@ export interface components {
             publishAt: string;
             /** Format: date-time */
             dueAt: null | string;
+            resubmitDueAt: string[];
             isPinned: boolean;
             isLocked: boolean;
             isCompleted: boolean;
@@ -7148,6 +7156,7 @@ export interface components {
             title: string;
             /** Format: date-time */
             dueAt: null | string;
+            resubmitDueAt: string[];
             status: components["schemas"]["SubmissionStatus"];
             grade: null | components["schemas"]["GradeLevel"];
             feedback: null | string;
@@ -7216,7 +7225,7 @@ export interface components {
         /** @enum {unknown} */
         SubmissionMode: "Text" | "File" | "Repo" | "OnSite";
         /** @enum {unknown} */
-        SubmissionStatus: "NotStarted" | "Submitted" | "NeedsWork" | "Graded";
+        SubmissionStatus: "NotStarted" | "Submitted" | "NeedsWork" | "Graded" | "NotSubmitted";
         SubmitForm: {
             bodyMd?: null | string;
             files?: null | components["schemas"]["IFormFileCollection"];
@@ -7408,6 +7417,7 @@ export interface components {
             /** @default false */
             isPinned: boolean;
             relatedLinkIds?: null | string[];
+            resubmitDueAt?: null | string[];
         };
         UpdateContentStatusDto: {
             status: components["schemas"]["ContentStatus"];
@@ -7489,15 +7499,16 @@ export const completionRuleValues: ReadonlyArray<FlattenedDeepRequired<component
 export const contentStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["ContentStatus"]> = ["Draft", "Published"];
 export const contentTypeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["ContentType"]> = ["News", "Theory", "Assignment"];
 export const gradeLevelValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GradeLevel"]> = ["Fail", "Pass", "Distinction"];
+export const gradeOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GradeOutcome"]> = ["Graded", "NeedsWork", "NotSubmitted"];
 export const gradeScaleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GradeScale"]> = ["None", "PassFail", "PassFailDistinction"];
 export const groupRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GroupRole"]> = ["Student", "Teacher", "Mentor"];
 export const groupTypeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GroupType"]> = ["Class", "Committee", "Other"];
 export const importStudentOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["ImportStudentOutcome"]> = ["Created", "Added", "AlreadyMember", "NotStudent", "Duplicate", "Invalid"];
-export const notificationKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationKind"]> = ["NewsPublished", "AssignmentPublished", "DeadlineSoon", "SubmissionNeedsWork", "SubmissionGraded", "StudentHelpRequested"];
+export const notificationKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationKind"]> = ["NewsPublished", "AssignmentPublished", "DeadlineSoon", "SubmissionNeedsWork", "SubmissionGraded", "StudentHelpRequested", "SubmissionNotSubmitted"];
 export const repoProvisioningStateValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RepoProvisioningState"]> = ["Pending", "Creating", "Ready", "Failed"];
 export const repoWorkModeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RepoWorkMode"]> = ["Individual", "Group"];
 export const studyPlanCourseStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["StudyPlanCourseStatus"]> = ["Upcoming", "Ongoing", "Completed"];
 export const submissionModeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["SubmissionMode"]> = ["Text", "File", "Repo", "OnSite"];
-export const submissionStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["SubmissionStatus"]> = ["NotStarted", "Submitted", "NeedsWork", "Graded"];
+export const submissionStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["SubmissionStatus"]> = ["NotStarted", "Submitted", "NeedsWork", "Graded", "NotSubmitted"];
 export const userRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["UserRole"]> = ["Admin", "Teacher", "Student"];
 export type operations = Record<string, never>;

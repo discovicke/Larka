@@ -10,8 +10,16 @@ namespace Backend.Application.Dtos;
 // ändra texten eller byta en enda fil utan att skicka om alla.
 public record SubmitDto(string? BodyMd = null, List<Guid>? KeepFileIds = null);
 
-// NeedsWork = begär komplettering: bara feedback, inget betyg.
-public record GradeSubmissionDto(string Feedback, GradeLevel? Level = null, bool NeedsWork = false);
+// Utfallet av lärarens bedömning. Graded sätter betyg, NeedsWork begär komplettering och NotSubmitted markerar
+// att eleven inte lämnat in. De två sista tar bara feedback, inget betyg.
+public enum GradeOutcome
+{
+    Graded,
+    NeedsWork,
+    NotSubmitted
+}
+
+public record GradeSubmissionDto(string Feedback, GradeLevel? Level = null, GradeOutcome Outcome = GradeOutcome.Graded);
 
 // --- responses ---
 

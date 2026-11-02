@@ -98,7 +98,8 @@ public class StudyPlanService(
             StatusOf(course, today),
             null,
             assignmentDtos.Count,
-            assignmentDtos.Count(assignment => assignment.Status != SubmissionStatus.NotStarted),
+            assignmentDtos.Count(assignment =>
+                assignment.Status is not (SubmissionStatus.NotStarted or SubmissionStatus.NotSubmitted)),
             assignmentDtos.Count(assignment => assignment.Status == SubmissionStatus.Graded),
             assignmentDtos);
     }
@@ -110,6 +111,7 @@ public class StudyPlanService(
             link.Link.Id,
             link.Content.Title,
             link.Link.DueAt,
+            link.Link.ResubmitDueAt,
             submission?.Status ?? SubmissionStatus.NotStarted,
             submission?.Grade?.Level,
             string.IsNullOrWhiteSpace(feedback)

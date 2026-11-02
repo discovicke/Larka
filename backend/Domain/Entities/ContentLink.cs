@@ -17,6 +17,9 @@ public class ContentLink : IHasPosition
     public int Position { get; set; }
     public DateTimeOffset PublishAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? DueAt { get; set; }
+    // Kompletteringsdeadlines efter DueAt, i stigande ordning. Tom om uppgiften inte har några.
+    // Låsningen av repot följer bara DueAt.
+    public List<DateTimeOffset> ResubmitDueAt { get; set; } = [];
     public bool IsPinned { get; set; }
 
     // Projektgrupper för grupprepon. Tom för individuella uppgifter.

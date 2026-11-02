@@ -130,6 +130,42 @@ describe('toUpdateRequests', () => {
   })
 })
 
+describe('kompletteringsdeadlines', () => {
+  const resubmit = ['2026-11-15T23:59', '2026-11-08T23:59']
+
+  it('skickas som ISO med sista dagen vid skapande och ändring', () => {
+    const changes = {partType: 'Submission' as const, dueAt: '2026-11-01T10:00', resubmitDueAt: resubmit}
+    const expected = resubmit.map((value) => new Date(value).toISOString())
+
+    expect(toRequests(form(changes), 'Published', target).link.resubmitDueAt).toEqual(expected)
+    expect(toUpdateRequests(form(changes)).link.resubmitDueAt).toEqual(expected)
+  })
+
+  it('skickas inte utan sista dag', () => {
+    const {link} = toUpdateRequests(form({partType: 'Submission', resubmitDueAt: resubmit}))
+
+    expect(link.resubmitDueAt).toEqual([])
+  })
+
+  it('måste ligga efter sista dagen', () => {
+    const errors = validate(form({partType: 'Submission', dueAt: '2026-11-10T10:00', resubmitDueAt: resubmit}))
+
+    expect(errors.resubmitDueAt).toBe('Kompletteringsdeadlines måste vara efter sista dagen.')
+  })
+
+  it('kräver sista dag, ifyllda rader och olika tider', () => {
+    const base = {partType: 'Submission' as const, dueAt: '2026-11-01T10:00'}
+
+    expect(validate(form({partType: 'Submission', resubmitDueAt: resubmit})).resubmitDueAt)
+      .toBe('Ange sista dagen först.')
+    expect(validate(form({...base, resubmitDueAt: ['']})).resubmitDueAt)
+      .toBe('Fyll i datum och tid, eller ta bort raden.')
+    expect(validate(form({...base, resubmitDueAt: [resubmit[0], resubmit[0]]})).resubmitDueAt)
+      .toBe('Kompletteringsdeadlines får inte vara samma tid två gånger.')
+    expect(validate(form({...base, resubmitDueAt: resubmit})).resubmitDueAt).toBeUndefined()
+  })
+})
+
 describe('validate', () => {
   it('kräver titel', () => {
     expect(validate(form({title: ' '}))).toEqual({title: 'Ange en titel.'})

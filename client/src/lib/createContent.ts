@@ -22,6 +22,7 @@ export interface ContentForm {
   bodyMd: string
   publishAt: string // yyyy-mm-ddThh:mm (lokal tid), tom = nu
   dueAt: string
+  resubmitDueAt: string[] // kompletteringsdeadlines, yyyy-mm-ddThh:mm (lokal tid)
   gradeScale: Schema<'GradeScale'>
   submissionModes: SubmissionMode[]
   templateRepo: string
@@ -34,9 +35,12 @@ export interface ContentForm {
 }
 
 export type FormErrors = Partial<Record<
-  'title' | 'dueAt' | 'templateRepo' | 'repoNamePattern' | 'groups' | 'requirements',
+  'title' | 'dueAt' | 'resubmitDueAt' | 'templateRepo' | 'repoNamePattern' | 'groups' | 'requirements',
   string
 >>
+
+/** Så många kompletteringsdeadlines tillåter backend. */
+export const maxResubmitDueAt = 5
 
 export const defaultRepoNamePattern = '{assignmentSlug}-{githubLogin}'
 export const defaultGroupRepoNamePattern = '{assignmentSlug}-{groupSlug}'
@@ -48,6 +52,7 @@ export function emptyForm(): ContentForm {
     bodyMd: '',
     publishAt: '',
     dueAt: '',
+    resubmitDueAt: [],
     gradeScale: 'PassFail',
     submissionModes: [],
     templateRepo: '',
@@ -66,6 +71,27 @@ export const isGraded = (form: ContentForm) => form.partType === 'Submission'
 
 export const usesRepo = (form: ContentForm) => isAssignment(form) && form.submissionModes.includes('Repo')
 
+function resubmitErrors(form: ContentForm): string | undefined {
+  if (form.resubmitDueAt.length === 0) {
+    return undefined
+  }
+  const filled = form.resubmitDueAt.filter((value) => value !== '')
+  if (!form.dueAt) {
+    return 'Ange sista dagen först.'
+  }
+  if (form.resubmitDueAt.some((value) => value === '')) {
+    return 'Fyll i datum och tid, eller ta bort raden.'
+  }
+  const due = new Date(form.dueAt)
+  if (filled.some((value) => new Date(value) <= due)) {
+    return 'Kompletteringsdeadlines måste vara efter sista dagen.'
+  }
+  if (new Set(filled.map((value) => new Date(value).getTime())).size !== filled.length) {
+    return 'Kompletteringsdeadlines får inte vara samma tid två gånger.'
+  }
+  return undefined
+}
+
 export const usesGroupRepo = (form: ContentForm) => usesRepo(form) && form.workMode === 'Group'
 
 export function validate(
@@ -82,6 +108,12 @@ export function validate(
     : new Date()
   if (isAssignment(form) && form.dueAt && new Date(form.dueAt) <= publishAt) {
     errors.dueAt = 'Sista dagen måste vara efter att delen publiceras.'
+  }
+  if (isAssignment(form)) {
+    const resubmit = resubmitErrors(form)
+    if (resubmit) {
+      errors.resubmitDueAt = resubmit
+    }
   }
   if (usesRepo(form) && !form.templateRepo.trim()) {
     errors.templateRepo = 'Ange mallrepot, t.ex. edugrade-net25/mall-lab2.'
@@ -177,8 +209,21 @@ export function toRequests(
           }))
         : null,
       relatedLinkIds: form.relatedLinkIds,
+      resubmitDueAt: resubmitIso(form),
     },
   }
+}
+
+function resubmitIso(form: ContentForm): string[] {
+  if (!form.dueAt) {
+    return []
+  }
+  return form.resubmitDueAt.flatMap((value) => {
+    const iso = isoOrNull(value)
+    return iso
+      ? [iso]
+      : []
+  })
 }
 
 /** Ändringarna skickas till innehållet och länken. Typ och status ligger utanför. */
@@ -190,6 +235,10 @@ export function toUpdateRequests(
     dueAt: isAssignment(form)
       ? isoOrNull(form.dueAt)
       : null,
+    // Bara uppgifter har kompletteringsdeadlines. Utelämnade behålls av API:et.
+    ...(isAssignment(form)
+      ? {resubmitDueAt: resubmitIso(form)}
+      : {}),
     isPinned: form.isPinned,
     relatedLinkIds: form.relatedLinkIds,
   }

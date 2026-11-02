@@ -54,7 +54,7 @@ public class StudentOverviewEndpointTests(TestWebApplicationFactory factory) : I
         await GradeAsync(
             await SubmitAsync(scenario.StudentId, distinction), new { level = "distinction", feedback = "Utmärkt" });
         await GradeAsync(
-            await SubmitAsync(scenario.StudentId, needsWork), new { feedback = "Mer", needsWork = true });
+            await SubmitAsync(scenario.StudentId, needsWork), new { feedback = "Mer", outcome = "needsWork" });
         await SubmitAsync(scenario.StudentId, submitted);
 
         var response = await GetAsync(scenario, scenario.MentorId);

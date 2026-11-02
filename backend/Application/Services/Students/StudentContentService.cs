@@ -314,6 +314,7 @@ public class StudentContentService(
                 : link.Content.BodyMd,
             link.Link.PublishAt,
             link.Link.DueAt,
+            link.Link.ResubmitDueAt,
             link.Link.IsPinned,
             isLocked,
             IsSatisfied(link.Link.Id, byLinkId, completionByLinkId, submissionByLinkId),

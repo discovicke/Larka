@@ -63,8 +63,10 @@ export function statusLabel(submission: {status: Schema<'SubmissionStatus'>, sub
       return 'Komplettering'
     case 'Graded':
       return 'Bedömd'
+    case 'NotSubmitted':
+      return 'Ej inlämnat'
     default:
-      return 'Ej inlämnad'
+      return 'Inte inlämnad'
   }
 }
 

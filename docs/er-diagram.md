@@ -120,6 +120,7 @@ erDiagram
         int Position "ordning i modulen"
         timestamptz PublishAt
         timestamptz DueAt "nullable"
+        timestamptz_array ResubmitDueAt "kompletteringsdeadlines"
         bool IsPinned
     }
     AssignmentSpec {
@@ -250,7 +251,7 @@ erDiagram
   - bara kurs: alla grupper som läser kursen (via GroupCourse)
   - grupp + kurs: kursen så som den går för just den gruppen
 - **`ModuleId` på länken lägger innehållet i en av kursens moduler.** Den är valfri, så nyheter och sådant som gäller hela kursen fungerar som förut. En modul kräver `CourseId` (check constraint), och backend kontrollerar att modulen hör till just den kursen. Den ligger på länken av samma skäl som deadlinen: samma material kan ligga i vecka 2 för en klass och vecka 3 för en annan.
-- **`PublishAt`, `DueAt` och `IsPinned` ligger på länken, inte på content.** Samma uppgift kan delas ut till två klasser med olika deadlines.
+- **`PublishAt`, `DueAt` och `IsPinned` ligger på länken, inte på content.** Samma uppgift kan delas ut till två klasser med olika deadlines. `ResubmitDueAt` är uppgiftens kompletteringsdeadlines: högst fem tider efter `DueAt`, sparade i stigande ordning. Eleven ser dem direkt på uppgiften, och den som ska komplettera ser nästa som inte har passerat.
 - **AssignmentSpec (1:0..1 med Content)** finns bara när `Type = Assignment`. Fälten styr uppgiften, och de motsvarar formuläret "Skapa del":
   - `GradeScale` är betygsskalan: `None` (bara feedback), `PassFail` (IG-G) eller `PassFailDistinction` (IG-G-VG). `None` gör uppgiften till en övning.
   - `SubmissionModes` är hur man lämnar in, en lista där flera sätt kan kombineras: `Text` (textsvar i `Submission.BodyMd`), `File` (filer och foton), `Repo` (GitHub, kräver `TemplateRepo`) och `OnSite` (läraren bedömer på plats). En tom lista betyder ingen inlämning, t.ex. "läs kapitel 3". Listan sparas som en array i databasen.
@@ -277,7 +278,7 @@ erDiagram
 
 - **Submission hör till en ContentLink, inte till content.** Det är på länken deadlinen finns, och en elev lämnar in till uppgiften så som den delades ut till hens grupp. Det finns en rad per elev och länk (unik), och `Status` (`NotStarted`, `Submitted`, `NeedsWork`, `Graded`) visar var eleven är. Statusbytena styr notiserna.
 - **SubmissionFile (1:N)** innehåller uppladdade filer, **StudentRepo (1:0..1)** elevens GitHub-repo när uppgiften använder repo-läge. Repot skapas när uppgiften delas ut, så då finns submission-raden redan med status `NotStarted`.
-- **Grade (1:0..1 med Submission)** sparar vem som rättade (`GradedById`) och när. `Level` är betyget (`Fail`, `Pass`, `Distinction`, alltså IG, G, VG) och måste passa uppgiftens `GradeScale`: på `PassFail` finns inget `Distinction`, och på `None` får inlämningen bara feedback. Vid komplettering sätts status `NeedsWork` och Grade har feedback men inget betyg, och eleven kan lämna in igen. En rättad inlämning går inte att lämna in igen. Uppgifter med `OnSite` kan rättas utan att eleven lämnat in något.
+- **Grade (1:0..1 med Submission)** sparar vem som rättade (`GradedById`) och när. `Level` är betyget (`Fail`, `Pass`, `Distinction`, alltså IG, G, VG) och måste passa uppgiftens `GradeScale`: på `PassFail` finns inget `Distinction`, och på `None` får inlämningen bara feedback. Vid komplettering sätts status `NeedsWork` och Grade har feedback men inget betyg, och eleven kan lämna in igen. Ej inlämnat sätter status `NotSubmitted` på samma sätt, utan betyg och med frivillig feedback, och eleven kan fortfarande lämna in. En rättad inlämning går inte att lämna in igen. Uppgifter med `OnSite` kan rättas utan att eleven lämnat in något.
 
 ### Notiser
 

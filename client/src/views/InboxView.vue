@@ -10,6 +10,7 @@ import {
   PhNewspaper,
   PhQuestion,
   PhTray,
+  PhXCircle,
 } from '@phosphor-icons/vue'
 import {computed, type Component, ref, watch} from 'vue'
 import {type RouteLocationRaw, useRoute, useRouter} from 'vue-router'
@@ -57,6 +58,7 @@ const kindIcons: Record<InboxKind, Component> = {
   news: PhNewspaper,
   grade: PhCheckCircle,
   needsWork: PhArrowCounterClockwise,
+  notSubmitted: PhXCircle,
   deadline: PhClock,
   assignment: PhExam,
   help: PhQuestion,
@@ -67,6 +69,7 @@ const kindIconClasses: Record<InboxKind, string> = {
   news: 'bg-info/10 text-info dark:bg-info/20',
   grade: 'bg-success/10 text-success dark:bg-success/20',
   needsWork: 'bg-warning/10 text-warning dark:bg-warning/20',
+  notSubmitted: 'bg-destructive/10 text-destructive dark:bg-destructive/20',
   deadline: 'bg-primary/25 text-foreground dark:bg-primary/15 dark:text-primary',
   assignment: 'bg-primary/25 text-foreground dark:bg-primary/15 dark:text-primary',
   help: 'bg-warning/10 text-warning dark:bg-warning/20',
@@ -267,7 +270,7 @@ function notificationLink(row: InboxRow): RouteLocationRaw {
   if (courseId && linkId) {
     return {name: 'course-content', params: {courseId}, query: {del: linkId}}
   }
-  if (row.kind === 'grade' || row.kind === 'needsWork') {
+  if (row.kind === 'grade' || row.kind === 'needsWork' || row.kind === 'notSubmitted') {
     return {name: 'grades'}
   }
   return courseId

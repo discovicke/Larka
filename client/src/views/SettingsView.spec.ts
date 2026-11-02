@@ -429,7 +429,7 @@ describe('SettingsView', () => {
     expect(wrapper.find('[data-test="notify-news"]').attributes('aria-checked')).toBe('false')
   })
 
-  it('stänger av båda slagen för betyg och återkoppling med en ruta', async () => {
+  it('stänger av alla slag för betyg och återkoppling med en ruta', async () => {
     const {wrapper} = await mountSettings()
     await flushPromises()
 
@@ -437,7 +437,7 @@ describe('SettingsView', () => {
     await flushPromises()
 
     const put = requests.find((request) => request.method === 'PUT')
-    expect(put?.body).toEqual({muted: ['SubmissionGraded', 'SubmissionNeedsWork']})
+    expect(put?.body).toEqual({muted: ['SubmissionGraded', 'SubmissionNeedsWork', 'SubmissionNotSubmitted']})
   })
 
   it('återställer rutan och visar felet när sparandet misslyckas', async () => {

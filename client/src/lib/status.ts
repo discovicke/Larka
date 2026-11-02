@@ -6,10 +6,12 @@ import {
   PhPaperPlaneTilt,
   PhWarning,
   PhWarningCircle,
+  PhXCircle,
 } from '@phosphor-icons/vue'
 import type {Component} from 'vue'
 
 import type {BadgeVariants} from '@/components/ui/badge'
+import type {Schema} from '@/lib/api'
 import {courseStatusLabels} from '@/lib/courseStatus'
 import {isDueSoon, isOverdue} from '@/lib/today'
 
@@ -69,6 +71,8 @@ const definitions = {
   'submission.submitted': {family: 'submission', label: 'Inlämnad', tone: 'info', icon: PhPaperPlaneTilt},
   'submission.needsWork': {family: 'submission', label: 'Komplettera', tone: 'destructive', icon: PhWarningCircle},
   'submission.graded': {family: 'submission', label: 'Bedömd', tone: 'neutral'},
+  // Läraren har markerat att eleven inte lämnade in. Skiljer sig från Inte inlämnad, som bara är ett läge före deadline.
+  'submission.missed': {family: 'submission', label: 'Ej inlämnat', tone: 'destructive', icon: PhXCircle},
 
   'deadline.soon': {family: 'deadline', label: 'Deadline snart', tone: 'warning', icon: PhClock},
   'deadline.overdue': {family: 'deadline', label: 'Försenad', tone: 'destructive', icon: PhWarning},
@@ -98,7 +102,7 @@ export function courseStatusKey(status: keyof typeof courseStatusLabels): Status
 
 /** Inlämningens läge som nyckel. Utan inlämning, eller när den inte är påbörjad, gäller Inte inlämnad. */
 export function submissionStatusKey(
-  status: 'NotStarted' | 'Submitted' | 'NeedsWork' | 'Graded' | null | undefined,
+  status: Schema<'SubmissionStatus'> | null | undefined,
 ): StatusKey {
   switch (status) {
     case 'Submitted':
@@ -107,6 +111,8 @@ export function submissionStatusKey(
       return 'submission.needsWork'
     case 'Graded':
       return 'submission.graded'
+    case 'NotSubmitted':
+      return 'submission.missed'
     default:
       return 'submission.notSubmitted'
   }
@@ -136,7 +142,7 @@ export function partStatusKey(item: {
   type: string
   isLocked: boolean
   isCompleted: boolean
-  submissionStatus: 'NotStarted' | 'Submitted' | 'NeedsWork' | 'Graded' | null | undefined
+  submissionStatus: Schema<'SubmissionStatus'> | null | undefined
   gradeLevel: 'Fail' | 'Pass' | 'Distinction' | null | undefined
 }): StatusKey {
   if (item.isLocked) {
@@ -148,6 +154,9 @@ export function partStatusKey(item: {
     }
     if (item.submissionStatus === 'NeedsWork') {
       return 'submission.needsWork'
+    }
+    if (item.submissionStatus === 'NotSubmitted') {
+      return 'submission.missed'
     }
     if (item.submissionStatus === 'Graded') {
       return item.gradeLevel === 'Fail'

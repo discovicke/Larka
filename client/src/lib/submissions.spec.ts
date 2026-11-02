@@ -83,10 +83,11 @@ describe('levelsFor', () => {
 
 describe('statusLabel', () => {
   it('beskriver statusen på raden', () => {
-    expect(statusLabel({status: 'NotStarted', submittedAt: null})).toBe('Ej inlämnad')
+    expect(statusLabel({status: 'NotStarted', submittedAt: null})).toBe('Inte inlämnad')
     expect(statusLabel({status: 'Submitted', submittedAt: '2026-10-23T21:59:00Z'})).toContain('Inlämnad ')
     expect(statusLabel({status: 'NeedsWork', submittedAt: '2026-10-23T21:59:00Z'})).toBe('Komplettering')
     expect(statusLabel({status: 'Graded', submittedAt: '2026-10-23T21:59:00Z'})).toBe('Bedömd')
+    expect(statusLabel({status: 'NotSubmitted', submittedAt: null})).toBe('Ej inlämnat')
   })
 
   it('klarar en inlämnad rad utan tidpunkt', () => {

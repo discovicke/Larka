@@ -54,7 +54,7 @@ const tab = computed(() => route.query.tab === 'inlamningar' && hasSubmissions.v
   : 'content')
 
 const toGrade = computed(() => submissions.value.filter((submission) => submission.status === 'Submitted').length)
-const handedIn = computed(() => submissions.value.filter((submission) => submission.status !== 'NotStarted').length)
+const handedIn = computed(() => submissions.value.filter((submission) => submission.status !== 'NotStarted' && submission.status !== 'NotSubmitted').length)
 const handedInLabel = computed(() => `${handedIn.value} av ${submissions.value.length}`)
 
 const checklist = computed(() => parseChecklist(content.value?.bodyMd ?? ''))
@@ -70,6 +70,9 @@ const facts = computed(() => {
     weekTitle.value,
     item.dueAt
       ? `Deadline ${formatDate(item.dueAt, true)}`
+      : '',
+    item.resubmitDueAt.length > 0
+      ? `Kompletteringar ${item.resubmitDueAt.map((value) => formatDate(value, true)).join(', ')}`
       : '',
     scaleLabel(item.gradeScale),
     handIn

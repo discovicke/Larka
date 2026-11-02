@@ -74,7 +74,8 @@ public class SubmissionRepository(AppDb db) : ISubmissionRepository
 
         return await db.Submissions
             .Where(submission => linkIds.Contains(submission.ContentLinkId)
-                && submission.Status != SubmissionStatus.NotStarted)
+                && submission.Status != SubmissionStatus.NotStarted
+                && submission.Status != SubmissionStatus.NotSubmitted)
             .Select(submission => new ActiveSubmission(submission.ContentLinkId, submission.StudentId))
             .Distinct()
             .ToListAsync(ct);

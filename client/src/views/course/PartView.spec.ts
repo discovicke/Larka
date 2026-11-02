@@ -25,6 +25,7 @@ const assignment = {
   groupId: null,
   publishAt: '2026-10-01T08:00:00Z',
   dueAt: '2026-10-23T21:59:00Z',
+  resubmitDueAt: [],
   isPinned: false,
   blockedBy: [],
 }
@@ -257,7 +258,7 @@ describe('PartView', () => {
       'Alla 4',
       'Att bedöma 1',
       'Komplettering 1',
-      'Ej inlämnad 1',
+      'Inte inlämnad 1',
       'Behöver hjälp 0',
       'Inte startat 0',
       'Ingen push 0',
@@ -282,7 +283,22 @@ describe('PartView', () => {
     expect(rows[1].text()).toContain('Komplettera')
     expect(rows[2].text()).toContain('Bedömd')
     expect(rows[2].text()).toContain('anna/release-pipeline')
-    expect(rows[3].text()).toContain('Ej inlämnad')
+    expect(rows[3].text()).toContain('Inte inlämnad')
+  })
+
+  it('läraren kan bedöma en elev som inte lämnat in, och Ej inlämnat får ett eget filter', async () => {
+    const missed = makeSubmission('s5', 'u4', 'NotSubmitted', {
+      grade: {gradedById: 'u0', level: null, feedback: 'Ingen inlämning', gradedAt: '2026-10-24T09:00:00Z'},
+    })
+    backend({submissions: [notStarted, missed].map((row, index) => ({...row, id: `n${index}`, studentId: `u${index + 3}`}))})
+
+    const {wrapper} = await renderApp('/courses/c1/assignments/l1')
+
+    const rows = wrapper.findAll('[data-test="submission-row"]')
+    expect(rows.map((row) => row.find('a').exists() && row.find('a').text())).toEqual(['Bedöm', 'Bedöm'])
+    expect(rows.some((row) => row.text().includes('Ej inlämnat'))).toBe(true)
+    const filters = wrapper.findAll('section[aria-label="Elever"] [role="tab"]').map(text)
+    expect(filters).toContain('Ej inlämnat 1')
   })
 
   it('filtrerar på status och söker på namn', async () => {

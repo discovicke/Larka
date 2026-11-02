@@ -197,6 +197,38 @@ public class NotificationEndpointTests(TestWebApplicationFactory factory) : ICla
     }
 
     [Fact]
+    public async Task NotSubmitted_NotifiesTheStudent_WithItsOwnKind()
+    {
+        var setup = await AddSetupAsync();
+        var created = await CreateAsync(
+            new
+            {
+                type = "assignment",
+                title = "Uteblev",
+                bodyMd = "",
+                submissionModes = new[] { "text" },
+                gradeScale = "passFail"
+            },
+            new { groupId = setup.GroupId });
+        var submission = await SubmissionOfAsync(created.Link.Id, setup.StudentId);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            var row = await db.Submissions.SingleAsync(candidate => candidate.Id == submission);
+            row.Status = SubmissionStatus.NotStarted;
+            row.SubmittedAt = null;
+            await db.SaveChangesAsync();
+        }
+
+        await _client.PostAsJsonAsync($"/api/submissions/{submission}/grade",
+            new { feedback = "Ingen inlämning", outcome = "notSubmitted" });
+
+        var item = Assert.Single(
+            (await ListForAsync(setup.StudentId)).Items, item => item.SubmissionId != null);
+        Assert.Equal(("SubmissionNotSubmitted", "Uteblev"), (item.Kind, item.Title));
+    }
+
+    [Fact]
     public async Task Grading_NotifiesTheStudent_AndNeedsWorkIsItsOwnKind()
     {
         var setup = await AddSetupAsync();
@@ -213,7 +245,7 @@ public class NotificationEndpointTests(TestWebApplicationFactory factory) : ICla
         var submission = await SubmissionOfAsync(created.Link.Id, setup.StudentId);
 
         await _client.PostAsJsonAsync($"/api/submissions/{submission}/grade",
-            new { feedback = "Komplettera", needsWork = true });
+            new { feedback = "Komplettera", outcome = "needsWork" });
         await _client.PostAsJsonAsync($"/api/submissions/{submission}/grade",
             new { feedback = "Bra", level = "distinction" });
 

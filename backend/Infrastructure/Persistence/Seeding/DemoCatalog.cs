@@ -115,6 +115,12 @@ internal static partial class DemoCatalog
         "Idén är rätt, men lösningen fungerar inte fullt ut än. Rätta felen vi pratade om och försök igen."
     ];
 
+    private static readonly string[] _notSubmittedFeedback =
+    [
+        "Jag har inte fått någon inlämning av dig. Hör av dig om du vill ha hjälp att komma igång.",
+        "Uppgiften lämnades aldrig in. Prata med mig om du behöver mer tid, så hittar vi en lösning."
+    ];
+
     private static readonly string[] _genericAnswers =
     [
         "Jag har löst uppgiften enligt instruktionerna och redovisar lösningen i repot som vi delat med dig. "
@@ -214,6 +220,8 @@ internal static partial class DemoCatalog
     public static string[] DistinctionFeedback => _distinctionFeedback;
 
     public static string[] NeedsWorkFeedback => _needsWorkFeedback;
+
+    public static string[] NotSubmittedFeedback => _notSubmittedFeedback;
 
     /// <summary>Fredag i vecka veckor efter kursstarten, klockan 23.59.</summary>
     private static DateTimeOffset Friday(DateOnly start, int weeksAfter)

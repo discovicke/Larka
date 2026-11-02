@@ -6772,7 +6772,8 @@
           "moduleId",
           "publishAt",
           "dueAt",
-          "isPinned"
+          "isPinned",
+          "resubmitDueAt"
         ],
         "type": "object",
         "properties": {
@@ -6818,6 +6819,13 @@
           },
           "isPinned": {
             "type": "boolean"
+          },
+          "resubmitDueAt": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date-time"
+            }
           }
         }
       },
@@ -7221,6 +7229,16 @@
             "items": {
               "type": "string",
               "format": "uuid"
+            }
+          },
+          "resubmitDueAt": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "date-time"
             }
           }
         }
@@ -7738,6 +7756,14 @@
           "Distinction"
         ]
       },
+      "GradeOutcome": {
+        "enum": [
+          "Graded",
+          "NeedsWork",
+          "NotSubmitted"
+        ],
+        "default": "Graded"
+      },
       "GradeScale": {
         "enum": [
           "None",
@@ -7764,9 +7790,8 @@
               }
             ]
           },
-          "needsWork": {
-            "type": "boolean",
-            "default": false
+          "outcome": {
+            "$ref": "#/components/schemas/GradeOutcome"
           }
         }
       },
@@ -8173,6 +8198,7 @@
           "groupId",
           "publishAt",
           "dueAt",
+          "resubmitDueAt",
           "isPinned",
           "blockedBy",
           "hasStudentActivity"
@@ -8233,6 +8259,13 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "resubmitDueAt": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date-time"
+            }
           },
           "isPinned": {
             "type": "boolean"
@@ -8491,7 +8524,8 @@
           "DeadlineSoon",
           "SubmissionNeedsWork",
           "SubmissionGraded",
-          "StudentHelpRequested"
+          "StudentHelpRequested",
+          "SubmissionNotSubmitted"
         ]
       },
       "NotificationListDto": {
@@ -8901,6 +8935,7 @@
           "bodyMd",
           "publishAt",
           "dueAt",
+          "resubmitDueAt",
           "isPinned",
           "isLocked",
           "isCompleted",
@@ -8955,6 +8990,13 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "resubmitDueAt": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date-time"
+            }
           },
           "isPinned": {
             "type": "boolean"
@@ -9395,6 +9437,7 @@
           "linkId",
           "title",
           "dueAt",
+          "resubmitDueAt",
           "status",
           "grade",
           "feedback",
@@ -9415,6 +9458,13 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "resubmitDueAt": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date-time"
+            }
           },
           "status": {
             "$ref": "#/components/schemas/SubmissionStatus"
@@ -9693,7 +9743,8 @@
           "NotStarted",
           "Submitted",
           "NeedsWork",
-          "Graded"
+          "Graded",
+          "NotSubmitted"
         ]
       },
       "SubmitForm": {
@@ -10391,6 +10442,16 @@
             "items": {
               "type": "string",
               "format": "uuid"
+            }
+          },
+          "resubmitDueAt": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "date-time"
             }
           }
         }

@@ -244,7 +244,7 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
             var service = scope.ServiceProvider.GetRequiredService<SubmissionService>();
             var graded = await service.GradeAsync(
                 submission.Id,
-                new GradeSubmissionDto("Komplettera releaseflödet.", null, true),
+                new GradeSubmissionDto("Komplettera releaseflödet.", null, GradeOutcome.NeedsWork),
                 CancellationToken.None);
             Assert.True(graded.Status == ResultStatus.Ok, graded.Error);
         }
@@ -379,7 +379,7 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
         var submitted = await SubmitAsync(linkId);
 
         var needsWork = await _client.PostAsJsonAsync($"/api/submissions/{submitted.Id}/grade",
-            new { feedback = "Saknar diskussion", needsWork = true });
+            new { feedback = "Saknar diskussion", outcome = "needsWork" });
         Assert.Equal("NeedsWork", (await needsWork.Content.ReadFromJsonAsync<SubmissionResponse>())!.Status);
 
         await SubmitAsync(linkId);
@@ -538,6 +538,50 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     }
 
     [Fact]
+    public async Task NotSubmitted_OnANotStartedSubmission_KeepsFeedbackAndNoLevel()
+    {
+        var (groupId, _) = await AddGroupAsync(students: 1);
+        var assignment = await CreateAssignmentAsync(_gradedFileSpec);
+        var linkId = await LinkAsync(assignment, new { groupId });
+        var notStarted = Assert.Single(await ListAsync(linkId));
+
+        var response = await _client.PostAsJsonAsync($"/api/submissions/{notStarted.Id}/grade",
+            new { feedback = "Ingen inlämning", outcome = "notSubmitted" });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var result = (await response.Content.ReadFromJsonAsync<SubmissionResponse>())!;
+        Assert.Equal("NotSubmitted", result.Status);
+        Assert.Null(result.Grade!.Level);
+        Assert.Equal("Ingen inlämning", result.Grade.Feedback);
+    }
+
+    [Fact]
+    public async Task NotSubmitted_WithALevel_ReturnsBadRequest()
+    {
+        var (groupId, _) = await AddGroupAsync(students: 1);
+        var assignment = await CreateAssignmentAsync(_gradedFileSpec);
+        var notStarted = Assert.Single(await ListAsync(await LinkAsync(assignment, new { groupId })));
+
+        var response = await _client.PostAsJsonAsync($"/api/submissions/{notStarted.Id}/grade",
+            new { feedback = "?", level = "pass", outcome = "notSubmitted" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task NotSubmitted_OnAHandedInSubmission_ReturnsBadRequest()
+    {
+        var (groupId, _) = await AddGroupAsync(students: 0);
+        var assignment = await CreateAssignmentAsync(_gradedFileSpec);
+        var submitted = await SubmitAsync(await LinkAsync(assignment, new { groupId }));
+
+        var response = await _client.PostAsJsonAsync($"/api/submissions/{submitted.Id}/grade",
+            new { feedback = "?", outcome = "notSubmitted" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Grade_Fail_WithComment_IsGraded()
     {
         var (groupId, _) = await AddGroupAsync(students: 0);
@@ -550,6 +594,39 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("Fail", (await response.Content.ReadFromJsonAsync<SubmissionResponse>())!.Grade!.Level);
+    }
+
+    [Fact]
+    public async Task NotSubmitted_AfterNeedsWork_ThenResubmit_GoesToSubmitted()
+    {
+        var (groupId, _) = await AddGroupAsync(students: 0);
+        var assignment = await CreateAssignmentAsync(_gradedFileSpec);
+        var linkId = await LinkAsync(assignment, new { groupId });
+        var submitted = await SubmitAsync(linkId);
+        await _client.PostAsJsonAsync($"/api/submissions/{submitted.Id}/grade",
+            new { feedback = "Komplettera", outcome = "needsWork" });
+
+        var missed = await _client.PostAsJsonAsync($"/api/submissions/{submitted.Id}/grade",
+            new { feedback = "Ingen komplettering kom", outcome = "notSubmitted" });
+        Assert.Equal("NotSubmitted", (await missed.Content.ReadFromJsonAsync<SubmissionResponse>())!.Status);
+
+        var again = await SubmitAsync(linkId);
+        Assert.Equal("Submitted", again.Status);
+    }
+
+    [Fact]
+    public async Task Grade_OnANotSubmittedSubmission_OfAFileAssignment_ReturnsBadRequest()
+    {
+        var (groupId, _) = await AddGroupAsync(students: 1);
+        var assignment = await CreateAssignmentAsync(_gradedFileSpec);
+        var notStarted = Assert.Single(await ListAsync(await LinkAsync(assignment, new { groupId })));
+        await _client.PostAsJsonAsync($"/api/submissions/{notStarted.Id}/grade",
+            new { feedback = "Ingen inlämning", outcome = "notSubmitted" });
+
+        var response = await _client.PostAsJsonAsync($"/api/submissions/{notStarted.Id}/grade",
+            new { level = "pass", feedback = "?" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]

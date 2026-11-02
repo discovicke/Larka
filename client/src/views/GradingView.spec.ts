@@ -21,6 +21,7 @@ function assignment(linkId: string, contentId: string, title: string) {
     groupId: null,
     publishAt: '2026-10-01T08:00:00Z',
     dueAt: null,
+    resubmitDueAt: [],
     isPinned: false,
     blockedBy: [],
   }

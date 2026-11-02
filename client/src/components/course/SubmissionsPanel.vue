@@ -39,6 +39,7 @@ type Filter = 'all'
   | 'due'
   | 'needsWork'
   | 'notStarted'
+  | 'notSubmitted'
   | 'needsHelp'
   | 'supportNotStarted'
   | 'supportNoPush'
@@ -91,8 +92,11 @@ function aggregateStatus(submissions: Submission[]): Schema<'SubmissionStatus'> 
   if (submissions.some((submission) => submission.status === 'NeedsWork')) {
     return 'NeedsWork'
   }
-  return submissions.length > 0 && submissions.every((submission) => submission.status === 'Graded')
-    ? 'Graded'
+  if (submissions.length > 0 && submissions.every((submission) => submission.status === 'Graded')) {
+    return 'Graded'
+  }
+  return submissions.length > 0 && submissions.every((submission) => submission.status === 'NotSubmitted')
+    ? 'NotSubmitted'
     : 'NotStarted'
 }
 
@@ -272,7 +276,10 @@ const filters = computed<{value: Filter, label: string}[]>(() => [
   {value: 'all', label: `Alla ${rows.value.length}`},
   {value: 'due', label: `Att bedöma ${countOf('Submitted')}`},
   {value: 'needsWork', label: `Komplettering ${countOf('NeedsWork')}`},
-  {value: 'notStarted', label: `Ej inlämnad ${countOf('NotStarted')}`},
+  {value: 'notStarted', label: `Inte inlämnad ${countOf('NotStarted')}`},
+  ...(countOf('NotSubmitted') > 0
+    ? [{value: 'notSubmitted' as const, label: `Ej inlämnat ${countOf('NotSubmitted')}`}]
+    : []),
   ...(hasRepos.value
     ? [
         {value: 'needsHelp' as const, label: `Behöver hjälp ${needsHelpCount.value}`},
@@ -288,7 +295,8 @@ const statusOrder: Record<Schema<'SubmissionStatus'>, number> = {
   Submitted: 0,
   NeedsWork: 1,
   Graded: 2,
-  NotStarted: 3,
+  NotSubmitted: 3,
+  NotStarted: 4,
 }
 
 const sorted = computed(() => [...rows.value]
@@ -302,6 +310,9 @@ const visibleRows = computed(() => {
       return false
     }
     if (filter.value === 'needsWork' && row.status !== 'NeedsWork') {
+      return false
+    }
+    if (filter.value === 'notSubmitted' && row.status !== 'NotSubmitted') {
       return false
     }
     if (filter.value === 'notStarted' && row.status !== 'NotStarted') {
@@ -414,6 +425,11 @@ function repoUrl(row: TrackingRow): string | null {
 // Komplettera väntar på eleven, så där är det inget att bedöma än.
 function canAssess(row: TrackingRow): boolean {
   return canGrade.value && row.status === 'Submitted'
+}
+
+// En elev som inte lämnat in kan markeras Ej inlämnat, och ett Ej inlämnat kan ändras igen.
+function canMarkMissing(row: TrackingRow): boolean {
+  return canGrade.value && !row.group && (row.status === 'NotStarted' || row.status === 'NotSubmitted')
 }
 
 function reviewRoute(row: TrackingRow) {
@@ -661,7 +677,7 @@ function rowBorder(index: number) {
               </td>
               <td class="px-3 py-3 max-md:border-b-0 max-md:p-0" :class="rowBorder(index)">
                 <StatusBadge
-                  v-if="row.status === 'Submitted' || row.status === 'NeedsWork'"
+                  v-if="row.status === 'Submitted' || row.status === 'NeedsWork' || row.status === 'NotSubmitted'"
                   :status="submissionStatusKey(row.status)"
                 />
                 <span v-else class="text-muted-foreground">{{ statusLabel(row) }}</span>
@@ -669,7 +685,7 @@ function rowBorder(index: number) {
               <td class="px-4 py-3 text-right max-md:col-start-2 max-md:row-span-2 max-md:row-start-1 max-md:self-center max-md:border-b-0 max-md:p-0" :class="rowBorder(index)">
                 <div class="flex justify-end">
                   <Button
-                    v-if="row.status === 'Submitted' || row.status === 'NeedsWork'"
+                    v-if="row.status === 'Submitted' || row.status === 'NeedsWork' || canMarkMissing(row)"
                     as-child
                     :variant="canAssess(row)
                       ? 'default'
@@ -677,7 +693,7 @@ function rowBorder(index: number) {
                     class="h-7 px-2.5 text-[13px]"
                   >
                     <RouterLink :to="reviewRoute(row)">
-                      {{ canAssess(row)
+                      {{ canAssess(row) || canMarkMissing(row)
                         ? 'Bedöm'
                         : 'Visa' }}
                     </RouterLink>

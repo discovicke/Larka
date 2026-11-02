@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import type {Component} from 'vue'
+import {PhPlus, PhX} from '@phosphor-icons/vue'
 import {computed} from 'vue'
 
 import DateTimePicker from '@/components/DateTimePicker.vue'
 import MarkdownEditor from '@/components/editor/MarkdownEditor.vue'
+import {Button} from '@/components/ui/button'
 import {Checkbox} from '@/components/ui/checkbox'
 import {
   Field,
@@ -20,7 +22,7 @@ import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
 import {RadioGroup, RadioGroupItem} from '@/components/ui/radio-group'
 import type {Schema} from '@/lib/api'
 import {partTypes} from '@/lib/content'
-import {type ContentForm, type FormErrors, isAssignment, isGraded} from '@/lib/createContent'
+import {type ContentForm, type FormErrors, isAssignment, isGraded, maxResubmitDueAt} from '@/lib/createContent'
 
 // Delens fält som inte rör GitHub: typ, grundinfo och sättet att lämna in. Formuläret, felen och
 // listan med inlämningssätt ägs av vyn runtom.
@@ -117,6 +119,44 @@ function toggleMode(mode: Schema<'SubmissionMode'>, checked: boolean) {
           :invalid="!!errors.dueAt"
         />
         <FieldError v-if="errors.dueAt">{{ errors.dueAt }}</FieldError>
+      </Field>
+      <Field v-if="isAssignment(form)" :data-invalid="!!errors.resubmitDueAt" data-test="resubmit-field">
+        <FieldLabel>Kompletteringsdeadlines</FieldLabel>
+        <div v-for="(_, index) in form.resubmitDueAt" :key="index" class="flex items-center gap-2">
+          <DateTimePicker
+            :id="`resubmit-due-at-${index}`"
+            v-model="form.resubmitDueAt[index]"
+            :min="form.dueAt"
+            :invalid="!!errors.resubmitDueAt"
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Ta bort kompletteringsdeadline"
+            data-test="resubmit-remove"
+            @click="form.resubmitDueAt.splice(index, 1)"
+          >
+            <PhX/>
+          </Button>
+        </div>
+        <div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            :disabled="!form.dueAt || form.resubmitDueAt.length >= maxResubmitDueAt"
+            data-test="resubmit-add"
+            @click="form.resubmitDueAt.push('')"
+          >
+            <PhPlus/>
+            Lägg till kompletteringsdeadline
+          </Button>
+        </div>
+        <FieldDescription class="text-xs">
+          Extra tillfällen att lämna in igen efter sista dagen. Kräver en sista dag.
+        </FieldDescription>
+        <FieldError v-if="errors.resubmitDueAt">{{ errors.resubmitDueAt }}</FieldError>
       </Field>
       <Field v-if="isGraded(form)">
         <FieldLabel for="grade-scale">Betygsskala</FieldLabel>

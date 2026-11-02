@@ -30,6 +30,7 @@ public record StudyPlanAssignmentDto(
     Guid LinkId,
     string Title,
     DateTimeOffset? DueAt,
+    List<DateTimeOffset> ResubmitDueAt,
     SubmissionStatus Status,
     GradeLevel? Grade,
     string? Feedback,

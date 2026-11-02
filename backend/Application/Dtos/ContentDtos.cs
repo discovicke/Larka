@@ -38,7 +38,8 @@ public record CreateContentLinkDto(
     DateTimeOffset? DueAt = null,
     bool IsPinned = false,
     List<AssignmentGroupInput>? Groups = null,
-    List<Guid>? RelatedLinkIds = null);
+    List<Guid>? RelatedLinkIds = null,
+    List<DateTimeOffset>? ResubmitDueAt = null);
 
 /// <summary>Projektgrupp vid skapandet av en gruppuppgift. Alla elev-id:n måste finnas i kursen.</summary>
 public record AssignmentGroupInput(string Name, List<Guid> StudentIds, Guid? Id = null);
@@ -91,7 +92,8 @@ public record UpdateContentLinkDto(
     DateTimeOffset? PublishAt = null,
     DateTimeOffset? DueAt = null,
     bool IsPinned = false,
-    List<Guid>? RelatedLinkIds = null);
+    List<Guid>? RelatedLinkIds = null,
+    List<DateTimeOffset>? ResubmitDueAt = null);
 
 public record MoveContentLinkDto(Guid ModuleId);
 
@@ -178,11 +180,12 @@ public record ContentLinkDto(
     Guid? ModuleId,
     DateTimeOffset PublishAt,
     DateTimeOffset? DueAt,
-    bool IsPinned)
+    bool IsPinned,
+    List<DateTimeOffset> ResubmitDueAt)
 {
     public static ContentLinkDto From(ContentLink link) =>
         new(link.Id, link.ContentId, link.GroupId, link.CourseId, link.ModuleId, link.PublishAt, link.DueAt,
-            link.IsPinned);
+            link.IsPinned, link.ResubmitDueAt);
 }
 
 /// <summary>En rad i flödet för en grupp eller kurs: innehållet plus hur det publicerades.</summary>

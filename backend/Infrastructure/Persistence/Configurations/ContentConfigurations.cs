@@ -26,6 +26,8 @@ public class ContentLinkConfiguration : IEntityTypeConfiguration<ContentLink>
         builder.HasOne<Course>().WithMany().HasForeignKey(link => link.CourseId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Module>().WithMany().HasForeignKey(link => link.ModuleId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(link => new { link.ModuleId, link.Position });
+        // Tom array som standard, så att befintliga rader får en tom lista när kolumnen läggs till.
+        builder.PrimitiveCollection(link => link.ResubmitDueAt).HasDefaultValueSql("'{}'");
         builder.ToTable(table =>
         {
             table.HasCheckConstraint(

@@ -81,6 +81,7 @@ public record ModuleContentItem(
     Guid? GroupId,
     DateTimeOffset PublishAt,
     DateTimeOffset? DueAt,
+    List<DateTimeOffset> ResubmitDueAt,
     bool IsPinned,
     List<Guid> BlockedBy,
     bool HasStudentActivity,

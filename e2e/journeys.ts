@@ -178,7 +178,7 @@ export async function grade(
   level: 'Pass' | 'Distinction' | 'Fail' | null,
   needsWork = false,
 ) {
-  return await json(await teacher.post(`/api/submissions/${submissionId}/grade`, {data: {feedback, level, needsWork}}))
+  return await json(await teacher.post(`/api/submissions/${submissionId}/grade`, {data: {feedback, level, outcome: needsWork ? 'NeedsWork' : 'Graded'}}))
 }
 
 // Skriver i redigeraren (TipTap) som ett id eller en etikett pekar ut.

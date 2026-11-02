@@ -124,6 +124,7 @@ public class CourseCopyEndpointTests(TestWebApplicationFactory factory) : IClass
         var copiedAssignment = (await PartsOfAsync(db, week.Id)).Single(part => part.Content.Title == "Inlämning");
         // Källan startar 2026-01-05, målet 2026-02-02: 28 dagar.
         Assert.Equal(_due.AddDays(28), copiedAssignment.Link.DueAt);
+        Assert.Equal([_due.AddDays(35), _due.AddDays(42)], copiedAssignment.Link.ResubmitDueAt);
         Assert.Equal(new DateTimeOffset(2026, 1, 5, 8, 0, 0, TimeSpan.Zero).AddDays(28), week.PublishAt);
         var original = await db.ContentLinks.SingleAsync(link => link.Id == source.Assignment);
         Assert.Equal(_due, original.DueAt);
@@ -345,6 +346,7 @@ public class CourseCopyEndpointTests(TestWebApplicationFactory factory) : IClass
         var theoryLink = Link(theory, course.Id, week1.Id, 1);
         var assignmentLink = Link(assignment, course.Id, week1.Id, 2);
         assignmentLink.DueAt = _due;
+        assignmentLink.ResubmitDueAt = [_due.AddDays(7), _due.AddDays(14)];
         var exerciseLink = Link(exercise, course.Id, week2.Id, 1);
         db.ContentLinks.AddRange(theoryLink, assignmentLink, exerciseLink);
         db.ContentLinkDependencies.AddRange(

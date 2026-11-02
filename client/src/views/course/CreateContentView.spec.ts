@@ -26,6 +26,7 @@ const part = {
   groupId: null,
   publishAt: '2026-10-20T08:00:00Z',
   dueAt: '2026-10-23T21:59:00Z',
+  resubmitDueAt: [],
   isPinned: true,
   blockedBy: [],
   hasStudentActivity: false,

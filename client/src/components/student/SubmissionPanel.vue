@@ -11,6 +11,7 @@ import {useAsync} from '@/composables/useAsync'
 import {useToast} from '@/composables/useToast'
 import {api, errorMessage, multipart, type Schema} from '@/lib/api'
 import {formatDate} from '@/lib/content'
+import {nextResubmitDue} from '@/lib/studentCourse'
 import {formatSize} from '@/lib/material'
 import {fetchLinkSubmissions} from '@/lib/submissionsApi'
 
@@ -39,11 +40,15 @@ const onSite = computed(() => props.item.submissionModes.includes('OnSite'))
 const status = computed(() => props.item.submissionStatus ?? 'NotStarted')
 // Den som inte lämnat in, eller ska komplettera, ser formuläret direkt. En inlämnad kan välja att ändra.
 const formOpen = computed(() => hasForm.value
-  && (status.value === 'NotStarted' || status.value === 'NeedsWork' || editing.value))
+  && (status.value === 'NotStarted' || status.value === 'NotSubmitted' || status.value === 'NeedsWork' || editing.value))
 const isLate = computed(() => !!props.item.dueAt
   && status.value !== 'Graded'
   && new Date(props.item.dueAt) < new Date())
-const submitLabel = computed(() => status.value === 'NotStarted'
+// Den som ska komplettera får veta när nästa chans går ut.
+const nextResubmit = computed(() => status.value === 'NeedsWork'
+  ? nextResubmitDue(props.item)
+  : null)
+const submitLabel = computed(() => status.value === 'NotStarted' || status.value === 'NotSubmitted'
   ? 'Lämna in'
   : status.value === 'NeedsWork'
     ? 'Lämna in igen'
@@ -142,6 +147,10 @@ function onFilesChosen(event: Event) {
         Sen inlämning
       </span>
     </div>
+
+    <p v-if="nextResubmit" class="text-sm font-medium" data-test="submission-next-resubmit">
+      Nästa kompletteringsdeadline {{ formatDate(nextResubmit, true) }}
+    </p>
 
     <p v-if="onSite" class="text-muted-foreground text-sm" data-test="submission-onsite">
       Bedöms på plats av läraren.

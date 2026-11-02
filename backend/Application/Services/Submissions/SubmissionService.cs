@@ -320,7 +320,7 @@ public class SubmissionService(
         await storage.DeleteQuietlyAsync(oldKeys, logger);
     }
 
-    /// <summary>Sätter betyg, eller begär komplettering (NeedsWork) med bara feedback.</summary>
+    /// <summary>Sätter betyg, begär komplettering (NeedsWork) eller markerar ej inlämnat (NotSubmitted), de två med bara feedback.</summary>
     public async Task<ServiceResult<SubmissionDto>> GradeAsync(
         Guid submissionId, GradeSubmissionDto dto, CancellationToken ct)
     {
@@ -349,7 +349,7 @@ public class SubmissionService(
 
         // En begärd komplettering ska öppna ett arkiverat repo igen, men får inte fälla betygsättningen.
         var repo = submission.Repo ?? submission.Group?.Repo;
-        if (dto.NeedsWork && repo is not null)
+        if (dto.Outcome == GradeOutcome.NeedsWork && repo is not null)
         {
             var student = await users.GetAsync(submission.StudentId, ct);
             if (student is not null)
@@ -361,9 +361,12 @@ public class SubmissionService(
         await notifications.NotifySubmissionAsync(
             submission,
             linked.Content.Id,
-            dto.NeedsWork
-                ? NotificationKind.SubmissionNeedsWork
-                : NotificationKind.SubmissionGraded,
+            dto.Outcome switch
+            {
+                GradeOutcome.NeedsWork => NotificationKind.SubmissionNeedsWork,
+                GradeOutcome.NotSubmitted => NotificationKind.SubmissionNotSubmitted,
+                _ => NotificationKind.SubmissionGraded
+            },
             ct);
         await unitOfWork.SaveChangesAsync(ct);
         return ServiceResult<SubmissionDto>.Ok(await ToDtoAsync(submission, ct));
@@ -371,19 +374,25 @@ public class SubmissionService(
 
     private static string? CheckGrade(Submission submission, AssignmentSpec spec, GradeSubmissionDto dto)
     {
+        var outcome = dto.Outcome;
+        if (outcome == GradeOutcome.NotSubmitted)
+        {
+            return CheckNotSubmitted(submission, dto);
+        }
+
         // Vid bedömning på plats finns inget att vänta på: läraren betygsätter i klassrummet.
         var signedOffOnSite = spec.SubmissionModes.Contains(SubmissionMode.OnSite);
-        if (submission.Status == SubmissionStatus.NotStarted && !signedOffOnSite)
+        if (submission.Status is SubmissionStatus.NotStarted or SubmissionStatus.NotSubmitted && !signedOffOnSite)
         {
             return "nothing has been submitted yet";
         }
 
-        if (dto.NeedsWork && dto.Level is not null)
+        if (outcome == GradeOutcome.NeedsWork && dto.Level is not null)
         {
             return "a submission that needs work gets feedback, not a grade";
         }
 
-        if (dto.NeedsWork)
+        if (outcome == GradeOutcome.NeedsWork)
         {
             return null;
         }
@@ -395,6 +404,20 @@ public class SubmissionService(
         }
 
         return CheckLevel(spec.GradeScale, dto.Level);
+    }
+
+    // Ej inlämnat gäller en elev som aldrig lämnade in, eller som inte kompletterade. En inlämning som finns ska
+    // bedömas, inte markeras som uteblivan.
+    private static string? CheckNotSubmitted(Submission submission, GradeSubmissionDto dto)
+    {
+        if (dto.Level is not null)
+        {
+            return "a submission marked as not submitted gets feedback, not a grade";
+        }
+
+        return submission.Status is SubmissionStatus.Submitted or SubmissionStatus.Graded
+            ? "a submission that has been handed in cannot be marked as not submitted"
+            : null;
     }
 
     private void ApplyGrade(Submission submission, GradeSubmissionDto dto)
@@ -409,9 +432,12 @@ public class SubmissionService(
         submission.Grade.Level = dto.Level;
         submission.Grade.Feedback = dto.Feedback;
         submission.Grade.GradedAt = time.GetUtcNow();
-        submission.Status = dto.NeedsWork
-            ? SubmissionStatus.NeedsWork
-            : SubmissionStatus.Graded;
+        submission.Status = dto.Outcome switch
+        {
+            GradeOutcome.NeedsWork => SubmissionStatus.NeedsWork,
+            GradeOutcome.NotSubmitted => SubmissionStatus.NotSubmitted,
+            _ => SubmissionStatus.Graded
+        };
     }
 
     // Null om betyget passar skalan, annars varför inte.

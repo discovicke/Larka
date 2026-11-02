@@ -284,7 +284,7 @@ load()
                     {{ assignment.title }}
                   </span>
                   <StatusBadge
-                    v-if="assignment.status === 'Submitted' || assignment.status === 'NeedsWork'"
+                    v-if="assignment.status === 'Submitted' || assignment.status === 'NeedsWork' || assignment.status === 'NotSubmitted'"
                     class="sm:shrink-0"
                     :status="submissionStatusKey(assignment.status)"
                   />

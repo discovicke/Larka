@@ -46,7 +46,7 @@ Statusmärken (pills) visar läget hos något, och bara det. Alla lägen finns p
 | Neutral       | `outline`     | Information, inget att göra | Kommande, Pågår, Avslutad, Utkast, Delvis publicerad, Publicerad, Låst, Att göra, Inte inlämnad, Bedömd |
 | Info (blå)    | `info`        | Väntar på någon annan       | Schemalagd, Inlämnad                                                                                    |
 | Varning (gul) | `warning`     | Behöver uppmärksamhet snart | Deadline snart, Ingen lärare                                                                            |
-| Fel (röd)     | `destructive` | Behöver åtgärd nu           | Försenad, Komplettera                                                                                   |
+| Fel (röd)     | `destructive` | Behöver åtgärd nu           | Försenad, Komplettera, Ej inlämnat                                                                      |
 | Klart (grön)  | `success`     | Eleven är klar              | Klar                                                                                                    |
 
 Inga nya färger: tonerna använder de befintliga tokens `info`, `warning`, `destructive` och `success`. Avslutad är alltså neutral och inte grön, eftersom grönt bara betyder att eleven har gjort klart något.
@@ -56,7 +56,7 @@ Inga nya färger: tonerna använder de befintliga tokens `info`, `warning`, `des
 - **Kursens läge** (`lib/courseStatus.ts`): Kommande, Pågår och Avslutad är neutrala. Ingen lärare (en kurs som admin ännu inte har gett en lärare) är en varning.
 - **Publicering** (lärarvyer): Utkast, Schemalagd (med datum som text i märket), Delvis publicerad, Publicerad.
 - **Elevens framsteg**: Att göra, Låst, Klar.
-- **Inlämning och bedömning**: Inte inlämnad, Inlämnad, Komplettera, Bedömd. "Sen inlämning" är vanlig text vid inlämningsdatumet, inget läge. Bedömd visar betyget som stämpel bredvid.
+- **Inlämning och bedömning**: Inte inlämnad, Inlämnad, Komplettera, Ej inlämnat, Bedömd. Inte inlämnad är bara läget innan eleven lämnat in. Ej inlämnat sätter läraren på bedömningssidan när eleven inte lämnade in eller inte kompletterade, utan betyg men med en frivillig kommentar. "Sen inlämning" är vanlig text vid inlämningsdatumet, inget läge. Bedömd visar betyget som stämpel bredvid.
 - **Deadline**: Deadline snart (inom två dygn) och Försenad. En deadline utan läge är ett datum i klartext. Klara och inlämnade delar är aldrig försenade.
 
 GitHub-uppgiftens teststatus ingår inte än.

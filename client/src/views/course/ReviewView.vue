@@ -107,6 +107,12 @@ function checkRunClass(run: Schema<'GitHubCheckRunDto'>): string {
     : 'text-warning'
 }
 
+// Ej inlämnat går bara att sätta när inget lämnats in som väntar på bedömning.
+const canMarkNotSubmitted = computed(() => canGrade.value
+  && (submission.value?.status === 'NotStarted'
+    || submission.value?.status === 'NeedsWork'
+    || submission.value?.status === 'NotSubmitted'))
+
 const hasHandedIn = computed(() => Boolean(submission.value?.bodyMd)
   || (submission.value?.files.length ?? 0) > 0
   || Boolean(submission.value?.repo))
@@ -207,7 +213,7 @@ async function publish() {
     formError.value = 'Välj ett betyg.'
     return
   }
-  await save({feedback: feedback.value, level: level.value, needsWork: false})
+  await save({feedback: feedback.value, level: level.value, outcome: 'Graded'})
 }
 
 async function requestWork() {
@@ -216,7 +222,13 @@ async function requestWork() {
     formError.value = 'Skriv vad eleven ska komplettera.'
     return
   }
-  await save({feedback: feedback.value, level: null, needsWork: true})
+  await save({feedback: feedback.value, level: null, outcome: 'NeedsWork'})
+}
+
+// Eleven lämnade aldrig in, eller kompletterade inte. Kommentaren är frivillig och betyg sätts inte.
+async function markNotSubmitted() {
+  formError.value = ''
+  await save({feedback: feedback.value, level: null, outcome: 'NotSubmitted'})
 }
 
 // Hoppa över går till nästa utan att spara. Osparade ändringar frågar guarden om.
@@ -505,6 +517,16 @@ watch([courseId, linkId, submissionId], () => {
                 @click="requestWork"
               >
                 Begär komplettering
+              </Button>
+              <Button
+                v-if="canMarkNotSubmitted"
+                variant="outline"
+                class="w-full"
+                :disabled="saving"
+                data-test="review-not-submitted"
+                @click="markNotSubmitted"
+              >
+                Markera som ej inlämnat
               </Button>
               <Button
                 v-if="next"

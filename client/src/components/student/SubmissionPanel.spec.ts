@@ -17,6 +17,7 @@ const base: Item = {
   bodyMd: 'Gör uppgiften',
   publishAt: '2026-01-01T08:00:00Z',
   dueAt: null,
+  resubmitDueAt: [],
   isPinned: false,
   isLocked: false,
   isCompleted: false,
@@ -288,6 +289,22 @@ describe('SubmissionPanel', () => {
     expect(wrapper.find('[data-test="submission-form"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="submission-submit"]').text()).toBe('Lämna in igen')
     expect(wrapper.find('[data-test="submission-submit"]').attributes('disabled')).toBeUndefined()
+  })
+
+  it('visar nästa kompletteringsdeadline för den som ska komplettera', async () => {
+    backend([submissionOf('NeedsWork')])
+    const resubmitDueAt = ['2020-01-01T10:00:00Z', '2099-01-01T10:00:00Z']
+    const wrapper = await show({submissionStatus: 'NeedsWork', resubmitDueAt})
+
+    expect(wrapper.find('[data-test="submission-next-resubmit"]').text()).toContain('Nästa kompletteringsdeadline')
+    expect(wrapper.find('[data-test="submission-next-resubmit"]').text()).toContain('jan')
+  })
+
+  it('döljer nästa kompletteringsdeadline för den som inte ska komplettera', async () => {
+    backend([submissionOf('Submitted')])
+    const wrapper = await show({submissionStatus: 'Submitted', resubmitDueAt: ['2099-01-01T10:00:00Z']})
+
+    expect(wrapper.find('[data-test="submission-next-resubmit"]').exists()).toBe(false)
   })
 
   it('visar en bedömd inlämning skrivskyddad', async () => {

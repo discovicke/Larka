@@ -28,7 +28,9 @@ public static class PartRules
         }
 
         // Inlämnat räcker. Ett betyg (t.ex. bedömning på plats) räknas också, även om SubmittedAt saknas.
-        return submission?.SubmittedAt is not null || submission?.Status == SubmissionStatus.Graded;
+        // En inlämning som läraren markerat som ej inlämnad räknas inte, även om eleven lämnat in tidigare.
+        return submission?.Status != SubmissionStatus.NotSubmitted
+            && (submission?.SubmittedAt is not null || submission?.Status == SubmissionStatus.Graded);
     }
 
     public static bool IsManual(Content content) =>

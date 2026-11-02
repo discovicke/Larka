@@ -7,5 +7,6 @@ public enum NotificationKind
     DeadlineSoon,
     SubmissionNeedsWork,
     SubmissionGraded,
-    StudentHelpRequested
+    StudentHelpRequested,
+    SubmissionNotSubmitted
 }

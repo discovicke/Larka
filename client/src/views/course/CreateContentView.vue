@@ -191,6 +191,7 @@ async function load() {
     form.bodyMd = content.bodyMd
     form.publishAt = toDateTimeLocal(foundPart.publishAt)
     form.dueAt = toDateTimeLocal(foundPart.dueAt)
+    form.resubmitDueAt = foundPart.resubmitDueAt.map(toDateTimeLocal)
     form.gradeScale = content.assignment?.gradeScale ?? 'PassFail'
     form.submissionModes = content.assignment?.submissionModes ?? []
     form.templateRepo = content.assignment?.templateRepo ?? ''

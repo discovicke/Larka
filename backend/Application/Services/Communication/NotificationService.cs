@@ -41,7 +41,7 @@ public class NotificationService(
     public async Task NotifyContentPublishedAsync(Content content, CancellationToken ct) =>
         await NotifyPublishedAsync(content, await notifications.GetLinksAsync(content.Id, ct), ct);
 
-    /// <summary>Notis till eleven om att inlämningen bedömts (Graded) eller behöver kompletteras (NeedsWork).</summary>
+    /// <summary>Notis till eleven om att inlämningen bedömts (Graded), behöver kompletteras (NeedsWork) eller är markerad som ej inlämnad (NotSubmitted).</summary>
     public async Task NotifySubmissionAsync(
         Submission submission, Guid contentId, NotificationKind kind, CancellationToken ct)
     {

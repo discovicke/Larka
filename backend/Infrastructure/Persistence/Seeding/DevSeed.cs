@@ -246,7 +246,8 @@ public static class DevSeed
             CourseId = devOps.Id,
             ModuleId = firstWeek.Id,
             Position = 2,
-            DueAt = DateTimeOffset.UtcNow.AddDays(14)
+            DueAt = DateTimeOffset.UtcNow.AddDays(14),
+            ResubmitDueAt = [DateTimeOffset.UtcNow.AddDays(21), DateTimeOffset.UtcNow.AddDays(35)]
         };
         db.ContentLinks.AddRange(
             new ContentLink { ContentId = news.Id, GroupId = group.Id, IsPinned = true },

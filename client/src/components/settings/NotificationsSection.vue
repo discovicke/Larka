@@ -10,7 +10,7 @@ type NotificationKind = Schema<'NotificationKind'>
 
 // En rad i tabellen kan styra flera slag: betyg och begäran om komplettering hör ihop för eleven.
 const notificationRows: {id: string, label: string, kinds: NotificationKind[]}[] = [
-  {id: 'feedback', label: 'Betyg och återkoppling', kinds: ['SubmissionGraded', 'SubmissionNeedsWork']},
+  {id: 'feedback', label: 'Betyg och återkoppling', kinds: ['SubmissionGraded', 'SubmissionNeedsWork', 'SubmissionNotSubmitted']},
   {id: 'deadline', label: 'Påminnelse 24 h före deadline', kinds: ['DeadlineSoon']},
   {id: 'assignments', label: 'Nya uppgifter', kinds: ['AssignmentPublished']},
   {id: 'help', label: 'Elev ber om hjälp', kinds: ['StudentHelpRequested']},

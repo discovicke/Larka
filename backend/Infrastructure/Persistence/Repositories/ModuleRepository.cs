@@ -95,6 +95,7 @@ public class ModuleRepository(AppDb db) : IModuleRepository
                     row.Link.GroupId,
                     row.Link.PublishAt,
                     row.Link.DueAt,
+                    row.Link.ResubmitDueAt,
                     row.Link.IsPinned,
                     blockedBy.GetValueOrDefault(row.Link.Id) ?? [],
                     hasActivity.Contains(row.Link.Id),
@@ -134,7 +135,8 @@ public class ModuleRepository(AppDb db) : IModuleRepository
         var linkIds = links.Select(link => link.Id).ToList();
         var submitted = (await db.Submissions
                 .Where(submission => linkIds.Contains(submission.ContentLinkId)
-                    && submission.Status != SubmissionStatus.NotStarted)
+                    && submission.Status != SubmissionStatus.NotStarted
+                    && submission.Status != SubmissionStatus.NotSubmitted)
                 .Select(submission => new { submission.ContentLinkId, submission.StudentId })
                 .Distinct()
                 .ToListAsync(ct))

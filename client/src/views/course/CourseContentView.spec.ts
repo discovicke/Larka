@@ -27,6 +27,7 @@ const submission = {
   groupId: null,
   publishAt: '2026-01-01T08:00:00Z',
   dueAt: '2026-10-23T21:59:00Z',
+  resubmitDueAt: [],
   isPinned: false,
   blockedBy: [],
   hasStudentActivity: false,

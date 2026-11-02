@@ -194,7 +194,8 @@ internal sealed class DemoBuilder(
         None,
         Submitted,
         NeedsWork,
-        Graded
+        Graded,
+        NotSubmitted
     }
 
     public void Build()
@@ -413,9 +414,11 @@ internal sealed class DemoBuilder(
         SubmissionPattern.Finished => Outcome.Graded,
         SubmissionPattern.MostlyGraded => isPublicStudent
             ? Outcome.Graded
-            : roll < 5
+            : roll < 2
                 ? Outcome.None
-                : roll < 12
+                : roll < 5
+                    ? Outcome.NotSubmitted
+                    : roll < 12
                     ? Outcome.NeedsWork
                     : Outcome.Graded,
         SubmissionPattern.Queue => isPublicStudent
@@ -456,15 +459,18 @@ internal sealed class DemoBuilder(
             {
                 Outcome.Graded => SubmissionStatus.Graded,
                 Outcome.NeedsWork => SubmissionStatus.NeedsWork,
+                Outcome.NotSubmitted => SubmissionStatus.NotSubmitted,
                 _ => SubmissionStatus.Submitted
             },
-            SubmittedAt = submittedAt,
-            BodyMd = spec.Modes.Contains(SubmissionMode.Text)
+            SubmittedAt = outcome == Outcome.NotSubmitted
+                ? null
+                : submittedAt,
+            BodyMd = outcome != Outcome.NotSubmitted && spec.Modes.Contains(SubmissionMode.Text)
                 ? spec.Answers[roll % spec.Answers.Length]
                 : null
         };
 
-        if (outcome is Outcome.Graded or Outcome.NeedsWork)
+        if (outcome is Outcome.Graded or Outcome.NeedsWork or Outcome.NotSubmitted)
         {
             var gradedAt = Earlier((due > submittedAt
                 ? due
@@ -477,7 +483,9 @@ internal sealed class DemoBuilder(
                 SubmissionId = submission.Id,
                 GradedById = teacher.Id,
                 Level = level,
-                Feedback = FeedbackFor(spec, level, roll),
+                Feedback = outcome == Outcome.NotSubmitted
+                    ? DemoCatalog.NotSubmittedFeedback[roll % DemoCatalog.NotSubmittedFeedback.Length]
+                    : FeedbackFor(spec, level, roll),
                 GradedAt = gradedAt
             };
             _graded.Add(new GradedItem(student.Id, link, submission, gradedAt));
@@ -661,9 +669,12 @@ internal sealed class DemoBuilder(
 
         foreach (var graded in _graded.Where(item => item.StudentId == publicStudent.Id && item.GradedAt >= since))
         {
-            var kind = graded.Submission.Status == SubmissionStatus.Graded
-                ? NotificationKind.SubmissionGraded
-                : NotificationKind.SubmissionNeedsWork;
+            var kind = graded.Submission.Status switch
+            {
+                SubmissionStatus.Graded => NotificationKind.SubmissionGraded,
+                SubmissionStatus.NotSubmitted => NotificationKind.SubmissionNotSubmitted,
+                _ => NotificationKind.SubmissionNeedsWork
+            };
             AddNotification(
                 publicStudent,
                 kind,

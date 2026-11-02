@@ -66,6 +66,7 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
         string Status,
         DateTimeOffset PublishAt,
         DateTimeOffset? DueAt,
+        List<DateTimeOffset> ResubmitDueAt,
         bool IsPinned,
         List<Guid> BlockedBy);
 
@@ -777,6 +778,73 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var item = (await GetModulesAsync(courseId)).Single().Content.Single();
         Assert.Equal((publishAt, dueAt, true), (item.PublishAt, item.DueAt, item.IsPinned));
+    }
+
+    [Fact]
+    public async Task UpdateContentLink_SavesResubmitDeadlinesSortedAscending()
+    {
+        var courseId = await AddCourseAsync();
+        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var content = await CreateAssignmentAsync("Labb", submissionModes: ["file"]);
+        var link = await LinkToModuleAsync(content.Id, courseId, week.Id);
+        var dueAt = new DateTimeOffset(2027, 1, 9, 17, 0, 0, TimeSpan.Zero);
+        var first = dueAt.AddDays(7);
+        var second = dueAt.AddDays(14);
+
+        var response = await _client.PutAsJsonAsync(
+            $"/api/content/{content.Id}/links/{link.Id}",
+            new { dueAt, resubmitDueAt = new[] { second, first } });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var item = (await GetModulesAsync(courseId)).Single().Content.Single();
+        Assert.Equal([first, second], item.ResubmitDueAt);
+    }
+
+    [Fact]
+    public async Task UpdateContentLink_WithoutResubmitDeadlines_KeepsTheSavedOnes()
+    {
+        var courseId = await AddCourseAsync();
+        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var content = await CreateAssignmentAsync("Labb", submissionModes: ["file"]);
+        var link = await LinkToModuleAsync(content.Id, courseId, week.Id);
+        var dueAt = new DateTimeOffset(2027, 1, 9, 17, 0, 0, TimeSpan.Zero);
+        var resubmit = dueAt.AddDays(7);
+        var url = $"/api/content/{content.Id}/links/{link.Id}";
+        await _client.PutAsJsonAsync(url, new { dueAt, resubmitDueAt = new[] { resubmit } });
+
+        var kept = await _client.PutAsJsonAsync(url, new { dueAt, isPinned = true });
+        Assert.Equal(HttpStatusCode.OK, kept.StatusCode);
+        Assert.Equal([resubmit], (await GetModulesAsync(courseId)).Single().Content.Single().ResubmitDueAt);
+
+        var cleared = await _client.PutAsJsonAsync(url, new { dueAt, resubmitDueAt = Array.Empty<DateTimeOffset>() });
+        Assert.Equal(HttpStatusCode.OK, cleared.StatusCode);
+        Assert.Empty((await GetModulesAsync(courseId)).Single().Content.Single().ResubmitDueAt);
+    }
+
+    [Fact]
+    public async Task UpdateContentLink_WithInvalidResubmitDeadlines_ReturnsBadRequest()
+    {
+        var courseId = await AddCourseAsync();
+        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var content = await CreateAssignmentAsync("Labb", submissionModes: ["file"]);
+        var link = await LinkToModuleAsync(content.Id, courseId, week.Id);
+        var dueAt = new DateTimeOffset(2027, 1, 9, 17, 0, 0, TimeSpan.Zero);
+        var later = dueAt.AddDays(7);
+
+        var invalid = new object[]
+        {
+            new { resubmitDueAt = new[] { later } },
+            new { dueAt, resubmitDueAt = new[] { dueAt } },
+            new { dueAt, resubmitDueAt = new[] { dueAt.AddDays(-1) } },
+            new { dueAt, resubmitDueAt = new[] { later, later } },
+            new { dueAt, resubmitDueAt = Enumerable.Range(1, 6).Select(day => dueAt.AddDays(day)).ToArray() }
+        };
+        foreach (var body in invalid)
+        {
+            var response = await _client.PutAsJsonAsync($"/api/content/{content.Id}/links/{link.Id}", body);
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
     }
 
     [Fact]

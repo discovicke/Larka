@@ -39,6 +39,7 @@ describe('roadmap', () => {
       groupId: null,
       publishAt: '2026-01-01T08:00:00Z',
       dueAt: null,
+      resubmitDueAt: [],
       isPinned: false,
       blockedBy: [],
       hasStudentActivity: false,

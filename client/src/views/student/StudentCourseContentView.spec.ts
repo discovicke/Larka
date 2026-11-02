@@ -22,6 +22,7 @@ interface StudentItem {
   bodyMd: string | null
   publishAt: string
   dueAt: string | null
+  resubmitDueAt: string[]
   isPinned: boolean
   isLocked: boolean
   isCompleted: boolean
@@ -50,6 +51,7 @@ const theory: StudentItem = {
   bodyMd: 'Läs kapitel 1',
   publishAt: '2026-01-01T08:00:00Z',
   dueAt: null,
+  resubmitDueAt: [],
   isPinned: false,
   isLocked: false,
   isCompleted: false,

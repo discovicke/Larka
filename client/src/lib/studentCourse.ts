@@ -161,6 +161,18 @@ export function dueLabel(item: Item): string {
     : ''
 }
 
+/** "Kompletteringar: 15 nov 23:59, 29 nov 23:59", tom om delen saknar kompletteringsdeadlines. */
+export function resubmitLabel(item: Pick<Item, 'resubmitDueAt'>): string {
+  return item.resubmitDueAt.length > 0
+    ? `Kompletteringar: ${item.resubmitDueAt.map((value) => formatDate(value, true)).join(', ')}`
+    : ''
+}
+
+/** Nästa kompletteringsdeadline som inte har passerat, för den som ska komplettera. */
+export function nextResubmitDue(item: Pick<Item, 'resubmitDueAt'>, now = new Date()): string | null {
+  return item.resubmitDueAt.find((value) => new Date(value) > now) ?? null
+}
+
 // Klar eller inlämnad är inte försenad, så deadlinen får inget läge då.
 function isDone(item: Item): boolean {
   return item.isCompleted || item.submissionStatus === 'Submitted' || item.submissionStatus === 'Graded'

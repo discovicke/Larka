@@ -72,9 +72,11 @@ export function assignmentStatus(assignment: StudyPlanAssignment, now = new Date
       return 'Komplettera'
     case 'Submitted':
       return 'Inlämnad'
+    case 'NotSubmitted':
+      return 'Ej inlämnat'
     default:
       if (!assignment.dueAt) {
-        return 'Ej inlämnad'
+        return 'Inte inlämnad'
       }
       return new Date(assignment.dueAt) >= now
         ? `Pågår · deadline ${shortDate(assignment.dueAt)}`

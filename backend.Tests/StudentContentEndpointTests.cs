@@ -286,7 +286,7 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
 
         var submission = await SubmitTextAsync(setup, studentId, assignment, "Mitt svar");
         await _client.PostAsJsonAsync(
-            $"/api/submissions/{submission.Id}/grade", new { needsWork = true, feedback = "Komplettera" });
+            $"/api/submissions/{submission.Id}/grade", new { outcome = "needsWork", feedback = "Komplettera" });
 
         var content = (await GetStudentModulesAsync(setup, studentId)).Single().Content;
         Assert.True(content.Single(item => item.LinkId == exercise).IsLocked);

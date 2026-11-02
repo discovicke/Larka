@@ -125,6 +125,7 @@ public class CourseCopyService(
                     Position = part.Link.Position,
                     PublishAt = part.Link.PublishAt + shift,
                     DueAt = part.Link.DueAt + shift,
+                    ResubmitDueAt = part.Link.ResubmitDueAt.Select(value => value + shift).ToList(),
                     IsPinned = part.Link.IsPinned
                 };
                 contents.AddLink(link);

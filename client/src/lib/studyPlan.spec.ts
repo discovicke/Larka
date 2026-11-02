@@ -4,11 +4,12 @@ import {assignmentStatus, coursePeriod, courseStatusLabel, gradeText, shortDate}
 
 const now = new Date('2026-10-27T12:00:00Z')
 
-function assignment(status: 'NotStarted' | 'Submitted' | 'NeedsWork' | 'Graded', dueAt: string | null = null) {
+function assignment(status: 'NotStarted' | 'Submitted' | 'NeedsWork' | 'Graded' | 'NotSubmitted', dueAt: string | null = null) {
   return {
     linkId: 'l1',
     title: 'Laboration',
     dueAt,
+    resubmitDueAt: [] as string[],
     status,
     grade: status === 'Graded'
       ? 'Pass' as const
@@ -65,12 +66,13 @@ describe('assignmentStatus', () => {
       .toBe('Pågår · deadline 6 nov')
     expect(assignmentStatus(assignment('NotStarted', '2026-10-23T16:00:00Z'), now))
       .toBe('Deadline passerade 23 okt')
-    expect(assignmentStatus(assignment('NotStarted'), now)).toBe('Ej inlämnad')
+    expect(assignmentStatus(assignment('NotStarted'), now)).toBe('Inte inlämnad')
   })
 
   it('visar inlämnad, komplettering och betyg', () => {
     expect(assignmentStatus(assignment('Submitted'), now)).toBe('Inlämnad')
     expect(assignmentStatus(assignment('NeedsWork'), now)).toBe('Komplettera')
     expect(assignmentStatus(assignment('Graded'), now)).toBe('Godkänd')
+    expect(assignmentStatus(assignment('NotSubmitted'), now)).toBe('Ej inlämnat')
   })
 })
