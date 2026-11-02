@@ -1,26 +1,14 @@
 #!/usr/bin/env bash
 # Registrerar Lärka i skolans Microsoft Entra ID, eller uppdaterar registreringen om den redan finns.
 #
-# Körs en gång av skolans Entra-admin:
-#   az login            (som admin i skolans tenant)
-#   gh auth login       (med rätt att ändra repots miljö production)
-#   infra/entra-setup.sh
+#   az login                                        # i skolans tenant
+#   APP_URL=https://larka.skolan.se infra/entra-setup.sh
 #
-# Skriptet skapar en app som bara skolans egna konton kan logga in med (single-tenant), med plattformen
-# Single-page application och bara inloggningsbehörigheter (openid, profile, email, offline_access). Ingen
-# hemlighet behövs: klienten loggar in med MSAL och backend byter Microsofts ID-token mot Lärkas eget token.
-# Sist skrivs Auth__Entra__ClientId, TenantId, AdminObjectId (ditt object id) och SchoolName ut. Med GitHub sparas
-# de också i GitHub-miljön production, och nästa deploy (.github/scripts/render-deploy.sh) skickar dem till Render.
-# Kör du Lärka någon annanstans, sätt SKIP_GITHUB=1 och lägg raderna i appens miljö (docs/drift.md).
+# Appen är single-tenant, plattformen Single-page application, med bara inloggningsbehörigheter och ingen hemlighet.
+# Sist skrivs fyra rader Auth__Entra__... ut. Lägg dem där appens inställningar finns: Infisical (prod) för vår demo,
+# deploy/.env på en egen server. Den som kör skriptet blir skolans första admin vid sin första inloggning.
 #
-# Den som kör skriptet blir skolans första admin: första gången du loggar in med Microsoft kopplas skolan till
-# tenanten, får organisationens namn, och du blir admin. Ingen behöver logga in med lösenord.
-#
-# Valfritt:
-#   APP_URL          appens adress i prod. Standard: variabeln APP_URL i GitHub-miljön production
-#   ENTRA_APP_NAME   appens namn i Entra. Standard: Lärka
-#   SCHOOL_NAME      skolans namn i Lärka. Standard: organisationens namn i Entra ID
-#   SKIP_GITHUB=1    skriv bara ut värdena, ändra inget i GitHub
+# Valfritt: ENTRA_APP_NAME (standard Lärka), SCHOOL_NAME (standard organisationens namn i Entra ID).
 set -euo pipefail
 
 command -v az >/dev/null || { echo "Azure CLI (az) saknas." >&2; exit 1; }
@@ -34,10 +22,7 @@ LOCAL_URL=http://localhost:5173
 # Microsoft skickar tillbaka till inloggningssidan, där klienten tar emot svaret.
 REDIRECT_PATH=/login
 
-if [ -z "${APP_URL:-}" ] && [ -z "${SKIP_GITHUB:-}" ]; then
-  APP_URL=$(gh variable get APP_URL --env production)
-fi
-: "${APP_URL:?saknas, sätt APP_URL=https://... eller variabeln APP_URL i GitHub-miljön production}"
+: "${APP_URL:?saknas, sätt APP_URL=https://...}"
 APP_URL=${APP_URL%/}
 
 tenant=$(az account show --query tenantId -o tsv)
@@ -115,17 +100,5 @@ settings=$(printf '%s\n' \
   "Auth__Entra__SchoolName=$school_name")
 echo
 echo "$settings"
-
-if [ -n "${SKIP_GITHUB:-}" ]; then
-  echo
-  echo "Lägg raderna i appens miljö: .env på en egen server, eller värdtjänstens inställningar (docs/drift.md)."
-  exit 0
-fi
-
-while IFS='=' read -r key value; do
-  if [ -n "$value" ]; then
-    gh variable set "$key" --env production --body "$value"
-  fi
-done <<<"$settings"
-echo "Sparade i GitHub-miljön production. Nästa deploy skickar dem till Render."
-echo "Logga sedan in på $APP_URL med Microsoft. Du blir admin och skolan kopplas till tenanten."
+echo
+echo "Lägg raderna i appens inställningar och starta om appen. Logga sedan in på $APP_URL med Microsoft."

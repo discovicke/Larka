@@ -84,15 +84,15 @@ Kör inte Postgres i samma container som appen. App Service raderar containerns 
 
 ### Exempel: vår demo
 
-Render kör imagen och Supabase har databasen och filerna. Inställningarna ligger i GitHub-miljön `production` och skickas till Render vid varje deploy. Se [deploy.md](deploy.md).
+Render kör imagen och Supabase har databasen och filerna. Inställningarna ligger i Infisical och skickas till Render vid varje deploy. Se [deploy.md](deploy.md).
 
 ## Microsoft-inloggning
 
-Registrera Lärka i skolans Entra ID med [`infra/entra-setup.sh`](../infra/entra-setup.sh), inloggad med Azure CLI i skolans tenant. Utan GitHub skriver skriptet bara ut inställningarna:
+Registrera Lärka i skolans Entra ID med [`infra/entra-setup.sh`](../infra/entra-setup.sh), inloggad med Azure CLI i skolans tenant:
 
 ```bash
 az login
-SKIP_GITHUB=1 APP_URL=https://larka.skolan.se infra/entra-setup.sh
+APP_URL=https://larka.skolan.se infra/entra-setup.sh
 ```
 
 Lägg de fyra raderna `Auth__Entra__…` i `.env` eller i molntjänstens inställningar och starta om appen. Första gången du som körde skriptet loggar in med Microsoft kopplas skolan till tenanten och du blir admin. Alla andra blir elever. Mer i [deploy.md](deploy.md#microsoft-inloggning).

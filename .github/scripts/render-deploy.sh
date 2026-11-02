@@ -2,15 +2,46 @@
 # Deployar en image till Render, väntar tills den är live och kontrollerar att rätt version svarar.
 # Körs av deploy-jobbet i cd.yml. Misslyckas en deploy behåller Render den gamla versionen live.
 #
-# Appens inställningar kommer från GitHub-miljön production: varje variabel (APP_VARS) och hemlighet (APP_SECRETS)
-# med __ i namnet är en nyckel i appen (AUTH__JWT__KEY blir Auth:Jwt:Key, .NET bryr sig inte om versaler). Alla
-# skickas till Render, så en ny inställning behöver bara läggas i miljön. Övriga namn (RENDER_API_KEY, APP_URL) är
-# deployens egna och skickas inte. GitHub tillåter inga namn som börjar på GITHUB_, så ett inledande LARKA_ tas bort:
-# LARKA_GITHUB__APPID blir GITHUB__APPID (GitHub:AppId).
+# Inställningarna kommer från Infisical (projektet Lärka, miljön prod). Jobbet loggar in med GitHubs OIDC-token, så
+# ingen hemlighet ligger i GitHub. Mappen /deploy har deployens egna nycklar. Roten är appens inställningar, och
+# Render får exakt dem: allt som inte finns i Infisical tas bort från tjänsten.
 set -euo pipefail
 
-: "${RENDER_API_KEY:?saknas}" "${RENDER_SERVICE_ID:?saknas, kör infra/render-setup.sh}" "${APP_URL:?saknas}"
+: "${INFISICAL_IDENTITY_ID:?saknas}" "${INFISICAL_PROJECT_ID:?saknas}" "${APP_URL:?saknas}"
 : "${IMAGE:?saknas}" "${EXPECTED_VERSION:?saknas}" "${EXPECTED_COMMIT:?saknas}"
+INFISICAL=https://eu.infisical.com/api
+
+github_token=$(curl -fsS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL" |
+  jq -r .value)
+infisical_token=$(curl -fsS -X POST "$INFISICAL/v1/auth/oidc-auth/login" -H "Content-Type: application/json" \
+  -d "$(jq -n --arg id "$INFISICAL_IDENTITY_ID" --arg jwt "$github_token" '{identityId: $id, jwt: $jwt}')" |
+  jq -r .accessToken)
+
+# Hemligheterna under en sökväg som {nyckel: värde} i en fil. Längre värden maskas i loggen.
+secrets() {
+  curl -fsS -H "Authorization: Bearer $infisical_token" \
+    "$INFISICAL/v4/secrets?projectId=$INFISICAL_PROJECT_ID&environment=prod&secretPath=$1" |
+    jq '.secrets | map({(.secretKey): .secretValue}) | add // {}' >"$2"
+  jq -r '.[] | select(length > 8)' "$2" | while IFS= read -r value; do echo "::add-mask::$value"; done
+}
+
+workdir=$(mktemp -d)
+trap 'rm -rf "$workdir"' EXIT
+secrets /deploy "$workdir/deploy.json"
+secrets / "$workdir/settings.json"
+deploy=$(cat "$workdir/deploy.json")
+settings=$(cat "$workdir/settings.json")
+RENDER_API_KEY=$(jq -r '.RENDER_API_KEY // empty' <<<"$deploy")
+RENDER_SERVICE_ID=$(jq -r '.RENDER_SERVICE_ID // empty' <<<"$deploy")
+: "${RENDER_API_KEY:?saknas i Infisical prod /deploy}" "${RENDER_SERVICE_ID:?saknas i Infisical prod /deploy}"
+
+# Utan dessa startar appen inte, så stoppa innan något ändras.
+for required in ConnectionStrings__Default Auth__Jwt__Key; do
+  if [ -z "$(jq -r --arg key "$required" '.[$key] // empty' <<<"$settings")" ]; then
+    echo "::error::$required saknas i Infisical prod"
+    exit 1
+  fi
+done
 
 API="https://api.render.com/v1/services/$RENDER_SERVICE_ID"
 
@@ -18,31 +49,10 @@ api() {
   curl -fsS -H "Authorization: Bearer $RENDER_API_KEY" -H "Content-Type: application/json" "$@"
 }
 
-empty_json='{}'
-settings=$(jq -n --argjson vars "${APP_VARS:-$empty_json}" --argjson secrets "${APP_SECRETS:-$empty_json}" \
-  '$vars + $secrets | with_entries(select(.key | contains("__")) | .key |= ltrimstr("LARKA_"))')
-
-# Utan dessa startar appen inte, så stoppa innan något ändras.
-for required in CONNECTIONSTRINGS__DEFAULT AUTH__JWT__KEY; do
-  if [ "$(jq -r --arg key "$required" 'with_entries(.key |= ascii_upcase) | .[$key] // empty' <<<"$settings")" = "" ]; then
-    echo "::error::$required saknas i GitHub-miljön production"
-    exit 1
-  fi
-done
-
-# Samma nyckel med andra versaler (Auth__Jwt__Key från förr, AUTH__JWT__KEY från GitHub) skulle ge två variabler som
-# .NET läser i okänd ordning. Den gamla stavningen tas bort, och resten av tjänstens variabler lämnas orörda.
-existing=$(api "$API/env-vars?limit=100" | jq -r '.[].envVar.key')
-while IFS= read -r key; do
-  for old in $existing; do
-    if [ "$old" != "$key" ] && [ "${old^^}" = "${key^^}" ]; then
-      api -X DELETE "$API/env-vars/$old" >/dev/null
-      echo "Tog bort $old (ersätts av $key)"
-    fi
-  done
-  api -X PUT "$API/env-vars/$key" -d "$(jq --arg key "$key" '{value: .[$key]}' <<<"$settings")" >/dev/null
-done < <(jq -r 'keys[]' <<<"$settings")
-echo "Skickade $(jq 'length' <<<"$settings") inställningar till Render"
+# Ersätter alla variabler på tjänsten. PORT och miljön hör till Render, inte till appens inställningar.
+api -X PUT "$API/env-vars" -d "$(jq '. + {ASPNETCORE_ENVIRONMENT: "Production", PORT: "8080"} |
+  to_entries | map({key, value})' <<<"$settings")" >/dev/null
+echo "Render har nu $(jq 'length' <<<"$settings") inställningar från Infisical"
 
 echo "Deployar $IMAGE"
 response=$(api -X POST "$API/deploys" -d "$(jq -n --arg image "$IMAGE" '{imageUrl: $image}')")

@@ -146,22 +146,23 @@ jobs:
     name: 'Deploy to Render'
     needs: [release, image]
     runs-on: ubuntu-latest
+    # id-token: jobbet loggar in i Infisical med GitHubs OIDC-token och hämtar inställningarna därifrån.
+    permissions:
+      contents: read
+      id-token: write
     environment:
       name: production
-      url: ${{ vars.APP_URL }}
+      url: https://net25-devops-grupp-4.onrender.com
     steps:
       - uses: actions/checkout@v5
 
       - name: Deploy to Render
         run: .github/scripts/render-deploy.sh
         env:
-          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
-          APP_URL: ${{ vars.APP_URL }}
-          # Appens inställningar: varje variabel och hemlighet i miljön production med __ i namnet, under appens
-          # egen nyckel (Auth__Jwt__Key). Skriptet skickar dem alla till Render. Se docs/konfiguration.md.
-          APP_VARS: ${{ toJSON(vars) }}
-          APP_SECRETS: ${{ toJSON(secrets) }}
+          APP_URL: https://net25-devops-grupp-4.onrender.com
+          # Infisical: projektet Lärka och identiteten github-actions-deploy. Inget av det är hemligt.
+          INFISICAL_PROJECT_ID: 4105773d-b93d-46cc-b1e1-0f245e87759c
+          INFISICAL_IDENTITY_ID: bdc28c77-5158-4167-96dd-d4f79a82f293
           IMAGE: ${{ needs.image.outputs.image }}
           EXPECTED_VERSION: ${{ needs.release.outputs.version }}
           EXPECTED_COMMIT: ${{ github.sha }}

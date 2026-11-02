@@ -4,29 +4,18 @@ Alla inställningar för backend, var de sätts och vilka som är hemligheter.
 
 ## Så läses inställningarna
 
-Backend läser i ordning, där det sista vinner:
+Backend läser `appsettings.json`, sedan `appsettings.Development.json` (bara lokalt) och sist miljövariabler, där det sista vinner. `Auth:Jwt:Key` i JSON heter `Auth__Jwt__Key` som miljövariabel.
 
-1. `appsettings.json`
-2. `appsettings.Development.json` (bara lokalt, `ASPNETCORE_ENVIRONMENT=Development`)
-3. user-secrets (bara lokalt)
-4. miljövariabler (Render, Docker, `.env`)
+- **`appsettings.json`:** hur appen beter sig, samma överallt (jobbens intervall, tokenets livslängd).
+- **Miljövariabler:** det som skiljer mellan installationer, och alla hemligheter. [`deploy/.env.example`](../deploy/.env.example) listar dem.
 
-En nyckel skrivs med `:` i JSON och user-secrets och med `__` som miljövariabel: `Auth:Jwt:Key` blir `Auth__Jwt__Key`. Versaler spelar ingen roll.
+Var miljövariablerna kommer ifrån:
 
-### Var värdena hör hemma
-
-| Sort                                  | Var                        | Exempel                               |
-| ------------------------------------- | -------------------------- | ------------------------------------- |
-| Hur appen beter sig, samma överallt   | `appsettings.json` i repot | jobbens intervall, tokenets livslängd |
-| Det som skiljer mellan installationer | miljön där appen körs      | connection string, tenant, fillagring |
-| Hemligheter                           | miljön, aldrig i repot     | JWT-nyckeln, databasens lösenord      |
-
-[`deploy/.env.example`](../deploy/.env.example) är listan över det en installation ställer in. Den används som den är på en egen server (`deploy/.env`), och samma nycklar läggs i värdtjänstens inställningar i molnet ([drift.md](drift.md)). Lokalt ligger hemligheterna i user-secrets, och i vår prod i GitHub-miljön `production` (se [GitHub Actions](#github-actions)).
-
-```bash
-dotnet user-secrets set <Nyckel> "<värde>" --project backend
-dotnet user-secrets list --project backend
-```
+| Var               | Källa                                                                                                                                    |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Lokalt            | Inget behövs. Valfria hemligheter: `infisical run -- dotnet run --project backend` (miljön `dev`)                                        |
+| Vår prod (Render) | Infisical, projektet Lärka, miljön `prod`. Deployen hämtar dem och ersätter Renders inställningar ([deploy.md](deploy.md#inställningar)) |
+| En skolas server  | `deploy/.env` ([drift.md](drift.md))                                                                                                     |
 
 ## Backend
 
@@ -149,18 +138,4 @@ arkivera och hantera elevrepon. Mallrepon ska vara privata och markerade som **T
 
 ## GitHub Actions
 
-Miljön `production` håller allt deployen behöver. Två sorters namn:
-
-- **Appens inställningar** heter som appens nycklar, med `__`: `AUTH__JWT__KEY`, `CONNECTIONSTRINGS__DEFAULT`, `AUTH__ENTRA__TENANTID` (GitHub sparar namnen med versaler). Hemligheter som secrets, resten som variabler. Deployen skickar **alla** namn med `__` till Render, så en ny inställning läggs bara i miljön, inget skript ändras. Lägg därför inget annat med `__` i miljön. GitHub tillåter inga namn som börjar på `GITHUB_`, så GitHub-integrationens nycklar får prefixet `LARKA_`, som tas bort: `LARKA_GITHUB__APPID` blir `GitHub:AppId`.
-- **Deployens egna** saknar `__` och skickas inte vidare:
-
-| Namn                | Typ      | Var                 | Används av                     |
-| ------------------- | -------- | ------------------- | ------------------------------ |
-| `RENDER_API_KEY`    | secret   | miljön `production` | deploy: Render API             |
-| `RENDER_SERVICE_ID` | secret   | miljön `production` | deploy: vilken tjänst          |
-| `APP_URL`           | variabel | miljön `production` | deploy: kontroll av `/version` |
-| `E2E_BASE_URL`      | variabel | repot               | E2E-workflowen (valfri)        |
-
-`CONNECTIONSTRINGS__DEFAULT` och `AUTH__JWT__KEY` måste finnas, annars stoppar deployen innan något ändras. I vår prod finns också `STORAGE__SUPABASE__URL`, `STORAGE__SUPABASE__SERVICEROLEKEY`, `AUTH__ENTRA__*` och `DATABASE__SEEDDEMODATA=true`. GitHub-integrationens nycklar ligger som `LARKA_GITHUB__*`.
-
-`GITHUB_TOKEN` kommer från Actions och används för semantic-release och för att pusha imagen till GHCR.
+Workflows har inga egna hemligheter. Deployen loggar in i Infisical med GitHubs OIDC-token. `GITHUB_TOKEN` används för semantic-release och för att pusha imagen till GHCR. Repo-variabeln `E2E_BASE_URL` (valfri) styr vart E2E-testerna går.

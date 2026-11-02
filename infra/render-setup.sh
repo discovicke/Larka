@@ -9,9 +9,7 @@
 #   GHCR_USERNAME      GitHub-användaren som äger GHCR_TOKEN
 #   GHCR_TOKEN         GitHub classic token med bara read:packages
 #
-# Appens inställningar (databas, nycklar, Microsoft, fillagring) sätts inte här. De ligger i GitHub-miljön production
-# under appens egna nycklar, och deployen (.github/scripts/render-deploy.sh) skickar dem till Render. Se
-# docs/konfiguration.md.
+# Appens inställningar sätts inte här. De ligger i Infisical (prod), och deployen skickar dem till Render.
 set -euo pipefail
 
 : "${RENDER_API_KEY:?saknas}" "${GHCR_USERNAME:?saknas}" "${GHCR_TOKEN:?saknas}"
@@ -76,4 +74,4 @@ url=$(api "$API/services/$service" | jq -r '.serviceDetails.url')
 echo
 echo "RENDER_SERVICE_ID=$service"
 echo "URL=$url"
-echo "Lägg RENDER_SERVICE_ID som secret och URL som variabeln APP_URL i GitHub-miljön production. Kör sedan en deploy."
+echo "Lägg RENDER_SERVICE_ID i Infisical (prod, /deploy) och kör en deploy."

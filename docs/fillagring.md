@@ -21,11 +21,6 @@ Lagringen väljs så här: Supabase när `Storage:Supabase:Url` och `ServiceRole
 
 Med `Storage:Disk:Path` (till exempel `/data/files`, en volym i Docker) sparas varje fil i mappen under sin nyckel, med innehållstypen i en fil bredvid (`.type`). Länkarna ser ut som `/files/{nyckel}?expires=...&sig=...` och lämnas ut av appen själv (`FileEndpoints`). Signaturen är en HMAC som härleds ur `Auth:Jwt:Key`, så ingen ny hemlighet behövs. En länk som har ändrats, gått ut eller pekar utanför mappen ger `404`. Säkerhetskopiera mappen tillsammans med databasen.
 
-För att köra mot Supabase lokalt: skapa en privat bucket, t.ex. `files`, i Supabase-projektet och ställ in:
-
-```bash
-dotnet user-secrets set Storage:Supabase:Url "https://<projekt>.supabase.co" --project backend
-dotnet user-secrets set Storage:Supabase:ServiceRoleKey "<service role key>" --project backend
-```
+För att köra mot Supabase lokalt: skapa en privat bucket, t.ex. `files`, och lägg `Storage__Supabase__Url` och `Storage__Supabase__ServiceRoleKey` i Infisical (`dev`), se [utveckling.md](utveckling.md).
 
 Service role-nyckeln går förbi Supabases row level security och är en hemlighet. Var den sätts i prod: [konfiguration.md](konfiguration.md#fillagring).

@@ -27,11 +27,11 @@ Alla tidigare migrationer är hopslagna till en baslinje, `Baseline`. Dess id ä
 
 Börja om från en tom lokal databas: `docker compose down -v && npm run db`.
 
-Vill du köra mot en annan databas, t.ex. Supabase, lägg connection string i user-secrets så att den aldrig hamnar i repot. Stäng av exempeldatan, annars läggs den in om databasen saknar grupper:
+Hemligheter behövs inte lokalt. Vill du köra mot något annat, till exempel Supabase eller GitHub-sandlådan, lägg nycklarna i Infisical (projektet Lärka, miljön `dev`) och starta backend genom Infisicals CLI, som lägger dem i miljön:
 
 ```bash
-dotnet user-secrets set ConnectionStrings:Default "Host=...;Port=5432;..." --project backend
-dotnet user-secrets set Database:SeedDevData false --project backend
+infisical login
+infisical run -- dotnet run --project backend
 ```
 
 Alla inställningar finns i [konfiguration.md](konfiguration.md).
