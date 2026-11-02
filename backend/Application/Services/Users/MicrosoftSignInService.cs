@@ -117,11 +117,13 @@ public partial class MicrosoftSignInService(
             new MicrosoftLoginResultDto(tokens.CreateToken(user), tokens.ExpiresAt, firstSignIn));
     }
 
-    // Skolan från migrationen, om den inte redan hör till en annan tenant. Sparas med användaren.
+    // Skolan från migrationen. Anropas bara när ingen skola har tenanten, så en tenant som skolan redan har är en
+    // gammal (till exempel när appen har flyttats till en ny tenant). Ingen kan logga in med den, och den byts ut.
+    // Sparas med användaren.
     private async Task<School?> LinkDefaultSchoolAsync(MicrosoftSignInSettings settings, CancellationToken ct)
     {
         var school = await schools.GetDefaultAsync(ct);
-        if (school is null || school.EntraTenantId is not null)
+        if (school is null)
         {
             return null;
         }

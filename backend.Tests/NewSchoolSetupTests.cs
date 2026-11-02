@@ -73,6 +73,27 @@ public class NewSchoolSetupTests(NewSchoolWebApplicationFactory factory)
         Assert.False(users.ContainsKey("tidig@nyaskolan.se"));
     }
 
+    [Fact]
+    public async Task SetupAdmin_RelinksASchoolThatPointsAtAnOldTenant()
+    {
+        using (var scope = factory.Services.CreateScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<AppDb>().Schools
+                .Where(row => row.Id == PlaceholderIds.SchoolId)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(row => row.EntraTenantId, "gammal-tenant"));
+        }
+
+        var blocked = await SignInAsync(Guid.NewGuid().ToString(), "annan@nyaskolan.se");
+        var admin = await SignInAsync(NewSchoolWebApplicationFactory.AdminObjectId, "it.admin@nyaskolan.se");
+
+        Assert.Equal(HttpStatusCode.Forbidden, blocked.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, admin.StatusCode);
+        using var check = factory.Services.CreateScope();
+        var school = await check.ServiceProvider.GetRequiredService<AppDb>().Schools
+            .SingleAsync(row => row.Id == PlaceholderIds.SchoolId);
+        Assert.Equal(MicrosoftTestWebApplicationFactory.TenantId, school.EntraTenantId);
+    }
+
     private Task<HttpResponseMessage> SignInAsync(string oid, string email) =>
         _client.PostAsJsonAsync(
             "/api/auth/microsoft",
