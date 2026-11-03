@@ -66,13 +66,13 @@ Testerna startar en tillfällig Postgres med Testcontainers (en container per k�
 
 ### E2E: tre användarflöden
 
-[`e2e/`](../e2e) har tre Playwright-tester som tillsammans följer kärnan i Lärka: admin förbereder en kurs, läraren publicerar en uppgift, eleven lämnar in, läraren bedömer och eleven ser betyget.
+[`e2e/`](../e2e) har tre Playwright-tester som tillsammans följer kärnan i Lärka: admin förbereder en kurs, läraren publicerar en uppgift, eleven lämnar in, läraren begär komplettering, eleven lämnar in igen, läraren bedömer och eleven ser betyget.
 
-| #   | Flöde                                                                   | Fil                                             |
-| --- | ----------------------------------------------------------------------- | ----------------------------------------------- |
-| 1   | Admin skapar en klass, klistrar in elever och skapar en kurs med lärare | `1-admin-forbereder-kursen.spec.ts`             |
-| 2   | Läraren publicerar en uppgift i en ny vecka, eleven lämnar in           | `2-lararen-publicerar-eleven-lamnar-in.spec.ts` |
-| 3   | Läraren bedömer från Att bedöma, eleven ser betyget och kommentaren     | `3-lararen-bedomer-eleven-ser-betyget.spec.ts`  |
+| #   | Flöde                                                                                      | Fil                                             |
+| --- | ------------------------------------------------------------------------------------------ | ----------------------------------------------- |
+| 1   | Admin skapar en klass, klistrar in elever och skapar en kurs med lärare                    | `1-admin-forbereder-kursen.spec.ts`             |
+| 2   | Läraren publicerar en uppgift i en ny vecka, eleven lämnar in                              | `2-lararen-publicerar-eleven-lamnar-in.spec.ts` |
+| 3   | Läraren begär komplettering, eleven lämnar in igen, läraren bedömer och eleven ser betyget | `3-lararen-bedomer-eleven-ser-betyget.spec.ts`  |
 
 Testerna går igenom det riktiga gränssnittet och byter roll mitt i testet där flödet har en överlämning. Data som ett test bara behöver förbereda (lärare, elever, en inlämning att bedöma) skapas via API:et med unika namn, så varje test är oberoende av de andra och av demodatan. Testerna körs i tur och ordning (`workers: 1`).
 

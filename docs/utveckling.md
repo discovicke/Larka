@@ -21,6 +21,8 @@ Vid start kör backend de migrationer som saknas (`Database.Migrate()`), både l
 dotnet ef migrations add <VadSomÄndrats> --project backend
 ```
 
+Efter migrationerna slår backend på row level security för alla tabeller i `public` som saknar det ([`RowLevelSecurity`](../backend/Infrastructure/Persistence/RowLevelSecurity.cs)). Supabase lämnar ut `public` via sitt REST-API, och utan RLS kunde vem som helst med projektets publika nyckel läsa tabellerna. Appen är tabellernas ägare och påverkas inte. En ny tabell behöver alltså inget eget steg. Testet `RowLevelSecurityTests` kontrollerar det.
+
 Testet `Migrations_match_the_model` faller i CI om en ändring saknar migration. Migrationerna ligger i `backend/Infrastructure/Persistence/Migrations/` och ska inte ändras för hand.
 
 Alla tidigare migrationer är hopslagna till en baslinje, `Baseline`. Dess id är den sista migrationen före sammanslagningen, `20261030134646_RemovePushSubscriptions`, så att prod räknar den som redan körd. Id:t får inte ändras. Nya migrationer läggs till som vanligt ovanpå baslinjen.

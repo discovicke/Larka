@@ -41,11 +41,14 @@ public static class DependencyInjection
     /// <summary>
     /// Kör migrationer som saknas. EnsureCreated räcker inte mot Supabase: den gör ingenting om databasen
     /// redan har tabeller, och Supabase har alltid sina egna (auth, storage). Migrate skapar och uppdaterar våra.
+    /// Därefter slås row level security på för alla tabeller, se <see cref="RowLevelSecurity"/>.
     /// </summary>
     public static void MigrateDatabase(this IServiceProvider services)
     {
         using var scope = services.CreateScope();
-        scope.ServiceProvider.GetRequiredService<AppDb>().Database.Migrate();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        db.Database.Migrate();
+        RowLevelSecurity.EnableOnAllTables(db);
     }
 
     /// <summary>
