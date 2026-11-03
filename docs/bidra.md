@@ -31,16 +31,18 @@ npx prettier --check .
 # Backend
 dotnet build backend.Analyzers   # våra egna regler, måste finnas innan dotnet format körs
 dotnet format Larka.sln --verify-no-changes
-dotnet build Larka.sln       # skriver också client/openapi.json
+dotnet build Larka.sln -warnaserror   # skriver också client/openapi.json, som ska vara commitad
 dotnet test Larka.sln
 
 # Frontend
 cd client
-npm run gen:api                  # API-typerna från client/openapi.json
+npm run gen:api                  # API-typerna från client/openapi.json, som ska vara commitade
 npm run lint
 npm run build
 npm run test
 ```
+
+CI faller också om `client/openapi.json` eller `client/src/lib/api-types.ts` skiljer sig från det bygget skriver. Commita dem när en DTO eller endpoint ändras.
 
 `npm run format` i repots rot fixar formateringen i hela repot (Prettier, ESLint och `dotnet format`), och `npm run format:check` kontrollerar den.
 

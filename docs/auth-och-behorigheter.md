@@ -73,28 +73,21 @@ Seedningen är idempotent och styrs av klassen `.NET25`. Den skapar konton via `
 | `larare` | `larare` | Nio kurser, bedömningskö och elevlistor                      |
 | `elev`   | `elev`   | Studieplan med en avslutad, en pågående och en kommande kurs |
 
-### Dev-inloggningar
+### Lokalt
 
-Dev-seeden (tom lokal databas) ger alla seedade användare lösenordet `dev-password`:
-
-| Användare        | E-post                    | Id                                     | Roll    |
-| ---------------- | ------------------------- | -------------------------------------- | ------- |
-| Placeholder      | `placeholder@larka.local` | `00000000-0000-0000-0000-000000000001` | Admin   |
-| Lärare Lärarsson | `larare@larka.local`      | `00000000-0000-0000-0000-000000000002` | Teacher |
-| Elev Elevsson    | `elev@larka.local`        | `00000000-0000-0000-0000-000000000003` | Student |
-| Elev Tvåsson     | `elev2@larka.local`       | `00000000-0000-0000-0000-000000000004` | Student |
+Lokalt är `Database:SeedDemoData` på (`appsettings.Development.json`), så en tom databas får demokontona och demodatan ovan. Logga in med något av kontona, till exempel via API:et:
 
 ```bash
 curl -X POST http://localhost:5257/api/auth/login -H "Content-Type: application/json" \
-  -d '{"username":"larare@larka.local","password":"dev-password"}'
+  -d '{"username":"larare","password":"larare"}'
 curl -H "Authorization: Bearer <accessToken>" http://localhost:5257/api/me
 ```
 
-Seeden körs bara när databasen är tom. Saknar en äldre dev-databas de här användarna, börja om: `docker compose down -v && npm run db`.
+Börja om från en tom databas: `docker compose down -v && npm run db`.
 
 ### Produktion
 
-Prod seedar inga lösenord utöver demokontona och demodatan (`larka-demo`). Admin kan ge en ny användare ett tillfälligt lösenord (minst 8 tecken) när hen skapas från _Lägg till medlem_ på en grupp, eller med `password` i `POST /api/users`. När Microsoft-inloggning är inställd visar _Lägg till medlem_ inget lösenordsfält, eftersom användaren loggar in med skolans konto. Utan lösenord kan användaren inte logga in. För äldre användare utan lösenord: hasha det med ASP.NET Core `PasswordHasher<User>` och skriv hashen i `Users.PasswordHash`.
+Prod seedar inga lösenord utöver demokontona och demodatan. Admin kan ge en ny användare ett tillfälligt lösenord (minst 8 tecken) när hen skapas från _Lägg till medlem_ på en grupp, eller med `password` i `POST /api/users`. När Microsoft-inloggning är inställd visar _Lägg till medlem_ inget lösenordsfält, eftersom användaren loggar in med skolans konto. Utan lösenord kan användaren inte logga in. För äldre användare utan lösenord: hasha det med ASP.NET Core `PasswordHasher<User>` och skriv hashen i `Users.PasswordHash`.
 
 ## Roller och behörigheter
 
@@ -148,7 +141,7 @@ En spärrad användare som loggar in med rätt lösenord får `403` med texten `
 
 E-postadresser kontrolleras med en enda regel på servern (`EmailRule`), samma som klientens förhandsvisning av inklistrade listor: något före och efter `@` och en punkt i domänen, utan mellanslag. `POST /api/users` svarar `400` för en adress som inte klarar den, och importen markerar raden som `Invalid`.
 
-Bara en användare vars skolroll är Lärare kan vara lärare i en klass: `POST /api/groups/{id}/members` och `PUT /api/groups/{id}/members/{userId}` svarar `400` när admin eller en elev får rollen Lärare. Lärare i klassen väljs bland lärare. Rollen `Mentor` finns inte längre: ett anrop med den svarar `400`, och migreringen `RemoveMentorRole` raderade de medlemskap som hade den. Lärare i en kurs är däremot kvar som ovan: lärare eller admin, eftersom en admin som också undervisar står i `CourseTeacher`.
+Bara en användare vars skolroll är Lärare kan vara lärare i en klass: `POST /api/groups/{id}/members` och `PUT /api/groups/{id}/members/{userId}` svarar `400` när admin eller en elev får rollen Lärare. Lärare i klassen väljs bland lärare. Rollen `Mentor` finns inte längre, och ett anrop med den svarar `400`. Lärare i en kurs är däremot kvar som ovan: lärare eller admin, eftersom en admin som också undervisar står i `CourseTeacher`.
 
 Lärare i en kurs som gruppen läser får också medlemslistan, utan att vara medlemmar i gruppen. Övriga i skolan får `403`.
 
@@ -208,7 +201,7 @@ Alla andra, också inloggade i en annan kurs eller skola, får `404` som för in
 
 I `GET /api/courses/{id}/student-modules` har en låst del (beroende som inte är uppfyllt) kvar titel och blockerare men `bodyMd` är `null`, så texten går inte att läsa i förväg.
 
-Filerna i en inlämning nås med kortlivade länkar som skapas när inlämningen läses, så en admin som inte får läsa inlämningen får inga länkar. Nyheter till en grupp kräver lärarrollen i gruppen (`CanTeachGroupAsync`),.
+Filerna i en inlämning nås med kortlivade länkar som skapas när inlämningen läses, så en admin som inte får läsa inlämningen får inga länkar. Nyheter till en grupp kräver lärarrollen i gruppen (`CanTeachGroupAsync`).
 
 Admin som också undervisar i kursen (en rad i `CourseTeacher`) får lärarens kolumn i just den kursen, utöver adminens. Lärarens mallar för repo-uppgifter (`GET /api/integrations/github/templates` och senaste commit) och förhandsvisningen av reponamn kräver samma sak som att skapa innehåll, så en admin som inte undervisar får `403` där. Integrationens inställningar är fortfarande adminens.
 

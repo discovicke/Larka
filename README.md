@@ -3,7 +3,7 @@
 [![CD](https://github.com/EduEdugrade/net25-devops-grupp-4/actions/workflows/cd.yml/badge.svg)](https://github.com/EduEdugrade/net25-devops-grupp-4/actions/workflows/cd.yml)
 ![Coverage](https://github.com/EduEdugrade/net25-devops-grupp-4/raw/badges/coverage.svg)
 
-Ett lärplattformssystem (LMS) för skolor. Lärare skapar innehåll (nyheter, teori och uppgifter) och publicerar det till grupper. Studenter lämnar in uppgifter och får betyg, kommentarer och notiser. Admin hanterar skolor, användare, kurser och grupper.
+Ett lärplattformssystem (LMS) för skolor. Lärare skapar innehåll (nyheter, teori och uppgifter) och publicerar det till grupper. Elever lämnar in uppgifter och får betyg, kommentarer och notiser. Admin hanterar skolor, användare, kurser och grupper.
 
 **Live:** https://net25-devops-grupp-4.onrender.com. Logga in som `elev`/`elev`, `larare`/`larare` eller `admin`/`admin`. Gratisinstansen somnar efter 15 minuter utan trafik, så första anropet kan ta en minut.
 
@@ -25,7 +25,7 @@ npm run db                   # Postgres i Docker
 npm run dev                  # backend och klient
 ```
 
-Öppna http://localhost:5173 och logga in med `larare@larka.local` / `dev-password`. Swagger UI finns på http://localhost:5257/swagger.
+Öppna http://localhost:5173 och logga in med `larare`/`larare`, `elev`/`elev` eller `admin`/`admin`. En tom databas får samma demodata som demon. Swagger UI finns på http://localhost:5257/swagger.
 
 Innan du pushar: `npm run format`, `dotnet test Larka.sln` och `npm --prefix client run test`. Alla kontroller finns i [docs/bidra.md](docs/bidra.md).
 
@@ -38,6 +38,7 @@ Innan du pushar: `npm run format`, `dotnet test Larka.sln` och `npm --prefix cli
 | [Arkitektur](docs/arkitektur.md)                             | Lagren i backend, ett anrop från början till slut, klienten |
 | [Inloggning och behörigheter](docs/auth-och-behorigheter.md) | JWT, konton, roller och vad de får göra                     |
 | [Fillagring](docs/fillagring.md)                             | Bilagor och inlämningar i Supabase Storage                  |
+| [GitHub-integrationen](docs/github-integration.md)           | Repo-uppgifter, elevrepon, tester och deadline-lås          |
 | [Deploy och releaser](docs/deploy.md)                        | CD-flödet, Render, hemligheter och semantic versioning      |
 | [En ny skola](docs/deploy.md#en-ny-skola)                    | Installera Lärka för en skola och logga in med Microsoft    |
 | [Drift](docs/drift.md)                                       | Köra Lärka på en egen server eller i molnet                 |

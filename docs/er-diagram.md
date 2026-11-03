@@ -41,6 +41,16 @@ erDiagram
     Submission ||--o{ SubmissionFile : "har"
     Submission ||--o| StudentRepo : "om repo-läge"
     Submission ||--o| Grade : "får"
+    Submission ||--o{ StudentRepoCheckRun : "har"
+    ContentLink ||--o{ AssignmentGroup : "delas in i"
+    AssignmentGroup ||--o{ AssignmentGroupMember : "har"
+    User ||--o{ AssignmentGroupMember : "är med i"
+    AssignmentGroup |o--o| StudentRepo : "delar"
+    AssignmentGroup |o--o{ Submission : "gäller"
+    Content ||--o{ AssignmentRequirement : "har krav"
+    ContentLink ||--o{ AssignmentReference : "hänvisar till"
+    ContentLink ||--o{ StudentHelpRequest : "får"
+    User ||--o{ StudentHelpRequest : "ber om hjälp"
     User ||--o{ Grade : "bedömer"
 
     User ||--o{ Notification : "får"
@@ -62,14 +72,14 @@ erDiagram
         string GitHubLogin UK "nullable"
         string ExternalId UK "nullable, Microsofts oid"
         timestamptz DeactivatedAt "nullable"
-        NotificationKind[] MutedNotificationKinds
+        NotificationKind[] MutedNotificationKinds "sparas som heltal"
+        string AvatarKey "nullable, profilbildens nyckel"
     }
     Group {
         uuid Id PK
         uuid SchoolId FK
         GroupType Type "Class, Committee, Other"
         string Name
-        string Term
     }
     Course {
         uuid Id PK
@@ -170,6 +180,7 @@ erDiagram
         uuid Id PK
         uuid ContentLinkId FK
         uuid StudentId FK
+        uuid AssignmentGroupId FK "nullable, grupprepo"
         SubmissionStatus Status "NotStarted, Submitted, NeedsWork, Graded"
         string BodyMd "nullable"
         timestamptz SubmittedAt "nullable"
@@ -184,6 +195,7 @@ erDiagram
     }
     StudentRepo {
         uuid SubmissionId PK, FK
+        uuid AssignmentGroupId FK "nullable, UK, grupprepo"
         string RepoFullName
         string DesiredRepoName
         string RepoNamePattern
@@ -193,12 +205,64 @@ erDiagram
         int ProvisioningAttempts
         string ProvisioningError "nullable"
         timestamptz NextProvisioningAttemptAt "nullable"
-        CheckStatus CheckStatus "Pending, Green, Red"
+        timestamptz ProvisionedAt "nullable"
+        string InitialSha "nullable, mallens första commit"
+        timestamptz InitialCommitAt "nullable"
         string LastSha "nullable"
+        string LastCommitMessage "nullable"
+        timestamptz LastCommitAt "nullable"
+        int CommitCount
+        CheckStatus CheckStatus "Pending, Green, Red"
+        timestamptz CheckStatusChangedAt "nullable"
+        int ChecksPassed
+        int ChecksTotal
         string SubmissionSha "nullable"
         timestamptz LockedAt "nullable"
         string LockError "nullable"
+        timestamptz ReopenedAt "nullable, öppnat för komplettering"
         timestamptz UpdatedAt
+    }
+    StudentRepoCheckRun {
+        uuid SubmissionId PK, FK
+        string ExternalKey PK
+        string Name
+        string Status
+        string Conclusion "nullable"
+        timestamptz UpdatedAt
+    }
+    AssignmentGroup {
+        uuid Id PK
+        uuid ContentLinkId FK
+        string Name
+        int Position
+    }
+    AssignmentGroupMember {
+        uuid AssignmentGroupId PK, FK
+        uuid StudentId PK, FK
+    }
+    AssignmentRequirement {
+        uuid Id PK
+        uuid ContentId FK
+        string Title
+        string TestPattern "nullable, jobbnamn i check runs"
+        bool IsManual
+        int Position
+    }
+    AssignmentReference {
+        uuid Id PK
+        uuid SourceLinkId FK
+        uuid TargetLinkId FK
+        int Position
+    }
+    StudentHelpRequest {
+        uuid Id PK
+        uuid StudentId FK
+        uuid ContentLinkId FK
+        string Message "nullable"
+        timestamptz CreatedAt
+        timestamptz UpdatedAt
+        timestamptz ResolvedAt "nullable"
+        uuid ResolvedById FK "nullable"
     }
     Grade {
         uuid SubmissionId PK, FK
@@ -273,8 +337,13 @@ erDiagram
 ### Inlämningar
 
 - **Submission hör till en ContentLink, inte till content.** Det är på länken deadlinen finns, och en elev lämnar in till uppgiften så som den delades ut till hens grupp. Det finns en rad per elev och länk (unik), och `Status` (`NotStarted`, `Submitted`, `NeedsWork`, `Graded`) visar var eleven är. Statusbytena styr notiserna.
-- **SubmissionFile (1:N)** innehåller uppladdade filer, **StudentRepo (1:0..1)** elevens GitHub-repo när uppgiften använder repo-läge. Repot skapas när uppgiften delas ut, så då finns submission-raden redan med status `NotStarted`.
-- **Grade (1:0..1 med Submission)** sparar vem som rättade (`GradedById`) och när. `Level` är betyget (`Fail`, `Pass`, `Distinction`, alltså IG, G, VG) och måste passa uppgiftens `GradeScale`: på `PassFail` finns inget `Distinction`, och på `None` får inlämningen bara feedback. Vid komplettering sätts status `NeedsWork` och Grade har feedback men inget betyg, och eleven kan lämna in igen till nästa kompletteringsdeadline. Den som inte lämnat in eller kompletterat när ingen deadline återstår får IG automatiskt. Det härleds av `GradingWindow.IsAutoFail` och sparas inte som status. IG (`Fail`) kan läraren sätta först när ingen deadline återstår, och Komplettera kräver att en deadline återstår. Bara den senaste bedömningen sparas. En rättad inlämning går inte att lämna in igen. Uppgifter med `OnSite` kan rättas utan att eleven lämnat in något.
+- **SubmissionFile (1:N)** innehåller uppladdade filer, **StudentRepo (1:0..1)** elevens GitHub-repo när uppgiften använder repo-läge. Repot skapas när uppgiften delas ut, så då finns submission-raden redan med status `NotStarted`. **StudentRepoCheckRun** sparar repots senaste check runs, så att kravens status inte kräver ett GitHub-anrop per sidladdning.
+- **AssignmentGroup och AssignmentGroupMember** delar in eleverna i grupper för en repo-uppgift med grupprepon. Gruppen delar ett `StudentRepo` (unikt per grupp), och varje medlems `Submission` pekar på gruppen. Betygen är individuella. Se [github-integration.md](github-integration.md#grupprepon).
+- **AssignmentRequirement** är uppgiftens krav: en text för eleven och ett testmönster som matchas mot jobbnamnen i check runs, eller ett manuellt krav.
+- **AssignmentReference** kopplar en uppgift till en teoridel som hör ihop med den, i den ordning läraren valt (unik per par). Den ligger på utdelningen, så samma uppgift kan hänvisa till olika delar i olika kurser.
+- **StudentHelpRequest** är elevens flagga _Jag behöver hjälp_ på en uppgift, öppen eller löst. En per elev och länk.
+- **`Submission.PersonalDueAt`** är en extra deadline för just den eleven, som läraren sätter. Den räknas med bland länkens deadlines, se [roller-och-floden.md](roller-och-floden.md#personlig-deadline).
+- **Grade (1:0..1 med Submission)** sparar vem som rättade (`GradedById`) och när. `Level` är betyget (`Fail`, `Pass`, `Distinction`, alltså IG, G, VG) och måste passa uppgiftens `GradeScale`: på `PassFail` finns inget `Distinction`, och på `None` får inlämningen bara feedback. Vid komplettering sätts status `NeedsWork` och Grade har feedback men inget betyg, och eleven kan lämna in igen till nästa deadline som återstår (en kompletteringsdeadline eller elevens egen). Den som inte lämnat in eller kompletterat när ingen deadline återstår får IG automatiskt. Det härleds av `GradingWindow.IsAutoFail` och sparas inte som status. IG (`Fail`) kan läraren sätta först när ingen deadline återstår, och Komplettera kräver att en deadline återstår. Bara den senaste bedömningen sparas. En rättad inlämning går inte att lämna in igen. Uppgifter med `OnSite` kan rättas utan att eleven lämnat in något.
 
 ### Notiser
 
@@ -301,13 +370,19 @@ Principen: det man äger raderas med en (content med sina bilagor, en inlämning
 
 ## Unika regler
 
-- `User.Email`
-- `Group (SchoolId, Name, Term)`
+- `User.Email`, `User.GitHubLogin`, `User.ExternalId`
+- `School.EntraTenantId`
+- `SchoolGitHubInstallation.SchoolId`
+- `Group (SchoolId, Name)`
 - `Course (SchoolId, Code)`
 - `CourseTeacher (CourseId, UserId)`
 - `Submission (ContentLinkId, StudentId)`
 - `PartCompletion (ContentLinkId, StudentId)`
+- `ChecklistTick (StudentId, ContentLinkId, ItemIndex)`
+- `StudentRepo.AssignmentGroupId`
+- `AssignmentReference (SourceLinkId, TargetLinkId)`
+- `StudentHelpRequest (ContentLinkId, StudentId)`
 
 ## Enums
 
-Enums sparas som text i databasen (t.ex. `"Student"`), så att tabellerna går att läsa direkt i Supabase.
+Enums sparas som text i databasen (t.ex. `"Student"`), så att tabellerna går att läsa direkt i Supabase. Undantaget är `User.MutedNotificationKinds`, en lista med heltal, så nya notistyper läggs alltid sist i enumen.

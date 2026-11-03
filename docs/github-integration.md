@@ -284,7 +284,7 @@ stateDiagram-v2
     [*] --> NotStarted
     NotStarted --> Submitted: Eleven klickar Lämna in senaste commit
     NeedsWork --> Submitted: Eleven lämnar in igen
-    Submitted --> NeedsWork: Läraren begär komplettering
+    Submitted --> NeedsWork: Läraren begär komplettering, med ny deadline om ingen återstår
     Submitted --> Graded: Läraren bedömer
     NeedsWork --> Graded: Läraren bedömer
     NotStarted --> Submitted: Deadlinejobbet hittar elevens egen commit före en deadline
@@ -318,13 +318,13 @@ När läraren sätter en personlig deadline för en elev vars repo är låst och
 
 ### Komplettering
 
-När läraren begär komplettering, vilket kräver att en deadline återstår:
+När läraren begär komplettering (återstår ingen deadline väljer läraren en ny deadline för eleven i samma steg):
 
 - sätts inlämningen till `NeedsWork`,
 - avarkiveras repot,
 - `ReopenedAt` sätts.
 
-Eleven kan då pusha igen och lämna in på nytt fram till nästa kompletteringsdeadline. Vid den deadlinen låses repot igen om det finns en ny commit, och `ReopenedAt` rensas. Automatiskt IG ändrar inte repot.
+Eleven kan då pusha igen och lämna in på nytt fram till nästa deadline som återstår, en kompletteringsdeadline eller elevens egen. Vid den deadlinen låses repot igen om det finns en ny commit, och `ReopenedAt` rensas. Automatiskt IG ändrar inte repot.
 
 ---
 
@@ -432,7 +432,7 @@ Gruppindelningen hör till utdelningen och låses när uppgiften har skapats. Om
 | Deadlinejobb            | `backend/Infrastructure/GitHub/GitHubDeadlineLockJob.cs`         |
 | Fallback-poll           | `backend/Infrastructure/GitHub/GitHubChecksJob.cs`               |
 | Webhook                 | `backend/Api/Endpoints/GitHubWebhookEndpoints.cs`                |
-| Elevens GitHub-koppling | `backend/Application/Services/GitHubLinkingService.cs`           |
+| Elevens GitHub-koppling | `backend/Application/Services/GitHub/GitHubLinkingService.cs`    |
 | Stödsignaler            | `backend/Application/Services/Students/StudentSupportService.cs` |
 | Kravmodell              | `backend/Domain/Entities/AssignmentRequirement.cs`               |
 | Elevens GitHub-block    | `client/src/components/GitHubAssignmentBlock.vue`                |

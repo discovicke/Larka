@@ -129,12 +129,14 @@ arkivera och hantera elevrepon. Mallrepon ska vara privata och markerade som **T
 
 ## Klient och tester
 
-| Variabel                       | Var                   | Standard                                  | Vad                                              |
-| ------------------------------ | --------------------- | ----------------------------------------- | ------------------------------------------------ |
-| `BACKEND_URL`                  | Vite (`npm run dev`)  | `http://localhost:5257`                   | Vart Vite skickar `/api`, `/health`, `/version`. |
-| `E2E_BASE_URL`                 | `e2e/`, repo-variabel | https://net25-devops-grupp-4.onrender.com | Appen som E2E-testerna kör mot.                  |
-| `E2E_USERNAME`, `E2E_PASSWORD` | `e2e/`                | `elev` / `elev`                           | Kontot som E2E loggar in med.                    |
+| Variabel       | Var                  | Standard                | Vad                                                                                |
+| -------------- | -------------------- | ----------------------- | ---------------------------------------------------------------------------------- |
+| `BACKEND_URL`  | Vite (`npm run dev`) | `http://localhost:5257` | Vart Vite skickar `/api`, `/health`, `/version`.                                   |
+| `E2E_BASE_URL` | `e2e/`               | `http://localhost:8080` | Stacken som E2E-testerna kör mot. En adress på `onrender.com` vägras.              |
+| `E2E_APP_PORT` | `e2e/`               | `8080`                  | Värdporten för E2E-stacken (`docker-compose.e2e.yml`) när 8080 är upptagen lokalt. |
+
+E2E loggar in som demokontot `admin` och skapar sina egna lärare och elever, se [testing.md](testing.md#e2e-tre-användarflöden).
 
 ## GitHub Actions
 
-Workflows har inga egna hemligheter. Deployen loggar in i Infisical med GitHubs OIDC-token. `GITHUB_TOKEN` används för semantic-release och för att pusha imagen till GHCR. Repo-variabeln `E2E_BASE_URL` (valfri) styr vart E2E-testerna går.
+Workflows har inga egna hemligheter. Deployen loggar in i Infisical med GitHubs OIDC-token. `GITHUB_TOKEN` används för semantic-release och för att pusha imagen till GHCR. E2E-workflowet bygger sin egen stack och behöver inga variabler.

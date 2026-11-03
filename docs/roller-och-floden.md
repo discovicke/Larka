@@ -49,7 +49,7 @@ Deadlinerna bestämmer när eleven får lämna in och vad läraren får sätta. 
 **Deadlines.** Uppgiften har en huvuddeadline och högst fem kompletteringsdeadlines (`ResubmitDueAt`). Nästa deadline är den första av dem som ligger efter nu, jämförd i UTC.
 
 - **Fram till huvuddeadlinen** får alla lämna in och ändra sin inlämning.
-- **Efter en deadline** får den som inte är godkänd och inte väntar på bedömning (Inte inlämnad, Komplettera) lämna in fram till nästa kompletteringsdeadline, utan att vänta på läraren.
+- **Efter en deadline** får den som inte är godkänd och inte väntar på bedömning (Inte inlämnad, Komplettera) lämna in fram till nästa deadline som återstår (en kompletteringsdeadline eller elevens egen), utan att vänta på läraren.
 - **En Inlämnad inlämning låses** när huvuddeadlinen har gått, tills läraren har bedömt den.
 - **Efter sista deadline** går inget att lämna in.
 
@@ -104,7 +104,7 @@ Repot är öppet exakt när eleven får lämna in och låst annars. Vid varje de
 - **Eleven har en egen commit:** repot låses, inlämningen blir Inlämnad och `SubmissionSha` är den commiten.
 - **Ingen egen commit:** repot lämnas öppet till nästa deadline. Efter sista deadline låses alla repon.
 
-Elevens egen commit är senaste commit före deadlinen när den skiljer sig från mallens första commit (`StudentRepo.InitialSha`). Efter en öppning (`ReopenedAt`) måste den dessutom vara en ny commit, inte den som lämnades in förra gången. Komplettera öppnar ett låst repo igen. Automatiskt IG rör inte repot.
+Elevens egen commit är senaste commit före deadlinen när den skiljer sig från mallens första commit (`StudentRepo.InitialSha`). Efter en öppning (`ReopenedAt`) måste den dessutom vara en ny commit, inte den som lämnades in förra gången. Komplettera och en personlig deadline öppnar ett låst repo igen. Automatiskt IG rör inte repot.
 
 ### Att bedöma
 
@@ -181,14 +181,14 @@ flowchart LR
     C --> D["Toast: Uppgiften är inlämnad."]
     D ==> E(["Läraren ser den i Att bedöma"])
     E --> F{"Läraren bedömer"}
-    F -->|"Komplettera, en deadline återstår"| G(["Eleven ser Komplettera i Att göra"])
-    G --> H["Läs återkopplingen och ändra"]
+    F -->|"Komplettera, med ny deadline om ingen återstår"| G(["Eleven ser Komplettera i Att göra"])
+    G --> H["Läs återkopplingen ovanför formuläret och ändra"]
     H --> I["Lämna in igen till nästa deadline<br/>Toast: Uppgiften är inlämnad igen."]
     I ==> E
     F -->|"Betyg"| J["Se E4"]
 ```
 
-Efter huvuddeadlinen är en Inlämnad inlämning låst tills läraren har bedömt den. Den som inte lämnat in eller ska komplettera lämnar in fram till nästa kompletteringsdeadline. Efter sista deadline är uppgiften stängd och de som saknar inlämning får IG automatiskt.
+Efter huvuddeadlinen är en Inlämnad inlämning låst tills läraren har bedömt den. Den som inte lämnat in eller ska komplettera lämnar in fram till nästa deadline som återstår, också en personlig deadline. Efter sista deadline är uppgiften stängd och de som saknar inlämning får IG automatiskt, tills läraren ger eleven en ny deadline.
 
 ### E4 · Återkoppling och betyg
 
@@ -242,7 +242,7 @@ flowchart LR
     D ==> E(["Eleven ser betyget i Inkorg, E4"])
 ```
 
-Läraren väljer flik efter vad som väntar: Inlämnat bedöms, Automatiskt IG kräver inget och Väntar på eleven är en översikt. Se _Inlämning och bedömning_ ovan.
+Läraren väljer flik efter vad som väntar: Inlämnat bedöms och Väntar på eleven är en översikt. Automatiskt IG kräver inget och syns i uppgiftens inlämningslista. Överst på bedömningssidan står läget. Se _Inlämning och bedömning_ ovan.
 
 ### A1 · Sätta upp klassen
 
@@ -289,7 +289,7 @@ flowchart LR
     C --> D["Ny kurs, utgå från den gamla, A2"]
 ```
 
-Ingen stänger terminen med en knapp. Avslutade kurser och klasser följer av datumen och flyttas till en hopfälld grupp _Avslutade_ i sidomenyn, i Alla grupper, på klassens sida, i kalenderns kursval och bland materialets flikar (_Visa avslutade_). Idag visar eleven bara pågående och kommande kurser, och läraren bara pågående kurser och avslutade med inlämningar kvar att bedöma. Avslutade kurser och klasser räknas inte som saknad lärare i _Att ordna_. Inget tas bort och ingen förlorar åtkomst: länkar, material, betyg, studieplan, _Att bedöma_ och sökning når allt. Kurser utan datum räknas som pågående.
+Ingen stänger terminen med en knapp. Avslutade kurser och klasser följer av datumen och flyttas till en hopfälld grupp _Avslutade_ i sidomenyn, i Alla grupper, på klassens sida, i kalenderns kursval och bland materialets flikar (_Visa avslutade_). Idag visar eleven bara pågående och kommande kurser, och läraren bara pågående kurser och avslutade med inlämningar kvar att bedöma. Avslutade kurser och klasser räknas inte som saknad lärare i _Att ordna_. Inget tas bort och ingen förlorar åtkomst: länkar, material, betyg, studieplan och _Att bedöma_ når allt. Kurser utan datum räknas som pågående.
 
 ### A5 · Ordna det som saknas
 

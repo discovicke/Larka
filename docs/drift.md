@@ -4,15 +4,15 @@ Lärka är en container. Den kan köras var som helst där det går att köra en
 
 ## Vad Lärka behöver
 
-| Behov                   | Konkret                                                                                                                                                      |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| En container            | Imagen `ghcr.io/eduedugrade/net25-devops-grupp-4:<version>` (till exempel `v1.70.1`). Lyssnar på port 8080. Lås versionen, använd aldrig `latest`.           |
-| Postgres 15 eller nyare | Vilken leverantör som helst. Migrationerna körs när appen startar.                                                                                           |
-| Filer                   | En mapp på disk (`Storage__Disk__Path`) eller Supabase Storage. Se [fillagring.md](fillagring.md).                                                           |
-| HTTPS                   | Krävs av Microsoft-inloggningen (utom på localhost). En reverse proxy eller plattformens inbyggda TLS.                                                       |
-| Inställningar           | Miljövariabler. [`deploy/.env.example`](../deploy/.env.example) listar dem: `ConnectionStrings__Default`, `Auth__Jwt__Key`, fillagring och `Auth__Entra__*`. |
-| **En instans**          | Bakgrundsjobben (notiser, GitHub) körs i appen. Två instanser kör varje jobb två gånger.                                                                     |
-| Hälsokontroll           | `GET /health` svarar `OK`, `GET /version` visar version och commit.                                                                                          |
+| Behov                   | Konkret                                                                                                                                                                                                                         |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| En container            | Imagen `ghcr.io/eduedugrade/net25-devops-grupp-4:<version>` (en tagg som `vX.Y.Z`, se [releaserna](https://github.com/EduEdugrade/net25-devops-grupp-4/releases)). Lyssnar på port 8080. Lås versionen, använd aldrig `latest`. |
+| Postgres 15 eller nyare | Vilken leverantör som helst. Migrationerna körs när appen startar.                                                                                                                                                              |
+| Filer                   | En mapp på disk (`Storage__Disk__Path`) eller Supabase Storage. Se [fillagring.md](fillagring.md).                                                                                                                              |
+| HTTPS                   | Krävs av Microsoft-inloggningen (utom på localhost). En reverse proxy eller plattformens inbyggda TLS.                                                                                                                          |
+| Inställningar           | Miljövariabler. [`deploy/.env.example`](../deploy/.env.example) listar dem: `ConnectionStrings__Default`, `Auth__Jwt__Key`, fillagring och `Auth__Entra__*`.                                                                    |
+| **En instans**          | Bakgrundsjobben (notiser, GitHub) körs i appen. Två instanser kör varje jobb två gånger.                                                                                                                                        |
+| Hälsokontroll           | `GET /health` svarar `OK`, `GET /version` visar version och commit.                                                                                                                                                             |
 
 ## Välj sätt
 
@@ -24,8 +24,8 @@ Lärka är en container. Den kan köras var som helst där det går att köra en
 Imagen ligger i ett privat register. Antingen får skolan en token som bara får läsa paket (`docker login ghcr.io`), eller så bygger skolan imagen själv från en tagg i repot:
 
 ```bash
-git checkout v1.70.1
-docker build -t larka:v1.70.1 .
+git checkout vX.Y.Z
+docker build -t larka:vX.Y.Z .
 ```
 
 Med en egen image sätts `LARKA_IMAGE=larka` i `.env` (compose) eller imagens namn i molntjänsten.
