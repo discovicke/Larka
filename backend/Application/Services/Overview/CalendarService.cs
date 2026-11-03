@@ -44,6 +44,22 @@ public class CalendarService(
                 items.Add(ToItem(link, CalendarItemKind.Deadline, link.Link.DueAt.Value));
             }
 
+            // Kompletteringsdeadlines gäller hela klassen, den egna deadlinen bara eleven som fått den.
+            if (link.Link.DueAt is not null && (isTeacher || isVisible))
+            {
+                items.AddRange(link.Link.ResubmitDueAt
+                    .Where(due => due >= from && due < to)
+                    .Select(due => ToItem(link, CalendarItemKind.ResubmitDeadline, due)));
+            }
+
+            if (link.PersonalDueAt is not null
+                && link.PersonalDueAt >= from
+                && link.PersonalDueAt < to
+                && isVisible)
+            {
+                items.Add(ToItem(link, CalendarItemKind.PersonalDeadline, link.PersonalDueAt.Value));
+            }
+
             if (isTeacher
                 && link.Link.PublishAt >= from
                 && link.Link.PublishAt < to)

@@ -1,7 +1,7 @@
 import {describe, expect, it} from 'vitest'
 
 import type {Schema} from '@/lib/api'
-import {openableParts, resubmitLabel, sectionsFor} from '@/lib/studentCourse'
+import {dueStatus, isFinished, isModuleComplete, openableParts, resubmitLabel, sectionsFor} from '@/lib/studentCourse'
 
 type Item = Schema<'StudentContentItem'>
 type Module = Schema<'StudentModuleWithContentDto'>
@@ -16,6 +16,7 @@ function item(linkId: string, overrides: Partial<Item> = {}): Item {
     bodyMd: null,
     publishAt: '2026-01-01T08:00:00Z',
     dueAt: null,
+    resubmitDueAt: [],
     isPinned: false,
     isLocked: false,
     isCompleted: false,
@@ -93,6 +94,34 @@ describe('sectionsFor', () => {
   })
 })
 
+describe('automatiskt IG', () => {
+  const missed = item('missed', {
+    type: 'Assignment',
+    gradeScale: 'PassFail',
+    dueAt: '2020-01-01T10:00:00Z',
+    resubmitDueAt: [],
+    // Backend sätter isCompleted för automatiskt IG, precis som för ett bedömt IG.
+    isCompleted: true,
+    submissionStatus: 'NeedsWork',
+  })
+
+  it('räknas som klart, även efter en komplettering som uteblev', () => {
+    expect(isFinished(missed)).toBe(true)
+    expect(isModuleComplete(week([missed]))).toBe(true)
+  })
+
+  it('lämnar nästa steg och hamnar i klart', () => {
+    const sections = sectionsFor(week([missed, open]), 'all')
+
+    expect(linkIds(sections, 'next')).toEqual(['open'])
+    expect(linkIds(sections, 'completed')).toEqual(['missed'])
+  })
+
+  it('är fortfarande en komplettering medan en deadline återstår', () => {
+    expect(isFinished({...missed, resubmitDueAt: ['2099-01-01T10:00:00Z']})).toBe(false)
+  })
+})
+
 describe('openableParts', () => {
   it('ger delarna i kursordning utan låsta delar och låsta veckor', () => {
     const modules = [
@@ -110,5 +139,22 @@ describe('kompletteringsdeadlines', () => {
   it('listar dem under deadlinen, tomt utan', () => {
     expect(resubmitLabel({resubmitDueAt: []})).toBe('')
     expect(resubmitLabel({resubmitDueAt: dates})).toMatch(/^Kompletteringar: .+nov.+, .+nov/)
+  })
+})
+
+describe('dueStatus', () => {
+  const passed = '2020-01-01T10:00:00Z'
+  const later = '2999-01-01T10:00:00Z'
+
+  it('kallar inte delen försenad när eleven har en deadline kvar', () => {
+    const personal = item('p', {type: 'Assignment', dueAt: passed, personalDueAt: later})
+    const resubmit = item('r', {type: 'Assignment', dueAt: passed, resubmitDueAt: [later]})
+
+    expect(dueStatus(personal)).toBeNull()
+    expect(dueStatus(resubmit)).toBeNull()
+  })
+
+  it('kallar en del utan deadline kvar försenad', () => {
+    expect(dueStatus(item('x', {type: 'Theory', dueAt: passed}))).toBe('deadline.overdue')
   })
 })

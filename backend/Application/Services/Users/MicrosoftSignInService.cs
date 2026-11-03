@@ -14,8 +14,9 @@ namespace Backend.Application.Services;
 // klassen som adressen slutar på (fornamn.efternamn.net25@... -> .NET25), om skolan har den.
 //
 // Undantaget är den som körde infra/entra-setup.sh (Auth:Entra:AdminObjectId). När ingen skola är kopplad till
-// tenanten än kopplar hens första inloggning skolan och ger den organisationens namn, och hen skapas som admin.
-// Så kommer en ny skola igång utan lösenord och utan att någon först loggar in på annat sätt.
+// tenanten och hen aldrig har loggat in kopplar hens första inloggning skolan och ger den organisationens namn, och
+// hen skapas som admin. Så kommer en ny skola igång utan lösenord och utan att någon först loggar in på annat sätt.
+// Efter det är inloggningen av tills admin slår på den igen, även för hen.
 public class MicrosoftSignInService(
     IMicrosoftTokenValidator validator,
     ISchoolRepository schools,
@@ -27,17 +28,20 @@ public class MicrosoftSignInService(
     public const string SchoolNotLinkedMessage = "Skolan har inte slagit på inloggning med Microsoft.";
     public const string EmailTakenMessage = "E-postadressen används redan av ett annat konto. Kontakta skolans admin.";
 
+    // Microsoft finns med bara när en skola har slagit på inloggningen, eller när en ny skola väntar på sin första
+    // admin. Annars visar inloggningssidan bara lösenordet.
     public async Task<AuthProvidersDto> GetProvidersAsync(CancellationToken ct)
     {
         var settings = validator.Settings;
-        var school = settings is null
+        var linked = settings is null
             ? null
             : await schools.GetByEntraTenantAsync(settings.TenantId, ct);
-        school ??= await schools.GetDefaultAsync(ct);
+        var school = linked ?? await schools.GetDefaultAsync(ct);
+        var shown = settings is not null && (linked is not null || await AwaitsSetupAdminAsync(settings, ct));
         return new AuthProvidersDto(
-            settings is null
-                ? null
-                : new MicrosoftProviderDto(settings.ClientId, settings.TenantId),
+            shown
+                ? new MicrosoftProviderDto(settings!.ClientId, settings.TenantId)
+                : null,
             school?.Name);
     }
 
@@ -58,7 +62,7 @@ public class MicrosoftSignInService(
         var isSetupAdmin = settings.AdminObjectId is not null && identity.ObjectId == settings.AdminObjectId;
         var school = await schools.GetByEntraTenantAsync(identity.TenantId, ct);
         var linkedSchool = false;
-        if (school is null && isSetupAdmin)
+        if (school is null && isSetupAdmin && await AwaitsSetupAdminAsync(settings, ct))
         {
             school = await LinkDefaultSchoolAsync(settings, ct);
             linkedSchool = school is not null;
@@ -115,6 +119,11 @@ public class MicrosoftSignInService(
         return ServiceResult<MicrosoftLoginResultDto>.Ok(
             new MicrosoftLoginResultDto(tokens.CreateToken(user), tokens.ExpiresAt, firstSignIn));
     }
+
+    // En ny skola: setup-admin finns i inställningarna men har aldrig loggat in. Har hen loggat in en gång har skolan
+    // kommit igång, och då är det admins val om inloggningen är på.
+    private async Task<bool> AwaitsSetupAdminAsync(MicrosoftSignInSettings settings, CancellationToken ct) =>
+        settings.AdminObjectId is not null && await users.GetByExternalIdAsync(settings.AdminObjectId, ct) is null;
 
     // Skolan från migrationen. Anropas bara när ingen skola har tenanten, så en tenant som skolan redan har är en
     // gammal (till exempel när appen har flyttats till en ny tenant). Ingen kan logga in med den, och den byts ut.

@@ -18,14 +18,18 @@ public record CourseToGradeCount(Guid CourseId, int Count);
 /// <summary>En påbörjad inlämning på en länk.</summary>
 public record ActiveSubmission(Guid LinkId, Guid StudentId);
 
-/// <summary>En elevrepo som ska låsas eftersom länkens deadline har passerat.</summary>
+/// <summary>
+/// En elevrepo som ska låsas eftersom länkens deadline har passerat. PersonalDueAt är elevens egen extra
+/// deadline; för ett grupprepo den senaste bland gruppmedlemmarnas, eftersom repot delas av alla.
+/// </summary>
 public record RepoLockContext(
     StudentRepo Repo,
     Submission Submission,
     Guid SchoolId,
     DateTimeOffset Deadline,
     DateTimeOffset? DueAt = null,
-    IReadOnlyList<DateTimeOffset>? ResubmitDueAt = null);
+    IReadOnlyList<DateTimeOffset>? ResubmitDueAt = null,
+    DateTimeOffset? PersonalDueAt = null);
 
 // Inlämningar hämtas med filer, repo och betyg.
 public interface ISubmissionRepository

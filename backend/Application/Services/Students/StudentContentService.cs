@@ -291,6 +291,7 @@ public class StudentContentService(
                 TitleOfBlocker(blocker.BlockingLinkId, now, byLinkId),
                 IsSatisfied(
                     blocker.BlockingLinkId,
+                    now,
                     byLinkId,
                     completionByLinkId,
                     submissionByLinkId)))
@@ -315,9 +316,10 @@ public class StudentContentService(
             link.Link.PublishAt,
             link.Link.DueAt,
             link.Link.ResubmitDueAt,
+            submission?.PersonalDueAt,
             link.Link.IsPinned,
             isLocked,
-            IsSatisfied(link.Link.Id, byLinkId, completionByLinkId, submissionByLinkId),
+            IsSatisfied(link.Link.Id, now, byLinkId, completionByLinkId, submissionByLinkId),
             PartRules.IsManual(link.Content),
             blockers,
             link.Content.Assignment is null
@@ -348,6 +350,7 @@ public class StudentContentService(
 
     private static bool IsSatisfied(
         Guid linkId,
+        DateTimeOffset now,
         Dictionary<Guid, LinkedContent> byLinkId,
         Dictionary<Guid, PartCompletion> completionByLinkId,
         Dictionary<Guid, Submission> submissionByLinkId)
@@ -360,7 +363,8 @@ public class StudentContentService(
         return PartRules.IsSatisfied(
             link.Content,
             completionByLinkId.GetValueOrDefault(linkId),
-            submissionByLinkId.GetValueOrDefault(linkId));
+            submissionByLinkId.GetValueOrDefault(linkId),
+            GradingWindow.Of(link.Link, submissionByLinkId.GetValueOrDefault(linkId), now));
     }
 
     private static bool IsVisible(LinkedContent link, DateTimeOffset now) =>
@@ -391,7 +395,7 @@ public class StudentContentService(
 
         return dependencies
             .Where(dependency => !IsSatisfied(
-                dependency.BlockingLinkId, byLinkId, completionByLinkId, submissionByLinkId))
+                dependency.BlockingLinkId, now, byLinkId, completionByLinkId, submissionByLinkId))
             .Select(dependency => TitleOfBlocker(dependency.BlockingLinkId, now, byLinkId))
             .Select(title => title ?? "a part that is not published yet")
             .ToList();

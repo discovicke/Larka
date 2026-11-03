@@ -1,21 +1,54 @@
 import type {Schema} from '@/lib/api'
+import {toDateTimeLocal} from '@/lib/form'
 
 // Speglar backend/Application/Services/Content/GradingWindow.cs. Backend avgör och nekar, det här styr bara vad
 // vyerna visar. En uppgift utan dueAt har ingen deadlinelogik: inlämning står öppen tills den bedömts och alla
 // utfall är tillåtna.
-interface Deadlines {
+// personalDueAt är en extra deadline för just den här eleven (på inlämningen). Den räknas med bland de andra.
+export interface Deadlines {
   dueAt: string | null
   resubmitDueAt: string[]
+  personalDueAt?: string | null
 }
 
-/** Första av dueAt och kompletteringsdeadlinerna som ligger efter nu, annars null. */
+/** Alla elevens deadlines: dueAt, kompletteringarna och den personliga. Tom utan dueAt. */
+function allDeadlines(item: Deadlines): string[] {
+  if (!item.dueAt) {
+    return []
+  }
+  return item.personalDueAt
+    ? [item.dueAt, ...item.resubmitDueAt, item.personalDueAt]
+    : [item.dueAt, ...item.resubmitDueAt]
+}
+
+/** Första av elevens deadlines (dueAt, kompletteringarna och den personliga) som ligger efter nu, annars null. */
 export function nextDeadline(item: Deadlines, now = new Date()): string | null {
+  return allDeadlines(item)
+    .filter((value) => new Date(value) > now)
+    .sort((first, second) => new Date(first).getTime() - new Date(second).getTime())[0] ?? null
+}
+
+/** Klassens sista deadline (dueAt eller sista kompletteringen), utan elevens egen. Null utan dueAt. */
+export function lastClassDeadline(item: Deadlines): string | null {
   if (!item.dueAt) {
     return null
   }
   return [item.dueAt, ...item.resubmitDueAt]
-    .filter((value) => new Date(value) > now)
-    .sort((first, second) => new Date(first).getTime() - new Date(second).getTime())[0] ?? null
+    .sort((first, second) => new Date(second).getTime() - new Date(first).getTime())[0]
+}
+
+/**
+ * Första dagen (yyyy-mm-dd, lokal tid) som går att välja som elevens egna deadline: dagen för klassens sista
+ * deadline eller idag, det som kommer sist. Ett tidigare datum gör ingen skillnad och nekas av backend.
+ */
+export function earliestPersonalDate(lastDeadline: string | null, now = new Date()): string {
+  const today = toDateTimeLocal(now.toISOString()).slice(0, 10)
+  const last = lastDeadline
+    ? toDateTimeLocal(lastDeadline).slice(0, 10)
+    : today
+  return last > today
+    ? last
+    : today
 }
 
 /** Sant om någon deadline återstår. Utan dueAt finns ingen. */
@@ -65,7 +98,20 @@ export function allowsNeedsWork(item: Deadlines, now = new Date()): boolean {
   return !item.dueAt || deadlineRemains(item, now)
 }
 
-/** Ej inlämnat för alla på en gång kräver en huvuddeadline som har gått ut. Utan dueAt finns ingen. */
-export function mayMarkAllNotSubmitted(item: Deadlines, now = new Date()): boolean {
-  return Boolean(item.dueAt) && new Date(item.dueAt as string) <= now
+/**
+ * Automatiskt IG: uppgiften har en deadline, ingen deadline återstår och eleven har inte lämnat in (NotStarted)
+ * eller inte kompletterat (NeedsWork). Härleds alltid och sparas aldrig. Elevens personliga deadline
+ * räknas med i nextDeadline, så att regeln fortfarande bor på ett ställe.
+ */
+export function isAutoFail(item: Deadlines, status: Schema<'SubmissionStatus'>, now = new Date()): boolean {
+  return Boolean(item.dueAt)
+    && !deadlineRemains(item, now)
+    && (status === 'NotStarted' || status === 'NeedsWork')
+}
+
+/** Texten på ett automatiskt IG: det som saknades avgör förklaringen. */
+export function autoFailLabel(status: Schema<'SubmissionStatus'>): string {
+  return status === 'NeedsWork'
+    ? 'IG · Kompletteringen lämnades inte in'
+    : 'IG · Ingen inlämning'
 }

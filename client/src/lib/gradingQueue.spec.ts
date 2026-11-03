@@ -12,6 +12,7 @@ function row(linkId: string, name: string, extra: Partial<GradingRow> = {}, stat
     name,
     dueAt: null,
     resubmitDueAt: [],
+    personalDueAt: null,
     gradeScale: 'PassFailDistinction',
     previousGrade: false,
     ...extra,
@@ -46,19 +47,31 @@ describe('gradingTabOf', () => {
     expect(gradingTabOf(row('a', 'Ada'), now)).toBe('submitted')
   })
 
-  it('lägger inte påbörjad i Inte inlämnat först när huvuddeadlinen har passerat', () => {
-    expect(gradingTabOf(row('a', 'Ada', {dueAt: past}, 'NotStarted'), now)).toBe('missed')
+  it('lägger inte påbörjad i Väntar på eleven först när huvuddeadlinen har passerat och en chans återstår', () => {
+    const open = {dueAt: past, resubmitDueAt: [later]}
+    expect(gradingTabOf(row('a', 'Ada', open, 'NotStarted'), now)).toBe('waiting')
     expect(gradingTabOf(row('a', 'Ada', {dueAt: later}, 'NotStarted'), now)).toBeNull()
     expect(gradingTabOf(row('a', 'Ada', {}, 'NotStarted'), now)).toBeNull()
   })
 
-  it('skiljer Chanserna slut från Väntar på eleven på om en deadline återstår', () => {
+  it('räknar elevens egen deadline: eleven väntar i stället för att få automatiskt IG', () => {
+    const personal = {dueAt: past, personalDueAt: later}
+    expect(gradingTabOf(row('a', 'Ada', personal, 'NotStarted'), now)).toBe('waiting')
+    expect(gradingTabOf(row('a', 'Ada', personal, 'NeedsWork'), now)).toBe('waiting')
+    expect(gradingTabOf(row('a', 'Ada', {dueAt: past}, 'NotStarted'), now)).toBeNull()
+  })
+
+  it('lägger uteblivet arbete efter sista deadline i ingen flik', () => {
+    expect(gradingTabOf(row('a', 'Ada', {dueAt: past}, 'NotStarted'), now)).toBeNull()
+  })
+
+  it('skiljer automatiskt IG (ingen flik) från Väntar på eleven på om en deadline återstår', () => {
     const open = {dueAt: past, resubmitDueAt: [later]}
     const closed = {dueAt: past, resubmitDueAt: [past]}
     expect(gradingTabOf(row('a', 'Ada', open, 'NeedsWork'), now)).toBe('waiting')
-    expect(gradingTabOf(row('a', 'Ada', open, 'NotSubmitted'), now)).toBe('waiting')
-    expect(gradingTabOf(row('a', 'Ada', closed, 'NeedsWork'), now)).toBe('out')
-    expect(gradingTabOf(row('a', 'Ada', closed, 'NotSubmitted'), now)).toBe('out')
+    expect(gradingTabOf(row('a', 'Ada', open, 'NotStarted'), now)).toBe('waiting')
+    expect(gradingTabOf(row('a', 'Ada', closed, 'NeedsWork'), now)).toBeNull()
+    expect(gradingTabOf(row('a', 'Ada', closed, 'NotStarted'), now)).toBeNull()
   })
 
   it('räknar rader per flik', () => {
@@ -68,8 +81,6 @@ describe('gradingTabOf', () => {
       row('a', 'Cia', {dueAt: past}, 'NeedsWork'),
     ], now)
     expect(tabs.submitted).toHaveLength(1)
-    expect(tabs.missed).toHaveLength(1)
-    expect(tabs.out).toHaveLength(1)
     expect(tabs.waiting).toHaveLength(0)
   })
 })

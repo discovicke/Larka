@@ -20,6 +20,7 @@ import type {Schema} from '@/lib/api'
 import {countLabel, formatDate, partOf} from '@/lib/content'
 import {
   dueLabel,
+  personalDueLabel,
   dueStatus,
   gradeScaleLabel,
   isAvailable,
@@ -273,7 +274,7 @@ function rowBadge(item: Schema<'StudentContentItem'>) {
                         v-if="item.dueAt && !item.isLocked"
                         class="text-muted-foreground text-[12px] whitespace-nowrap"
                       >
-                        {{ dueLabel(item) }}
+                        {{ personalDueLabel(item) || dueLabel(item) }}
                       </span>
                     </span>
                     <PhCaretRight class="text-muted-foreground size-4 shrink-0"/>

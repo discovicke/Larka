@@ -48,6 +48,10 @@ public class StudentOverviewService(
     private static StudentOverviewCourseDto ToCourse(StudyPlanCourseDto course, DateTimeOffset now)
     {
         var assignments = course.Assignments;
+        // Automatiskt IG räknas som IG och inte som Komplettera eller Försenat, så att samma uppgift inte syns två gånger.
+        bool AutoFail(StudyPlanAssignmentDto assignment) =>
+            new GradingWindow(assignment.DueAt, assignment.ResubmitDueAt, now, assignment.PersonalDueAt)
+                .IsAutoFail(assignment.Status);
         int Count(SubmissionStatus status) => assignments.Count(assignment => assignment.Status == status);
         int Graded(GradeLevel level) => assignments.Count(assignment =>
             assignment.Status == SubmissionStatus.Graded && assignment.Grade == level);
@@ -57,12 +61,12 @@ public class StudentOverviewService(
             course.Title,
             course.Code,
             assignments.Count,
-            Count(SubmissionStatus.NeedsWork),
+            assignments.Count(assignment => assignment.Status == SubmissionStatus.NeedsWork && !AutoFail(assignment)),
             assignments.Count(assignment =>
-                assignment.Status == SubmissionStatus.NotStarted && assignment.DueAt < now),
+                assignment.Status == SubmissionStatus.NotStarted && assignment.DueAt < now && !AutoFail(assignment)),
             Count(SubmissionStatus.Submitted),
             Count(SubmissionStatus.Graded),
-            Graded(GradeLevel.Fail),
+            Graded(GradeLevel.Fail) + assignments.Count(AutoFail),
             Graded(GradeLevel.Pass),
             Graded(GradeLevel.Distinction));
     }

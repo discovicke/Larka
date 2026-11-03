@@ -26,7 +26,7 @@ public record GroupAnalyticsCourseDto(
     int NeedsWorkCount,
     int SubmittedCount,
     int OverdueCount,
-    int NotSubmittedCount,
+    int AutoFailCount,
     int AtRiskStudentCount);
 
 /// <summary>En elev och elevens läge i varje kurs. NeedsSupport är sant när något behöver följas upp.</summary>
@@ -36,7 +36,8 @@ public record GroupAnalyticsStudentDto(
     bool NeedsSupport,
     List<GroupAnalyticsStudentCourseDto> Courses);
 
-/// <summary>En elevs räknare i en kurs. Overdue är uppgifter som passerat deadline utan inlämning.</summary>
+/// <summary>En elevs räknare i en kurs. Overdue är uppgifter som passerat deadline utan inlämning medan en kompletteringsdeadline återstår.
+/// AutoFail är uppgifter där sista deadline passerat utan inlämning eller komplettering, alltså automatiskt IG.</summary>
 public record GroupAnalyticsStudentCourseDto(
     Guid CourseId,
     int AssignmentCount,
@@ -47,5 +48,5 @@ public record GroupAnalyticsStudentCourseDto(
     int NeedsWorkCount,
     int SubmittedCount,
     int OverdueCount,
-    int NotSubmittedCount,
+    int AutoFailCount,
     bool NeedsSupport);

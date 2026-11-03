@@ -59,12 +59,17 @@ public class MicrosoftSignInTests(MicrosoftTestWebApplicationFactory factory)
     private record MeResponse(Guid Id, string Name, string Email, string Role);
 
     [Fact]
-    public async Task Providers_ReturnsTheMicrosoftApp()
+    public async Task Providers_ShowMicrosoftOnlyWhileASchoolHasTurnedItOn()
     {
-        var providers = await _client.GetStringAsync("/api/auth/providers");
+        await AddLinkedSchoolAsync();
+        var on = await _client.GetStringAsync("/api/auth/providers");
+        await UnlinkAllSchoolsAsync();
+        var off = await _client.GetStringAsync("/api/auth/providers");
 
-        Assert.Contains(MicrosoftTestWebApplicationFactory.ClientId, providers);
-        Assert.Contains(MicrosoftTestWebApplicationFactory.TenantId, providers);
+        Assert.Contains(MicrosoftTestWebApplicationFactory.ClientId, on);
+        Assert.Contains(MicrosoftTestWebApplicationFactory.TenantId, on);
+        Assert.Contains("\"microsoft\":null", off);
+        Assert.DoesNotContain(MicrosoftTestWebApplicationFactory.ClientId, off);
     }
 
     [Fact]
@@ -256,6 +261,8 @@ public class MicrosoftSignInTests(MicrosoftTestWebApplicationFactory factory)
         var blocked = await SignInAsync(token);
         var linked = await AsAsync(admin, HttpMethod.Put, $"/api/schools/{schoolId}/microsoft");
         var allowed = await SignInAsync(token);
+        var refused = await AsAsync(admin, HttpMethod.Delete, $"/api/schools/{schoolId}/microsoft");
+        await GivePasswordAsync(admin);
         var unlinked = await AsAsync(admin, HttpMethod.Delete, $"/api/schools/{schoolId}/microsoft");
         var blockedAgain = await SignInAsync(token);
 
@@ -264,6 +271,8 @@ public class MicrosoftSignInTests(MicrosoftTestWebApplicationFactory factory)
         Assert.Equal(HttpStatusCode.Forbidden, blocked.StatusCode);
         Assert.Contains("\"linked\":true", await linked.Content.ReadAsStringAsync());
         Assert.Equal(HttpStatusCode.OK, allowed.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
+        Assert.Contains(SchoolService.NoPasswordAdminMessage, await refused.Content.ReadAsStringAsync());
         Assert.Contains("\"linked\":false", await unlinked.Content.ReadAsStringAsync());
         Assert.Equal(HttpStatusCode.Forbidden, blockedAgain.StatusCode);
     }
@@ -358,6 +367,14 @@ public class MicrosoftSignInTests(MicrosoftTestWebApplicationFactory factory)
         var request = new HttpRequestMessage(method, path);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return await _client.SendAsync(request);
+    }
+
+    private async Task GivePasswordAsync(Guid userId)
+    {
+        using var scope = factory.Services.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<AppDb>().Users
+            .Where(user => user.Id == userId)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(user => user.PasswordHash, "hash"));
     }
 
     private async Task<(Guid SchoolId, Guid AdminId)> AddSchoolWithAdminAsync()

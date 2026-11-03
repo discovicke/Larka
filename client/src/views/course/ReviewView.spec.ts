@@ -1,6 +1,7 @@
 import {flushPromises} from '@vue/test-utils'
 import {describe, expect, it, vi} from 'vitest'
 
+import DateTimePicker from '@/components/DateTimePicker.vue'
 import {mockApi, requests, sent} from '@/test/mockApi'
 import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
@@ -226,14 +227,28 @@ describe('ReviewView', () => {
       expect(wrapper.find('[data-test="review-request-work"]').exists()).toBe(true)
     })
 
-    it('erbjuder IG men inte Komplettera när sista deadline har passerat', async () => {
+    it('erbjuder IG när sista deadline har passerat, och Komplettera med en ny deadline för eleven', async () => {
       backend({scale: 'PassFail', dueAt: past, resubmitDueAt: ['2020-02-01T10:00:00Z']})
 
       const {wrapper} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
 
       expect(radios(wrapper)[0]).toContain('IG')
-      expect(wrapper.find('[data-test="review-request-work"]').exists()).toBe(false)
       expect(wrapper.find('[data-test="review-fail-later"]').exists()).toBe(false)
+      expect(wrapper.find('[data-test="review-work-date"]').exists()).toBe(true)
+      expect(wrapper.find('[data-test="review-request-work"]').attributes('disabled')).toBeDefined()
+
+      await wrapper.find('#feedback').setValue('Lägg till tester.')
+      wrapper.findComponent(DateTimePicker).vm.$emit('update:modelValue', '2999-01-15T23:59')
+      await flushPromises()
+      await button(wrapper, 'Begär komplettering').trigger('click')
+      await flushPromises()
+
+      expect(sent('POST', '/api/submissions/s1/grade')).toEqual({
+        feedback: 'Lägg till tester.',
+        level: null,
+        outcome: 'NeedsWork',
+        personalDueAt: new Date('2999-01-15T23:59').toISOString(),
+      })
     })
 
     it('erbjuder allt när uppgiften saknar deadline', async () => {
@@ -563,52 +578,47 @@ describe('ReviewView', () => {
     await flushPromises()
 
     expect(sent('POST', '/api/submissions/s1/grade'))
-      .toEqual({feedback: 'Komplettera testerna.', level: null, outcome: 'NeedsWork'})
+      .toEqual({feedback: 'Komplettera testerna.', level: null, outcome: 'NeedsWork', personalDueAt: null})
   })
 
-  it('markerar som ej inlämnat med frivillig kommentar och utan betyg', async () => {
-    backend({submission: {...baseSubmission, status: 'NotStarted', files: []}})
-
-    const {wrapper} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
-
-    expect(wrapper.find('[data-test="review-panel"]').exists()).toBe(true)
-    await button(wrapper, 'Markera som ej inlämnat').trigger('click')
-    await flushPromises()
-
-    expect(sent('POST', '/api/submissions/s1/grade'))
-      .toEqual({feedback: '', level: null, outcome: 'NotSubmitted'})
-  })
-
-  it('utan inlämning går det bara att markera ej inlämnat, inte betygsätta eller begära komplettering', async () => {
+  it('utan inlämning går det inte att betygsätta eller begära komplettering', async () => {
     backend({submission: {...baseSubmission, status: 'NotStarted', files: [], repo: null, bodyMd: null}})
 
     const {wrapper} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
 
-    expect(wrapper.find('[data-test="review-nothing-to-grade"]').text()).toContain('inte lämnat in något')
+    expect(wrapper.find('[data-test="review-state"]').text()).toContain('inte lämnat in något')
     expect(wrapper.find('[role="radiogroup"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="review-save"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="review-request-work"]').exists()).toBe(false)
-    expect(wrapper.find('[data-test="review-not-submitted"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="review-not-submitted"]').exists()).toBe(false)
+    expect(wrapper.find('#feedback').exists()).toBe(false)
   })
 
-  it('ett ej inlämnat kan få ny kommentar men inget betyg', async () => {
-    backend({submission: {
-      ...baseSubmission,
-      status: 'NotSubmitted',
-      files: [],
-      repo: null,
-      bodyMd: null,
-      grade: {gradedById: 'u0', level: null, feedback: 'Ingen inlämning', gradedAt: '2026-10-24T09:00:00Z'},
-    }})
+  it('efter sista deadline förklarar sidan det automatiska IG:t', async () => {
+    backend({
+      dueAt: '2020-01-01T10:00:00Z',
+      submission: {...baseSubmission, status: 'NotStarted', files: [], repo: null, bodyMd: null},
+    })
 
     const {wrapper} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
 
-    expect(wrapper.find('[data-test="review-save"]').exists()).toBe(false)
-    await button(wrapper, 'Spara kommentaren').trigger('click')
-    await flushPromises()
+    expect(wrapper.find('[data-test="review-state"]').text()).toContain('IG · Ingen inlämning')
+    expect(wrapper.find('[data-test="review-state"]').text()).toContain('egen deadline')
+  })
 
-    expect(sent('POST', '/api/submissions/s1/grade'))
-      .toEqual({feedback: 'Ingen inlämning', level: null, outcome: 'NotSubmitted'})
+  it('visar läget överst: komplettering begärd och till när eleven kan lämna in', async () => {
+    backend({
+      dueAt: '2020-01-01T10:00:00Z',
+      submission: {...baseSubmission, status: 'NeedsWork', personalDueAt: '2999-01-15T22:59:00Z'},
+    })
+
+    const {wrapper} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
+
+    const state = wrapper.find('[data-test="review-state"]').text()
+    expect(state).toContain('Komplettering begärd')
+    expect(state).toContain('Eleven kan lämna in till')
+    // Kompletteringen är redan begärd, så knappen visas inte igen.
+    expect(wrapper.find('[data-test="review-request-work"]').exists()).toBe(false)
   })
 
   it('bedömning på plats går att betygsätta utan inlämning', async () => {
@@ -618,15 +628,7 @@ describe('ReviewView', () => {
 
     expect(wrapper.find('[role="radiogroup"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="review-save"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="review-nothing-to-grade"]').exists()).toBe(false)
-  })
-
-  it('visar inte Markera som ej inlämnat när eleven lämnat in', async () => {
-    backend()
-
-    const {wrapper} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
-
-    expect(wrapper.text()).not.toContain('Markera som ej inlämnat')
+    expect(wrapper.find('[data-test="review-state"]').text()).toContain('bedöms på plats')
   })
 
   it('fyller i en tidigare bedömning', async () => {

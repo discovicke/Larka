@@ -414,6 +414,111 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
         Assert.NotNull(reopened.Repo!.ReopenedAt);
     }
 
+    private async Task SetPersonalDueAtDirectAsync(Guid submissionId, DateTimeOffset? personal)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var submission = await db.Submissions.FindAsync(submissionId);
+        submission!.PersonalDueAt = personal;
+        await db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task PersonalDueAt_InTheFuture_KeepsAnUntouchedRepoOpenAfterTheClassDeadlines()
+    {
+        var (linkId, ids) = await RepoLinkAsync(
+            DateTimeOffset.UtcNow.AddDays(-10), DateTimeOffset.UtcNow.AddMinutes(-1));
+        await SetPersonalDueAtDirectAsync(ids[0], DateTimeOffset.UtcNow.AddDays(2));
+
+        await RunLockJobAsync();
+
+        Assert.Null((await RepoOfAsync(linkId, ids[0])).Repo!.LockedAt);
+        Assert.NotNull((await RepoOfAsync(linkId, ids[1])).Repo!.LockedAt);
+    }
+
+    [Fact]
+    public async Task PersonalDueAt_WhenItHasPassed_LocksTheRepo()
+    {
+        var (linkId, ids) = await RepoLinkAsync(
+            DateTimeOffset.UtcNow.AddDays(-10), DateTimeOffset.UtcNow.AddDays(-5));
+        await SetPersonalDueAtDirectAsync(ids[0], DateTimeOffset.UtcNow.AddDays(2));
+        await RunLockJobAsync();
+        Assert.Null((await RepoOfAsync(linkId, ids[0])).Repo!.LockedAt);
+
+        // Den personliga deadlinen passerar efter förra behandlingen: nu låses repot.
+        await SetPersonalDueAtDirectAsync(ids[0], DateTimeOffset.UtcNow.AddMinutes(-1));
+        await UpdateReposAsync(linkId, (_, repo) => repo.UpdatedAt = DateTimeOffset.UtcNow.AddHours(-1));
+        await RunLockJobAsync();
+
+        Assert.NotNull((await RepoOfAsync(linkId, ids[0])).Repo!.LockedAt);
+    }
+
+    [Fact]
+    public async Task SettingAPersonalDueAt_ReopensALockedRepoThatHasNotBeenHandedIn()
+    {
+        var (linkId, ids) = await RepoLinkAsync(
+            DateTimeOffset.UtcNow.AddDays(-10), DateTimeOffset.UtcNow.AddDays(-5));
+        await RunLockJobAsync();
+        Assert.NotNull((await RepoOfAsync(linkId, ids[0])).Repo!.LockedAt);
+        var studentId = await StudentOfAsync(ids[0]);
+
+        var response = await PutPersonalDueAtAsync(linkId, studentId, DateTimeOffset.UtcNow.AddDays(2));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull((await RepoOfAsync(linkId, ids[0])).Repo!.ReopenedAt);
+        // En elev som redan lämnat in får inte repot öppnat.
+        var submittedId = ids[1];
+        await SetStatusAsync(submittedId, SubmissionStatus.Submitted);
+        var other = await StudentOfAsync(submittedId);
+        await PutPersonalDueAtAsync(linkId, other, DateTimeOffset.UtcNow.AddDays(2));
+        Assert.Null((await RepoOfAsync(linkId, submittedId)).Repo!.ReopenedAt);
+    }
+
+    [Fact]
+    public async Task GroupRepo_FollowsTheLatestPersonalDueAtAmongTheMembers()
+    {
+        var (linkId, ids) = await RepoLinkAsync(
+            DateTimeOffset.UtcNow.AddDays(-10), DateTimeOffset.UtcNow.AddDays(-5));
+        var groupId = Guid.NewGuid();
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            db.AssignmentGroups.Add(new Backend.Domain.Entities.AssignmentGroup
+            {
+                Id = groupId,
+                ContentLinkId = linkId,
+                Name = "Grupp 1"
+            });
+            await db.SaveChangesAsync();
+            foreach (var id in ids)
+            {
+                (await db.Submissions.FindAsync(id))!.AssignmentGroupId = groupId;
+            }
+
+            // Repot hänger på första medlemmens inlämning; den andra raden har inget eget repo.
+            db.StudentRepos.Remove(await db.StudentRepos.SingleAsync(repo => repo.SubmissionId == ids[1]));
+            (await db.StudentRepos.SingleAsync(repo => repo.SubmissionId == ids[0])).AssignmentGroupId = groupId;
+            await db.SaveChangesAsync();
+        }
+
+        // Första medlemmen har ingen egen deadline, men den andra har en: repot väntar på den senare.
+        await SetPersonalDueAtDirectAsync(ids[1], DateTimeOffset.UtcNow.AddDays(2));
+        await RunLockJobAsync();
+        Assert.Null((await RepoOfAsync(linkId, ids[0])).Repo!.LockedAt);
+
+        await SetPersonalDueAtDirectAsync(ids[1], DateTimeOffset.UtcNow.AddMinutes(-1));
+        await UpdateReposAsync(linkId, (_, repo) => repo.UpdatedAt = DateTimeOffset.UtcNow.AddHours(-1));
+        await RunLockJobAsync();
+        Assert.NotNull((await RepoOfAsync(linkId, ids[0])).Repo!.LockedAt);
+    }
+
+    private async Task<Guid> StudentOfAsync(Guid submissionId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        return (await db.Submissions.AsNoTracking().SingleAsync(row => row.Id == submissionId)).StudentId;
+    }
+
     // Första eleven har lämnat in, fått komplettera och repot är öppnat igen. LastSha är senaste commit.
     private async Task ReopenAsync(Guid linkId, List<Guid> ids, string submissionSha, string lastSha)
     {
@@ -792,50 +897,6 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     }
 
     [Fact]
-    public async Task NotSubmitted_OnANotStartedSubmission_KeepsFeedbackAndNoLevel()
-    {
-        var (groupId, _) = await AddGroupAsync(students: 1);
-        var assignment = await CreateAssignmentAsync(_gradedFileSpec);
-        var linkId = await LinkAsync(assignment, new { groupId });
-        var notStarted = Assert.Single(await ListAsync(linkId));
-
-        var response = await _client.PostAsJsonAsync($"/api/submissions/{notStarted.Id}/grade",
-            new { feedback = "Ingen inlämning", outcome = "notSubmitted" });
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var result = (await response.Content.ReadFromJsonAsync<SubmissionResponse>())!;
-        Assert.Equal("NotSubmitted", result.Status);
-        Assert.Null(result.Grade!.Level);
-        Assert.Equal("Ingen inlämning", result.Grade.Feedback);
-    }
-
-    [Fact]
-    public async Task NotSubmitted_WithALevel_ReturnsBadRequest()
-    {
-        var (groupId, _) = await AddGroupAsync(students: 1);
-        var assignment = await CreateAssignmentAsync(_gradedFileSpec);
-        var notStarted = Assert.Single(await ListAsync(await LinkAsync(assignment, new { groupId })));
-
-        var response = await _client.PostAsJsonAsync($"/api/submissions/{notStarted.Id}/grade",
-            new { feedback = "?", level = "pass", outcome = "notSubmitted" });
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task NotSubmitted_OnAHandedInSubmission_ReturnsBadRequest()
-    {
-        var (groupId, _) = await AddGroupAsync(students: 0);
-        var assignment = await CreateAssignmentAsync(_gradedFileSpec);
-        var submitted = await SubmitAsync(await LinkAsync(assignment, new { groupId }));
-
-        var response = await _client.PostAsJsonAsync($"/api/submissions/{submitted.Id}/grade",
-            new { feedback = "?", outcome = "notSubmitted" });
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
-    [Fact]
     public async Task Grade_Fail_WithComment_IsGraded()
     {
         var (groupId, _) = await AddGroupAsync(students: 0);
@@ -848,39 +909,6 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("Fail", (await response.Content.ReadFromJsonAsync<SubmissionResponse>())!.Grade!.Level);
-    }
-
-    [Fact]
-    public async Task NotSubmitted_AfterNeedsWork_ThenResubmit_GoesToSubmitted()
-    {
-        var (groupId, _) = await AddGroupAsync(students: 0);
-        var assignment = await CreateAssignmentAsync(_gradedFileSpec);
-        var linkId = await LinkAsync(assignment, new { groupId });
-        var submitted = await SubmitAsync(linkId);
-        await _client.PostAsJsonAsync($"/api/submissions/{submitted.Id}/grade",
-            new { feedback = "Komplettera", outcome = "needsWork" });
-
-        var missed = await _client.PostAsJsonAsync($"/api/submissions/{submitted.Id}/grade",
-            new { feedback = "Ingen komplettering kom", outcome = "notSubmitted" });
-        Assert.Equal("NotSubmitted", (await missed.Content.ReadFromJsonAsync<SubmissionResponse>())!.Status);
-
-        var again = await SubmitAsync(linkId);
-        Assert.Equal("Submitted", again.Status);
-    }
-
-    [Fact]
-    public async Task Grade_OnANotSubmittedSubmission_OfAFileAssignment_ReturnsBadRequest()
-    {
-        var (groupId, _) = await AddGroupAsync(students: 1);
-        var assignment = await CreateAssignmentAsync(_gradedFileSpec);
-        var notStarted = Assert.Single(await ListAsync(await LinkAsync(assignment, new { groupId })));
-        await _client.PostAsJsonAsync($"/api/submissions/{notStarted.Id}/grade",
-            new { feedback = "Ingen inlämning", outcome = "notSubmitted" });
-
-        var response = await _client.PostAsJsonAsync($"/api/submissions/{notStarted.Id}/grade",
-            new { level = "pass", feedback = "?" });
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]
@@ -966,7 +994,6 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     [InlineData(SubmissionStatus.NotStarted)]
     [InlineData(SubmissionStatus.Submitted)]
     [InlineData(SubmissionStatus.NeedsWork)]
-    [InlineData(SubmissionStatus.NotSubmitted)]
     public async Task Submit_BeforeTheMainDeadline_IsAllowedForEveryStatusButGraded(SubmissionStatus status)
     {
         var (linkId, _) = await LinkWithStatusAsync(status, _future, _future.AddDays(7));
@@ -990,7 +1017,6 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     [Theory]
     [InlineData(SubmissionStatus.NotStarted, true)]
     [InlineData(SubmissionStatus.NeedsWork, true)]
-    [InlineData(SubmissionStatus.NotSubmitted, true)]
     [InlineData(SubmissionStatus.Submitted, false)]
     public async Task Submit_BetweenDeadlines_OnlyTheOnesWhoCanResubmitMay(SubmissionStatus status, bool allowed)
     {
@@ -1009,7 +1035,6 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     [InlineData(SubmissionStatus.NotStarted)]
     [InlineData(SubmissionStatus.Submitted)]
     [InlineData(SubmissionStatus.NeedsWork)]
-    [InlineData(SubmissionStatus.NotSubmitted)]
     public async Task Submit_AfterTheLastDeadline_IsRefused(SubmissionStatus status)
     {
         var (linkId, _) = await LinkWithStatusAsync(status, _past.AddDays(-5), _past);
@@ -1022,7 +1047,7 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     [Fact]
     public async Task Submit_AfterTheMainDeadline_WithoutResubmitDeadlines_IsRefused()
     {
-        var (linkId, _) = await LinkWithStatusAsync(SubmissionStatus.NotSubmitted, _past);
+        var (linkId, _) = await LinkWithStatusAsync(SubmissionStatus.NeedsWork, _past);
 
         var result = await SubmitFilesAsync(linkId, "rapport.pdf");
 
@@ -1034,7 +1059,6 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     [InlineData(SubmissionStatus.NotStarted)]
     [InlineData(SubmissionStatus.Submitted)]
     [InlineData(SubmissionStatus.NeedsWork)]
-    [InlineData(SubmissionStatus.NotSubmitted)]
     public async Task Submit_WithoutADueDate_IsAlwaysOpenUntilGraded(SubmissionStatus status)
     {
         var (linkId, _) = await LinkWithStatusAsync(status, null);
@@ -1061,6 +1085,47 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
 
     private async Task<HttpResponseMessage> GradeAsync(Guid submissionId, object body) =>
         await _client.PostAsJsonAsync($"/api/submissions/{submissionId}/grade", body);
+
+    [Fact]
+    public async Task Grade_NeedsWork_AfterTheLastDeadline_GivesTheStudentANewDeadlineInTheSameStep()
+    {
+        var (_, submissionId) = await LinkWithStatusAsync(SubmissionStatus.Submitted, _past);
+        var personal = DateTimeOffset.UtcNow.AddDays(5);
+
+        var withoutDate = await GradeAsync(submissionId, new { feedback = "Lägg till tester", outcome = "needsWork" });
+        var withDate = await GradeAsync(
+            submissionId, new { feedback = "Lägg till tester", outcome = "needsWork", personalDueAt = personal });
+
+        Assert.Equal(HttpStatusCode.BadRequest, withoutDate.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, withDate.StatusCode);
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var saved = await db.Submissions.AsNoTracking().SingleAsync(row => row.Id == submissionId);
+        Assert.Equal(SubmissionStatus.NeedsWork, saved.Status);
+        Assert.Equal(personal.UtcDateTime, saved.PersonalDueAt!.Value.UtcDateTime, TimeSpan.FromSeconds(1));
+    }
+
+    [Fact]
+    public async Task Grade_WithANewDeadline_OnlyWorksForNeedsWork_AndAfterTheClassDeadlines()
+    {
+        var (_, submissionId) = await LinkWithStatusAsync(SubmissionStatus.Submitted, _past, _future);
+
+        var graded = await GradeAsync(submissionId, new
+        {
+            feedback = "Bra",
+            level = "pass",
+            personalDueAt = _future.AddDays(2)
+        });
+        var tooEarly = await GradeAsync(submissionId, new
+        {
+            feedback = "Mer",
+            outcome = "needsWork",
+            personalDueAt = DateTimeOffset.UtcNow.AddDays(2)
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, graded.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, tooEarly.StatusCode);
+    }
 
     [Fact]
     public async Task Grade_Fail_WhileADeadlineRemains_IsRefused()
@@ -1176,43 +1241,215 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
         Assert.Equal(HttpStatusCode.BadRequest, lateWork.StatusCode);
     }
 
-    // --- Markera alla som ej inlämnat ---
+    // --- Personlig deadline för en elev ---
 
-    private record MarkedResponse(int Count);
-
-    private async Task<HttpResponseMessage> MarkAllAsync(Guid linkId, Guid? asUser = null)
+    private async Task<HttpResponseMessage> PutPersonalDueAtAsync(
+        Guid linkId, Guid studentId, DateTimeOffset? dueAt, Guid? actingUser = null)
     {
-        var request = new HttpRequestMessage(HttpMethod.Post, $"/api/links/{linkId}/submissions/mark-not-submitted");
-        if (asUser is not null)
+        var request = new HttpRequestMessage(
+            HttpMethod.Put, $"/api/links/{linkId}/students/{studentId}/personal-due-at")
         {
-            request.Headers.Add(TestAuthHandler.Header, asUser.Value.ToString());
+            Content = JsonContent.Create(new { dueAt })
+        };
+        if (actingUser is not null)
+        {
+            request.Headers.Add(TestAuthHandler.Header, actingUser.Value.ToString());
         }
 
         return await _client.SendAsync(request);
     }
 
-    private async Task<int> NotSubmittedNotificationsAsync(Guid linkId)
+    [Fact]
+    public async Task PersonalDueAt_SetOnAnExistingRow_IsSavedAndNotifiesTheStudent()
     {
+        var (linkId, submissionId) = await LinkWithStatusAsync(SubmissionStatus.NotStarted, _past, _past.AddDays(1));
+        var studentId = await SubmitterAsync(linkId);
+        var personal = DateTimeOffset.UtcNow.AddDays(3);
+
+        var response = await PutPersonalDueAtAsync(linkId, studentId, personal);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
-        var ids = db.Submissions.Where(submission => submission.ContentLinkId == linkId).Select(row => row.Id);
-        return await db.Notifications.CountAsync(notification =>
-            notification.Kind == NotificationKind.SubmissionNotSubmitted
-            && notification.SubmissionId != null
-            && ids.Contains(notification.SubmissionId.Value));
+        var saved = await db.Submissions.AsNoTracking().SingleAsync(row => row.Id == submissionId);
+        Assert.Equal(personal.UtcDateTime, saved.PersonalDueAt!.Value.UtcDateTime, TimeSpan.FromSeconds(1));
+        var notification = await db.Notifications.SingleAsync(row => row.SubmissionId == submissionId);
+        Assert.Equal(NotificationKind.PersonalDeadlineSet, notification.Kind);
+        Assert.Equal(studentId, notification.UserId);
     }
 
     [Fact]
-    public async Task MarkAll_BeforeTheDeadline_IsRefused()
+    public async Task PersonalDueAt_ForAStudentWithoutARow_CreatesANotStartedRow()
     {
-        var (groupId, _) = await AddGroupAsync(students: 2);
-        var linkId = await LinkAsync(await CreateAssignmentAsync(_gradedFileSpec), new { groupId });
-        await SetDeadlinesAsync(linkId, _future);
+        var (groupId, _) = await AddGroupAsync(students: 0);
+        var assignment = await CreateAssignmentAsync(_gradedFileSpec);
+        var linkId = await LinkAsync(assignment, new { groupId });
+        await SetDeadlinesAsync(linkId, _past);
+        var lateStudent = await AddStudentToGroupAsync(groupId);
 
-        var response = await MarkAllAsync(linkId);
+        var response = await PutPersonalDueAtAsync(linkId, lateStudent, DateTimeOffset.UtcNow.AddDays(2));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var row = (await ListAsync(linkId)).Single();
+        Assert.Equal("NotStarted", row.Status);
+        Assert.Equal(lateStudent, row.StudentId);
+    }
+
+    [Fact]
+    public async Task PersonalDueAt_ForAStudentOutsideTheAudience_IsNotFound()
+    {
+        var (groupId, _) = await AddGroupAsync(students: 0);
+        var (otherGroupId, _) = await AddGroupAsync(students: 0);
+        var assignment = await CreateAssignmentAsync(_gradedFileSpec);
+        var linkId = await LinkAsync(assignment, new { groupId });
+        await SetDeadlinesAsync(linkId, _past);
+        var outsider = await AddStudentToGroupAsync(otherGroupId);
+
+        var response = await PutPersonalDueAtAsync(linkId, outsider, DateTimeOffset.UtcNow.AddDays(2));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PersonalDueAt_ByAStudent_IsForbidden()
+    {
+        var (linkId, _) = await LinkWithStatusAsync(SubmissionStatus.NotStarted, _past);
+        var studentId = await SubmitterAsync(linkId);
+
+        var response = await PutPersonalDueAtAsync(linkId, studentId, DateTimeOffset.UtcNow.AddDays(2), studentId);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PersonalDueAt_InThePast_IsRefused()
+    {
+        var (linkId, _) = await LinkWithStatusAsync(SubmissionStatus.NotStarted, _past);
+        var studentId = await SubmitterAsync(linkId);
+
+        var response = await PutPersonalDueAtAsync(linkId, studentId, DateTimeOffset.UtcNow.AddHours(-1));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.All(await ListAsync(linkId), row => Assert.Equal("NotStarted", row.Status));
+        Assert.Contains("framtiden", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task PersonalDueAt_OnALinkWithoutDueDate_IsRefused()
+    {
+        var (linkId, _) = await LinkWithStatusAsync(SubmissionStatus.NotStarted, null);
+        var studentId = await SubmitterAsync(linkId);
+
+        var response = await PutPersonalDueAtAsync(linkId, studentId, DateTimeOffset.UtcNow.AddDays(2));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PersonalDueAt_OnAGradedSubmission_IsRefused()
+    {
+        var (linkId, _) = await LinkWithStatusAsync(SubmissionStatus.Graded, _past);
+        var studentId = await SubmitterAsync(linkId);
+
+        var response = await PutPersonalDueAtAsync(linkId, studentId, DateTimeOffset.UtcNow.AddDays(2));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PersonalDueAt_OnASubmissionWaitingForGrading_IsRefused()
+    {
+        var (linkId, _) = await LinkWithStatusAsync(SubmissionStatus.Submitted, _past);
+        var studentId = await SubmitterAsync(linkId);
+
+        var response = await PutPersonalDueAtAsync(linkId, studentId, DateTimeOffset.UtcNow.AddDays(2));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("komplettering", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task PersonalDueAt_BeforeTheLastClassDeadline_IsRefused()
+    {
+        // Klassen har en kompletteringsdeadline om tio dagar. En egen deadline före den gör ingen skillnad.
+        var (linkId, _) = await LinkWithStatusAsync(SubmissionStatus.NeedsWork, _past, _future);
+        var studentId = await SubmitterAsync(linkId);
+
+        var early = await PutPersonalDueAtAsync(linkId, studentId, DateTimeOffset.UtcNow.AddDays(2));
+        var late = await PutPersonalDueAtAsync(linkId, studentId, _future.AddDays(2));
+
+        Assert.Equal(HttpStatusCode.BadRequest, early.StatusCode);
+        Assert.Contains("sista deadline", await early.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.OK, late.StatusCode);
+    }
+
+    [Fact]
+    public async Task PersonalDueAt_Cleared_RemovesTheDateWithoutANewNotification()
+    {
+        var (linkId, submissionId) = await LinkWithStatusAsync(SubmissionStatus.NotStarted, _past);
+        var studentId = await SubmitterAsync(linkId);
+        await PutPersonalDueAtAsync(linkId, studentId, DateTimeOffset.UtcNow.AddDays(2));
+
+        var response = await PutPersonalDueAtAsync(linkId, studentId, null);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        Assert.Null((await db.Submissions.AsNoTracking().SingleAsync(row => row.Id == submissionId)).PersonalDueAt);
+        Assert.Equal(1, await db.Notifications.CountAsync(row => row.SubmissionId == submissionId));
+    }
+
+    [Theory]
+    [InlineData(SubmissionStatus.NotStarted)]
+    [InlineData(SubmissionStatus.NeedsWork)]
+    public async Task Submit_AfterAllClassDeadlines_IsAllowedWhileAPersonalDeadlineRemains(SubmissionStatus status)
+    {
+        var (linkId, submissionId) = await LinkWithStatusAsync(status, _past.AddDays(-5), _past);
+        await SetPersonalDueAtDirectAsync(submissionId, DateTimeOffset.UtcNow.AddDays(2));
+
+        var result = await SubmitFilesAsync(linkId, "rapport.pdf");
+
+        Assert.Equal(ResultStatus.Ok, result.Status);
+    }
+
+    [Fact]
+    public async Task Submit_AfterAnExpiredPersonalDeadline_IsRefused()
+    {
+        var (linkId, submissionId) = await LinkWithStatusAsync(SubmissionStatus.NotStarted, _past.AddDays(-5), _past);
+        await SetPersonalDueAtDirectAsync(submissionId, DateTimeOffset.UtcNow.AddDays(-1));
+
+        var result = await SubmitFilesAsync(linkId, "rapport.pdf");
+
+        Assert.Equal(ResultStatus.Invalid, result.Status);
+    }
+
+    [Fact]
+    public async Task Grade_NeedsWork_IsAllowedWhileAPersonalDeadlineRemains()
+    {
+        var (_, submissionId) = await LinkWithStatusAsync(SubmissionStatus.Submitted, _past.AddDays(-5), _past);
+        await SetPersonalDueAtDirectAsync(submissionId, DateTimeOffset.UtcNow.AddDays(2));
+
+        var fail = await GradeAsync(submissionId, new { level = "fail", feedback = "Saknas." });
+        var work = await GradeAsync(submissionId, new { feedback = "Komplettera", outcome = "needsWork" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, fail.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, work.StatusCode);
+    }
+
+    private async Task SetPersonalDueAtDirectAsync(Guid submissionId, DateTimeOffset dueAt)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        (await db.Submissions.FindAsync(submissionId))!.PersonalDueAt = dueAt;
+        await db.SaveChangesAsync();
+    }
+
+    private async Task<Guid> AddStudentToGroupAsync(Guid groupId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var group = await db.Groups.FindAsync(groupId);
+        var user = await TestData.AddMemberAsync(db, group!);
+        return user.Id;
     }
 
     [Fact]
@@ -1283,93 +1520,6 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
             .Where(enrollment => enrollment.GroupId == groupId && enrollment.Role == GroupRole.Student)
             .Select(enrollment => enrollment.UserId)
             .ToListAsync();
-    }
-
-    [Fact]
-    public async Task MarkAll_WithoutADueDate_IsRefused()
-    {
-        var (groupId, _) = await AddGroupAsync(students: 1);
-        var linkId = await LinkAsync(await CreateAssignmentAsync(_gradedFileSpec), new { groupId });
-
-        var response = await MarkAllAsync(linkId);
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task MarkAll_AfterTheDeadline_MarksOnlyNotStarted_AndNotifiesEachOnce()
-    {
-        var (groupId, _) = await AddGroupAsync(students: 2);
-        var linkId = await LinkAsync(await CreateAssignmentAsync(_gradedFileSpec), new { groupId });
-        var submitted = await SubmitAsync(linkId);
-        Guid late;
-        using (var scope = factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
-            var group = await db.Groups.FindAsync(groupId);
-            late = (await TestData.AddMemberAsync(db, group!)).Id;
-        }
-
-        // Eleven som kom till efter utdelningen har ingen rad. Åtgärden skapar den.
-        await SetDeadlinesAsync(linkId, _past, _future);
-
-        var response = await MarkAllAsync(linkId);
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(3, (await response.Content.ReadFromJsonAsync<MarkedResponse>())!.Count);
-        var after = await ListAsync(linkId);
-        Assert.Equal(3, after.Count(row => row.Status == "NotSubmitted"));
-        Assert.Contains(after, row => row.StudentId == late && row.Status == "NotSubmitted");
-        Assert.Equal("Submitted", after.Single(row => row.Id == submitted.Id).Status);
-        Assert.Equal(3, await NotSubmittedNotificationsAsync(linkId));
-    }
-
-    [Fact]
-    public async Task MarkAll_LeavesHandedInAndAssessedRowsUntouched()
-    {
-        var (linkId, submissionId) = await LinkWithStatusAsync(SubmissionStatus.Submitted, _past);
-
-        var response = await MarkAllAsync(linkId);
-
-        Assert.Equal(0, (await response.Content.ReadFromJsonAsync<MarkedResponse>())!.Count);
-        Assert.Equal("Submitted", (await ListAsync(linkId)).Single(row => row.Id == submissionId).Status);
-        foreach (var status in new[] { SubmissionStatus.NeedsWork, SubmissionStatus.Graded })
-        {
-            await SetStatusAsync(submissionId, status);
-            await MarkAllAsync(linkId);
-            Assert.Equal(status.ToString(), (await ListAsync(linkId)).Single(row => row.Id == submissionId).Status);
-        }
-
-        Assert.Equal(0, await NotSubmittedNotificationsAsync(linkId));
-    }
-
-    [Fact]
-    public async Task MarkAll_ASecondTime_MarksNobodyAndNotifiesNobodyAgain()
-    {
-        var (groupId, _) = await AddGroupAsync(students: 3);
-        var linkId = await LinkAsync(await CreateAssignmentAsync(_gradedFileSpec), new { groupId });
-        await SetDeadlinesAsync(linkId, _past);
-
-        var firstCall = await MarkAllAsync(linkId);
-        var secondCall = await MarkAllAsync(linkId);
-
-        Assert.Equal(3, (await firstCall.Content.ReadFromJsonAsync<MarkedResponse>())!.Count);
-        Assert.Equal(0, (await secondCall.Content.ReadFromJsonAsync<MarkedResponse>())!.Count);
-        Assert.Equal(3, await NotSubmittedNotificationsAsync(linkId));
-    }
-
-    [Fact]
-    public async Task MarkAll_AsAStudent_IsForbidden_AndChangesNothing()
-    {
-        var (groupId, _) = await AddGroupAsync(students: 1);
-        var linkId = await LinkAsync(await CreateAssignmentAsync(_gradedFileSpec), new { groupId });
-        await SetDeadlinesAsync(linkId, _past);
-        var student = (await ListAsync(linkId)).Single().StudentId;
-
-        var response = await MarkAllAsync(linkId, student);
-
-        Assert.True(response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.NotFound);
-        Assert.Equal("NotStarted", (await ListAsync(linkId)).Single().Status);
     }
 
     private async Task<Guid> CreateAssignmentAsync(object spec)

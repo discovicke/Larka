@@ -2,7 +2,6 @@
 import {PhListChecks} from '@phosphor-icons/vue'
 import {computed, ref, watch} from 'vue'
 
-import MarkAllNotSubmittedButton from '@/components/course/MarkAllNotSubmittedButton.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Button} from '@/components/ui/button'
@@ -23,7 +22,6 @@ import {
 } from '@/lib/gradingQueue'
 import {nextDeadline} from '@/lib/gradingWindow'
 import {submissionStatusKey} from '@/lib/status'
-import {markedNotSubmittedMessage} from '@/lib/submissionsApi'
 
 const {courses, status} = useCourses()
 
@@ -35,28 +33,11 @@ const activeTab = ref<GradingTab>('submitted')
 const tabs: {value: GradingTab, label: string, description: string}[] = [
   {value: 'submitted', label: 'Inlämnat', description: 'Inlämningar som väntar på ett betyg eller en komplettering.'},
   {
-    value: 'missed',
-    label: 'Inte inlämnat efter deadline',
-    description: 'Deadline har passerat och inget har kommit in. Eleverna kan fortfarande lämna in till nästa deadline: markeringen Ej inlämnat säger bara att inget kom i tid.',
-  },
-  {
-    value: 'out',
-    label: 'Chanserna slut',
-    description: 'Sista deadline har passerat och eleven är inte godkänd. Sätt IG, en i taget.',
-  },
-  {
     value: 'waiting',
     label: 'Väntar på eleven',
-    description: 'Bara för överblick. Eleven har en chans kvar och du behöver inte göra något.',
+    description: 'Bara för överblick. Eleven är försenad eller ska komplettera, har en chans kvar och du behöver inte göra något.',
   },
 ]
-
-const actionLabels: Record<GradingTab, string> = {
-  submitted: 'Bedöm',
-  missed: 'Markera med kommentar',
-  out: 'Sätt IG',
-  waiting: '',
-}
 
 const byTab = computed(() => groupRowsByTab(rows.value))
 const activeRows = computed(() => byTab.value[activeTab.value])
@@ -102,11 +83,6 @@ async function load() {
   if (loaded) {
     rows.value = loaded
   }
-}
-
-async function markedAll(count: number) {
-  await load()
-  notice.value = markedNotSubmittedMessage(count)
 }
 
 watch(status, (value) => {
@@ -232,13 +208,6 @@ watch(status, (value) => {
                 Bedöm {{ group.rows.length }} i ordning
               </RouterLink>
             </Button>
-            <div v-else-if="activeTab === 'missed'" data-test="grading-group-actions">
-              <MarkAllNotSubmittedButton
-                :link-id="group.linkId"
-                :count="group.rows.length"
-                @done="markedAll"
-              />
-            </div>
           </div>
 
           <div class="overflow-x-auto">
@@ -261,9 +230,6 @@ watch(status, (value) => {
                       :icon="false"
                     />
                   </td>
-                  <td v-else-if="activeTab === 'out'" class="px-3 py-3">
-                    <StatusBadge :status="submissionStatusKey(row.submission.status)" :icon="false"/>
-                  </td>
                   <td v-if="activeTab === 'submitted'" class="text-muted-foreground px-3 py-3">
                     {{ row.submission.submittedAt
                       ? `Inlämnad ${formatDate(row.submission.submittedAt, true)}`
@@ -272,7 +238,7 @@ watch(status, (value) => {
                   <td class="px-5 py-3 text-right">
                     <Button as-child variant="link" class="h-7 px-0 text-[13px]">
                       <RouterLink :to="reviewLink(row)">
-                        {{ actionLabels[activeTab] }}
+                        Bedöm
                       </RouterLink>
                     </Button>
                   </td>

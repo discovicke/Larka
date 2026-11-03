@@ -27,5 +27,8 @@ public interface IUserRepository
     /// <summary>Antal elever i skolan och hur många av dem som har kopplat GitHub.</summary>
     Task<(int TotalStudents, int LinkedStudents)> GetGitHubStudentCountsAsync(
         Guid schoolId, CancellationToken ct);
+
+    /// <summary>Om skolan har en aktiv admin som kan logga in med lösenord.</summary>
+    Task<bool> HasPasswordAdminAsync(Guid schoolId, CancellationToken ct);
     void Add(User user);
 }

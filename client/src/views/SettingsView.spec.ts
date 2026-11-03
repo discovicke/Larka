@@ -448,7 +448,7 @@ describe('SettingsView', () => {
     await flushPromises()
 
     const put = requests.find((request) => request.method === 'PUT')
-    expect(put?.body).toEqual({muted: ['SubmissionGraded', 'SubmissionNeedsWork', 'SubmissionNotSubmitted']})
+    expect(put?.body).toEqual({muted: ['SubmissionGraded', 'SubmissionNeedsWork']})
   })
 
   it('återställer rutan och visar felet när sparandet misslyckas', async () => {

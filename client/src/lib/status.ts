@@ -71,11 +71,18 @@ const definitions = {
   'submission.submitted': {family: 'submission', label: 'Inlämnad', tone: 'info', icon: PhPaperPlaneTilt},
   'submission.needsWork': {family: 'submission', label: 'Komplettera', tone: 'destructive', icon: PhWarningCircle},
   'submission.graded': {family: 'submission', label: 'Bedömd', tone: 'neutral'},
-  // Läraren har markerat att eleven inte lämnade in. Skiljer sig från Inte inlämnad, som bara är ett läge före deadline.
+  // Automatiskt IG: sista deadline har passerat utan inlämning eller komplettering. Skiljer sig från Inte inlämnad,
+  // som bara är ett läge före sista deadline.
   // Raderna i Att bedöma: om läraren bedömer en första inlämning eller en inlämning efter komplettering.
   'submission.first': {family: 'submission', label: 'Första inlämningen', tone: 'info'},
   'submission.again': {family: 'submission', label: 'Inlämnat igen', tone: 'destructive'},
-  'submission.missed': {family: 'submission', label: 'Ej inlämnat', tone: 'destructive', icon: PhXCircle},
+  'submission.autoFailNone': {family: 'submission', label: 'IG · Ingen inlämning', tone: 'destructive', icon: PhXCircle},
+  'submission.autoFailNeedsWork': {
+    family: 'submission',
+    label: 'IG · Kompletteringen lämnades inte in',
+    tone: 'destructive',
+    icon: PhXCircle,
+  },
 
   'deadline.soon': {family: 'deadline', label: 'Deadline snart', tone: 'warning', icon: PhClock},
   'deadline.overdue': {family: 'deadline', label: 'Försenad', tone: 'destructive', icon: PhWarning},
@@ -103,10 +110,19 @@ export function courseStatusKey(status: keyof typeof courseStatusLabels): Status
   return `course.${status}`
 }
 
-/** Inlämningens läge som nyckel. Utan inlämning, eller när den inte är påbörjad, gäller Inte inlämnad. */
+/**
+ * Inlämningens läge som nyckel. Utan inlämning, eller när den inte är påbörjad, gäller Inte inlämnad.
+ * Med autoFail (från isAutoFail i gradingWindow) blir uteblivet arbete i stället automatiskt IG.
+ */
 export function submissionStatusKey(
   status: Schema<'SubmissionStatus'> | null | undefined,
+  autoFail = false,
 ): StatusKey {
+  if (autoFail) {
+    return status === 'NeedsWork'
+      ? 'submission.autoFailNeedsWork'
+      : 'submission.autoFailNone'
+  }
   switch (status) {
     case 'Submitted':
       return 'submission.submitted'
@@ -114,8 +130,6 @@ export function submissionStatusKey(
       return 'submission.needsWork'
     case 'Graded':
       return 'submission.graded'
-    case 'NotSubmitted':
-      return 'submission.missed'
     default:
       return 'submission.notSubmitted'
   }
@@ -147,19 +161,21 @@ export function partStatusKey(item: {
   isCompleted: boolean
   submissionStatus: Schema<'SubmissionStatus'> | null | undefined
   gradeLevel: 'Fail' | 'Pass' | 'Distinction' | null | undefined
+  /** Sant när eleven fått automatiskt IG, se isAutoFail i gradingWindow. */
+  autoFail?: boolean
 }): StatusKey {
   if (item.isLocked) {
     return 'progress.locked'
   }
   if (item.type === 'Assignment') {
+    if (item.autoFail) {
+      return submissionStatusKey(item.submissionStatus, true)
+    }
     if (item.submissionStatus === 'Submitted') {
       return 'submission.submitted'
     }
     if (item.submissionStatus === 'NeedsWork') {
       return 'submission.needsWork'
-    }
-    if (item.submissionStatus === 'NotSubmitted') {
-      return 'submission.missed'
     }
     if (item.submissionStatus === 'Graded') {
       return item.gradeLevel === 'Fail'

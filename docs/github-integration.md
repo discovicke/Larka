@@ -312,6 +312,10 @@ Repot är öppet exakt när eleven får lämna in och låst annars. `GitHubDeadl
 
 Efter sista deadline låses alla repon, med eller utan egen commit.
 
+**Personlig deadline.** Elevens personliga deadline (`Submission.PersonalDueAt`) räknas som en deadline till. Jobbet behandlar repot när den passerat, och det sista låset väntar tills även den har passerat. Fönstret byggs med `GradingWindow` i `RepoLockPolicy`, så regeln finns bara på ett ställe, och `GetReposToLockAsync` filtrerar på samma sätt i SQL. Ett grupprepo delas av alla medlemmar och följer den senaste personliga deadlinen bland gruppens inlämningar.
+
+När läraren sätter en personlig deadline för en elev vars repo är låst och vars inlämning är `NotStarted` eller `NeedsWork`, öppnas repot igen på samma sätt som vid komplettering (`ReopenedAt` sätts). Att ta bort datumet låser inte direkt, utan deadlinejobbet låser repot vid nästa körning.
+
 ### Komplettering
 
 När läraren begär komplettering, vilket kräver att en deadline återstår:
@@ -320,7 +324,7 @@ När läraren begär komplettering, vilket kräver att en deadline återstår:
 - avarkiveras repot,
 - `ReopenedAt` sätts.
 
-Eleven kan då pusha igen och lämna in på nytt fram till nästa kompletteringsdeadline. Vid den deadlinen låses repot igen om det finns en ny commit, och `ReopenedAt` rensas. Ej inlämnat ändrar inte repot.
+Eleven kan då pusha igen och lämna in på nytt fram till nästa kompletteringsdeadline. Vid den deadlinen låses repot igen om det finns en ny commit, och `ReopenedAt` rensas. Automatiskt IG ändrar inte repot.
 
 ---
 

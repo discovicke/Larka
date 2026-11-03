@@ -50,11 +50,14 @@ public class NewSchoolSetupTests(NewSchoolWebApplicationFactory factory)
     [Fact]
     public async Task SetupAdmin_LinksAndNamesTheSchool_AndBecomesAdmin_ThenOthersBecomeStudents()
     {
+        await ForgetSetupAdminAsync();
+        var waiting = await _client.GetStringAsync("/api/auth/providers");
         var blocked = await SignInAsync(Guid.NewGuid().ToString(), "tidig@nyaskolan.se");
         var admin = await SignInAsync(NewSchoolWebApplicationFactory.AdminObjectId, "it.admin@nyaskolan.se");
         var student = await SignInAsync(Guid.NewGuid().ToString(), "elev@nyaskolan.se");
         var providers = await _client.GetStringAsync("/api/auth/providers");
 
+        Assert.Contains(MicrosoftTestWebApplicationFactory.ClientId, waiting);
         Assert.Equal(HttpStatusCode.Forbidden, blocked.StatusCode);
         Assert.Equal(HttpStatusCode.OK, admin.StatusCode);
         Assert.Equal(HttpStatusCode.OK, student.StatusCode);
@@ -83,6 +86,9 @@ public class NewSchoolSetupTests(NewSchoolWebApplicationFactory factory)
                 .ExecuteUpdateAsync(setters => setters.SetProperty(row => row.EntraTenantId, "gammal-tenant"));
         }
 
+        // Den nya tenantens setup-admin har inte loggat in än.
+        await ForgetSetupAdminAsync();
+
         var blocked = await SignInAsync(Guid.NewGuid().ToString(), "annan@nyaskolan.se");
         var admin = await SignInAsync(NewSchoolWebApplicationFactory.AdminObjectId, "it.admin@nyaskolan.se");
 
@@ -92,6 +98,35 @@ public class NewSchoolSetupTests(NewSchoolWebApplicationFactory factory)
         var school = await check.ServiceProvider.GetRequiredService<AppDb>().Schools
             .SingleAsync(row => row.Id == PlaceholderIds.SchoolId);
         Assert.Equal(MicrosoftTestWebApplicationFactory.TenantId, school.EntraTenantId);
+    }
+
+    [Fact]
+    public async Task AfterSetup_TurningMicrosoftOff_HidesIt_AndTheSetupAdminCannotTurnItBackOn()
+    {
+        await ForgetSetupAdminAsync();
+        var first = await SignInAsync(NewSchoolWebApplicationFactory.AdminObjectId, "it.admin@nyaskolan.se");
+        using (var scope = factory.Services.CreateScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<AppDb>().Schools
+                .Where(row => row.Id == PlaceholderIds.SchoolId)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(row => row.EntraTenantId, (string?)null));
+        }
+
+        var providers = await _client.GetStringAsync("/api/auth/providers");
+        var again = await SignInAsync(NewSchoolWebApplicationFactory.AdminObjectId, "it.admin@nyaskolan.se");
+
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        Assert.Contains("\"microsoft\":null", providers);
+        Assert.Equal(HttpStatusCode.Forbidden, again.StatusCode);
+    }
+
+    // Som innan setup-admin har loggat in första gången: ingen användare har hens Microsoft-id.
+    private async Task ForgetSetupAdminAsync()
+    {
+        using var scope = factory.Services.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<AppDb>().Users
+            .Where(user => user.ExternalId == NewSchoolWebApplicationFactory.AdminObjectId)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(user => user.ExternalId, (string?)null));
     }
 
     private Task<HttpResponseMessage> SignInAsync(string oid, string email) =>

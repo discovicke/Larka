@@ -173,6 +173,7 @@ erDiagram
         SubmissionStatus Status "NotStarted, Submitted, NeedsWork, Graded"
         string BodyMd "nullable"
         timestamptz SubmittedAt "nullable"
+        timestamptz PersonalDueAt "nullable, extra deadline för just den här eleven"
     }
     SubmissionFile {
         uuid Id PK
@@ -273,7 +274,7 @@ erDiagram
 
 - **Submission hör till en ContentLink, inte till content.** Det är på länken deadlinen finns, och en elev lämnar in till uppgiften så som den delades ut till hens grupp. Det finns en rad per elev och länk (unik), och `Status` (`NotStarted`, `Submitted`, `NeedsWork`, `Graded`) visar var eleven är. Statusbytena styr notiserna.
 - **SubmissionFile (1:N)** innehåller uppladdade filer, **StudentRepo (1:0..1)** elevens GitHub-repo när uppgiften använder repo-läge. Repot skapas när uppgiften delas ut, så då finns submission-raden redan med status `NotStarted`.
-- **Grade (1:0..1 med Submission)** sparar vem som rättade (`GradedById`) och när. `Level` är betyget (`Fail`, `Pass`, `Distinction`, alltså IG, G, VG) och måste passa uppgiftens `GradeScale`: på `PassFail` finns inget `Distinction`, och på `None` får inlämningen bara feedback. Vid komplettering sätts status `NeedsWork` och Grade har feedback men inget betyg, och eleven kan lämna in igen till nästa kompletteringsdeadline. Ej inlämnat sätter status `NotSubmitted` på samma sätt, utan betyg och med frivillig feedback, och eleven kan fortfarande lämna in till nästa deadline. IG (`Fail`) sätts först när ingen deadline återstår, och Komplettera kräver att en deadline återstår. Bara den senaste bedömningen sparas. En rättad inlämning går inte att lämna in igen. Uppgifter med `OnSite` kan rättas utan att eleven lämnat in något.
+- **Grade (1:0..1 med Submission)** sparar vem som rättade (`GradedById`) och när. `Level` är betyget (`Fail`, `Pass`, `Distinction`, alltså IG, G, VG) och måste passa uppgiftens `GradeScale`: på `PassFail` finns inget `Distinction`, och på `None` får inlämningen bara feedback. Vid komplettering sätts status `NeedsWork` och Grade har feedback men inget betyg, och eleven kan lämna in igen till nästa kompletteringsdeadline. Den som inte lämnat in eller kompletterat när ingen deadline återstår får IG automatiskt. Det härleds av `GradingWindow.IsAutoFail` och sparas inte som status. IG (`Fail`) kan läraren sätta först när ingen deadline återstår, och Komplettera kräver att en deadline återstår. Bara den senaste bedömningen sparas. En rättad inlämning går inte att lämna in igen. Uppgifter med `OnSite` kan rättas utan att eleven lämnat in något.
 
 ### Notiser
 

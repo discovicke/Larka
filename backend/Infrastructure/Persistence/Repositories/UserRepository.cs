@@ -53,6 +53,12 @@ public class UserRepository(AppDb db) : IUserRepository
     public Task<User?> GetByExternalIdAsync(string externalId, CancellationToken ct) =>
         db.Users.FirstOrDefaultAsync(user => user.ExternalId == externalId, ct);
 
+    public Task<bool> HasPasswordAdminAsync(Guid schoolId, CancellationToken ct) =>
+        db.Users.AnyAsync(user => user.SchoolId == schoolId
+            && user.Role == UserRole.Admin
+            && user.PasswordHash != null
+            && user.DeactivatedAt == null, ct);
+
     public Task<User?> GetByEmailAsync(string email, CancellationToken ct)
     {
         // E-post jämförs utan hänsyn till versaler och inledande/trailing blanksteg.

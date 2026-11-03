@@ -6,8 +6,7 @@ import {createWorld, login, typeInEditor} from '../journeys'
 test('2: läraren publicerar en uppgift och eleven lämnar in', async ({apiAs, pageAs, request}) => {
   const world = await createWorld(await apiAs('admin'))
   const [student] = world.students
-  const teacherPage = await pageAs(await login(request, world.teacher.email))
-  const studentPage = await pageAs(await login(request, student.email))
+  const teacherPage = await pageAs(await login(request, world.teacher.email), 'lärare')
   const courseUrl = `/courses/${world.course.id}/content`
   const weekTitle = `Vecka ${world.tag}`
   const assignmentTitle = `Uppgift ${world.tag}`
@@ -29,7 +28,9 @@ test('2: läraren publicerar en uppgift och eleven lämnar in', async ({apiAs, p
   await teacherPage.getByTestId('save-draft').click()
   await expect(week.getByTestId('module-item').filter({hasText: assignmentTitle})).toBeVisible()
 
-  // Eleven ser ingenting förrän läraren publicerar veckan.
+  // Eleven ser ingenting förrän läraren publicerar veckan. Elevens sida öppnas först här, så att videon inte börjar
+  // med en tom sida medan läraren arbetar.
+  const studentPage = await pageAs(await login(request, student.email), 'elev')
   await studentPage.goto(courseUrl)
   await expect(studentPage.getByText(weekTitle)).toHaveCount(0)
   await week.getByTestId('publish-week').click()

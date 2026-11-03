@@ -22,7 +22,7 @@ const analytics: GroupAnalytics = {
       needsWorkCount: 1,
       submittedCount: 1,
       overdueCount: 1,
-      notSubmittedCount: 0,
+      autoFailCount: 0,
       atRiskStudentCount: 2,
     },
     {
@@ -40,7 +40,7 @@ const analytics: GroupAnalytics = {
       needsWorkCount: 0,
       submittedCount: 0,
       overdueCount: 0,
-      notSubmittedCount: 0,
+      autoFailCount: 0,
       atRiskStudentCount: 0,
     },
   ],
@@ -60,7 +60,7 @@ const analytics: GroupAnalytics = {
           needsWorkCount: 1,
           submittedCount: 1,
           overdueCount: 1,
-          notSubmittedCount: 0,
+          autoFailCount: 0,
           needsSupport: true,
         },
         {
@@ -73,7 +73,7 @@ const analytics: GroupAnalytics = {
           needsWorkCount: 0,
           submittedCount: 0,
           overdueCount: 0,
-          notSubmittedCount: 0,
+          autoFailCount: 0,
           needsSupport: false,
         },
       ],
@@ -93,7 +93,7 @@ const analytics: GroupAnalytics = {
           needsWorkCount: 0,
           submittedCount: 0,
           overdueCount: 0,
-          notSubmittedCount: 0,
+          autoFailCount: 0,
           needsSupport: false,
         },
         {
@@ -106,7 +106,7 @@ const analytics: GroupAnalytics = {
           needsWorkCount: 0,
           submittedCount: 0,
           overdueCount: 0,
-          notSubmittedCount: 0,
+          autoFailCount: 0,
           needsSupport: false,
         },
       ],
@@ -159,13 +159,33 @@ describe('analytics', () => {
       needsWorkCount: 0,
       submittedCount: 0,
       overdueCount: 0,
-      notSubmittedCount: 0,
+      autoFailCount: 0,
     }
 
     expect(studentProgressStatus(complete, true)).toBe('complete')
     expect(studentProgressStatus(complete, false)).toBe('onTrack')
     expect(studentProgressStatus({...complete, needsSupport: true, failCount: 1}, true))
       .toBe('needsSupport')
+  })
+
+  it('räknar automatiskt IG som IG i fördelningarna', () => {
+    const withAutoFail: GroupAnalytics = {
+      ...analytics,
+      courses: analytics.courses.map((course) => ({...course, autoFailCount: 1})),
+      students: analytics.students.map((student) => ({
+        ...student,
+        courses: student.courses.map((course) => ({...course, autoFailCount: 1})),
+      })),
+    }
+    const summary = summarize(withAutoFail, 'c1')
+    const students = studentRows(withAutoFail, 'c1').length
+
+    expect(summary.autoFailCount).toBe(students)
+    expect(gradeDistribution(summary)[0].count).toBe(summary.failCount + students)
+    expect(statusDistribution(summary).find((item) => item.key === 'autoFail')?.count).toBe(students)
+    expect(summary.passRate).toBe(
+      (summary.passCount + summary.distinctionCount) / (summary.gradedCount + students),
+    )
   })
 
   it('bygger betygs- och statusdata för charts', () => {
@@ -181,7 +201,7 @@ describe('analytics', () => {
       ['Bedömt', 2],
       ['Att bedöma', 1],
       ['Komplettering', 1],
-      ['Ej inlämnat', 0],
+      ['IG (ingen inlämning)', 0],
       ['Försenat', 1],
       ['Ej påbörjat', 1],
     ])

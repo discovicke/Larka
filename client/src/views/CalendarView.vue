@@ -106,16 +106,26 @@ function linkFor(item: Item): RouteLocationRaw | null {
   return {name: 'course-content', params: {courseId: item.courseId}, query: {del: item.linkId}}
 }
 
+// Uppgiftens deadline, kompletteringsdeadlines och elevens egen deadline visas alla som deadlines.
+function isDeadline(item: Item): boolean {
+  return item.kind !== 'Publish'
+}
+
 function chipClass(item: Item): string {
-  return item.kind === 'Deadline'
+  return isDeadline(item)
     ? 'border-destructive/20 bg-destructive/10 text-destructive'
     : 'bg-background'
 }
 
+const chipLabels: Record<Item['kind'], string> = {
+  Deadline: 'Deadline',
+  ResubmitDeadline: 'Kompletteringsdeadline',
+  PersonalDeadline: 'Din deadline',
+  Publish: 'Publiceras',
+}
+
 function chipLabel(item: Item): string {
-  return item.kind === 'Deadline'
-    ? 'Deadline'
-    : 'Publiceras'
+  return chipLabels[item.kind]
 }
 
 const {run: fetchItems, loading, error} = useAsync(async (from: Date, to: Date) => unwrap(await api.GET('/api/calendar', {
@@ -277,7 +287,7 @@ watch([view, anchor], load, {immediate: true})
             v-for="item in (view === 'week'
               ? itemsOn(day)
               : shownOn(day))"
-            :key="`${item.kind}-${item.linkId}`"
+            :key="`${item.kind}-${item.linkId}-${item.at}`"
           >
             <component
               :is="linkFor(item)
@@ -289,7 +299,7 @@ watch([view, anchor], load, {immediate: true})
               :class="chipClass(item)"
             >
               <span class="flex min-w-0 items-center gap-1 font-medium">
-                <PhFlag v-if="item.kind === 'Deadline'" class="size-3.5 shrink-0"/>
+                <PhFlag v-if="isDeadline(item)" class="size-3.5 shrink-0"/>
                 <PhCalendarCheck v-else class="size-3.5 shrink-0"/>
                 <span class="shrink-0">{{ timeText(item.at) }}</span>
                 <span class="truncate">{{ item.title }}</span>

@@ -15,7 +15,7 @@ test('3: läraren bedömer och eleven ser betyget', async ({apiAs, pageAs, reque
   await submitAs(await apiAs(await login(request, student.email)), assignment.linkId, 'Här är min redovisning')
 
   // Läraren öppnar inlämningen, sätter VG med en kommentar och kommer tillbaka till en tom kö.
-  const teacherPage = await pageAs(await login(request, world.teacher.email))
+  const teacherPage = await pageAs(await login(request, world.teacher.email), 'lärare')
   await teacherPage.goto('/grading')
   await teacherPage.getByTestId('grading-row').filter({hasText: student.name}).getByRole('link').click()
   // VG är sista valet. IG visas inte medan en deadline återstår, så valen räknas inte från början.
@@ -26,7 +26,7 @@ test('3: läraren bedömer och eleven ser betyget', async ({apiAs, pageAs, reque
   await expect(teacherPage.getByTestId('grading-row')).toHaveCount(0)
 
   // Eleven ser kommentaren under Studieplan och betyg.
-  const studentPage = await pageAs(await login(request, student.email))
+  const studentPage = await pageAs(await login(request, student.email), 'elev')
   await studentPage.goto('/grades')
   const row = studentPage.getByTestId('study-plan-assignment').filter({hasText: assignment.title})
   await row.getByRole('button').click()

@@ -237,6 +237,33 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     }
 
     [Fact]
+    public async Task AutomaticFail_CountsAsFinished_AndUnlocksTheNextPart()
+    {
+        var setup = await AddCourseWithGroupAsync();
+        var week = await CreateModuleAsync(setup.CourseId);
+        var assignment = await LinkAssignmentAsync(setup.CourseId, week.Id, "Inlämning");
+        var exercise = await LinkExerciseAsync(setup.CourseId, week.Id, "Övning B");
+        await SaveRoadmapAsync(setup.CourseId, week.Id, (assignment, []), (exercise, [assignment]));
+
+        var before = (await GetStudentModulesAsync(setup, setup.StudentIds[0])).Single().Content;
+        Assert.False(before.Single(item => item.LinkId == assignment).IsCompleted);
+        Assert.True(before.Single(item => item.LinkId == exercise).IsLocked);
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            var link = await db.ContentLinks.FindAsync(assignment);
+            link!.DueAt = DateTimeOffset.UtcNow.AddDays(-2);
+            link.ResubmitDueAt = [];
+            await db.SaveChangesAsync();
+        }
+
+        var after = (await GetStudentModulesAsync(setup, setup.StudentIds[0])).Single().Content;
+        Assert.True(after.Single(item => item.LinkId == assignment).IsCompleted);
+        Assert.False(after.Single(item => item.LinkId == exercise).IsLocked);
+    }
+
+    [Fact]
     public async Task AssignmentItem_ListsItsSubmissionModes()
     {
         var setup = await AddCourseWithGroupAsync();

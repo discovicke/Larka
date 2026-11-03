@@ -99,6 +99,18 @@ describe('CalendarView', () => {
     expect(chipTexts(wrapper, '2026-10-19')).toHaveLength(0)
   })
 
+  it('visar kompletteringsdeadlines och elevens egen deadline som deadlines', async () => {
+    backend({calendar: [
+      item('l1', 'Release-pipeline', local(10, 22, 12, 0), {kind: 'ResubmitDeadline'}),
+      item('l1', 'Release-pipeline', local(10, 23), {kind: 'PersonalDeadline'}),
+    ]})
+
+    const {wrapper} = await renderApp('/calendar')
+
+    expect(chipTexts(wrapper, '2026-10-22')[0]).toContain('Kompletteringsdeadline')
+    expect(chipTexts(wrapper, '2026-10-23')[0]).toContain('Din deadline')
+  })
+
   it('hämtar veckans intervall och nästa vecka när man bläddrar', async () => {
     backend({calendar: thisWeek})
     const {wrapper} = await renderApp('/calendar')

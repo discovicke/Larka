@@ -8,7 +8,8 @@ namespace Backend.Application.Services;
 /// </summary>
 public static class PartRules
 {
-    public static bool IsSatisfied(Content content, PartCompletion? completion, Submission? submission)
+    public static bool IsSatisfied(
+        Content content, PartCompletion? completion, Submission? submission, GradingWindow? window = null)
     {
         if (IsManual(content))
         {
@@ -27,10 +28,16 @@ public static class PartRules
                 && (level == GradeLevel.Pass || level == GradeLevel.Distinction);
         }
 
+        // Ett automatiskt IG räknas som ett bedömt IG: eleven kan inte göra mer, och nästa del låses upp.
+        if (window?.IsAutoFail(submission?.Status ?? SubmissionStatus.NotStarted) == true)
+        {
+            return true;
+        }
+
         // Inlämnat räcker. Ett betyg (t.ex. bedömning på plats) räknas också, även om SubmittedAt saknas.
-        // En inlämning som läraren markerat som ej inlämnad räknas inte, även om eleven lämnat in tidigare.
-        return submission?.Status != SubmissionStatus.NotSubmitted
-            && (submission?.SubmittedAt is not null || submission?.Status == SubmissionStatus.Graded);
+        // En inlämning som läraren begärt komplettering på räknas inte som klar förrän eleven lämnat in igen.
+        return submission?.Status == SubmissionStatus.Graded
+            || (submission?.SubmittedAt is not null && submission.Status != SubmissionStatus.NeedsWork);
     }
 
     public static bool IsManual(Content content) =>

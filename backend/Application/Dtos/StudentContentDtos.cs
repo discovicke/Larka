@@ -39,6 +39,7 @@ public record StudentContentItem(
     DateTimeOffset PublishAt,
     DateTimeOffset? DueAt,
     List<DateTimeOffset> ResubmitDueAt,
+    DateTimeOffset? PersonalDueAt,
     bool IsPinned,
     bool IsLocked,
     bool IsCompleted,

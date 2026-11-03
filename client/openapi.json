@@ -5400,66 +5400,6 @@
         }
       }
     },
-    "/api/links/{id}/submissions/mark-not-submitted": {
-      "post": {
-        "tags": [
-          "Submissions"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MarkedNotSubmittedDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/submissions/{id}": {
       "get": {
         "tags": [
@@ -5541,6 +5481,85 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/GradeSubmissionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmissionDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/links/{id}/students/{studentId}/personal-due-at": {
+      "put": {
+        "tags": [
+          "Submissions"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "studentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetPersonalDueAtDto"
               }
             }
           },
@@ -6809,7 +6828,9 @@
       "CalendarItemKind": {
         "enum": [
           "Deadline",
-          "Publish"
+          "Publish",
+          "ResubmitDeadline",
+          "PersonalDeadline"
         ]
       },
       "ChecklistDto": {
@@ -8013,8 +8034,7 @@
       "GradeOutcome": {
         "enum": [
           "Graded",
-          "NeedsWork",
-          "NotSubmitted"
+          "NeedsWork"
         ],
         "default": "Graded"
       },
@@ -8046,6 +8066,13 @@
           },
           "outcome": {
             "$ref": "#/components/schemas/GradeOutcome"
+          },
+          "personalDueAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -8065,7 +8092,7 @@
           "needsWorkCount",
           "submittedCount",
           "overdueCount",
-          "notSubmittedCount",
+          "autoFailCount",
           "atRiskStudentCount"
         ],
         "type": "object",
@@ -8130,7 +8157,7 @@
             "type": "integer",
             "format": "int32"
           },
-          "notSubmittedCount": {
+          "autoFailCount": {
             "type": "integer",
             "format": "int32"
           },
@@ -8183,7 +8210,7 @@
           "needsWorkCount",
           "submittedCount",
           "overdueCount",
-          "notSubmittedCount",
+          "autoFailCount",
           "needsSupport"
         ],
         "type": "object",
@@ -8224,7 +8251,7 @@
             "type": "integer",
             "format": "int32"
           },
-          "notSubmittedCount": {
+          "autoFailCount": {
             "type": "integer",
             "format": "int32"
           },
@@ -8232,7 +8259,7 @@
             "type": "boolean"
           }
         },
-        "description": "En elevs räknare i en kurs. Overdue är uppgifter som passerat deadline utan inlämning."
+        "description": "En elevs räknare i en kurs. Overdue är uppgifter som passerat deadline utan inlämning medan en kompletteringsdeadline återstår.\n    AutoFail är uppgifter där sista deadline passerat utan inlämning eller komplettering, alltså automatiskt IG."
       },
       "GroupAnalyticsStudentDto": {
         "required": [
@@ -8527,19 +8554,6 @@
             "format": "date-time"
           }
         }
-      },
-      "MarkedNotSubmittedDto": {
-        "required": [
-          "count"
-        ],
-        "type": "object",
-        "properties": {
-          "count": {
-            "type": "integer",
-            "format": "int32"
-          }
-        },
-        "description": "Hur många elever som markerades som Ej inlämnat i en och samma åtgärd."
       },
       "MeDto": {
         "required": [
@@ -9000,9 +9014,16 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "personalDueAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         },
-        "description": "En notis i inkorgen. Title är innehållets titel (null om innehållet är borttaget). CourseTitle eller\nGroupName säger var det hände. Level finns på betygsnotiser."
+        "description": "En notis i inkorgen. Title är innehållets titel (null om innehållet är borttaget). CourseTitle eller\nGroupName säger var det hände. Level finns på betygsnotiser och PersonalDueAt på notiser om en personlig deadline."
       },
       "NotificationKind": {
         "enum": [
@@ -9012,7 +9033,7 @@
           "SubmissionNeedsWork",
           "SubmissionGraded",
           "StudentHelpRequested",
-          "SubmissionNotSubmitted"
+          "PersonalDeadlineSet"
         ]
       },
       "NotificationListDto": {
@@ -9377,6 +9398,21 @@
           }
         }
       },
+      "SetPersonalDueAtDto": {
+        "required": [
+          "dueAt"
+        ],
+        "type": "object",
+        "properties": {
+          "dueAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
       "SetStudentHelpDto": {
         "type": "object",
         "properties": {
@@ -9423,6 +9459,7 @@
           "publishAt",
           "dueAt",
           "resubmitDueAt",
+          "personalDueAt",
           "isPinned",
           "isLocked",
           "isCompleted",
@@ -9484,6 +9521,13 @@
               "type": "string",
               "format": "date-time"
             }
+          },
+          "personalDueAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           },
           "isPinned": {
             "type": "boolean"
@@ -9709,7 +9753,7 @@
             "format": "int32"
           }
         },
-        "description": "Läget i en kurs. NeedsWork är uppgifter läraren vill ha kompletterade, Late uppgifter som passerat deadline\nutan att lämnas in, Submitted lämnade och ännu inte bedömda, och Graded de som har betyg (fördelade på nivå)."
+        "description": "Läget i en kurs. NeedsWork är uppgifter läraren vill ha kompletterade, Late uppgifter som passerat deadline\nutan att lämnas in, Submitted lämnade och ännu inte bedömda, och Graded de som har betyg (fördelade på nivå).\nFailCount räknar också automatiskt IG. En uppgift med automatiskt IG räknas inte som NeedsWork eller Late."
       },
       "StudentOverviewDto": {
         "required": [
@@ -9925,6 +9969,7 @@
           "title",
           "dueAt",
           "resubmitDueAt",
+          "personalDueAt",
           "status",
           "grade",
           "feedback",
@@ -9952,6 +9997,13 @@
               "type": "string",
               "format": "date-time"
             }
+          },
+          "personalDueAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           },
           "status": {
             "$ref": "#/components/schemas/SubmissionStatus"
@@ -10194,6 +10246,13 @@
               "null",
               "string"
             ]
+          },
+          "personalDueAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -10236,8 +10295,7 @@
           "NotStarted",
           "Submitted",
           "NeedsWork",
-          "Graded",
-          "NotSubmitted"
+          "Graded"
         ]
       },
       "SubmitForm": {

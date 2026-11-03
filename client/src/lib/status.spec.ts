@@ -41,7 +41,8 @@ describe('statuses', () => {
     ['progress.done', 'Klar', 'success'],
     ['submission.submitted', 'Inlämnad', 'info'],
     ['submission.needsWork', 'Komplettera', 'destructive'],
-    ['submission.missed', 'Ej inlämnat', 'destructive'],
+    ['submission.autoFailNone', 'IG · Ingen inlämning', 'destructive'],
+    ['submission.autoFailNeedsWork', 'IG · Kompletteringen lämnades inte in', 'destructive'],
     ['deadline.soon', 'Deadline snart', 'warning'],
     ['deadline.overdue', 'Försenad', 'destructive'],
   ])('%s heter %s och har tonen %s', (key, label, tone) => {
@@ -73,12 +74,17 @@ describe('submissionStatusKey', () => {
     ['Submitted', 'submission.submitted'],
     ['NeedsWork', 'submission.needsWork'],
     ['Graded', 'submission.graded'],
-    ['NotSubmitted', 'submission.missed'],
     ['NotStarted', 'submission.notSubmitted'],
     [null, 'submission.notSubmitted'],
     [undefined, 'submission.notSubmitted'],
   ] as const)('%s ger %s', (status, key) => {
     expect(submissionStatusKey(status)).toBe(key)
+  })
+
+  it('ger automatiskt IG för uteblivet arbete', () => {
+    expect(submissionStatusKey('NotStarted', true)).toBe('submission.autoFailNone')
+    expect(submissionStatusKey(null, true)).toBe('submission.autoFailNone')
+    expect(submissionStatusKey('NeedsWork', true)).toBe('submission.autoFailNeedsWork')
   })
 })
 
@@ -115,8 +121,9 @@ describe('partStatusKey', () => {
     expect(part({isCompleted: true, submissionStatus: 'Submitted'})).toBe('submission.submitted')
   })
 
-  it('en uppgift som läraren markerat som ej inlämnad är Ej inlämnat', () => {
-    expect(part({isCompleted: false, submissionStatus: 'NotSubmitted'})).toBe('submission.missed')
+  it('en uppgift med automatiskt IG visar vad som saknades', () => {
+    expect(part({submissionStatus: null, autoFail: true})).toBe('submission.autoFailNone')
+    expect(part({submissionStatus: 'NeedsWork', autoFail: true})).toBe('submission.autoFailNeedsWork')
   })
 
   it('en uppgift som ska kompletteras är Komplettera', () => {

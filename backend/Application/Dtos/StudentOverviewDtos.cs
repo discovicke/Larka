@@ -8,6 +8,7 @@ public record StudentOverviewDto(Guid StudentId, string Name, Guid GroupId, List
 /// <summary>
 /// Läget i en kurs. NeedsWork är uppgifter läraren vill ha kompletterade, Late uppgifter som passerat deadline
 /// utan att lämnas in, Submitted lämnade och ännu inte bedömda, och Graded de som har betyg (fördelade på nivå).
+/// FailCount räknar också automatiskt IG. En uppgift med automatiskt IG räknas inte som NeedsWork eller Late.
 /// </summary>
 public record StudentOverviewCourseDto(
     Guid CourseId,

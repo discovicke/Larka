@@ -41,7 +41,7 @@ public class NotificationService(
     public async Task NotifyContentPublishedAsync(Content content, CancellationToken ct) =>
         await NotifyPublishedAsync(content, await notifications.GetLinksAsync(content.Id, ct), ct);
 
-    /// <summary>Notis till eleven om att inlämningen bedömts (Graded), behöver kompletteras (NeedsWork) eller är markerad som ej inlämnad (NotSubmitted).</summary>
+    /// <summary>Notis till eleven om att inlämningen bedömts (Graded) eller behöver kompletteras (NeedsWork).</summary>
     public async Task NotifySubmissionAsync(
         Submission submission, Guid contentId, NotificationKind kind, CancellationToken ct)
     {
@@ -61,6 +61,10 @@ public class NotificationService(
             }
         ]);
     }
+
+    /// <summary>Notis till eleven om att läraren har satt en personlig deadline.</summary>
+    public Task NotifyPersonalDeadlineSetAsync(Submission submission, Guid contentId, CancellationToken ct) =>
+        NotifySubmissionAsync(submission, contentId, NotificationKind.PersonalDeadlineSet, ct);
 
     /// <summary>Notis till lärarna på utdelningen när en elev själv ber om hjälp.</summary>
     public async Task NotifyStudentHelpRequestedAsync(
@@ -293,5 +297,6 @@ public class NotificationService(
             row.GroupName,
             row.Level,
             row.Notification.CreatedAt,
-            row.Notification.ReadAt);
+            row.Notification.ReadAt,
+            row.PersonalDueAt);
 }

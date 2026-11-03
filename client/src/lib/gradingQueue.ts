@@ -1,5 +1,5 @@
 import {type Schema} from '@/lib/api'
-import {deadlineRemains, nextDeadline} from '@/lib/gradingWindow'
+import {isAutoFail, nextDeadline} from '@/lib/gradingWindow'
 import {gradeLabel, levelsFor} from '@/lib/submissions'
 import {fetchCourseModules} from '@/lib/modulesApi'
 import {fetchLinkSubmissions} from '@/lib/submissionsApi'
@@ -14,12 +14,14 @@ export interface GradingRow {
   /** Uppgiftens deadlines. Utan dueAt gäller ingen deadlinelogik. */
   dueAt: string | null
   resubmitDueAt: string[]
+  /** Elevens egen extra deadline, om läraren har gett en. */
+  personalDueAt: string | null
   gradeScale: Schema<'GradeScale'> | null
-  /** Sant när en tidigare bedömning finns: läraren har begärt komplettering eller satt Ej inlämnat förut. */
+  /** Sant när en tidigare bedömning finns: läraren har begärt komplettering förut. */
   previousGrade: boolean
 }
 
-export type GradingTab = 'submitted' | 'missed' | 'out' | 'waiting'
+export type GradingTab = 'submitted' | 'waiting'
 
 export interface GradingGroup {
   linkId: string
@@ -61,6 +63,7 @@ export async function fetchAssignmentRows(courses: Schema<'CourseDto'>[]): Promi
       name: submission.studentName,
       dueAt: item.dueAt ?? null,
       resubmitDueAt: item.resubmitDueAt ?? [],
+      personalDueAt: submission.personalDueAt ?? null,
       gradeScale: item.gradeScale ?? null,
       previousGrade: submission.grade != null,
     })))
@@ -69,28 +72,24 @@ export async function fetchAssignmentRows(courses: Schema<'CourseDto'>[]): Promi
 /** Vilken flik en rad hör till, eller null när läraren inget har att göra eller se. */
 export function gradingTabOf(row: GradingRow, now = new Date()): GradingTab | null {
   const status = row.submission.status
-  const dueAt = row.dueAt
-    ? new Date(row.dueAt)
-    : null
   if (status === 'Submitted') {
     return 'submitted'
   }
-  if (status === 'NotStarted') {
-    return dueAt && dueAt <= now
-      ? 'missed'
-      : null
+  // Automatiskt IG kräver ingen åtgärd av läraren och visas inte här. Det syns i uppgiftens inlämningslista.
+  if (isAutoFail(row, status, now)) {
+    return null
   }
-  if (status === 'NeedsWork' || status === 'NotSubmitted') {
-    return dueAt && !deadlineRemains(row, now)
-      ? 'out'
-      : 'waiting'
+  if (status === 'NeedsWork') {
+    return 'waiting'
   }
-  return null
+  return status === 'NotStarted' && row.dueAt && new Date(row.dueAt) <= now
+    ? 'waiting'
+    : null
 }
 
 /** Rader per flik. Flikarnas antal är längden på listorna. */
 export function groupRowsByTab(rows: GradingRow[], now = new Date()): Record<GradingTab, GradingRow[]> {
-  const tabs: Record<GradingTab, GradingRow[]> = {submitted: [], missed: [], out: [], waiting: []}
+  const tabs: Record<GradingTab, GradingRow[]> = {submitted: [], waiting: []}
   for (const row of rows) {
     const tab = gradingTabOf(row, now)
     if (tab) {

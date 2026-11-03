@@ -10,8 +10,12 @@ public class SchoolService(
     IPermissions permissions,
     ICurrentSchool currentSchool,
     IMicrosoftTokenValidator microsoft,
+    IUserRepository users,
     IUnitOfWork unitOfWork)
 {
+    public const string NoPasswordAdminMessage =
+        "Ge minst en admin ett lösenord först. Annars kan ingen admin logga in när Microsoft är av.";
+
     // Användaren ser bara sin egen skola, så listan har högst en rad.
     public async Task<List<SchoolDto>> GetAllAsync(CancellationToken ct)
     {
@@ -92,6 +96,7 @@ public class SchoolService(
         return ServiceResult<SchoolMicrosoftDto>.Ok(MicrosoftOf(school.Value));
     }
 
+    // Utan Microsoft loggar alla in med lösenord, så minst en admin måste ha ett. Annars kan ingen slå på det igen.
     // Användarnas koppling till Microsoft (oid) ligger kvar, så de känns igen om skolan kopplas igen.
     public async Task<ServiceResult<SchoolMicrosoftDto>> UnlinkMicrosoftAsync(Guid id, CancellationToken ct)
     {
@@ -99,6 +104,11 @@ public class SchoolService(
         if (school.Status != ResultStatus.Ok)
         {
             return ServiceResult<SchoolMicrosoftDto>.From(school);
+        }
+
+        if (!await users.HasPasswordAdminAsync(id, ct))
+        {
+            return ServiceResult<SchoolMicrosoftDto>.Conflict(NoPasswordAdminMessage);
         }
 
         school.Value!.EntraTenantId = null;

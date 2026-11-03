@@ -99,6 +99,28 @@ public class DemoSeedTests(DemoSeedTests.DemoFixture fixture) : IClassFixture<De
     }
 
     [Fact]
+    public async Task Seed_GivesOneStudentAPersonalDeadline_ThatFollowsTheRules()
+    {
+        using var scope = fixture.Factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+
+        var rows = await db.Submissions
+            .Where(submission => submission.PersonalDueAt != null)
+            .Select(submission => new { submission.Status, submission.PersonalDueAt, submission.ContentLinkId })
+            .ToListAsync();
+
+        Assert.NotEmpty(rows);
+        foreach (var row in rows)
+        {
+            var link = await db.ContentLinks.SingleAsync(candidate => candidate.Id == row.ContentLinkId);
+            Assert.NotNull(link.DueAt);
+            Assert.True(link.DueAt < _demoDay);
+            Assert.True(row.PersonalDueAt > _demoDay);
+            Assert.NotEqual(SubmissionStatus.Graded, row.Status);
+        }
+    }
+
+    [Fact]
     public async Task Seed_IsIdempotent()
     {
         using var scope = fixture.Factory.Services.CreateScope();

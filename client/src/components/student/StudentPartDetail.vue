@@ -30,6 +30,7 @@ import {
   dueStatus,
   gradeScaleLabel,
   kindOf,
+  personalDueLabel,
   resubmitLabel,
   rowIcon,
   rowIconClass,
@@ -118,9 +119,7 @@ const feedbackHeading = computed(() => {
   if (props.part.submissionStatus === 'NeedsWork') {
     return 'Läraren vill att du kompletterar'
   }
-  return props.part.submissionStatus === 'NotSubmitted'
-    ? 'Ej inlämnat'
-    : 'Lärarens kommentar'
+  return 'Lärarens kommentar'
 })
 
 // Lärarens kommentar och betyg hör till inlämningen, så de hämtas när en bedömd uppgift öppnas.
@@ -128,8 +127,7 @@ const feedback = ref<Schema<'GradeDto'> | null>(null)
 
 watch(() => {
   const item = props.part
-  return item.type === 'Assignment' && (item.submissionStatus === 'Graded' || item.submissionStatus === 'NeedsWork'
-    || item.submissionStatus === 'NotSubmitted')
+  return item.type === 'Assignment' && (item.submissionStatus === 'Graded' || item.submissionStatus === 'NeedsWork')
     ? item.linkId
     : ''
 }, async (linkId) => {
@@ -199,6 +197,9 @@ function handInOf(item: Schema<'StudentContentItem'>): string {
           <PhCalendarBlank class="size-4"/>
           {{ dueLabel(part) }}
           <StatusBadge v-if="dueStatus(part)" :status="dueStatus(part)!"/>
+        </span>
+        <span v-if="personalDueLabel(part)" class="font-medium" data-test="fact-personal-due">
+          {{ personalDueLabel(part) }}
         </span>
         <span v-if="resubmitLabel(part)" data-test="fact-resubmit">{{ resubmitLabel(part) }}</span>
         <span v-if="gradeScaleLabel(part.gradeScale)" data-test="fact-scale">
@@ -357,8 +358,9 @@ function handInOf(item: Schema<'StudentContentItem'>): string {
             <span class="font-medium">{{ statusHeading(part) }}</span>
           </div>
 
+          <!-- Kompletteringens återkoppling står i inlämningen, ovanför formuläret. Här visas bara läget. -->
           <section
-            v-if="feedback"
+            v-if="feedback && part.submissionStatus !== 'NeedsWork'"
             class="flex flex-col gap-2 border-t pt-3"
             aria-labelledby="feedback-h"
             data-test="student-feedback"

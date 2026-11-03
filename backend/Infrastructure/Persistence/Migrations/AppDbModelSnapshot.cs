@@ -822,6 +822,9 @@ namespace Backend.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("ContentLinkId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTimeOffset?>("PersonalDueAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("text");

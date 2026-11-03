@@ -27,10 +27,6 @@ public static class SubmissionEndpoints
             .DisableAntiforgery() // inloggning med cookies finns inte, så inget CSRF-skydd behövs
             .WithMetadata(new RequestSizeLimitAttribute((int)FileUploadPolicy.MaxRequestBytes));
 
-        links.MapPost("/mark-not-submitted", async (Guid id, SubmissionService service, CancellationToken ct) =>
-            (await service.MarkAllNotSubmittedAsync(id, ct)).ToHttp(
-                count => TypedResults.Ok(new MarkedNotSubmittedDto(count))));
-
         var submissions = app.MapGroup("/submissions").WithTags("Submissions");
 
         submissions.MapGet("/{id:guid}", async (Guid id, SubmissionService service, CancellationToken ct) =>
@@ -39,6 +35,13 @@ public static class SubmissionEndpoints
         submissions.MapPost("/{id:guid}/grade",
             async (Guid id, GradeSubmissionDto gradeDto, SubmissionService service, CancellationToken ct) =>
                 (await service.GradeAsync(id, gradeDto, ct)).ToHttp(submission => TypedResults.Ok(submission)));
+
+        // Läraren ger en elev en extra deadline (eller tar bort den med dueAt null). Fungerar också för en elev som
+        // ännu inte har någon inlämning.
+        app.MapGroup("/links/{id:guid}/students").WithTags("Submissions")
+            .MapPut("/{studentId:guid}/personal-due-at", async (
+                Guid id, Guid studentId, SetPersonalDueAtDto dto, SubmissionService service, CancellationToken ct) =>
+                (await service.SetPersonalDueAtAsync(id, studentId, dto, ct)).ToHttp(TypedResults.Ok));
 
         // --- GitHub-repon (Fake nu / Octokit sen) ---
         // Global check-refresh körs bara av GitHubChecksJob. Läraren uppdaterar en utdelning via

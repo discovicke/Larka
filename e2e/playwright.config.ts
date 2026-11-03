@@ -24,8 +24,11 @@ export default defineConfig({
     baseURL,
     // Klienten använder data-test, inte Playwrights standard data-testid.
     testIdAttribute: 'data-test',
-    trace: 'retain-on-failure',
-    screenshot: 'only-on-failure',
+    // I CI sparas video, trace och en skärmbild för varje test, så att en grön körning också går att titta på
+    // (artefakten playwright-report). Lokalt bara när ett test fallerar, så att körningen går fort.
+    trace: process.env.CI ? 'on' : 'retain-on-failure',
+    screenshot: process.env.CI ? 'on' : 'only-on-failure',
+    video: process.env.CI ? 'on' : 'retain-on-failure',
     ...devices['Desktop Chrome'],
   },
 })

@@ -97,22 +97,25 @@ const visibleRows = computed(() => {
                   <span class="text-success">{{ row.passCount }} G</span>
                   <span class="text-info">{{ row.distinctionCount }} VG</span>
                   <span
-                    :class="row.failCount > 0
+                    :class="row.failCount + row.autoFailCount > 0
                       ? 'text-destructive font-semibold'
                       : 'text-muted-foreground'"
+                    :title="row.autoFailCount > 0
+                      ? `${row.autoFailCount} automatiskt IG utan inlämning`
+                      : undefined"
                   >
-                    {{ row.failCount }} IG
+                    {{ row.failCount + row.autoFailCount }} IG
                   </span>
                 </div>
               </td>
               <td class="px-3 py-2.5 whitespace-nowrap">
                 <div class="flex items-center gap-3">
                   <span v-if="row.needsWorkCount > 0" class="text-warning">{{ row.needsWorkCount }} kompl.</span>
-                  <span v-if="row.notSubmittedCount + row.overdueCount > 0" class="text-destructive">
-                    {{ row.notSubmittedCount + row.overdueCount }} ej inl.
+                  <span v-if="row.overdueCount > 0" class="text-destructive">
+                    {{ row.overdueCount }} försenat
                   </span>
                   <span
-                    v-if="row.needsWorkCount === 0 && row.notSubmittedCount + row.overdueCount === 0"
+                    v-if="row.needsWorkCount === 0 && row.overdueCount === 0"
                     class="text-muted-foreground"
                   >–</span>
                 </div>

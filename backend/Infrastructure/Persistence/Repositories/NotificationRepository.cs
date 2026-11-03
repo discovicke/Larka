@@ -95,7 +95,8 @@ public class NotificationRepository(AppDb db) : INotificationRepository
                 submission.ContentLinkId,
                 Level = submission.Grade == null
                     ? null
-                    : submission.Grade.Level
+                    : submission.Grade.Level,
+                submission.PersonalDueAt
             })
             .ToDictionaryAsync(submission => submission.Id, ct);
 
@@ -144,7 +145,13 @@ public class NotificationRepository(AppDb db) : INotificationRepository
             var level = item.SubmissionId != null && graded.TryGetValue(item.SubmissionId.Value, out var gradedOne)
                 ? gradedOne.Level
                 : null;
-            return new NotificationRow(item, title, link?.Id, link?.CourseId, courseTitle, groupName, level);
+            var personalDueAt = item.Kind == NotificationKind.PersonalDeadlineSet
+                && item.SubmissionId != null
+                && graded.TryGetValue(item.SubmissionId.Value, out var personalOne)
+                    ? personalOne.PersonalDueAt
+                    : null;
+            return new NotificationRow(
+                item, title, link?.Id, link?.CourseId, courseTitle, groupName, level, personalDueAt);
         }).ToList();
     }
 

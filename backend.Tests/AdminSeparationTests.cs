@@ -82,11 +82,13 @@ public class AdminSeparationTests(TestWebApplicationFactory factory) : IClassFix
         int GradedCount,
         int PassCount,
         int NeedsWorkCount,
+        int AutoFailCount,
         int AtRiskStudentCount);
 
     private record AnalyticsStudent(Guid StudentId, bool NeedsSupport, List<AnalyticsStudentCourse> Courses);
 
-    private record AnalyticsStudentCourse(Guid CourseId, int PassCount, int NeedsWorkCount, bool NeedsSupport);
+    private record AnalyticsStudentCourse(
+        Guid CourseId, int PassCount, int NeedsWorkCount, int AutoFailCount, bool NeedsSupport);
 
     // --- Admin undervisar inte ---
 
@@ -501,6 +503,38 @@ public class AdminSeparationTests(TestWebApplicationFactory factory) : IClassFix
         var classB = overview.ClassTimelines.Single(group => group.GroupId == scenario.ClassB);
         Assert.Contains(classB.CurrentCourses, course => course.CourseId == scenario.CourseId);
         Assert.DoesNotContain(classB.CurrentCourses, course => course.CourseId == scenario.OtherCourseId);
+    }
+
+    [Fact]
+    public async Task GroupAnalytics_CountsMissingWorkAfterTheLastDeadline_AsAutomaticFail()
+    {
+        var scenario = await AddScenarioAsync();
+        await using (var db = OpenDb())
+        {
+            var link = await db.ContentLinks.SingleAsync(row => row.Id == scenario.AssignmentLinkId);
+            link.DueAt = DateTimeOffset.UtcNow.AddDays(-2);
+            link.ResubmitDueAt = [];
+            var group = await db.Groups.SingleAsync(candidate => candidate.Id == scenario.ClassA);
+            var extra = await TestData.AddMemberAsync(db, group);
+            db.Submissions.Add(new Submission
+            {
+                ContentLinkId = scenario.AssignmentLinkId,
+                StudentId = extra.Id,
+                Status = SubmissionStatus.NeedsWork
+            });
+            var untouched = await db.Submissions.SingleAsync(row => row.Id == scenario.SubmissionA);
+            untouched.Status = SubmissionStatus.NotStarted;
+            await db.SaveChangesAsync();
+        }
+
+        var analytics = await GetAsync<AnalyticsResponse>(
+            $"/api/groups/{scenario.ClassA}/analytics", scenario.AdminId);
+
+        var course = analytics.Courses.Single(item => item.CourseId == scenario.CourseId);
+        Assert.Equal(2, course.AutoFailCount);
+        Assert.Equal(0, course.NeedsWorkCount);
+        Assert.Equal(2, course.AtRiskStudentCount);
+        Assert.All(analytics.Students, student => Assert.Equal(1, student.Courses.Single().AutoFailCount));
     }
 
     [Fact]

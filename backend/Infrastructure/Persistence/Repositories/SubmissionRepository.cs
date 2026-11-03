@@ -80,8 +80,7 @@ public class SubmissionRepository(AppDb db) : ISubmissionRepository
 
         return await db.Submissions
             .Where(submission => linkIds.Contains(submission.ContentLinkId)
-                && submission.Status != SubmissionStatus.NotStarted
-                && submission.Status != SubmissionStatus.NotSubmitted)
+                && submission.Status != SubmissionStatus.NotStarted)
             .Select(submission => new ActiveSubmission(submission.ContentLinkId, submission.StudentId))
             .Distinct()
             .ToListAsync(ct);
@@ -181,7 +180,9 @@ public class SubmissionRepository(AppDb db) : ISubmissionRepository
     // Ett repo är öppet när det aldrig låsts eller har öppnats igen efter en komplettering. UpdatedAt är
     // stämpeln för senast behandlade deadline: lås, öppning och varje behandling sätter den, så ett repo
     // är aktuellt först när en deadline som är nyare än stämpeln har passerat. När ingen deadline återstår
-    // är varje öppet repo aktuellt, även ett som skapades efter sista deadline.
+    // är varje öppet repo aktuellt, även ett som skapades efter sista deadline. Elevens personliga deadline
+    // är en deadline till. Ett grupprepo delas av alla medlemmar och följer den SENASTE personliga deadlinen
+    // bland medlemmarnas inlämningar, så att ingen i gruppen stängs ute i förtid.
     public async Task<List<RepoLockContext>> GetReposToLockAsync(
         DateTimeOffset now, int take, CancellationToken ct)
     {
@@ -191,12 +192,21 @@ public class SubmissionRepository(AppDb db) : ISubmissionRepository
             join student in db.Users on submission.StudentId equals student.Id
             join link in db.ContentLinks on submission.ContentLinkId equals link.Id
             join content in db.Content on link.ContentId equals content.Id
+            let personalDueAt = repo.AssignmentGroupId == null
+                ? submission.PersonalDueAt
+                : db.Submissions
+                    .Where(member => member.AssignmentGroupId == repo.AssignmentGroupId
+                        && member.ContentLinkId == link.Id)
+                    .Max(member => member.PersonalDueAt)
             where repo.ProvisioningState == RepoProvisioningState.Ready
                 && (repo.LockedAt == null || repo.ReopenedAt != null)
                 && link.DueAt != null
                 && ((link.DueAt >= repo.UpdatedAt && link.DueAt <= now)
                     || link.ResubmitDueAt.Any(due => due >= repo.UpdatedAt && due <= now)
-                    || (link.DueAt <= now && !link.ResubmitDueAt.Any(due => due > now)))
+                    || (personalDueAt >= repo.UpdatedAt && personalDueAt <= now)
+                    || (link.DueAt <= now
+                        && !link.ResubmitDueAt.Any(due => due > now)
+                        && (personalDueAt == null || personalDueAt <= now)))
                 && content.Assignment != null
                 && content.Assignment.LockAtDeadline
                 && content.Assignment.SubmissionModes.Contains(SubmissionMode.Repo)
@@ -207,7 +217,8 @@ public class SubmissionRepository(AppDb db) : ISubmissionRepository
                 Submission = submission,
                 student.SchoolId,
                 DueAt = link.DueAt!.Value,
-                link.ResubmitDueAt
+                link.ResubmitDueAt,
+                PersonalDueAt = personalDueAt
             })
             .Take(take)
             .ToListAsync(ct);
@@ -215,29 +226,61 @@ public class SubmissionRepository(AppDb db) : ISubmissionRepository
         return rows
             .Select(row =>
             {
-                var window = new GradingWindow(row.DueAt, row.ResubmitDueAt, now);
+                var window = new GradingWindow(row.DueAt, row.ResubmitDueAt, now, row.PersonalDueAt);
                 return new RepoLockContext(
                     row.Repo,
                     row.Submission,
                     row.SchoolId,
                     window.LastPassedDeadline ?? row.DueAt,
                     row.DueAt,
-                    row.ResubmitDueAt);
+                    row.ResubmitDueAt,
+                    row.PersonalDueAt);
             })
             .ToList();
     }
 
-    public Task<List<RepoLockContext>> GetRepoContextsForLinkAsync(
-        Guid linkId, DateTimeOffset now, CancellationToken ct) =>
-        (from repo in db.StudentRepos
-         join submission in db.Submissions on repo.SubmissionId equals submission.Id
-         join student in db.Users on submission.StudentId equals student.Id
-         join link in db.ContentLinks on submission.ContentLinkId equals link.Id
-         where submission.ContentLinkId == linkId
-         orderby student.Name
-         select new RepoLockContext(
-             repo, submission, student.SchoolId, link.DueAt ?? now, link.DueAt, link.ResubmitDueAt))
-        .ToListAsync(ct);
+    public async Task<List<RepoLockContext>> GetRepoContextsForLinkAsync(
+        Guid linkId, DateTimeOffset now, CancellationToken ct)
+    {
+        var rows = await (
+            from repo in db.StudentRepos
+            join submission in db.Submissions on repo.SubmissionId equals submission.Id
+            join student in db.Users on submission.StudentId equals student.Id
+            join link in db.ContentLinks on submission.ContentLinkId equals link.Id
+            let personalDueAt = repo.AssignmentGroupId == null
+                ? submission.PersonalDueAt
+                : db.Submissions
+                    .Where(member => member.AssignmentGroupId == repo.AssignmentGroupId
+                        && member.ContentLinkId == link.Id)
+                    .Max(member => member.PersonalDueAt)
+            where submission.ContentLinkId == linkId
+            orderby student.Name
+            select new
+            {
+                Repo = repo,
+                Submission = submission,
+                student.SchoolId,
+                link.DueAt,
+                link.ResubmitDueAt,
+                PersonalDueAt = personalDueAt
+            })
+            .ToListAsync(ct);
+
+        return rows
+            .Select(row =>
+            {
+                var window = new GradingWindow(row.DueAt, row.ResubmitDueAt, now, row.PersonalDueAt);
+                return new RepoLockContext(
+                    row.Repo,
+                    row.Submission,
+                    row.SchoolId,
+                    window.LastPassedDeadline ?? row.DueAt ?? now,
+                    row.DueAt,
+                    row.ResubmitDueAt,
+                    row.PersonalDueAt);
+            })
+            .ToList();
+    }
 
     public Task<StudentRepoContext?> GetRepoContextByFullNameAsync(
         string repoFullName, CancellationToken ct) =>

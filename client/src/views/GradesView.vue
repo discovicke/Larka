@@ -12,6 +12,7 @@ import {Skeleton} from '@/components/ui/skeleton'
 import {useAsync} from '@/composables/useAsync'
 import {api} from '@/lib/api'
 import {type CourseStatus, courseStatus} from '@/lib/courseStatus'
+import {isAutoFail} from '@/lib/gradingWindow'
 import {submissionStatusKey} from '@/lib/status'
 import {gradeBadgeVariant} from '@/lib/submissions'
 import {
@@ -70,6 +71,11 @@ function assignmentStatusClass(assignment: StudyPlanAssignment): string {
       : 'text-success font-semibold'
   }
   return 'text-muted-foreground'
+}
+
+// Sista deadline har passerat utan inlämning eller komplettering: automatiskt IG.
+function hasAutoFail(assignment: StudyPlanAssignment): boolean {
+  return isAutoFail(assignment, assignment.status)
 }
 
 function isFeedbackOpen(assignment: StudyPlanAssignment): boolean {
@@ -284,9 +290,9 @@ load()
                     {{ assignment.title }}
                   </span>
                   <StatusBadge
-                    v-if="assignment.status === 'Submitted' || assignment.status === 'NeedsWork' || assignment.status === 'NotSubmitted'"
+                    v-if="hasAutoFail(assignment) || assignment.status === 'Submitted' || assignment.status === 'NeedsWork'"
                     class="sm:shrink-0"
-                    :status="submissionStatusKey(assignment.status)"
+                    :status="submissionStatusKey(assignment.status, hasAutoFail(assignment))"
                   />
                   <span v-else class="sm:shrink-0" :class="assignmentStatusClass(assignment)">
                     {{ assignmentStatus(assignment) }}

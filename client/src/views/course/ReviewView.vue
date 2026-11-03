@@ -8,6 +8,9 @@ import {
   useRouter,
 } from 'vue-router'
 
+import PersonalDueAt from '@/components/course/PersonalDueAt.vue'
+import DateTimePicker from '@/components/DateTimePicker.vue'
+import StatusBadge from '@/components/StatusBadge.vue'
 import MarkdownView from '@/components/editor/MarkdownView.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar'
@@ -24,12 +27,21 @@ import {api, type Schema} from '@/lib/api'
 import {parseChecklist} from '@/lib/checklist'
 import {formatDate} from '@/lib/content'
 import {fetchContent} from '@/lib/contentApi'
-import {allowsFail, allowsNeedsWork} from '@/lib/gradingWindow'
+import {isoOrNull} from '@/lib/form'
+import {
+  allowsFail,
+  allowsNeedsWork,
+  earliestPersonalDate,
+  isAutoFail,
+  lastClassDeadline,
+  nextDeadline,
+} from '@/lib/gradingWindow'
 import {fetchGradingRows, type GradingRow, nextGradingRow} from '@/lib/gradingQueue'
 import {formatSize} from '@/lib/material'
 import {fetchCourseModules} from '@/lib/modulesApi'
 import {initials} from '@/lib/person'
 import {checkClass, checkLabel, gradeLabel, gradeName, levelsFor, nextInQueue} from '@/lib/submissions'
+import {submissionStatusKey} from '@/lib/status'
 import {fetchLinkSubmissions} from '@/lib/submissionsApi'
 
 const route = useRoute()
@@ -63,9 +75,12 @@ let leaving = false
 const deadlines = computed(() => ({
   dueAt: assignment.value?.dueAt ?? null,
   resubmitDueAt: assignment.value?.resubmitDueAt ?? [],
+  personalDueAt: submission.value?.personalDueAt ?? null,
 }))
 const failAllowed = computed(() => allowsFail(deadlines.value))
 const needsWorkAllowed = computed(() => allowsNeedsWork(deadlines.value))
+// Sista deadline har passerat utan inlämning eller komplettering: eleven har automatiskt IG.
+const autoFail = computed(() => submission.value !== null && isAutoFail(deadlines.value, submission.value.status))
 const allLevels = computed(() => levelsFor(assignment.value?.gradeScale ?? null))
 const levels = computed(() => allLevels.value.filter((option) => option !== 'Fail' || failAllowed.value))
 const failHidden = computed(() => allLevels.value.length > levels.value.length)
@@ -75,9 +90,6 @@ const repoUrl = computed(() => submission.value?.repo?.repoFullName
   ? `https://github.com/${submission.value.repo.repoFullName}`
   : '')
 const shortSha = computed(() => submission.value?.repo?.lastSha?.slice(0, 7) ?? '–')
-const gradedAt = computed(() => submission.value?.grade
-  ? formatDate(submission.value.grade.gradedAt, true)
-  : '')
 const taskChecklist = computed(() => parseChecklist(task.value?.bodyMd ?? ''))
 const hasTask = computed(() => Boolean(taskChecklist.value.body) || taskChecklist.value.items.length > 0)
 // Bara en inlämnad inlämning ingår i kön. Komplettera och Bedömd sparar tillbaka till listan.
@@ -115,21 +127,70 @@ function checkRunClass(run: Schema<'GitHubCheckRunDto'>): string {
     : 'text-warning'
 }
 
-// Ej inlämnat går bara att sätta när inget lämnats in som väntar på bedömning.
-const canMarkNotSubmitted = computed(() => submission.value?.status === 'NotStarted'
-  || submission.value?.status === 'NeedsWork'
-  || submission.value?.status === 'NotSubmitted')
-
-// Utan inlämning finns inget att betygsätta eller komplettera, bara Ej inlämnat. Bedömning på plats är undantaget:
+// Utan inlämning finns inget att betygsätta eller komplettera. Bedömning på plats är undantaget:
 // där sätter läraren betyget i klassrummet utan att eleven lämnat in något.
-const nothingHandedIn = computed(() => submission.value?.status === 'NotStarted'
-  || submission.value?.status === 'NotSubmitted')
+const nothingHandedIn = computed(() => submission.value?.status === 'NotStarted')
 const assessedOnSite = computed(() => task.value?.assignment?.submissionModes.includes('OnSite') ?? false)
 const nothingToGrade = computed(() => nothingHandedIn.value && !assessedOnSite.value)
+
+// Läget överst i panelen: vad som gäller för eleven just nu och vad läraren kan göra.
+const upcoming = computed(() => nextDeadline(deadlines.value))
+const stateLabel = computed(() => {
+  const current = submission.value
+  if (!current || autoFail.value) {
+    return undefined
+  }
+  if (current.status === 'Submitted' && current.submittedAt) {
+    return `Inlämnad ${formatDate(current.submittedAt)}`
+  }
+  if (current.status === 'NeedsWork') {
+    return 'Komplettering begärd'
+  }
+  return current.status === 'Graded' && current.grade
+    ? `Bedömd ${formatDate(current.grade.gradedAt)}`
+    : undefined
+})
+const stateText = computed(() => {
+  const current = submission.value
+  if (!current) {
+    return ''
+  }
+  const until = upcoming.value
+    ? ` Eleven kan lämna in till ${formatDate(upcoming.value, true)}.`
+    : ''
+  if (autoFail.value) {
+    return 'Sista deadline har passerat, så eleven har fått IG automatiskt. Ge eleven en egen deadline för en ny chans.'
+  }
+  switch (current.status) {
+    case 'Submitted':
+      return 'Väntar på din bedömning.'
+    case 'NeedsWork':
+      return `Eleven har inte kompletterat än.${until}`
+    case 'Graded':
+      return 'Du kan ändra bedömningen.'
+    default:
+      return assessedOnSite.value
+        ? `Uppgiften bedöms på plats. Sätt betyget när eleven har visat sitt arbete.${until}`
+        : `Eleven har inte lämnat in något att bedöma än.${until}`
+  }
+})
+
+// Komplettera kräver en deadline som återstår. Finns ingen väljer läraren en ny deadline för eleven i samma steg.
+const workNeedsDate = computed(() => !needsWorkAllowed.value)
+const workDate = ref('')
+const workMinDate = computed(() => earliestPersonalDate(lastClassDeadline(deadlines.value)))
+// En begärd komplettering är redan begärd. Bedömd och inlämnad kan få en, liksom på plats utan inlämning.
+const canRequestWork = computed(() => !nothingToGrade.value && submission.value?.status !== 'NeedsWork')
 
 const hasHandedIn = computed(() => Boolean(submission.value?.bodyMd)
   || (submission.value?.files.length ?? 0) > 0
   || Boolean(submission.value?.repo))
+
+// Elevens personliga deadline ändrades: hämta inlämningen igen så att reglerna följer den.
+async function reloadSubmission() {
+  const {data} = await api.GET('/api/submissions/{id}', {params: {path: {id: submissionId.value}}})
+  submission.value = data ?? submission.value
+}
 
 const {run: load, loading, error: loadError} = useAsync(async () => {
   leaving = false
@@ -159,6 +220,7 @@ const {run: load, loading, error: loadError} = useAsync(async () => {
   }
   savedFeedback.value = feedback.value
   savedLevel.value = level.value
+  workDate.value = ''
 }, 'Kunde inte hämta inlämningen.')
 
 const {run: save, loading: saving, error: saveError} = useAsync(async (body: Schema<'GradeSubmissionDto'>) => {
@@ -234,13 +296,18 @@ async function requestWork() {
     formError.value = 'Skriv vad eleven ska komplettera.'
     return
   }
-  await save({feedback: feedback.value, level: null, outcome: 'NeedsWork'})
-}
-
-// Eleven lämnade aldrig in, eller kompletterade inte. Kommentaren är frivillig och betyg sätts inte.
-async function markNotSubmitted() {
-  formError.value = ''
-  await save({feedback: feedback.value, level: null, outcome: 'NotSubmitted'})
+  if (workNeedsDate.value && !workDate.value) {
+    formError.value = 'Välj till när eleven får komplettera.'
+    return
+  }
+  await save({
+    feedback: feedback.value,
+    level: null,
+    outcome: 'NeedsWork',
+    personalDueAt: workNeedsDate.value
+      ? isoOrNull(workDate.value)
+      : null,
+  })
 }
 
 // Hoppa över går till nästa utan att spara. Osparade ändringar frågar guarden om.
@@ -441,15 +508,15 @@ watch([courseId, linkId, submissionId], () => {
           data-test="review-panel"
           class="flex flex-col gap-5 p-5 md:sticky md:top-0 md:max-h-svh md:min-h-[calc(100svh-56px)] md:overflow-y-auto"
         >
-          <section class="flex flex-col gap-2">
+          <section class="flex flex-col items-start gap-1.5" data-test="review-state">
+            <StatusBadge :status="submissionStatusKey(submission.status, autoFail)" :label="stateLabel"/>
+            <p class="text-muted-foreground text-[13px]" data-test="review-state-text">{{ stateText }}</p>
+          </section>
+
+          <section v-if="!nothingToGrade" class="flex flex-col gap-2">
             <h2 class="text-sm font-semibold">Betyg</h2>
-            <p v-if="nothingToGrade" class="text-muted-foreground text-sm" data-test="review-nothing-to-grade">
-              {{ submission.status === 'NotSubmitted'
-                ? 'Markerad som ej inlämnat. Lämnar eleven in något kan du bedöma det då.'
-                : 'Eleven har inte lämnat in något att bedöma. Har inget kommit in kan du markera uppgiften som ej inlämnad.' }}
-            </p>
             <div
-              v-else-if="hasGrades"
+              v-if="hasGrades"
               role="radiogroup"
               class="grid gap-2"
               :class="levels.length === 3
@@ -478,13 +545,13 @@ watch([courseId, linkId, submissionId], () => {
               </button>
             </div>
             <p v-else class="text-muted-foreground text-sm">Uppgiften har inget betyg, bara återkoppling.</p>
-            <p v-if="!nothingToGrade && failHidden" class="text-muted-foreground text-[13px]" data-test="review-fail-later">
-              IG kan sättas när sista deadline har passerat. Så länge en deadline återstår kan du begära komplettering
-              eller markera som ej inlämnat.
+            <p v-if="failHidden" class="text-muted-foreground text-[13px]" data-test="review-fail-later">
+              IG kan sättas när sista deadline har passerat. Så länge en deadline återstår kan du begära komplettering.
             </p>
           </section>
 
-          <div class="flex flex-col gap-2">
+          <!-- Utan inlämning finns inget att kommentera och inget att spara. -->
+          <div v-if="!nothingToGrade" class="flex flex-col gap-2">
             <label for="feedback" class="font-heading text-sm font-semibold">Sammanfattande kommentar</label>
             <Textarea
               id="feedback"
@@ -493,6 +560,20 @@ watch([courseId, linkId, submissionId], () => {
               class="bg-background"
               placeholder="Skriv en kommentar till eleven…"
             />
+          </div>
+
+          <!-- Ingen deadline återstår: kompletteringen behöver en ny deadline för eleven, som sparas i samma steg. -->
+          <div v-if="canRequestWork && workNeedsDate" class="flex flex-col gap-2" data-test="review-work-date">
+            <label class="text-sm font-semibold">Kompletteras senast</label>
+            <DateTimePicker
+              v-model="workDate"
+              class="bg-background"
+              :min="workMinDate"
+              default-time="23:59"
+            />
+            <p class="text-muted-foreground text-[13px]">
+              Ingen deadline återstår. Välj till när eleven får komplettera, så blir det elevens egen deadline.
+            </p>
           </div>
 
           <Alert v-if="notice" data-test="review-notice">
@@ -505,8 +586,7 @@ watch([courseId, linkId, submissionId], () => {
             <AlertDescription>{{ saveError }}</AlertDescription>
           </Alert>
 
-          <div class="mt-auto flex flex-col gap-2">
-            <p v-if="gradedAt" class="text-muted-foreground text-xs">Bedömd {{ gradedAt }}</p>
+          <div v-if="!nothingToGrade" class="flex flex-col gap-2">
             <p class="text-muted-foreground flex items-center gap-1.5 text-xs">
               <PhInfo class="size-3.5"/>
               Eleven ser betyget och kommentaren direkt.
@@ -518,7 +598,6 @@ watch([courseId, linkId, submissionId], () => {
               Skriv en kommentar som förklarar varför eleven får IG.
             </p>
             <Button
-              v-if="!nothingToGrade"
               class="w-full"
               :disabled="saving || needsComment"
               data-test="review-save"
@@ -527,28 +606,14 @@ watch([courseId, linkId, submissionId], () => {
               {{ saveLabel }}
             </Button>
             <Button
-              v-if="!nothingToGrade && needsWorkAllowed"
+              v-if="canRequestWork"
               variant="outline"
               class="w-full"
-              :disabled="saving"
+              :disabled="saving || (workNeedsDate && !workDate)"
               data-test="review-request-work"
               @click="requestWork"
             >
               Begär komplettering
-            </Button>
-            <Button
-              v-if="canMarkNotSubmitted"
-              :variant="nothingToGrade
-                ? 'default'
-                : 'outline'"
-              class="w-full"
-              :disabled="saving"
-              data-test="review-not-submitted"
-              @click="markNotSubmitted"
-            >
-              {{ submission.status === 'NotSubmitted'
-                ? 'Spara kommentaren'
-                : 'Markera som ej inlämnat' }}
             </Button>
             <Button
               v-if="next"
@@ -560,6 +625,19 @@ watch([courseId, linkId, submissionId], () => {
             >
               Hoppa över till nästa
             </Button>
+          </div>
+
+          <!-- En ny chans för en elev som inte lämnat in eller inte kompletterat. Skilt från bedömningen ovan. -->
+          <div class="border-t pt-5 empty:hidden">
+            <PersonalDueAt
+              :link-id="linkId"
+              :student-id="submission.studentId"
+              :personal-due-at="submission.personalDueAt ?? null"
+              :due-at="assignment?.dueAt ?? null"
+              :resubmit-due-at="assignment?.resubmitDueAt ?? []"
+              :status="submission.status"
+              @saved="reloadSubmission"
+            />
           </div>
         </div>
       </aside>

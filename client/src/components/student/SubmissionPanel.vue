@@ -13,7 +13,7 @@ import {useToast} from '@/composables/useToast'
 import {api, errorMessage, multipart, type Schema} from '@/lib/api'
 import {UPLOAD_ACCEPT, uploadProblem} from '@/lib/uploads'
 import {formatDate} from '@/lib/content'
-import {handInWindow} from '@/lib/gradingWindow'
+import {handInWindow, isAutoFail} from '@/lib/gradingWindow'
 import {formatSize} from '@/lib/material'
 import {clearDraft, loadDraft, saveDraft} from '@/lib/submissionDraft'
 import {fetchLinkSubmissions} from '@/lib/submissionsApi'
@@ -51,26 +51,32 @@ const windowState = computed(() => handInWindow(props.item, status.value))
 const formOpen = computed(() => hasForm.value
   && loaded.value
   && windowState.value.open
-  && (status.value === 'NotStarted' || status.value === 'NotSubmitted' || status.value === 'NeedsWork' || editing.value))
-const isLate = computed(() => !!props.item.dueAt
-  && windowState.value.open
-  && new Date(props.item.dueAt) < new Date())
+  && (status.value === 'NotStarted' || status.value === 'NeedsWork' || editing.value))
 // Eleven får veta till när hen kan lämna in, eller varför det är stängt.
 const windowText = computed(() => {
   const state = windowState.value
   if (state.open && state.until) {
-    return status.value === 'Submitted'
-      ? `Du kan ändra din inlämning till ${formatDate(state.until, true)}.`
+    if (status.value === 'Submitted') {
+      return `Du kan ändra din inlämning till ${formatDate(state.until, true)}.`
+    }
+    return status.value === 'NeedsWork'
+      ? `Komplettera senast ${formatDate(state.until, true)}.`
       : `Du kan lämna in till ${formatDate(state.until, true)}.`
   }
   if (state.closed === 'locked') {
     return 'Deadlinen har gått ut. Din inlämning är låst tills läraren har bedömt den.'
   }
-  return state.closed === 'closed'
-    ? 'Det går inte längre att lämna in. Sista deadline har passerat.'
-    : ''
+  if (state.closed !== 'closed') {
+    return ''
+  }
+  if (isAutoFail(props.item, status.value)) {
+    return status.value === 'NeedsWork'
+      ? 'Sista deadline har passerat och du lämnade inte in någon komplettering, så du har fått IG automatiskt.'
+      : 'Sista deadline har passerat och du lämnade inte in, så du har fått IG automatiskt.'
+  }
+  return 'Det går inte längre att lämna in. Sista deadline har passerat.'
 })
-const submitLabel = computed(() => status.value === 'NotStarted' || status.value === 'NotSubmitted'
+const submitLabel = computed(() => status.value === 'NotStarted'
   ? 'Lämna in'
   : status.value === 'NeedsWork'
     ? 'Lämna in igen'
@@ -157,7 +163,7 @@ function fillForm() {
   // Ett utkast tas bara fram när eleven kan skriva, så att en låst eller bedömd inlämning visas som den är.
   const canWrite = hasText.value
     && windowState.value.open
-    && (editing.value || status.value === 'NotStarted' || status.value === 'NotSubmitted' || status.value === 'NeedsWork')
+    && (editing.value || status.value === 'NotStarted' || status.value === 'NeedsWork')
   const draft = canWrite
     ? loadDraft(me.value?.id, props.item.linkId)
     : null
@@ -209,11 +215,17 @@ function onFilesChosen(event: Event) {
     aria-labelledby="submission-h"
     data-test="submission-panel"
   >
-    <div class="flex flex-wrap items-center justify-between gap-2">
-      <h2 id="submission-h" class="text-lg font-semibold">Din inlämning</h2>
-      <span v-if="isLate" class="text-muted-foreground text-sm" data-test="submission-late">
-        Sen inlämning
-      </span>
+    <h2 id="submission-h" class="text-lg font-semibold">Din inlämning</h2>
+
+    <!-- Vid komplettering står lärarens återkoppling först, direkt ovanför det eleven ska lämna in. -->
+    <div
+      v-if="status === 'NeedsWork' && submission?.grade?.feedback"
+      class="border-warning/30 bg-warning/10 flex flex-col gap-1 rounded-lg border p-3"
+      data-test="submission-needs-work"
+    >
+      <p class="text-sm font-semibold">Läraren vill att du kompletterar</p>
+      <p class="text-sm leading-relaxed whitespace-pre-wrap">{{ submission.grade.feedback }}</p>
+      <p class="text-muted-foreground text-xs">{{ formatDate(submission.grade.gradedAt, true) }}</p>
     </div>
 
     <p
@@ -365,7 +377,6 @@ function onFilesChosen(event: Event) {
         >
           Avbryt
         </Button>
-        <span v-if="isLate" class="text-muted-foreground text-xs">Deadline har passerat, men du kan fortfarande lämna in.</span>
       </div>
     </form>
 

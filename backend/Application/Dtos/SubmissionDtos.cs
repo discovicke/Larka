@@ -10,21 +10,24 @@ namespace Backend.Application.Dtos;
 // ändra texten eller byta en enda fil utan att skicka om alla.
 public record SubmitDto(string? BodyMd = null, List<Guid>? KeepFileIds = null);
 
-// Utfallet av lärarens bedömning. Graded sätter betyg, NeedsWork begär komplettering och NotSubmitted markerar
-// att eleven inte lämnat in. De två sista tar bara feedback, inget betyg.
+// Utfallet av lärarens bedömning. Graded sätter betyg och NeedsWork begär komplettering, som bara tar feedback.
 public enum GradeOutcome
 {
     Graded,
-    NeedsWork,
-    NotSubmitted
+    NeedsWork
 }
 
-public record GradeSubmissionDto(string Feedback, GradeLevel? Level = null, GradeOutcome Outcome = GradeOutcome.Graded);
+// PersonalDueAt hör bara till Komplettera: när ingen deadline återstår ger läraren eleven en ny deadline i samma steg.
+public record GradeSubmissionDto(
+    string Feedback,
+    GradeLevel? Level = null,
+    GradeOutcome Outcome = GradeOutcome.Graded,
+    DateTimeOffset? PersonalDueAt = null);
+
+// Läraren sätter en personlig deadline för en elev, eller tar bort den med DueAt null.
+public record SetPersonalDueAtDto(DateTimeOffset? DueAt);
 
 // --- responses ---
-
-/// <summary>Hur många elever som markerades som Ej inlämnat i en och samma åtgärd.</summary>
-public record MarkedNotSubmittedDto(int Count);
 
 public record SubmissionDto(
     Guid Id,
@@ -39,7 +42,8 @@ public record SubmissionDto(
     GradeDto? Grade,
     StudentSupportDto? Support,
     AssignmentGroupDto? Group = null,
-    string? StudentAvatarUrl = null)
+    string? StudentAvatarUrl = null,
+    DateTimeOffset? PersonalDueAt = null)
 {
     public static SubmissionDto From(
         Submission submission,
@@ -61,7 +65,7 @@ public record SubmissionDto(
             repo is null
                 ? null
                 : StudentRepoDto.From(repo),
-            grade, support, group, studentAvatarUrl);
+            grade, support, group, studentAvatarUrl, submission.PersonalDueAt);
     }
 }
 

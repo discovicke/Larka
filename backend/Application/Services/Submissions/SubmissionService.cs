@@ -241,7 +241,7 @@ public class SubmissionService(
             return ServiceResult<SubmissionDto>.Invalid("already graded");
         }
 
-        var window = new GradingWindow(linked.Link.DueAt, linked.Link.ResubmitDueAt, time.GetUtcNow());
+        var window = GradingWindow.Of(linked.Link, submission, time.GetUtcNow());
         var windowError = window.HandInError(submission?.Status ?? SubmissionStatus.NotStarted);
         if (windowError is not null)
         {
@@ -359,7 +359,138 @@ public class SubmissionService(
         await storage.DeleteQuietlyAsync(oldKeys, logger);
     }
 
-    /// <summary>Sätter betyg, begär komplettering (NeedsWork) eller markerar ej inlämnat (NotSubmitted), de två med bara feedback.</summary>
+    /// <summary>
+    /// Läraren ger en elev en extra deadline, eller tar bort den (DueAt null). Eleven behöver inte ha någon
+    /// inlämning än: en NotStarted-rad skapas då. Eleven får en notis när en deadline sätts.
+    /// </summary>
+    public async Task<ServiceResult<SubmissionDto>> SetPersonalDueAtAsync(
+        Guid linkId, Guid studentId, SetPersonalDueAtDto dto, CancellationToken ct)
+    {
+        var linked = await contents.GetLinkWithContentAsync(linkId, ct);
+        if (linked is null)
+        {
+            return ServiceResult<SubmissionDto>.NotFound("link not found");
+        }
+
+        if (!await MayReadAllAsync(linkId, ct))
+        {
+            return ServiceResult<SubmissionDto>.Forbidden();
+        }
+
+        var submission = await submissions.GetForStudentAsync(linkId, studentId, ct);
+        var now = time.GetUtcNow();
+        var error = CheckPersonalDueAt(linked, submission, dto.DueAt, now);
+        if (error is not null)
+        {
+            return ServiceResult<SubmissionDto>.Invalid(error);
+        }
+
+        if (submission is null)
+        {
+            if (dto.DueAt is null)
+            {
+                return ServiceResult<SubmissionDto>.NotFound("submission not found");
+            }
+
+            if (!await IsInAudienceAsync(linked.Link, studentId, ct))
+            {
+                return ServiceResult<SubmissionDto>.NotFound("student not found");
+            }
+
+            submission = new Submission { ContentLinkId = linkId, StudentId = studentId };
+            submissions.Add(submission);
+        }
+
+        submission.PersonalDueAt = dto.DueAt;
+        if (dto.DueAt is not null)
+        {
+            await notifications.NotifyPersonalDeadlineSetAsync(submission, linked.Content.Id, ct);
+            await ReopenLockedRepoAsync(submission, ct);
+        }
+
+        await unitOfWork.SaveChangesAsync(ct);
+        return ServiceResult<SubmissionDto>.Ok(await ToDtoAsync(submission, ct));
+    }
+
+    // Ett låst repo öppnas igen när eleven får en personlig deadline och ännu inte lämnat in (NotStarted)
+    // eller ska komplettera (NeedsWork). Samma åtgärd som när läraren begär komplettering. Tas datumet bort
+    // låses inget direkt, det gör deadlinejobbet vid nästa körning.
+    private async Task ReopenLockedRepoAsync(Submission submission, CancellationToken ct)
+    {
+        var repo = submission.Repo ?? submission.Group?.Repo;
+        var locked = repo is not null && repo.LockedAt is not null && repo.ReopenedAt is null;
+        if (!locked || submission.Status is not (SubmissionStatus.NotStarted or SubmissionStatus.NeedsWork))
+        {
+            return;
+        }
+
+        var student = await users.GetAsync(submission.StudentId, ct);
+        if (student is not null)
+        {
+            await repoActions.ReopenAsync(repo!, student.SchoolId, ct);
+        }
+    }
+
+    private static string? CheckPersonalDueAt(
+        LinkedContent linked, Submission? submission, DateTimeOffset? dueAt, DateTimeOffset now)
+    {
+        if (linked.Content.Assignment is null || linked.Content.Assignment.SubmissionModes.Count == 0)
+        {
+            return "Bara en inlämningsuppgift kan få en personlig deadline.";
+        }
+
+        if (submission?.Status == SubmissionStatus.Graded)
+        {
+            return "Inlämningen är redan bedömd, så eleven kan inte få en ny deadline.";
+        }
+
+        if (dueAt is null)
+        {
+            return null;
+        }
+
+        if (linked.Link.DueAt is null)
+        {
+            return "Uppgiften har ingen deadline, så eleven kan inte få en egen.";
+        }
+
+        // En inlämning som väntar på bedömning är låst. Ska eleven lämna in igen begär läraren komplettering.
+        return submission?.Status == SubmissionStatus.Submitted
+            ? "Eleven har lämnat in och väntar på bedömning. Begär komplettering om eleven ska få lämna in igen."
+            : CheckNewPersonalDueAt(linked, dueAt.Value, now);
+    }
+
+    // Ett nytt datum måste ligga i framtiden och efter klassens sista deadline. Före den gör det ingen skillnad,
+    // eftersom eleven redan får lämna in till dess.
+    private static string? CheckNewPersonalDueAt(LinkedContent linked, DateTimeOffset dueAt, DateTimeOffset now)
+    {
+        if (linked.Link.DueAt is null)
+        {
+            return "Uppgiften har ingen deadline, så eleven kan inte få en egen.";
+        }
+
+        if (dueAt.UtcDateTime <= now.UtcDateTime)
+        {
+            return "Den nya deadlinen måste ligga i framtiden.";
+        }
+
+        var lastClassDeadline = linked.Link.ResubmitDueAt.Append(linked.Link.DueAt.Value).Max();
+        return dueAt.UtcDateTime <= lastClassDeadline.UtcDateTime
+            ? "Den egna deadlinen måste ligga efter uppgiftens sista deadline."
+            : null;
+    }
+
+    // Eleven går i en grupp som uppgiften delats ut till, på samma sätt som när den delas ut.
+    private async Task<bool> IsInAudienceAsync(ContentLink link, Guid studentId, CancellationToken ct)
+    {
+        var groupIds = link.GroupId is not null
+            ? [link.GroupId.Value]
+            : await groups.GetGroupIdsReadingCourseAsync(link.CourseId!.Value, ct);
+        var students = await users.GetStudentsInGroupsAsync(groupIds, ct);
+        return students.Any(student => student.Id == studentId);
+    }
+
+    /// <summary>Sätter betyg, eller begär komplettering (NeedsWork), som bara tar feedback.</summary>
     public async Task<ServiceResult<SubmissionDto>> GradeAsync(
         Guid submissionId, GradeSubmissionDto dto, CancellationToken ct)
     {
@@ -377,8 +508,23 @@ public class SubmissionService(
 
         var linked = await contents.GetLinkWithContentAsync(submission.ContentLinkId, ct);
         var spec = linked!.Content.Assignment!;
+        var now = time.GetUtcNow();
 
-        var window = new GradingWindow(linked.Link.DueAt, linked.Link.ResubmitDueAt, time.GetUtcNow());
+        // Komplettera med en ny deadline: datumet sparas först, så att fönstret nedan räknar med det.
+        if (dto.PersonalDueAt is not null)
+        {
+            var dueError = dto.Outcome == GradeOutcome.NeedsWork
+                ? CheckNewPersonalDueAt(linked, dto.PersonalDueAt.Value, now)
+                : "En ny deadline hör bara till Komplettera.";
+            if (dueError is not null)
+            {
+                return ServiceResult<SubmissionDto>.Invalid(dueError);
+            }
+
+            submission.PersonalDueAt = dto.PersonalDueAt;
+        }
+
+        var window = GradingWindow.Of(linked.Link, submission, now);
         var gradeError = CheckGrade(submission, spec, dto, window);
         if (gradeError is not null)
         {
@@ -401,90 +547,22 @@ public class SubmissionService(
         await notifications.NotifySubmissionAsync(
             submission,
             linked.Content.Id,
-            dto.Outcome switch
-            {
-                GradeOutcome.NeedsWork => NotificationKind.SubmissionNeedsWork,
-                GradeOutcome.NotSubmitted => NotificationKind.SubmissionNotSubmitted,
-                _ => NotificationKind.SubmissionGraded
-            },
+            dto.Outcome == GradeOutcome.NeedsWork
+                ? NotificationKind.SubmissionNeedsWork
+                : NotificationKind.SubmissionGraded,
             ct);
         await unitOfWork.SaveChangesAsync(ct);
         return ServiceResult<SubmissionDto>.Ok(await ToDtoAsync(submission, ct));
-    }
-
-    /// <summary>
-    /// Markerar alla elever på utdelningen som inte lämnat in (NotStarted, även de utan rad) som Ej inlämnat.
-    /// Kräver att huvuddeadlinen har gått ut. Låser inget upp och ger varje elev en notis. Returnerar antalet.
-    /// </summary>
-    public async Task<ServiceResult<int>> MarkAllNotSubmittedAsync(Guid linkId, CancellationToken ct)
-    {
-        if (!await permissions.CanTeachLinkAsync(linkId, ct))
-        {
-            return ServiceResult<int>.Forbidden();
-        }
-
-        var linked = await contents.GetLinkWithContentAsync(linkId, ct);
-        if (linked is null)
-        {
-            return ServiceResult<int>.NotFound("link not found");
-        }
-
-        var spec = linked.Content.Assignment;
-        if (spec is null || !StudentSubmits(spec.SubmissionModes))
-        {
-            return ServiceResult<int>.Invalid("this content takes no submissions");
-        }
-
-        var now = time.GetUtcNow();
-        if (linked.Link.DueAt is null)
-        {
-            return ServiceResult<int>.Invalid(GradingWindow.NoDeadlineToMarkMessage);
-        }
-
-        if (linked.Link.DueAt.Value.UtcDateTime > now.UtcDateTime)
-        {
-            return ServiceResult<int>.Invalid(GradingWindow.DeadlineNotPassedMessage);
-        }
-
-        var existing = await submissions.GetByLinkAsync(linkId, ct);
-        var groupIds = linked.Link.GroupId is not null
-            ? [linked.Link.GroupId.Value]
-            : await groups.GetGroupIdsReadingCourseAsync(linked.Link.CourseId!.Value, ct);
-        var students = await users.GetStudentsInGroupsAsync(groupIds, ct);
-        var rowByStudent = existing.ToDictionary(submission => submission.StudentId);
-
-        var toMark = existing.Where(submission => submission.Status == SubmissionStatus.NotStarted).ToList();
-        foreach (var student in students.Where(student => !rowByStudent.ContainsKey(student.Id)))
-        {
-            var created = new Submission { ContentLinkId = linkId, StudentId = student.Id };
-            submissions.Add(created);
-            toMark.Add(created);
-        }
-
-        var dto = new GradeSubmissionDto("", null, GradeOutcome.NotSubmitted);
-        foreach (var submission in toMark)
-        {
-            ApplyGrade(submission, dto);
-            await notifications.NotifySubmissionAsync(
-                submission, linked.Content.Id, NotificationKind.SubmissionNotSubmitted, ct);
-        }
-
-        await unitOfWork.SaveChangesAsync(ct);
-        return ServiceResult<int>.Ok(toMark.Count);
     }
 
     private static string? CheckGrade(
         Submission submission, AssignmentSpec spec, GradeSubmissionDto dto, GradingWindow window)
     {
         var outcome = dto.Outcome;
-        if (outcome == GradeOutcome.NotSubmitted)
-        {
-            return CheckNotSubmitted(submission, dto);
-        }
 
         // Vid bedömning på plats finns inget att vänta på: läraren betygsätter i klassrummet.
         var signedOffOnSite = spec.SubmissionModes.Contains(SubmissionMode.OnSite);
-        if (submission.Status is SubmissionStatus.NotStarted or SubmissionStatus.NotSubmitted && !signedOffOnSite)
+        if (submission.Status == SubmissionStatus.NotStarted && !signedOffOnSite)
         {
             return "nothing has been submitted yet";
         }
@@ -515,20 +593,6 @@ public class SubmissionService(
         return CheckLevel(spec.GradeScale, dto.Level);
     }
 
-    // Ej inlämnat gäller en elev som aldrig lämnade in, eller som inte kompletterade. En inlämning som finns ska
-    // bedömas, inte markeras som uteblivan.
-    private static string? CheckNotSubmitted(Submission submission, GradeSubmissionDto dto)
-    {
-        if (dto.Level is not null)
-        {
-            return "a submission marked as not submitted gets feedback, not a grade";
-        }
-
-        return submission.Status is SubmissionStatus.Submitted or SubmissionStatus.Graded
-            ? "a submission that has been handed in cannot be marked as not submitted"
-            : null;
-    }
-
     private void ApplyGrade(Submission submission, GradeSubmissionDto dto)
     {
         if (submission.Grade is null)
@@ -544,7 +608,6 @@ public class SubmissionService(
         submission.Status = dto.Outcome switch
         {
             GradeOutcome.NeedsWork => SubmissionStatus.NeedsWork,
-            GradeOutcome.NotSubmitted => SubmissionStatus.NotSubmitted,
             _ => SubmissionStatus.Graded
         };
     }

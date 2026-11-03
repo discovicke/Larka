@@ -1,20 +1,21 @@
 import type {Schema} from '@/lib/api'
+import {formatDate} from '@/lib/content'
 
 type Notification = Schema<'NotificationDto'>
 
 export type InboxFilter = 'all' | 'unread' | 'grades' | 'news'
 
 /** Vad en rad i inkorgen handlar om. Nyheter kommer från flödena, resten från notiserna. */
-export type InboxKind = 'news' | 'grade' | 'needsWork' | 'notSubmitted' | 'deadline' | 'assignment' | 'help'
+export type InboxKind = 'news' | 'grade' | 'needsWork' | 'deadline' | 'assignment' | 'help' | 'personalDeadline'
 
 export const kindLabels: Record<InboxKind, string> = {
   news: 'Nyhet',
   grade: 'Betyg',
   needsWork: 'Komplettering',
-  notSubmitted: 'Ej inlämnat',
   deadline: 'Deadline',
   assignment: 'Ny uppgift',
   help: 'Hjälpförfrågan',
+  personalDeadline: 'Ny deadline',
 }
 
 /** Notiserna som blir egna rader. Nyhetsnotiserna visas på nyheten själv, som en oläst markering. */
@@ -22,9 +23,9 @@ const kindsByNotification: Partial<Record<Schema<'NotificationKind'>, InboxKind>
   AssignmentPublished: 'assignment',
   DeadlineSoon: 'deadline',
   SubmissionNeedsWork: 'needsWork',
-  SubmissionNotSubmitted: 'notSubmitted',
   SubmissionGraded: 'grade',
   StudentHelpRequested: 'help',
+  PersonalDeadlineSet: 'personalDeadline',
 }
 
 export function inboxKindOf(notification: Notification): InboxKind | undefined {
@@ -53,12 +54,14 @@ export function notificationTitle(notification: Notification, kind: InboxKind): 
       return `${title} har bedömts`
     case 'needsWork':
       return `${title} behöver kompletteras`
-    case 'notSubmitted':
-      return `${title} är markerad som ej inlämnad`
     case 'deadline':
       return `${title} ska lämnas in inom ett dygn`
     case 'help':
       return `${title}: en elev har bett om hjälp`
+    case 'personalDeadline':
+      return notification.personalDueAt
+        ? `Ny deadline för ${title}: ${formatDate(notification.personalDueAt, true)}`
+        : `Ny deadline för ${title}`
     default:
       return `Ny uppgift: ${title}`
   }
@@ -82,7 +85,7 @@ export function matchesFilter(row: InboxRow, filter: InboxFilter): boolean {
     case 'unread':
       return row.unread
     case 'grades':
-      return row.kind === 'grade' || row.kind === 'needsWork' || row.kind === 'notSubmitted'
+      return row.kind === 'grade' || row.kind === 'needsWork'
     case 'news':
       return row.kind === 'news'
     default:

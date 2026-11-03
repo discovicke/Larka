@@ -5499,70 +5499,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/links/{id}/submissions/mark-not-submitted": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["MarkedNotSubmittedDto"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": string;
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": string;
-                    };
-                };
-                /** @description Conflict */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": string;
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/submissions/{id}": {
         parameters: {
             query?: never;
@@ -5689,6 +5625,75 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/links/{id}/students/{studentId}/personal-due-at": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    studentId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetPersonalDueAtDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SubmissionDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -6600,7 +6605,7 @@ export interface components {
             at: string;
         };
         /** @enum {unknown} */
-        CalendarItemKind: "Deadline" | "Publish";
+        CalendarItemKind: "Deadline" | "Publish" | "ResubmitDeadline" | "PersonalDeadline";
         /** @description Vilka punkter i uppgiftens checklista eleven har bockat av (plats från 0). */
         ChecklistDto: {
             checkedIndexes: number[];
@@ -6927,13 +6932,15 @@ export interface components {
          * @default Graded
          * @enum {unknown}
          */
-        GradeOutcome: "Graded" | "NeedsWork" | "NotSubmitted";
+        GradeOutcome: "Graded" | "NeedsWork";
         /** @enum {unknown} */
         GradeScale: "None" | "PassFail" | "PassFailDistinction";
         GradeSubmissionDto: {
             feedback: string;
             level?: null | components["schemas"]["GradeLevel"];
             outcome?: components["schemas"]["GradeOutcome"];
+            /** Format: date-time */
+            personalDueAt?: null | string;
         };
         /** @description En kurs i klassen, med antal uppgifter och hur bedömningarna faller ut. */
         GroupAnalyticsCourseDto: {
@@ -6964,7 +6971,7 @@ export interface components {
             /** Format: int32 */
             overdueCount: number;
             /** Format: int32 */
-            notSubmittedCount: number;
+            autoFailCount: number;
             /** Format: int32 */
             atRiskStudentCount: number;
         };
@@ -6979,7 +6986,10 @@ export interface components {
             courses: components["schemas"]["GroupAnalyticsCourseDto"][];
             students: components["schemas"]["GroupAnalyticsStudentDto"][];
         };
-        /** @description En elevs räknare i en kurs. Overdue är uppgifter som passerat deadline utan inlämning. */
+        /**
+         * @description En elevs räknare i en kurs. Overdue är uppgifter som passerat deadline utan inlämning medan en kompletteringsdeadline återstår.
+         *         AutoFail är uppgifter där sista deadline passerat utan inlämning eller komplettering, alltså automatiskt IG.
+         */
         GroupAnalyticsStudentCourseDto: {
             /** Format: uuid */
             courseId: string;
@@ -7000,7 +7010,7 @@ export interface components {
             /** Format: int32 */
             overdueCount: number;
             /** Format: int32 */
-            notSubmittedCount: number;
+            autoFailCount: number;
             needsSupport: boolean;
         };
         /** @description En elev och elevens läge i varje kurs. NeedsSupport är sant när något behöver följas upp. */
@@ -7092,11 +7102,6 @@ export interface components {
             accessToken: string;
             /** Format: date-time */
             expiresAt: string;
-        };
-        /** @description Hur många elever som markerades som Ej inlämnat i en och samma åtgärd. */
-        MarkedNotSubmittedDto: {
-            /** Format: int32 */
-            count: number;
         };
         /** @description Den inloggade användaren, skolan och rollen per kurs. */
         MeDto: {
@@ -7209,7 +7214,7 @@ export interface components {
         };
         /**
          * @description En notis i inkorgen. Title är innehållets titel (null om innehållet är borttaget). CourseTitle eller
-         *     GroupName säger var det hände. Level finns på betygsnotiser.
+         *     GroupName säger var det hände. Level finns på betygsnotiser och PersonalDueAt på notiser om en personlig deadline.
          */
         NotificationDto: {
             /** Format: uuid */
@@ -7231,9 +7236,11 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             readAt: null | string;
+            /** Format: date-time */
+            personalDueAt?: null | string;
         };
         /** @enum {unknown} */
-        NotificationKind: "NewsPublished" | "AssignmentPublished" | "DeadlineSoon" | "SubmissionNeedsWork" | "SubmissionGraded" | "StudentHelpRequested" | "SubmissionNotSubmitted";
+        NotificationKind: "NewsPublished" | "AssignmentPublished" | "DeadlineSoon" | "SubmissionNeedsWork" | "SubmissionGraded" | "StudentHelpRequested" | "PersonalDeadlineSet";
         /** @description De senaste notiserna, och antalet olästa i alla (inte bara de som skickas med). */
         NotificationListDto: {
             items: components["schemas"]["NotificationDto"][];
@@ -7328,6 +7335,10 @@ export interface components {
         SetCompletionDto: {
             completed: boolean;
         };
+        SetPersonalDueAtDto: {
+            /** Format: date-time */
+            dueAt: null | string;
+        };
         SetStudentHelpDto: {
             message?: null | string;
         };
@@ -7360,6 +7371,8 @@ export interface components {
             /** Format: date-time */
             dueAt: null | string;
             resubmitDueAt: string[];
+            /** Format: date-time */
+            personalDueAt: null | string;
             isPinned: boolean;
             isLocked: boolean;
             isCompleted: boolean;
@@ -7399,6 +7412,7 @@ export interface components {
         /**
          * @description Läget i en kurs. NeedsWork är uppgifter läraren vill ha kompletterade, Late uppgifter som passerat deadline
          *     utan att lämnas in, Submitted lämnade och ännu inte bedömda, och Graded de som har betyg (fördelade på nivå).
+         *     FailCount räknar också automatiskt IG. En uppgift med automatiskt IG räknas inte som NeedsWork eller Late.
          */
         StudentOverviewCourseDto: {
             /** Format: uuid */
@@ -7482,6 +7496,8 @@ export interface components {
             /** Format: date-time */
             dueAt: null | string;
             resubmitDueAt: string[];
+            /** Format: date-time */
+            personalDueAt: null | string;
             status: components["schemas"]["SubmissionStatus"];
             grade: null | components["schemas"]["GradeLevel"];
             feedback: null | string;
@@ -7538,6 +7554,8 @@ export interface components {
             support: null | components["schemas"]["StudentSupportDto"];
             group?: null | components["schemas"]["AssignmentGroupDto"];
             studentAvatarUrl?: null | string;
+            /** Format: date-time */
+            personalDueAt?: null | string;
         };
         /** @description Url är en tidsbegränsad länk som skapas när filen läses, inte något som sparas. */
         SubmissionFileDto: {
@@ -7551,7 +7569,7 @@ export interface components {
         /** @enum {unknown} */
         SubmissionMode: "Text" | "File" | "Repo" | "OnSite";
         /** @enum {unknown} */
-        SubmissionStatus: "NotStarted" | "Submitted" | "NeedsWork" | "Graded" | "NotSubmitted";
+        SubmissionStatus: "NotStarted" | "Submitted" | "NeedsWork" | "Graded";
         SubmitForm: {
             bodyMd?: null | string;
             files?: null | components["schemas"]["IFormFileCollection"];
@@ -7818,22 +7836,22 @@ type ReadonlyArray<T> = [
 ] extends [
     unknown[]
 ] ? Readonly<Exclude<T, undefined>> : Readonly<Exclude<T, undefined>[]>;
-export const calendarItemKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CalendarItemKind"]> = ["Deadline", "Publish"];
+export const calendarItemKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CalendarItemKind"]> = ["Deadline", "Publish", "ResubmitDeadline", "PersonalDeadline"];
 export const checkStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CheckStatus"]> = ["Pending", "Green", "Red"];
 export const completionRuleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CompletionRule"]> = ["Submitted", "Approved"];
 export const contentStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["ContentStatus"]> = ["Draft", "Published"];
 export const contentTypeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["ContentType"]> = ["News", "Theory", "Assignment"];
 export const gradeLevelValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GradeLevel"]> = ["Fail", "Pass", "Distinction"];
-export const gradeOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GradeOutcome"]> = ["Graded", "NeedsWork", "NotSubmitted"];
+export const gradeOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GradeOutcome"]> = ["Graded", "NeedsWork"];
 export const gradeScaleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GradeScale"]> = ["None", "PassFail", "PassFailDistinction"];
 export const groupRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GroupRole"]> = ["Student", "Teacher"];
 export const groupTypeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GroupType"]> = ["Class", "Committee", "Other"];
 export const importStudentOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["ImportStudentOutcome"]> = ["Created", "Added", "AlreadyMember", "NotStudent", "Duplicate", "Invalid"];
-export const notificationKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationKind"]> = ["NewsPublished", "AssignmentPublished", "DeadlineSoon", "SubmissionNeedsWork", "SubmissionGraded", "StudentHelpRequested", "SubmissionNotSubmitted"];
+export const notificationKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationKind"]> = ["NewsPublished", "AssignmentPublished", "DeadlineSoon", "SubmissionNeedsWork", "SubmissionGraded", "StudentHelpRequested", "PersonalDeadlineSet"];
 export const repoProvisioningStateValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RepoProvisioningState"]> = ["Pending", "Creating", "Ready", "Failed"];
 export const repoWorkModeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RepoWorkMode"]> = ["Individual", "Group"];
 export const studyPlanCourseStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["StudyPlanCourseStatus"]> = ["Upcoming", "Ongoing", "Completed"];
 export const submissionModeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["SubmissionMode"]> = ["Text", "File", "Repo", "OnSite"];
-export const submissionStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["SubmissionStatus"]> = ["NotStarted", "Submitted", "NeedsWork", "Graded", "NotSubmitted"];
+export const submissionStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["SubmissionStatus"]> = ["NotStarted", "Submitted", "NeedsWork", "Graded"];
 export const userRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["UserRole"]> = ["Admin", "Teacher", "Student"];
 export type operations = Record<string, never>;

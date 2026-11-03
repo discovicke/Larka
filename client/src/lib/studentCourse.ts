@@ -3,6 +3,7 @@ import type {Component} from 'vue'
 
 import type {Schema} from '@/lib/api'
 import {formatDate, partOf} from '@/lib/content'
+import {isAutoFail, nextDeadline} from '@/lib/gradingWindow'
 import {deadlineStatusKey, partStatusKey, statuses, toneTextClasses} from '@/lib/status'
 import {gradeScaleName} from '@/lib/submissions'
 
@@ -26,7 +27,7 @@ export function kindOf(item: Item): string {
 // Klar för listorna och räknarna. isCompleted är också sann för en inlämnad uppgift (och för en som ska
 // kompletteras), men en komplettering är ett steg kvar och räknas inte som klar. Inlämnad räknas.
 export function isFinished(item: Item): boolean {
-  return item.isCompleted && partStatusKey(item) !== 'submission.needsWork'
+  return item.isCompleted && statusKey(item) !== 'submission.needsWork'
 }
 
 export function isAvailable(item: Item): boolean {
@@ -140,7 +141,12 @@ export function gradeScaleLabel(scale: Schema<'GradeScale'> | null): string | nu
 
 // Etiketten, ikonen och färgen kommer från samma läge (lib/status.ts), så de kan inte skilja sig åt.
 export function statusKey(item: Item) {
-  return partStatusKey(item)
+  return partStatusKey({...item, autoFail: hasAutoFail(item)})
+}
+
+/** Sista deadline har passerat utan inlämning eller komplettering: eleven har automatiskt IG. */
+export function hasAutoFail(item: Item): boolean {
+  return item.type === 'Assignment' && isAutoFail(item, item.submissionStatus ?? 'NotStarted')
 }
 
 export function rowIcon(item: Item): Component {
@@ -168,11 +174,23 @@ export function resubmitLabel(item: Pick<Item, 'resubmitDueAt'>): string {
     : ''
 }
 
+/** "Din deadline: 20 nov 23:59", tom om läraren inte gett eleven en egen deadline. */
+export function personalDueLabel(item: Pick<Item, 'personalDueAt'>): string {
+  return item.personalDueAt
+    ? `Din deadline: ${formatDate(item.personalDueAt, true)}`
+    : ''
+}
+
 // Klar eller inlämnad är inte försenad, så deadlinen får inget läge då.
 function isDone(item: Item): boolean {
   return item.isCompleted || item.submissionStatus === 'Submitted' || item.submissionStatus === 'Graded'
 }
 
+// Läget följer elevens nästa deadline (komplettering eller egen deadline räknas med). Har eleven en deadline kvar
+// är hen inte försenad, även om huvuddeadlinen har passerat.
 export function dueStatus(item: Item) {
-  return deadlineStatusKey(item.dueAt, isDone(item))
+  const upcoming = item.type === 'Assignment'
+    ? nextDeadline(item)
+    : null
+  return deadlineStatusKey(upcoming ?? item.dueAt, isDone(item))
 }

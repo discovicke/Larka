@@ -25,7 +25,8 @@ const assignment = {
   groupId: null,
   publishAt: '2026-10-01T08:00:00Z',
   dueAt: '2026-10-23T21:59:00Z',
-  resubmitDueAt: [],
+  // En kompletteringsdeadline som återstår, så att inget i listan är automatiskt IG om testet inte ber om det.
+  resubmitDueAt: ['2099-01-01T10:00:00Z'],
   isPinned: false,
   blockedBy: [],
 }
@@ -93,13 +94,11 @@ function backend(options: {
   me?: ReturnType<typeof meAs>
   bodyMd?: string
   part?: typeof assignment | Record<string, unknown>
+  modes?: string[]
 } = {}) {
   mockApi((method, path) => {
     if (method === 'POST' && path === '/api/links/l1/repos/refresh') {
       return {status: 204}
-    }
-    if (method === 'POST' && path === '/api/links/l1/submissions/mark-not-submitted') {
-      return {status: 200, body: {count: 1}}
     }
     if (method === 'POST' && path === '/api/links/l1/repos/lock') {
       return {status: 204}
@@ -120,7 +119,11 @@ function backend(options: {
       return {status: 204}
     }
     if (path === '/api/content/x1') {
-      return {status: 200, body: {...content, bodyMd: options.bodyMd ?? content.bodyMd}}
+      return {status: 200, body: {
+        ...content,
+        bodyMd: options.bodyMd ?? content.bodyMd,
+        assignment: {...content.assignment, submissionModes: options.modes ?? content.assignment.submissionModes},
+      }}
     }
     if (path === '/api/links/l1/submissions') {
       return options.fail
@@ -155,7 +158,7 @@ describe('PartView', () => {
   })
 
   it('öppnar delen läsbar med fakta, redigera och läget', async () => {
-    backend()
+    backend({part: {...assignment, resubmitDueAt: []}})
 
     const {wrapper} = await renderApp('/courses/c1/parts/l1')
 
@@ -266,19 +269,16 @@ describe('PartView', () => {
     expect(rows[3].text()).toContain('Inte inlämnad')
   })
 
-  it('läraren kan bedöma en elev som inte lämnat in, och Ej inlämnat får ett eget filter', async () => {
-    const missed = makeSubmission('s5', 'u4', 'NotSubmitted', {
-      grade: {gradedById: 'u0', level: null, feedback: 'Ingen inlämning', gradedAt: '2026-10-24T09:00:00Z'},
-    })
-    backend({submissions: [notStarted, missed].map((row, index) => ({...row, id: `n${index}`, studentId: `u${index + 3}`}))})
-
+  it('läraren kan öppna en elev som inte lämnat in: Visa, och Bedöm när uppgiften bedöms på plats', async () => {
+    backend({submissions: [{...notStarted, id: 'n0', studentId: 'u3'}]})
     const {wrapper} = await renderApp('/courses/c1/assignments/l1')
-
     const rows = wrapper.findAll('[data-test="submission-row"]')
-    expect(rows.map((row) => row.find('a').exists() && row.find('a').text())).toEqual(['Bedöm', 'Bedöm'])
-    expect(rows.some((row) => row.text().includes('Ej inlämnat'))).toBe(true)
-    const filters = wrapper.findAll('section[aria-label="Elever"] [role="tab"]').map(text)
-    expect(filters).toContain('Ej inlämnat 1')
+    expect(rows.map((row) => row.find('a').exists() && row.find('a').text())).toEqual(['Visa'])
+
+    backend({submissions: [{...notStarted, id: 'n0', studentId: 'u3'}], modes: ['OnSite']})
+    const onSite = (await renderApp('/courses/c1/assignments/l1')).wrapper
+    const onSiteRows = onSite.findAll('[data-test="submission-row"]')
+    expect(onSiteRows.map((row) => row.find('a').exists() && row.find('a').text())).toEqual(['Bedöm'])
   })
 
   it('filtrerar på status och söker på namn', async () => {
@@ -495,47 +495,36 @@ describe('PartView', () => {
     expect(wrapper.text()).toContain('Inga elever matchar sökningen.')
   })
 
-  describe('Markera alla som ej inlämnat', () => {
-    it('visas efter deadlinen när någon inte lämnat in, och bekräftas innan det skickas', async () => {
-      backend()
+  describe('Automatiskt IG', () => {
+    it('visar IG och ett eget filter efter sista deadline för den som inte lämnat in eller kompletterat', async () => {
+      backend({part: {...assignment, resubmitDueAt: []}})
 
       const {wrapper} = await renderApp('/courses/c1/assignments/l1')
       await flushPromises()
 
-      await wrapper.find('[data-test="mark-all-not-submitted"]').trigger('click')
-      await flushPromises()
-      expect(document.querySelector('[data-test="mark-all-dialog"]')?.textContent).toContain('1 elev')
-      expect(requests.some((request) => request.path.endsWith('/mark-not-submitted'))).toBe(false)
-
-      document.querySelector<HTMLButtonElement>('[data-test="mark-all-confirm"]')!.click()
-      await flushPromises()
-
-      expect(requests.filter((request) => request.method === 'POST'
-        && request.path === '/api/links/l1/submissions/mark-not-submitted')).toHaveLength(1)
-      expect(requests.filter((request) => request.path === '/api/links/l1/submissions').length).toBeGreaterThan(1)
-      expect(wrapper.find('[data-test="mark-all-notice"]').text()).toBe('1 elev markerades som ej inlämnat.')
+      expect(wrapper.text()).toContain('IG · Ingen inlämning')
+      expect(wrapper.text()).toContain('IG · Kompletteringen lämnades inte in')
+      const filters = wrapper.findAll('section[aria-label="Elever"] [role="tab"]').map(text)
+      expect(filters).toContain('IG automatiskt 2')
+      expect(filters).toContain('Inte inlämnad 0')
+      expect(wrapper.find('[data-test="mark-all-not-submitted"]').exists()).toBe(false)
     })
 
-    it('syns inte före deadlinen, utan någon som saknar inlämning eller för admin', async () => {
+    it('väntar tills sista deadline har passerat, och gäller aldrig utan deadline', async () => {
       backend({part: {...assignment, dueAt: '2099-01-01T10:00:00Z'}})
       const before = await renderApp('/courses/c1/assignments/l1')
       await flushPromises()
-      expect(before.wrapper.find('[data-test="mark-all-not-submitted"]').exists()).toBe(false)
+      expect(before.wrapper.text()).not.toContain('IG · Ingen inlämning')
+
+      backend({part: {...assignment, dueAt: '2020-01-01T10:00:00Z', resubmitDueAt: ['2099-01-01T10:00:00Z']}})
+      const between = await renderApp('/courses/c1/assignments/l1')
+      await flushPromises()
+      expect(between.wrapper.text()).not.toContain('IG · Ingen inlämning')
 
       backend({part: {...assignment, dueAt: null}})
       const without = await renderApp('/courses/c1/assignments/l1')
       await flushPromises()
-      expect(without.wrapper.find('[data-test="mark-all-not-submitted"]').exists()).toBe(false)
-
-      backend({submissions: [graded, submitted]})
-      const nobody = await renderApp('/courses/c1/assignments/l1')
-      await flushPromises()
-      expect(nobody.wrapper.find('[data-test="mark-all-not-submitted"]').exists()).toBe(false)
-
-      backend({me: meAs('Admin', [], 'Ada Admin')})
-      const admin = await renderApp('/courses/c1/assignments/l1')
-      await flushPromises()
-      expect(admin.wrapper.find('[data-test="mark-all-not-submitted"]').exists()).toBe(false)
+      expect(without.wrapper.text()).not.toContain('IG · Ingen inlämning')
     })
   })
 })

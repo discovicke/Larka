@@ -14,7 +14,8 @@ public record NotificationRow(
     Guid? CourseId,
     string? CourseTitle,
     string? GroupName,
-    GradeLevel? Level);
+    GradeLevel? Level,
+    DateTimeOffset? PersonalDueAt = null);
 
 public interface INotificationRepository
 {

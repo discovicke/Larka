@@ -66,7 +66,7 @@ export interface WorldOptions {
 export async function createWorld(admin: APIRequestContext, options: WorldOptions = {}): Promise<World> {
   const tag = uid()
   const group = await json<{id: string, name: string}>(await admin.post('/api/groups', {
-    data: {schoolId: demoSchoolId, type: 'Class', name: `E2E ${tag}`, term: 'HT26'},
+    data: {schoolId: demoSchoolId, type: 'Class', name: `E2E ${tag}`},
   }))
   const teacher = await createUser(admin, `Lärare ${tag}`, 'Teacher')
   const students: Person[] = []

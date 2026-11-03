@@ -1,5 +1,6 @@
 import type {Schema} from '@/lib/api'
 import {formatDate} from '@/lib/content'
+import {autoFailLabel} from '@/lib/gradingWindow'
 
 const gradeLabels: Record<Schema<'GradeLevel'>, string> = {
   Fail: 'IG',
@@ -52,8 +53,14 @@ export function levelsFor(scale: Schema<'GradeScale'> | null): Schema<'GradeLeve
     : []
 }
 
-/** Statusen i elevernas rad, t.ex. "Inlämnad mån 26 okt". */
-export function statusLabel(submission: {status: Schema<'SubmissionStatus'>, submittedAt: string | null}): string {
+/** Statusen i elevernas rad, t.ex. "Inlämnad mån 26 okt". Med autoFail visas det automatiska IG:t. */
+export function statusLabel(
+  submission: {status: Schema<'SubmissionStatus'>, submittedAt: string | null},
+  autoFail = false,
+): string {
+  if (autoFail) {
+    return autoFailLabel(submission.status)
+  }
   switch (submission.status) {
     case 'Submitted':
       return submission.submittedAt
@@ -63,8 +70,6 @@ export function statusLabel(submission: {status: Schema<'SubmissionStatus'>, sub
       return 'Komplettering'
     case 'Graded':
       return 'Bedömd'
-    case 'NotSubmitted':
-      return 'Ej inlämnat'
     default:
       return 'Inte inlämnad'
   }

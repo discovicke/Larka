@@ -12,7 +12,6 @@ import {
 import {computed, ref} from 'vue'
 import {RouterLink} from 'vue-router'
 
-import MarkAllNotSubmittedButton from '@/components/course/MarkAllNotSubmittedButton.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Badge} from '@/components/ui/badge'
@@ -30,10 +29,9 @@ import {Input} from '@/components/ui/input'
 import {Textarea} from '@/components/ui/textarea'
 import {type Schema} from '@/lib/api'
 import {formatDate} from '@/lib/content'
-import {mayMarkAllNotSubmitted} from '@/lib/gradingWindow'
+import {isAutoFail} from '@/lib/gradingWindow'
 import {lockGitHubRepos, refreshGitHubRepos} from '@/lib/integrations'
 import {submissionStatusKey} from '@/lib/status'
-import {markedNotSubmittedMessage} from '@/lib/submissionsApi'
 import {resolveStudentHelp} from '@/lib/support'
 import {checkClass, checkLabel, gradeBadgeVariant, gradeLabel, gradeName, statusLabel} from '@/lib/submissions'
 
@@ -41,7 +39,7 @@ type Filter = 'all'
   | 'due'
   | 'needsWork'
   | 'notStarted'
-  | 'notSubmitted'
+  | 'autoFail'
   | 'needsHelp'
   | 'supportNotStarted'
   | 'supportNoPush'
@@ -58,6 +56,10 @@ interface TrackingRow {
   submissions: Submission[]
   primary: Submission
   status: Schema<'SubmissionStatus'>
+  /** Sista deadline har passerat utan inlämning eller komplettering: automatiskt IG. */
+  autoFail: boolean
+  /** Elevens egen extra deadline, för en elevrad. */
+  personalDueAt: string | null
   repo: Submission['repo']
   submittedAt: string | null
   files: number
@@ -71,8 +73,11 @@ const props = defineProps<{
   courseId: string
   linkId: string
   submissions: Submission[]
-  /** Uppgiftens huvuddeadline. Utan den finns ingen Ej inlämnat för alla. */
+  /** Uppgiftens deadlines. Utan huvuddeadline finns inget automatiskt IG. */
   dueAt?: string | null
+  resubmitDueAt?: string[]
+  /** Bedöms på plats: läraren kan sätta betyg utan inlämning. */
+  onSite?: boolean
 }>()
 
 const emit = defineEmits<{reload: []}>()
@@ -82,7 +87,6 @@ const search = ref('')
 const refreshing = ref(false)
 const locking = ref(false)
 const actionError = ref('')
-const notice = ref('')
 const cloneOpen = ref(false)
 const expanded = ref<string[]>([])
 
@@ -96,9 +100,19 @@ function aggregateStatus(submissions: Submission[]): Schema<'SubmissionStatus'> 
   if (submissions.some((submission) => submission.status === 'Submitted' || submission.status === 'Graded')) {
     return 'Submitted'
   }
-  return submissions.length > 0 && submissions.every((submission) => submission.status === 'NotSubmitted')
-    ? 'NotSubmitted'
-    : 'NotStarted'
+  return 'NotStarted'
+}
+
+function autoFailOf(status: Schema<'SubmissionStatus'>, personalDueAt: string | null = null): boolean {
+  return isAutoFail({dueAt: props.dueAt ?? null, resubmitDueAt: props.resubmitDueAt ?? [], personalDueAt}, status)
+}
+
+function latestPersonalDueAt(submissions: Submission[]): string | null {
+  return submissions
+    .map((submission) => submission.personalDueAt)
+    .filter((value): value is string => Boolean(value))
+    .sort()
+    .at(-1) ?? null
 }
 
 function reasonsFor(submissions: Submission[]): string[] {
@@ -156,6 +170,8 @@ function toStudentRow(submission: Submission, isMember = false): TrackingRow {
     submissions: [submission],
     primary: submission,
     status: submission.status,
+    autoFail: autoFailOf(submission.status, submission.personalDueAt ?? null),
+    personalDueAt: submission.personalDueAt ?? null,
     repo: submission.repo,
     submittedAt: submission.submittedAt,
     files: submission.files.length,
@@ -176,6 +192,9 @@ function toGroupRow(group: Group, submissions: Submission[]): TrackingRow {
     submissions,
     primary: preferredSubmission(submissions),
     status: aggregateStatus(submissions),
+    // Gruppens medlemmar kan ha olika personliga deadlines, så gruppen räknar med den senaste.
+    autoFail: autoFailOf(aggregateStatus(submissions), latestPersonalDueAt(submissions)),
+    personalDueAt: null,
     repo: submissions.find((submission) => submission.repo)?.repo ?? null,
     submittedAt: submittedAtOf(submissions),
     files: submissions.reduce((sum, submission) => sum + submission.files.length, 0),
@@ -219,22 +238,13 @@ const unit = computed(() => {
     ? 'elev'
     : 'elever'
 })
-// Efter deadlinen kan läraren markera alla som inte lämnat in som Ej inlämnat på en gång.
-const notStartedCount = computed(() => props.submissions
-  .filter((submission) => submission.status === 'NotStarted').length)
-const canMarkAll = computed(() => notStartedCount.value > 0
-  && mayMarkAllNotSubmitted({dueAt: props.dueAt ?? null, resubmitDueAt: []}))
-
-function markedAll(count: number) {
-  notice.value = markedNotSubmittedMessage(count)
-  emit('reload')
-}
-
 const hasRepos = computed(() => props.submissions.some((submission) => submission.repo !== null))
 
 function countOf(status: Schema<'SubmissionStatus'>): number {
-  return rows.value.filter((row) => row.status === status).length
+  return rows.value.filter((row) => row.status === status && !row.autoFail).length
 }
+
+const autoFailCount = computed(() => rows.value.filter((row) => row.autoFail).length)
 
 function needsHelp(row: TrackingRow): boolean {
   return row.supportReasons.length > 0
@@ -289,8 +299,8 @@ const filters = computed<{value: Filter, label: string}[]>(() => [
   {value: 'due', label: `Att bedöma ${countOf('Submitted')}`},
   {value: 'needsWork', label: `Komplettering ${countOf('NeedsWork')}`},
   {value: 'notStarted', label: `Inte inlämnad ${countOf('NotStarted')}`},
-  ...(countOf('NotSubmitted') > 0
-    ? [{value: 'notSubmitted' as const, label: `Ej inlämnat ${countOf('NotSubmitted')}`}]
+  ...(autoFailCount.value > 0
+    ? [{value: 'autoFail' as const, label: `IG automatiskt ${autoFailCount.value}`}]
     : []),
   ...(hasRepos.value
     ? [
@@ -307,8 +317,7 @@ const statusOrder: Record<Schema<'SubmissionStatus'>, number> = {
   Submitted: 0,
   NeedsWork: 1,
   Graded: 2,
-  NotSubmitted: 3,
-  NotStarted: 4,
+  NotStarted: 3,
 }
 
 const sorted = computed(() => [...rows.value]
@@ -321,13 +330,13 @@ const visibleRows = computed(() => {
     if (filter.value === 'due' && row.status !== 'Submitted') {
       return false
     }
-    if (filter.value === 'needsWork' && row.status !== 'NeedsWork') {
+    if (filter.value === 'needsWork' && (row.status !== 'NeedsWork' || row.autoFail)) {
       return false
     }
-    if (filter.value === 'notSubmitted' && row.status !== 'NotSubmitted') {
+    if (filter.value === 'autoFail' && !row.autoFail) {
       return false
     }
-    if (filter.value === 'notStarted' && row.status !== 'NotStarted') {
+    if (filter.value === 'notStarted' && (row.status !== 'NotStarted' || row.autoFail)) {
       return false
     }
     if (filter.value === 'needsHelp' && !needsHelp(row)) {
@@ -452,13 +461,14 @@ function repoUrl(row: TrackingRow): string | null {
 }
 
 // Komplettera väntar på eleven, så där är det inget att bedöma än.
+// Bedöm när det finns något att bedöma: en inlämning, eller en elev utan inlämning när uppgiften bedöms på plats.
 function canAssess(row: TrackingRow): boolean {
-  return row.status === 'Submitted'
+  return row.status === 'Submitted' || (Boolean(props.onSite) && !row.group && row.status === 'NotStarted')
 }
 
-// En elev som inte lämnat in kan markeras Ej inlämnat, och ett Ej inlämnat kan ändras igen.
-function canMarkMissing(row: TrackingRow): boolean {
-  return !row.group && (row.status === 'NotStarted' || row.status === 'NotSubmitted')
+// En elev utan inlämning går att öppna, för att bedöma på plats eller ge eleven en egen deadline.
+function canOpenEmpty(row: TrackingRow): boolean {
+  return !row.group && row.status === 'NotStarted'
 }
 
 function reviewRoute(row: TrackingRow) {
@@ -480,14 +490,6 @@ function rowBorder(index: number) {
     <Alert v-if="actionError" variant="destructive" data-test="github-action-error">
       <AlertDescription>{{ actionError }}</AlertDescription>
     </Alert>
-
-    <Alert v-if="notice" data-test="mark-all-notice">
-      <AlertDescription>{{ notice }}</AlertDescription>
-    </Alert>
-
-    <div v-if="canMarkAll" class="flex justify-end">
-      <MarkAllNotSubmittedButton :link-id="linkId" :count="notStartedCount" @done="markedAll"/>
-    </div>
 
     <div v-if="hasRepos" class="flex flex-wrap items-center justify-end gap-2">
       <Button
@@ -637,6 +639,13 @@ function rowBorder(index: number) {
                       : 'Gruppmedlem' }}
                   </Badge>
                 </div>
+                <div
+                  v-if="row.personalDueAt"
+                  class="text-muted-foreground text-xs"
+                  data-test="personal-due-at-hint"
+                >
+                  Egen deadline {{ formatDate(row.personalDueAt, true) }}
+                </div>
                 <div v-if="row.group" class="text-muted-foreground text-xs">
                   {{ row.submissions.map((submission) => submission.studentName).join(', ') }}
                 </div>
@@ -716,15 +725,15 @@ function rowBorder(index: number) {
               </td>
               <td class="px-3 py-3 max-md:border-b-0 max-md:p-0" :class="rowBorder(index)">
                 <StatusBadge
-                  v-if="row.status === 'Submitted' || row.status === 'NeedsWork' || row.status === 'NotSubmitted'"
-                  :status="submissionStatusKey(row.status)"
+                  v-if="row.autoFail || row.status === 'Submitted' || row.status === 'NeedsWork'"
+                  :status="submissionStatusKey(row.status, row.autoFail)"
                 />
                 <span v-else class="text-muted-foreground">{{ statusLabel(row) }}</span>
               </td>
               <td class="px-4 py-3 text-right max-md:col-start-2 max-md:row-span-2 max-md:row-start-1 max-md:self-center max-md:border-b-0 max-md:p-0" :class="rowBorder(index)">
                 <div class="flex justify-end">
                   <Button
-                    v-if="row.status === 'Submitted' || row.status === 'NeedsWork' || canMarkMissing(row)"
+                    v-if="row.status === 'Submitted' || row.status === 'NeedsWork' || canOpenEmpty(row)"
                     as-child
                     :variant="canAssess(row)
                       ? 'default'
@@ -732,7 +741,7 @@ function rowBorder(index: number) {
                     class="h-7 px-2.5 text-[13px]"
                   >
                     <RouterLink :to="reviewRoute(row)">
-                      {{ canAssess(row) || canMarkMissing(row)
+                      {{ canAssess(row)
                         ? 'Bedöm'
                         : 'Visa' }}
                     </RouterLink>

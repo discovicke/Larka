@@ -53,7 +53,7 @@ const tab = computed(() => route.query.tab === 'inlamningar' && hasSubmissions.v
   : 'content')
 
 const toGrade = computed(() => submissions.value.filter((submission) => submission.status === 'Submitted').length)
-const handedIn = computed(() => submissions.value.filter((submission) => submission.status !== 'NotStarted' && submission.status !== 'NotSubmitted').length)
+const handedIn = computed(() => submissions.value.filter((submission) => submission.status !== 'NotStarted').length)
 const handedInLabel = computed(() => `${handedIn.value} av ${submissions.value.length}`)
 
 const checklist = computed(() => parseChecklist(content.value?.bodyMd ?? ''))
@@ -285,6 +285,8 @@ watch([courseId, linkId], () => {
         :link-id="linkId"
         :submissions="submissions"
         :due-at="part?.dueAt ?? null"
+        :resubmit-due-at="part?.resubmitDueAt ?? []"
+        :on-site="(content?.assignment?.submissionModes ?? []).includes('OnSite')"
         @reload="load(false)"
       />
 

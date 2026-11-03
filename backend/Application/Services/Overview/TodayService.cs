@@ -64,9 +64,9 @@ public class TodayService(
             await GetCoursesAsync(studentCourses, now, ct));
     }
 
-    // Publicerade uppgifter i elevens grupper med deadline från nu, som eleven inte lämnat in eller klarmarkerat.
-    // En uppgift som läraren bett eleven komplettera står kvar även när deadline har passerat: annars försvinner
-    // kompletteringen ur Att göra just när den behövs.
+    // Publicerade uppgifter i elevens grupper som eleven inte lämnat in eller klarmarkerat, så länge någon av elevens
+    // deadlines återstår (huvuddeadline, komplettering eller den egna). Efter sista deadline har eleven automatiskt IG
+    // och inget kvar att göra, så uppgiften lämnar listan.
     private async Task<List<TodayTodoDto>> GetTodoAsync(DateTimeOffset now, CancellationToken ct)
     {
         var links = await contents.GetCalendarLinksAsync(
@@ -91,15 +91,22 @@ public class TodayService(
             .Select(completion => completion.ContentLinkId)
             .ToHashSet();
 
+        // Datumet som visas är elevens nästa deadline (med den personliga), annars den senaste som passerat.
+        DateTimeOffset DeadlineOf(CalendarLink link)
+        {
+            var window = GradingWindow.Of(link.Link, submissionByLink.GetValueOrDefault(link.Link.Id), now);
+            return window.NextDeadline ?? link.Link.DueAt!.Value;
+        }
+
         return candidates
-            .Where(link => link.Link.DueAt >= now
-                || submissionByLink.GetValueOrDefault(link.Link.Id)?.Status == SubmissionStatus.NeedsWork)
+            .Where(link => GradingWindow.Of(link.Link, submissionByLink.GetValueOrDefault(link.Link.Id), now)
+                .DeadlineRemains)
             .Where(link => PartRules.IsManual(link.Content)
                 ? !completedLinks.Contains(link.Link.Id)
                 : submissionByLink.GetValueOrDefault(link.Link.Id)?.Status is null
                     or SubmissionStatus.NotStarted
                     or SubmissionStatus.NeedsWork)
-            .OrderBy(link => link.Link.DueAt)
+            .OrderBy(DeadlineOf)
             .ThenBy(link => link.Content.Title)
             .Select(link => new TodayTodoDto(
                 link.Link.Id,
@@ -107,7 +114,7 @@ public class TodayService(
                 link.Content.Title,
                 link.Link.CourseId,
                 link.CourseTitle,
-                link.Link.DueAt!.Value,
+                DeadlineOf(link),
                 submissionByLink.GetValueOrDefault(link.Link.Id)?.Status ?? SubmissionStatus.NotStarted))
             .ToList();
     }
@@ -219,6 +226,7 @@ public class TodayService(
                 visible.Count,
                 visible.Count(part => IsCompletedForProgress(
                     part,
+                    now,
                     completionByLink.GetValueOrDefault(part.Link.Id),
                     submissionByLink.GetValueOrDefault(part.Link.Id))),
                 studentCourse.Course.StartsOn,
@@ -229,11 +237,15 @@ public class TodayService(
     }
 
     // En uppgift som läraren har bett eleven komplettera är ett steg kvar, så den räknas inte som klar
-    // i framstegen. PartRules.IsSatisfied är oförändrad, så upplåsning av nästa del fungerar som förut.
+    // i framstegen, men ett automatiskt IG gör det inte längre.
     private static bool IsCompletedForProgress(
-        LinkedContent part, PartCompletion? completion, Submission? submission) =>
-        submission?.Status != SubmissionStatus.NeedsWork
-        && PartRules.IsSatisfied(part.Content, completion, submission);
+        LinkedContent part, DateTimeOffset now, PartCompletion? completion, Submission? submission)
+    {
+        var window = GradingWindow.Of(part.Link, submission, now);
+        var status = submission?.Status ?? SubmissionStatus.NotStarted;
+        return (status != SubmissionStatus.NeedsWork || window.IsAutoFail(status))
+            && PartRules.IsSatisfied(part.Content, completion, submission, window);
+    }
 
     private record RecentSubmission(Submission Submission, LinkedContent Link, string? CourseTitle);
 }

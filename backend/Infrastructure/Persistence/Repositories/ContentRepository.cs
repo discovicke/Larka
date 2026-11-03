@@ -240,6 +240,11 @@ public class ContentRepository(AppDb db) : IContentRepository
             .Where(link => link.ModuleId != null || link.DueAt != null)
             .Where(link =>
                 (link.DueAt != null && link.DueAt >= from && link.DueAt < to)
+                || (link.DueAt != null && link.ResubmitDueAt.Any(due => due >= from && due < to))
+                || db.Submissions.Any(submission => submission.ContentLinkId == link.Id
+                    && submission.StudentId == userId
+                    && submission.PersonalDueAt >= from
+                    && submission.PersonalDueAt < to)
                 || (link.PublishAt >= from && link.PublishAt < to))
             .Join(
                 db.Content,
@@ -260,7 +265,11 @@ public class ContentRepository(AppDb db) : IContentRepository
                     : db.Modules
                         .Where(module => module.Id == row.Link.ModuleId.Value)
                         .Select(module => (DateTimeOffset?)module.PublishAt)
-                        .FirstOrDefault()))
+                        .FirstOrDefault(),
+                db.Submissions
+                    .Where(submission => submission.ContentLinkId == row.Link.Id && submission.StudentId == userId)
+                    .Select(submission => submission.PersonalDueAt)
+                    .FirstOrDefault()))
             .ToListAsync(ct);
     }
 

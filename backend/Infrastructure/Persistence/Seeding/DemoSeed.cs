@@ -310,12 +310,14 @@ public sealed class DemoSeed(
                     ContentLinkId = assignments[assignmentIndex].Id,
                     StudentId = students[studentIndex].Id,
                     Status = status.Value,
-                    SubmittedAt = status == SubmissionStatus.NotSubmitted
+                    SubmittedAt = status == SubmissionStatus.NotStarted
                         ? null
                         : assignments[assignmentIndex].DueAt!.Value.AddDays(-2),
-                    BodyMd = status == SubmissionStatus.NotSubmitted
+                    BodyMd = status == SubmissionStatus.NotStarted
                         ? null
-                        : "Min lösning finns i texten."
+                        : "Min lösning finns i texten.",
+                    PersonalDueAt = PersonalDueAtFor(
+                        phase, assignmentIndex, studentIndex, status.Value, assignments[assignmentIndex])
                 };
                 db.Submissions.Add(submission);
 
@@ -350,6 +352,18 @@ public sealed class DemoSeed(
         }
     }
 
+    // En elev som inte lämnat in på en uppgift där klassens deadline har gått får en extra deadline, så att
+    // funktionen syns i demon. Den ligger i framtiden, så eleven slipper automatiskt IG.
+    private DateTimeOffset? PersonalDueAtFor(
+        CoursePhase phase, int assignmentIndex, int studentIndex, SubmissionStatus status, ContentLink link) =>
+        phase == CoursePhase.Current
+        && assignmentIndex == 2
+        && studentIndex % 10 == 2
+        && status == SubmissionStatus.NotStarted
+        && link.DueAt < time.GetUtcNow()
+            ? time.GetUtcNow().AddDays(5)
+            : null;
+
     private static SubmissionStatus? StatusFor(CoursePhase phase, int assignmentIndex, int studentIndex)
     {
         if (phase == CoursePhase.Completed || assignmentIndex < 2)
@@ -362,9 +376,8 @@ public sealed class DemoSeed(
             return (studentIndex % 10) switch
             {
                 0 or 1 => SubmissionStatus.NeedsWork,
-                2 => SubmissionStatus.NotSubmitted,
+                2 or 4 => SubmissionStatus.NotStarted,
                 3 => SubmissionStatus.Submitted,
-                4 => SubmissionStatus.NotStarted,
                 _ => SubmissionStatus.Graded,
             };
         }

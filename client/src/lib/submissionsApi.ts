@@ -6,18 +6,11 @@ export async function fetchLinkSubmissions(linkId: string) {
   return data ?? []
 }
 
-/** Markerar alla som inte lämnat in som Ej inlämnat, efter huvuddeadlinen. Returnerar hur många det blev. */
-export async function markAllNotSubmitted(linkId: string): Promise<number> {
-  const {data} = await api.POST('/api/links/{id}/submissions/mark-not-submitted', {params: {path: {id: linkId}}})
-  return data?.count ?? 0
-}
-
-/** Beskedet efter att läraren markerat alla. */
-export function markedNotSubmittedMessage(count: number): string {
-  if (count === 0) {
-    return 'Ingen behövde markeras som ej inlämnat.'
-  }
-  return count === 1
-    ? '1 elev markerades som ej inlämnat.'
-    : `${count} elever markerades som ej inlämnat.`
+/** Läraren ger eleven en extra deadline, eller tar bort den med null. Returnerar elevens uppdaterade inlämning. */
+export async function setPersonalDueAt(linkId: string, studentId: string, dueAt: string | null) {
+  const {data} = await api.PUT('/api/links/{id}/students/{studentId}/personal-due-at', {
+    params: {path: {id: linkId, studentId}},
+    body: {dueAt},
+  })
+  return data
 }

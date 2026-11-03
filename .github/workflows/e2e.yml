@@ -68,11 +68,26 @@ jobs:
         if: ${{ always() }}
         run: docker compose -f e2e/docker-compose.e2e.yml down -v
 
+      # Rapporten har video, trace och skärmbilder för varje test (playwright.config.ts), även när allt är grönt.
       - uses: actions/upload-artifact@v4
+        id: report
         if: ${{ !cancelled() }}
         with:
           name: playwright-report
-          path: |
-            e2e/playwright-report
-            e2e/test-results
+          path: e2e/playwright-report
           retention-days: 14
+
+      - name: How to watch the run
+        if: ${{ !cancelled() && steps.report.outputs.artifact-url != '' }}
+        env:
+          REPORT_URL: ${{ steps.report.outputs.artifact-url }}
+        run: |
+          {
+            echo '## Se körningen'
+            echo
+            echo "1. Ladda ner [playwright-report]($REPORT_URL) och packa upp den."
+            echo '2. Öppna `index.html` i webbläsaren och klicka på ett test: videon spelas under testet.'
+            echo '3. Klicka på _Trace_ för att stega igenom varje klick med skärmbild, DOM och nätverksanrop.'
+            echo
+            echo 'Traces går också att öppna utan att packa upp rapporten: dra `data/*.zip` till https://trace.playwright.dev.'
+          } >> "$GITHUB_STEP_SUMMARY"

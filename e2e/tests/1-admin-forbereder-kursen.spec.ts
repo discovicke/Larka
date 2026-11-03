@@ -15,7 +15,6 @@ test('1: admin skapar en klass med elever och en kurs med lärare', async ({apiA
   await page.getByTestId('new-menu').click()
   await page.getByTestId('new-class').click()
   await page.getByTestId('group-name').fill(className)
-  await page.getByTestId('group-term').fill('HT26')
   await page.getByTestId('save-group').click()
   await expect(page).toHaveURL(/\/groups\/[0-9a-f-]+$/)
   await expect(page.getByRole('heading', {name: className, level: 1})).toBeVisible()

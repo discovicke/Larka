@@ -18,6 +18,7 @@ const base: Item = {
   publishAt: '2026-01-01T08:00:00Z',
   dueAt: null,
   resubmitDueAt: [],
+  personalDueAt: null,
   isPinned: false,
   isLocked: false,
   isCompleted: false,
@@ -321,13 +322,15 @@ describe('SubmissionPanel', () => {
     expect(wrapper.find('[data-test="submission-submit"]').attributes('disabled')).toBeUndefined()
   })
 
-  it('säger till när den som ska komplettera kan lämna in', async () => {
-    backend([submissionOf('NeedsWork')])
+  it('visar lärarens återkoppling ovanför formuläret och till när kompletteringen ska in', async () => {
+    const grade = {level: null, feedback: 'Lägg till tester för parsern.', gradedAt: '2019-12-05T10:00:00Z', gradedById: 't1'}
+    backend([submissionOf('NeedsWork', {grade} as Partial<Schema<'SubmissionDto'>>)])
     const resubmitDueAt = ['2020-01-01T10:00:00Z', '2099-01-01T10:00:00Z']
     const wrapper = await show({submissionStatus: 'NeedsWork', dueAt: '2019-12-01T10:00:00Z', resubmitDueAt})
 
+    expect(wrapper.find('[data-test="submission-needs-work"]').text()).toContain('Lägg till tester för parsern.')
     const text = wrapper.find('[data-test="submission-open-until"]').text()
-    expect(text).toContain('Du kan lämna in till')
+    expect(text).toContain('Komplettera senast')
     expect(text).toContain('jan')
     expect(wrapper.find('[data-test="submission-form"]').exists()).toBe(true)
   })
@@ -350,7 +353,7 @@ describe('SubmissionPanel', () => {
     expect(wrapper.find('[data-test="submission-view"]').text()).toContain('Mitt svar')
   })
 
-  it.each(['NotStarted', 'NeedsWork', 'NotSubmitted'] as const)(
+  it.each(['NotStarted', 'NeedsWork'] as const)(
     'döljer formuläret för %s när sista deadline har passerat',
     async (status) => {
       backend(status === 'NotStarted'
@@ -364,7 +367,7 @@ describe('SubmissionPanel', () => {
     },
   )
 
-  it.each(['NotStarted', 'NotSubmitted'] as const)(
+  it.each(['NotStarted', 'NeedsWork'] as const)(
     'öppnar formuläret för %s mellan deadlinerna',
     async (status) => {
       backend()
@@ -372,17 +375,29 @@ describe('SubmissionPanel', () => {
         ? null
         : status, dueAt: '2020-01-01T10:00:00Z', resubmitDueAt: ['2099-02-01T10:00:00Z']})
 
-      expect(wrapper.find('[data-test="submission-open-until"]').text()).toContain('Du kan lämna in till')
+      expect(wrapper.find('[data-test="submission-open-until"]').text()).toContain(status === 'NeedsWork'
+        ? 'Komplettera senast'
+        : 'Du kan lämna in till')
       expect(wrapper.find('[data-test="submission-form"]').exists()).toBe(true)
     },
   )
 
+  it('förklarar det automatiska IG:t när sista deadline har passerat utan inlämning', async () => {
+    backend()
+    const none = await show({submissionStatus: null, dueAt: '2020-01-01T10:00:00Z', resubmitDueAt: []})
+    expect(none.find('[data-test="submission-closed"]').text()).toContain('IG automatiskt')
+
+    backend([submissionOf('NeedsWork')])
+    const work = await show({submissionStatus: 'NeedsWork', dueAt: '2020-01-01T10:00:00Z', resubmitDueAt: []})
+    expect(work.find('[data-test="submission-closed"]').text()).toContain('någon komplettering')
+  })
+
   it('döljer repo-knappen när sista deadline har passerat', async () => {
-    backend([submissionOf('NotSubmitted')])
+    backend([submissionOf('NeedsWork')])
     const wrapper = await show({
       submissionModes: ['Repo'],
       hasRepoMode: true,
-      submissionStatus: 'NotSubmitted',
+      submissionStatus: 'NeedsWork',
       dueAt: '2020-01-01T10:00:00Z',
     })
 
@@ -412,22 +427,14 @@ describe('SubmissionPanel', () => {
     expect(wrapper.find('[data-test="submission-view"]').text()).toContain('rapport.pdf')
   })
 
-  it('varnar för sen inlämning men låter eleven lämna in', async () => {
+  it('säger bara till när eleven kan lämna in, utan att kalla det sent, när en deadline återstår', async () => {
     backend()
     const wrapper = await show({dueAt: '2026-01-02T08:00:00Z', resubmitDueAt: ['2999-01-01T08:00:00Z']})
 
-    expect(wrapper.find('[data-test="submission-late"]').text()).toContain('Sen inlämning')
+    expect(wrapper.find('[data-test="submission-open-until"]').text()).toContain('Du kan lämna in till')
+    expect(wrapper.text()).not.toContain('Sen inlämning')
+    expect(wrapper.text()).not.toContain('Deadline har passerat')
     expect(wrapper.find('[data-test="submission-form"]').exists()).toBe(true)
-  })
-
-  it('varnar inte för sen inlämning efter betyg eller före deadline', async () => {
-    backend([submissionOf('Graded')])
-    const graded = await show({dueAt: '2026-01-02T08:00:00Z', submissionStatus: 'Graded'})
-    expect(graded.find('[data-test="submission-late"]').exists()).toBe(false)
-
-    backend()
-    const early = await show({dueAt: '2999-01-01T08:00:00Z'})
-    expect(early.find('[data-test="submission-late"]').exists()).toBe(false)
   })
 
   it('visar felet från servern och lämnar formuläret kvar', async () => {

@@ -1,3 +1,4 @@
+using Backend.Domain.Entities;
 using Backend.Domain.Enums;
 
 namespace Backend.Application.Services;
@@ -8,35 +9,46 @@ namespace Backend.Application.Services;
 public readonly record struct GradingWindow(
     DateTimeOffset? DueAt,
     IReadOnlyList<DateTimeOffset> ResubmitDueAt,
-    DateTimeOffset Now)
+    DateTimeOffset Now,
+    DateTimeOffset? PersonalDueAt = null)
 {
     public const string ClosedMessage = "Deadlinen har gått ut och det finns ingen kompletteringsdeadline kvar.";
     public const string LockedMessage = "Deadlinen har gått ut. Din inlämning är låst tills läraren har bedömt den.";
     public const string FailTooEarlyMessage =
-        "IG kan bara sättas när sista deadline har passerat. Använd Komplettera eller Ej inlämnat så länge en deadline återstår.";
+        "IG kan bara sättas när sista deadline har passerat. Använd Komplettera så länge en deadline återstår.";
     public const string NeedsWorkTooLateMessage =
         "Komplettera kan inte begäras när ingen deadline återstår. Sätt IG eller godkänn inlämningen.";
 
-    public const string NoDeadlineToMarkMessage =
-        "Uppgiften har ingen deadline, så ingen kan markeras som ej inlämnad.";
-    public const string DeadlineNotPassedMessage =
-        "Deadlinen har inte gått ut ännu. Markera som ej inlämnat först efter deadlinen.";
+    /// <summary>Fönstret för en länks deadlines just nu.</summary>
+    public static GradingWindow Of(ContentLink link, DateTimeOffset now) => new(link.DueAt, link.ResubmitDueAt, now);
+
+    /// <summary>Fönstret för en elevs inlämning: länkens deadlines plus elevens egen extra deadline.</summary>
+    public static GradingWindow Of(ContentLink link, Submission? submission, DateTimeOffset now) =>
+        new(link.DueAt, link.ResubmitDueAt, now, submission?.PersonalDueAt);
+
+    /// <summary>Alla deadlines som gäller eleven: DueAt, kompletteringarna och elevens egen. Tom utan DueAt.</summary>
+    private IEnumerable<DateTimeOffset> Deadlines()
+    {
+        if (DueAt is null)
+        {
+            return [];
+        }
+
+        var all = ResubmitDueAt.Prepend(DueAt.Value);
+        return PersonalDueAt is null
+            ? all
+            : all.Append(PersonalDueAt.Value);
+    }
 
     public bool HasDeadline => DueAt is not null;
 
-    /// <summary>Första av DueAt och kompletteringsdeadlinerna som ligger efter nu, annars null.</summary>
+    /// <summary>Första av elevens deadlines (DueAt, kompletteringarna och den personliga) som ligger efter nu, annars null.</summary>
     public DateTimeOffset? NextDeadline
     {
         get
         {
-            if (DueAt is null)
-            {
-                return null;
-            }
-
             var now = Now.UtcDateTime;
-            var upcoming = ResubmitDueAt
-                .Prepend(DueAt.Value)
+            var upcoming = Deadlines()
                 .Where(value => value.UtcDateTime > now)
                 .Order()
                 .ToList();
@@ -46,19 +58,13 @@ public readonly record struct GradingWindow(
         }
     }
 
-    /// <summary>Senaste av DueAt och kompletteringsdeadlinerna som har passerat (eller är nu), annars null.</summary>
+    /// <summary>Senaste av elevens deadlines (DueAt, kompletteringarna och den personliga) som har passerat (eller är nu), annars null.</summary>
     public DateTimeOffset? LastPassedDeadline
     {
         get
         {
-            if (DueAt is null)
-            {
-                return null;
-            }
-
             var now = Now.UtcDateTime;
-            var passed = ResubmitDueAt
-                .Prepend(DueAt.Value)
+            var passed = Deadlines()
                 .Where(value => value.UtcDateTime <= now)
                 .OrderDescending()
                 .ToList();
@@ -90,6 +96,16 @@ public readonly record struct GradingWindow(
             ? null
             : ClosedMessage;
     }
+
+    /// <summary>
+    /// Automatiskt IG: uppgiften har en deadline, ingen deadline återstår och eleven har inte lämnat in
+    /// (NotStarted) eller inte kompletterat (NeedsWork). Härleds alltid och sparas aldrig. Elevens personliga
+    /// deadline räknas med i NextDeadline, så att regeln fortfarande bor på ett ställe.
+    /// </summary>
+    public bool IsAutoFail(SubmissionStatus status) =>
+        HasDeadline
+        && !DeadlineRemains
+        && status is SubmissionStatus.NotStarted or SubmissionStatus.NeedsWork;
 
     /// <summary>IG (Graded med Fail) får först sättas när ingen deadline återstår.</summary>
     public bool AllowsFail => DueAt is null || !DeadlineRemains;

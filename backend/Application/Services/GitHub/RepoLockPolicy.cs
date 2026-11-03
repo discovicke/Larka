@@ -15,8 +15,9 @@ public static class RepoLockPolicy
     /// </summary>
     public static bool LocksWithoutOwnCommit(RepoLockContext context, DateTimeOffset now)
     {
+        // Elevens personliga deadline är en deadline till, så repot står öppet tills även den har passerat.
         var window = new GradingWindow(
-            context.DueAt, context.ResubmitDueAt ?? [], now);
+            context.DueAt, context.ResubmitDueAt ?? [], now, context.PersonalDueAt);
         return !window.DeadlineRemains
             || context.Submission.Status is SubmissionStatus.Submitted or SubmissionStatus.Graded;
     }

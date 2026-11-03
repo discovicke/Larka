@@ -9,7 +9,11 @@ public record LinkedContent(ContentLink Link, Content Content);
 
 /// <summary>En länk i kalendern med innehållet, kursens titel och veckans publiceringsdatum.</summary>
 public record CalendarLink(
-    ContentLink Link, Content Content, string? CourseTitle, DateTimeOffset? ModulePublishAt);
+    ContentLink Link,
+    Content Content,
+    string? CourseTitle,
+    DateTimeOffset? ModulePublishAt,
+    DateTimeOffset? PersonalDueAt = null); // användarens egen deadline på länken, när hen är elev och har fått en
 
 /// <summary>En uppgift med deadline i en kurs.</summary>
 public record CourseDeadline(

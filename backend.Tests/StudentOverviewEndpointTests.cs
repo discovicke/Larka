@@ -46,7 +46,11 @@ public class StudentOverviewEndpointTests(TestWebApplicationFactory factory) : I
         var distinction = await LinkAsync(scenario.CourseId, moduleId, "Väl godkänd", scale: "passFailDistinction");
         var needsWork = await LinkAsync(scenario.CourseId, moduleId, "Komplettera");
         var submitted = await LinkAsync(scenario.CourseId, moduleId, "Inlämnad");
-        await LinkAsync(scenario.CourseId, moduleId, "Försenad", dueAt: "2026-02-01T00:00:00Z");
+        // Försenad: deadlinen har passerat men en kompletteringsdeadline återstår. Utan den blir det automatiskt IG.
+        await LinkAsync(
+            scenario.CourseId, moduleId, "Försenad", dueAt: "2026-02-01T00:00:00Z",
+            resubmitDueAt: ["2099-03-01T00:00:00Z"]);
+        await LinkAsync(scenario.CourseId, moduleId, "Automatiskt IG", dueAt: "2026-02-01T00:00:00Z");
         await LinkAsync(scenario.CourseId, moduleId, "Framtida", dueAt: "2099-02-01T00:00:00Z");
         await GradeAsync(await SubmitAsync(scenario.StudentId, graded), new { level = "pass", feedback = "Bra" });
         await GradeAsync(
@@ -63,7 +67,7 @@ public class StudentOverviewEndpointTests(TestWebApplicationFactory factory) : I
         var course = Assert.Single(overview.Courses);
         Assert.Equal(scenario.CourseId, course.CourseId);
         Assert.Equal(
-            (6, 1, 1, 1, 2, 0, 1, 1),
+            (7, 1, 1, 1, 2, 1, 1, 1),
             (course.AssignmentCount, course.NeedsWorkCount, course.LateCount, course.SubmittedCount,
                 course.GradedCount, course.FailCount, course.PassCount, course.DistinctionCount));
     }
@@ -164,7 +168,12 @@ public class StudentOverviewEndpointTests(TestWebApplicationFactory factory) : I
     }
 
     private async Task<Guid> LinkAsync(
-        Guid courseId, Guid moduleId, string title, string? dueAt = null, string scale = "passFail")
+        Guid courseId,
+        Guid moduleId,
+        string title,
+        string? dueAt = null,
+        string scale = "passFail",
+        string[]? resubmitDueAt = null)
     {
         var content = await _client.PostAsJsonAsync("/api/content", new
         {
@@ -183,7 +192,8 @@ public class StudentOverviewEndpointTests(TestWebApplicationFactory factory) : I
             courseId,
             moduleId,
             publishAt = "2026-01-01T00:00:00Z",
-            dueAt
+            dueAt,
+            resubmitDueAt = resubmitDueAt ?? []
         });
         link.EnsureSuccessStatusCode();
         return (await link.Content.ReadFromJsonAsync<IdResponse>())!.Id;

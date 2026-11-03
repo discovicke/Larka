@@ -46,6 +46,7 @@ function assignment(options: Partial<StudyPlanAssignment> = {}): StudyPlanAssign
     title: 'Laboration',
     dueAt: null,
     resubmitDueAt: [],
+    personalDueAt: null,
     status: 'NotStarted',
     grade: null,
     feedback: null,

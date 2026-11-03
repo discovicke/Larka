@@ -135,8 +135,7 @@ public class ModuleRepository(AppDb db) : IModuleRepository
         var linkIds = links.Select(link => link.Id).ToList();
         var submitted = (await db.Submissions
                 .Where(submission => linkIds.Contains(submission.ContentLinkId)
-                    && submission.Status != SubmissionStatus.NotStarted
-                    && submission.Status != SubmissionStatus.NotSubmitted)
+                    && submission.Status != SubmissionStatus.NotStarted)
                 .Select(submission => new { submission.ContentLinkId, submission.StudentId })
                 .Distinct()
                 .ToListAsync(ct))

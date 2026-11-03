@@ -8,5 +8,5 @@ public enum NotificationKind
     SubmissionNeedsWork,
     SubmissionGraded,
     StudentHelpRequested,
-    SubmissionNotSubmitted
+    PersonalDeadlineSet
 }

@@ -72,6 +72,50 @@ public class CalendarEndpointTests(TestWebApplicationFactory factory) : IClassFi
     }
 
     [Fact]
+    public async Task Student_SeesResubmitDeadlines_AndOnlyTheirOwnPersonalDeadline()
+    {
+        var setup = await AddSetupAsync();
+        var from = StartOfToday();
+        var to = from.AddDays(14);
+        var resubmit = from.AddDays(3).AddHours(12);
+        var personal = from.AddDays(9).AddHours(10);
+        // Huvuddeadlinen ligger före intervallet. Bara kompletteringen och den egna deadlinen hamnar i det.
+        var linkId = await CreateAssignmentLinkAsync(
+            "Uppgift",
+            new { groupId = setup.GroupId, dueAt = from.AddDays(-5), resubmitDueAt = new[] { resubmit } });
+        Guid classmateId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            var group = await db.Groups.SingleAsync(row => row.Id == setup.GroupId);
+            classmateId = (await TestData.AddMemberAsync(db, group)).Id;
+            // Raden skapas när uppgiften delas ut, eller här om den inte redan finns.
+            var submission = await db.Submissions.SingleOrDefaultAsync(row =>
+                row.ContentLinkId == linkId && row.StudentId == setup.StudentId);
+            if (submission is null)
+            {
+                submission = new Backend.Domain.Entities.Submission
+                {
+                    ContentLinkId = linkId,
+                    StudentId = setup.StudentId
+                };
+                db.Submissions.Add(submission);
+            }
+
+            submission.PersonalDueAt = personal;
+            await db.SaveChangesAsync();
+        }
+
+        var mine = await GetCalendarAsync(setup.StudentId, from, to);
+        var classmate = await GetCalendarAsync(classmateId, from, to);
+
+        Assert.Equal(
+            [("ResubmitDeadline", resubmit), ("PersonalDeadline", personal)],
+            mine.Select(item => (item.Kind, item.At)));
+        Assert.Equal([("ResubmitDeadline", resubmit)], classmate.Select(item => (item.Kind, item.At)));
+    }
+
+    [Fact]
     public async Task Student_DoesNotSeeAnotherGroupsLinkInASharedCourse()
     {
         var setup = await AddSetupAsync();

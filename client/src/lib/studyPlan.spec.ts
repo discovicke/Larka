@@ -4,12 +4,17 @@ import {assignmentStatus, coursePeriod, courseStatusLabel, gradeText, shortDate}
 
 const now = new Date('2026-10-27T12:00:00Z')
 
-function assignment(status: 'NotStarted' | 'Submitted' | 'NeedsWork' | 'Graded' | 'NotSubmitted', dueAt: string | null = null) {
+function assignment(
+  status: 'NotStarted' | 'Submitted' | 'NeedsWork' | 'Graded',
+  dueAt: string | null = null,
+  resubmitDueAt: string[] = [],
+) {
   return {
     linkId: 'l1',
     title: 'Laboration',
     dueAt,
-    resubmitDueAt: [] as string[],
+    resubmitDueAt,
+    personalDueAt: null,
     status,
     grade: status === 'Graded'
       ? 'Pass' as const
@@ -64,7 +69,7 @@ describe('assignmentStatus', () => {
   it('visar pågår med deadline, slutade och ej inlämnad', () => {
     expect(assignmentStatus(assignment('NotStarted', '2026-11-06T16:00:00Z'), now))
       .toBe('Pågår · deadline 6 nov')
-    expect(assignmentStatus(assignment('NotStarted', '2026-10-23T16:00:00Z'), now))
+    expect(assignmentStatus(assignment('NotStarted', '2026-10-23T16:00:00Z', ['2026-12-01T16:00:00Z']), now))
       .toBe('Deadline passerade 23 okt')
     expect(assignmentStatus(assignment('NotStarted'), now)).toBe('Inte inlämnad')
   })
@@ -73,6 +78,8 @@ describe('assignmentStatus', () => {
     expect(assignmentStatus(assignment('Submitted'), now)).toBe('Inlämnad')
     expect(assignmentStatus(assignment('NeedsWork'), now)).toBe('Komplettera')
     expect(assignmentStatus(assignment('Graded'), now)).toBe('Godkänd')
-    expect(assignmentStatus(assignment('NotSubmitted'), now)).toBe('Ej inlämnat')
+    expect(assignmentStatus(assignment('NotStarted', '2020-01-01T10:00:00Z'), now)).toBe('IG · Ingen inlämning')
+    expect(assignmentStatus(assignment('NeedsWork', '2020-01-01T10:00:00Z'), now))
+      .toBe('IG · Kompletteringen lämnades inte in')
   })
 })

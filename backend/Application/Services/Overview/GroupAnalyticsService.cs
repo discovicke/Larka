@@ -58,7 +58,7 @@ public class GroupAnalyticsService(
                     && link.Content.Assignment is not null
                     && link.Content.Assignment.SubmissionModes.Count > 0)
                 .DistinctBy(link => link.Link.Id)
-                .Select(link => new AnalyticsAssignment(link.Link.Id, link.Link.DueAt))
+                .Select(link => new AnalyticsAssignment(link.Link.Id, link.Link.DueAt, link.Link.ResubmitDueAt))
                 .ToList();
         }
 
@@ -114,7 +114,7 @@ public class GroupAnalyticsService(
                     rows.Sum(row => row.NeedsWorkCount),
                     rows.Sum(row => row.SubmittedCount),
                     rows.Sum(row => row.OverdueCount),
-                    rows.Sum(row => row.NotSubmittedCount),
+                    rows.Sum(row => row.AutoFailCount),
                     rows.Count(row => row.NeedsSupport));
             })
             .ToList();
@@ -137,12 +137,20 @@ public class GroupAnalyticsService(
         var needsWork = 0;
         var submitted = 0;
         var overdue = 0;
-        var notSubmitted = 0;
+        var autoFail = 0;
 
         foreach (var assignment in assignments)
         {
             submissions.TryGetValue((studentId, assignment.LinkId), out var submission);
             var status = submission?.Status ?? SubmissionStatus.NotStarted;
+            var window = new GradingWindow(
+                assignment.DueAt, assignment.ResubmitDueAt, now, submission?.PersonalDueAt);
+            if (window.IsAutoFail(status))
+            {
+                autoFail += 1;
+                continue;
+            }
+
             switch (status)
             {
                 case SubmissionStatus.Graded:
@@ -167,9 +175,6 @@ public class GroupAnalyticsService(
                 case SubmissionStatus.Submitted:
                     submitted += 1;
                     break;
-                case SubmissionStatus.NotSubmitted:
-                    notSubmitted += 1;
-                    break;
                 case SubmissionStatus.NotStarted when assignment.DueAt is not null && assignment.DueAt < now:
                     overdue += 1;
                     break;
@@ -186,9 +191,10 @@ public class GroupAnalyticsService(
             needsWork,
             submitted,
             overdue,
-            notSubmitted,
-            fail > 0 || needsWork > 0 || overdue > 0 || notSubmitted > 0);
+            autoFail,
+            fail > 0 || needsWork > 0 || overdue > 0 || autoFail > 0);
     }
 
-    private sealed record AnalyticsAssignment(Guid LinkId, DateTimeOffset? DueAt);
+    private sealed record AnalyticsAssignment(
+        Guid LinkId, DateTimeOffset? DueAt, IReadOnlyList<DateTimeOffset> ResubmitDueAt);
 }

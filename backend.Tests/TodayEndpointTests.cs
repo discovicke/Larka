@@ -118,26 +118,66 @@ public class TodayEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
         Assert.DoesNotContain(today.Todo, item => item.Title == "Inlämnad");
     }
 
+    [Theory]
+    [InlineData(SubmissionStatus.NotStarted)]
+    [InlineData(SubmissionStatus.NeedsWork)]
+    public async Task Todo_ShowsAPersonalDeadline_AfterTheClassDeadline_AndSortsByIt(SubmissionStatus status)
+    {
+        var setup = await AddSetupAsync();
+        var week = await CreateModuleAsync(setup.CourseId);
+        var personal = DateTimeOffset.UtcNow.AddDays(3);
+        var late = await CreateAssignmentLinkAsync("Egen deadline",
+            new { courseId = setup.CourseId, moduleId = week.Id, dueAt = DateTimeOffset.UtcNow.AddDays(-4) });
+        await CreateAssignmentLinkAsync("Om en vecka",
+            new { courseId = setup.CourseId, moduleId = week.Id, dueAt = DateTimeOffset.UtcNow.AddDays(7) });
+        await CreateAssignmentLinkAsync("Om två dagar",
+            new { courseId = setup.CourseId, moduleId = week.Id, dueAt = DateTimeOffset.UtcNow.AddDays(2) });
+        await AddSubmissionAsync(late, setup.StudentId, status);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            (await db.Submissions.SingleAsync(row => row.ContentLinkId == late && row.StudentId == setup.StudentId))
+                .PersonalDueAt = personal;
+            await db.SaveChangesAsync();
+        }
+
+        var today = await GetTodayAsync(setup.StudentId);
+
+        Assert.Equal(["Om två dagar", "Egen deadline", "Om en vecka"], today.Todo.Select(item => item.Title));
+        var shown = today.Todo.Single(item => item.Title == "Egen deadline");
+        Assert.Equal(personal.UtcDateTime, shown.DueAt.UtcDateTime, TimeSpan.FromSeconds(1));
+    }
+
     [Fact]
-    public async Task Todo_KeepsANeedsWorkAssignment_AfterItsDeadline()
+    public async Task Todo_KeepsANeedsWorkAssignment_WhileAKomplettringDeadlineRemains_AndDropsItAfterTheLast()
     {
         var setup = await AddSetupAsync();
         var week = await CreateModuleAsync(setup.CourseId);
         var passed = DateTimeOffset.UtcNow.AddDays(-5);
-        var needsWork = await CreateAssignmentLinkAsync("Komplettera efter deadline",
+        var open = await CreateAssignmentLinkAsync("Komplettera före kompletteringsdeadline",
+            new
+            {
+                courseId = setup.CourseId,
+                moduleId = week.Id,
+                dueAt = passed,
+                resubmitDueAt = new[] { DateTimeOffset.UtcNow.AddDays(3) }
+            });
+        var closed = await CreateAssignmentLinkAsync("Komplettering missad",
             new { courseId = setup.CourseId, moduleId = week.Id, dueAt = passed });
         await CreateAssignmentLinkAsync("Missad",
             new { courseId = setup.CourseId, moduleId = week.Id, dueAt = passed });
         var graded = await CreateAssignmentLinkAsync("Bedömd",
             new { courseId = setup.CourseId, moduleId = week.Id, dueAt = passed });
-        await AddSubmissionAsync(needsWork, setup.StudentId, SubmissionStatus.NeedsWork, feedback: "Lägg till tester");
+        await AddSubmissionAsync(open, setup.StudentId, SubmissionStatus.NeedsWork, feedback: "Lägg till tester");
+        await AddSubmissionAsync(closed, setup.StudentId, SubmissionStatus.NeedsWork, feedback: "Lägg till tester");
         await AddSubmissionAsync(graded, setup.StudentId, SubmissionStatus.Graded);
 
         var today = await GetTodayAsync(setup.StudentId);
 
-        // Kompletteringen står kvar trots passerad deadline. Annat med passerad deadline gör det inte.
+        // Kompletteringen står kvar så länge en kompletteringsdeadline återstår. Efter sista deadline har eleven
+        // automatiskt IG och inget kvar att göra.
         var item = Assert.Single(today.Todo);
-        Assert.Equal("Komplettera efter deadline", item.Title);
+        Assert.Equal("Komplettera före kompletteringsdeadline", item.Title);
         Assert.Equal("NeedsWork", item.Status);
     }
 

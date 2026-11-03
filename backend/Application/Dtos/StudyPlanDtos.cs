@@ -31,6 +31,7 @@ public record StudyPlanAssignmentDto(
     string Title,
     DateTimeOffset? DueAt,
     List<DateTimeOffset> ResubmitDueAt,
+    DateTimeOffset? PersonalDueAt,
     SubmissionStatus Status,
     GradeLevel? Grade,
     string? Feedback,

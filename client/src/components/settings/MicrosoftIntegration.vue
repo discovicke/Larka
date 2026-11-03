@@ -35,7 +35,7 @@ const {run: setLinked, loading: saving, error: saveError} = useAsync(async (link
   microsoft.value = unwrap(link
     ? await api.PUT('/api/schools/{id}/microsoft', {params: {path: {id}}})
     : await api.DELETE('/api/schools/{id}/microsoft', {params: {path: {id}}}))
-}, 'Kunde inte spara. Försök igen.')
+})
 
 watch(schoolId, (id) => {
   if (id) {
@@ -78,7 +78,7 @@ watch(schoolId, (id) => {
         <p class="text-muted-foreground mt-3 text-sm">
           {{ microsoft.linked
             ? 'Första gången någon loggar in blir hen elev, i klassen som e-postadressen slutar på om den finns. Du gör lärare och placerar övriga under Användare.'
-            : 'När du slår på inloggningen kan alla med ett konto i skolans Microsoft logga in.' }}
+            : 'När du slår på inloggningen kan alla med ett konto i skolans Microsoft logga in. Tills dess visar inloggningssidan bara lösenord.' }}
         </p>
         <Alert v-if="saveError" variant="destructive" class="mt-3">
           <AlertDescription>{{ saveError }}</AlertDescription>

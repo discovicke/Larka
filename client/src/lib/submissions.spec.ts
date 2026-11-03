@@ -87,7 +87,8 @@ describe('statusLabel', () => {
     expect(statusLabel({status: 'Submitted', submittedAt: '2026-10-23T21:59:00Z'})).toContain('Inlämnad ')
     expect(statusLabel({status: 'NeedsWork', submittedAt: '2026-10-23T21:59:00Z'})).toBe('Komplettering')
     expect(statusLabel({status: 'Graded', submittedAt: '2026-10-23T21:59:00Z'})).toBe('Bedömd')
-    expect(statusLabel({status: 'NotSubmitted', submittedAt: null})).toBe('Ej inlämnat')
+    expect(statusLabel({status: 'NotStarted', submittedAt: null}, true)).toBe('IG · Ingen inlämning')
+    expect(statusLabel({status: 'NeedsWork', submittedAt: null}, true)).toBe('IG · Kompletteringen lämnades inte in')
   })
 
   it('klarar en inlämnad rad utan tidpunkt', () => {

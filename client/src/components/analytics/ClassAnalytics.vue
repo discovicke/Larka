@@ -94,8 +94,8 @@ const stats = computed(() => summary.value
       },
       {
         key: 'missing',
-        label: 'Ej inlämnat/försenat',
-        value: summary.value.notSubmittedCount + summary.value.overdueCount,
+        label: 'IG (ingen inlämning)/försenat',
+        value: summary.value.autoFailCount + summary.value.overdueCount,
         hint: 'uppgifter',
         icon: PhChartBar,
       },

@@ -92,4 +92,14 @@ cd ..
 docker compose -f e2e/docker-compose.e2e.yml down -v               # ta alltid bort databasen
 ```
 
+#### Se en körning
+
+Varje körning i CI spelar in video, sparar en trace och tar en skärmbild för alla tre testerna, även när allt är grönt. Lokalt sparas de bara när ett test fallerar, så att körningen går fort.
+
+1. Öppna körningen under _Actions › E2E_. Sammanfattningen överst har en länk till artefakten `playwright-report` (sparas i 14 dagar).
+2. Packa upp den och öppna `index.html`. Klicka på ett test: videorna ligger under testet, en per roll (`admin`, `lärare`, `elev`).
+3. Klicka på _Trace_ för att stega igenom testet klick för klick, med skärmbild, DOM och nätverksanrop. En trace (`data/*.zip`) går också att dra direkt till [trace.playwright.dev](https://trace.playwright.dev).
+
+Lokalt med samma inspelning: `CI=1 npx playwright test`, sedan `npx playwright show-report`.
+
 Global setup väntar tills `/health` svarar och loggar in som demokontot `admin`. Tokenet sparas i `e2e/.auth/token-admin.json` (checkas inte in).

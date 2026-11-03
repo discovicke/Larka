@@ -14,6 +14,9 @@ public class Submission
     public SubmissionStatus Status { get; set; } = SubmissionStatus.NotStarted;
     public string? BodyMd { get; set; }
     public DateTimeOffset? SubmittedAt { get; set; }
+
+    // En extra deadline för just den här eleven. Räknas med bland länkens deadlines, men kräver att länken har DueAt.
+    public DateTimeOffset? PersonalDueAt { get; set; }
     public List<SubmissionFile> Files { get; set; } = [];
     public StudentRepo? Repo { get; set; }
     public Grade? Grade { get; set; }
