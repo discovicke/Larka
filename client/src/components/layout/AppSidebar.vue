@@ -50,7 +50,7 @@ import {exampleUser} from '@/data/exampleData'
 import {auth} from '@/lib/auth'
 import {courseStatus, splitFinished} from '@/lib/courseStatus'
 import {initials} from '@/lib/person'
-import {isMentorOnly, type Action} from '@/lib/permissions'
+import type {Action} from '@/lib/permissions'
 import {userRoleLabels} from '@/lib/userRoles'
 
 interface NavItem {
@@ -90,15 +90,10 @@ watch(() => can('grade'), (canGrade) => {
   }
 }, {immediate: true})
 
-// Admin ser skolans alla kurser, mentorn klassens kurser och övriga sina egna.
-const coursesLabel = computed(() => {
-  if (me.value?.role === 'Admin') {
-    return 'Skolans kurser'
-  }
-  return isMentorOnly(me.value)
-    ? 'Klassens kurser'
-    : 'Mina kurser'
-})
+// Admin ser skolans alla kurser och övriga sina egna.
+const coursesLabel = computed(() => me.value?.role === 'Admin'
+  ? 'Skolans kurser'
+  : 'Mina kurser')
 
 const isStudent = computed(() => (me.value?.courses ?? []).some((course) => course.role === 'Student'))
 const navItems = computed(() => mainNav
@@ -153,13 +148,6 @@ watch(() => [route.params.courseId, finishedCourses.value] as const, ([courseId]
     finishedOpen.value = true
   }
 }, {immediate: true})
-
-// En kurs där användaren bara är mentor läses och ändras inte. Märket behövs när den ligger bland egna kurser.
-function readsAsMentor(courseId: string) {
-  return !isMentorOnly(me.value)
-    && (me.value?.courses ?? []).some((course) => course.courseId === courseId && course.role === 'Mentor')
-    && !(me.value?.courses ?? []).some((course) => course.courseId === courseId && course.role !== 'Mentor')
-}
 
 function isCourseActive(courseId: string) {
   return route.params.courseId === courseId
@@ -251,18 +239,10 @@ function courseLabel(course: SidebarCourse): string {
               :tooltip="courseLabel(course)"
               :is-active="isCourseActive(course.id)"
               class="group-data-[collapsible=icon]:justify-center"
-              :class="readsAsMentor(course.id) && 'h-auto min-h-8 py-1.5'"
             >
               <RouterLink :to="{name: 'course-content', params: {courseId: course.id}}">
                 <span class="bg-primary size-2 shrink-0 rounded-[2px]"/>
-                <span class="flex min-w-0 flex-col group-data-[collapsible=icon]:hidden">
-                  <span class="truncate">{{ courseLabel(course) }}</span>
-                  <span
-                    v-if="readsAsMentor(course.id)"
-                    class="text-sidebar-foreground/70 truncate text-xs"
-                    data-test="mentor-course"
-                  >Läser som mentor</span>
-                </span>
+                <span class="truncate group-data-[collapsible=icon]:hidden">{{ courseLabel(course) }}</span>
               </RouterLink>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -285,18 +265,10 @@ function courseLabel(course: SidebarCourse): string {
                   :tooltip="courseLabel(course)"
                   :is-active="isCourseActive(course.id)"
                   class="group-data-[collapsible=icon]:justify-center"
-                  :class="readsAsMentor(course.id) && 'h-auto min-h-8 py-1.5'"
                 >
                   <RouterLink :to="{name: 'course-content', params: {courseId: course.id}}">
                     <span class="bg-primary size-2 shrink-0 rounded-[2px]"/>
-                    <span class="flex min-w-0 flex-col group-data-[collapsible=icon]:hidden">
-                      <span class="truncate">{{ courseLabel(course) }}</span>
-                      <span
-                        v-if="readsAsMentor(course.id)"
-                        class="text-sidebar-foreground/70 truncate text-xs"
-                        data-test="mentor-course"
-                      >Läser som mentor</span>
-                    </span>
+                    <span class="truncate group-data-[collapsible=icon]:hidden">{{ courseLabel(course) }}</span>
                   </RouterLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>

@@ -26,5 +26,5 @@ public record NotificationSettingsDto(List<NotificationKind> Muted);
 /// <summary>Det användaren själv får ändra om sig. Namnet kommer från Microsoft och kan rättas här.</summary>
 public record UpdateProfileDto(string Name);
 
-/// <summary>Användarens starkaste roll i kursen: Teacher, Mentor eller Student.</summary>
+/// <summary>Användarens starkaste roll i kursen: Teacher eller Student.</summary>
 public record CourseRoleDto(Guid CourseId, GroupRole Role);

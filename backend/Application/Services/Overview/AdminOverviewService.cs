@@ -5,7 +5,7 @@ using Backend.Domain.Enums;
 
 namespace Backend.Application.Services;
 
-// Adminens Idag-sida. Visar vad som behöver ordnas i skolan: kurser utan lärare, klasser utan mentor, användare
+// Adminens Idag-sida. Visar vad som behöver ordnas i skolan: kurser utan lärare, användare
 // som inte kan logga in och elever utan klass. Bara admin, och bara den egna skolan. Spärrade användare räknas inte.
 public class AdminOverviewService(
     ICourseRepository courses,
@@ -34,7 +34,7 @@ public class AdminOverviewService(
         var teachedCourseIds = await courses.GetCourseIdsWithTeachersAsync(schoolId.Value, ct);
         var groupsById = schoolGroups.ToDictionary(group => group.Id);
 
-        // Avslutade kurser och klasser behöver ingen lärare eller mentor längre, så de hamnar inte i Att ordna.
+        // Avslutade kurser och klasser behöver ingen lärare längre, så de hamnar inte i Att ordna.
         var courseStates = schoolCourses.ToDictionary(
             course => course.Id, course => StateOf(course.StartsOn, course.EndsOn, today));
         var finishedGroupIds = groupCourses
@@ -56,17 +56,6 @@ public class AdminOverviewService(
                         && groupsById[groupCourse.GroupId].Type == GroupType.Class)
                     .Select(groupCourse => (Guid?)groupCourse.GroupId)
                     .FirstOrDefault()))
-            .ToList();
-
-        var mentoredGroupIds = enrollments
-            .Where(enrollment => enrollment.Role == GroupRole.Mentor)
-            .Select(enrollment => enrollment.GroupId)
-            .ToHashSet();
-        var withoutMentor = schoolGroups
-            .Where(group => group.Type == GroupType.Class
-                && !mentoredGroupIds.Contains(group.Id)
-                && !finishedGroupIds.Contains(group.Id))
-            .Select(group => new AdminGroupRefDto(group.Id, group.Name, group.Term))
             .ToList();
 
         var firstClassOfUser = enrollments
@@ -98,7 +87,6 @@ public class AdminOverviewService(
                 schoolCourses.Count(course => StateOf(course.StartsOn, course.EndsOn, today) == CourseState.Finished),
                 schoolCourses.Count(course => StateOf(course.StartsOn, course.EndsOn, today) == CourseState.Undated)),
             withoutTeacher,
-            withoutMentor,
             withoutPassword,
             schoolUsers
                 .Where(user => user.Role == UserRole.Student && !firstClassOfUser.ContainsKey(user.Id))

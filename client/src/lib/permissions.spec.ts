@@ -1,7 +1,7 @@
 import {describe, expect, it} from 'vitest'
 
 import type {Me} from './me'
-import {actions, canDo, isMentorOnly, isStudentEverywhere, teachesAnywhere, type Action} from './permissions'
+import {actions, canDo, isStudentEverywhere, teachesAnywhere, type Action} from './permissions'
 
 const teacherActions: Action[] = ['editContent', 'editCourse', 'grade', 'publishNews', 'manageAttachments']
 const adminActions: Action[] = ['admin', 'manageCourse']
@@ -26,8 +26,6 @@ const admin = user('Admin', [])
 const adminWhoTeachesA = user('Admin', [{courseId: 'a', role: 'Teacher'}])
 const teacherOfA = user('Teacher', [{courseId: 'a', role: 'Teacher'}])
 const student = user('Student', [{courseId: 'a', role: 'Student'}])
-// Seedade mentorer har den globala rollen Teacher, men bara mentorrollen i klassens kurser.
-const mentor = user('Teacher', [{courseId: 'a', role: 'Mentor'}])
 
 describe('canDo', () => {
   it('admin får administrera och ändra kursens fakta, i alla kurser', () => {
@@ -39,7 +37,7 @@ describe('canDo', () => {
   })
 
   it('admin har ingen genväg in i undervisningen', () => {
-    for (const action of [...teacherActions, 'readSubmissions' as const]) {
+    for (const action of teacherActions) {
       expect(canDo(admin, action)).toBe(false)
       expect(canDo(admin, action, 'a')).toBe(false)
     }
@@ -76,21 +74,6 @@ describe('canDo', () => {
     }
   })
 
-  it('mentor får läsa inlämningar i klassens kurs men inte bedöma, trots rollen Teacher i skolan', () => {
-    expect(canDo(mentor, 'readSubmissions', 'a')).toBe(true)
-    expect(canDo(mentor, 'readSubmissions')).toBe(true)
-    expect(canDo(mentor, 'readSubmissions', 'b')).toBe(false)
-    for (const action of [...teacherActions, ...adminActions]) {
-      expect(canDo(mentor, action, 'a')).toBe(false)
-      expect(canDo(mentor, action)).toBe(false)
-    }
-  })
-
-  it('läraren får läsa inlämningar i sin kurs', () => {
-    expect(canDo(teacherOfA, 'readSubmissions', 'a')).toBe(true)
-    expect(canDo(teacherOfA, 'readSubmissions', 'b')).toBe(false)
-  })
-
   it('nekas allt medan användaren inte är hämtad', () => {
     for (const action of actions) {
       expect(canDo(null, action)).toBe(false)
@@ -102,7 +85,6 @@ describe('canDo', () => {
 describe('isStudentEverywhere', () => {
   it('är sant för den som varken är admin eller lärare i någon kurs', () => {
     expect(isStudentEverywhere(student)).toBe(true)
-    expect(isStudentEverywhere(mentor)).toBe(true)
     expect(isStudentEverywhere(user('Teacher', []))).toBe(true)
     expect(isStudentEverywhere(teacherOfA)).toBe(false)
     expect(isStudentEverywhere(admin)).toBe(false)
@@ -116,18 +98,7 @@ describe('teachesAnywhere', () => {
     expect(teachesAnywhere(teacherOfA)).toBe(true)
     expect(teachesAnywhere(adminWhoTeachesA)).toBe(true)
     expect(teachesAnywhere(admin)).toBe(false)
-    expect(teachesAnywhere(mentor)).toBe(false)
     expect(teachesAnywhere(user('Teacher', []))).toBe(false)
     expect(teachesAnywhere(null)).toBe(false)
-  })
-})
-
-describe('isMentorOnly', () => {
-  it('är sant för den som bara är mentor', () => {
-    expect(isMentorOnly(mentor)).toBe(true)
-    expect(isMentorOnly(student)).toBe(false)
-    expect(isMentorOnly(teacherOfA)).toBe(false)
-    expect(isMentorOnly(admin)).toBe(false)
-    expect(isMentorOnly(null)).toBe(false)
   })
 })

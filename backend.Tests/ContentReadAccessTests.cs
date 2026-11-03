@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace backend.Tests;
 
-// Vem som får läsa och ändra ett innehåll via GET/PUT /api/content/{id}: lärare på en länk, elev eller mentor
+// Vem som får läsa och ändra ett innehåll via GET/PUT /api/content/{id}: lärare på en länk, elev
 // där en länk syns för eleverna, och admin i författarens skola. Alla andra får 404 vid läsning.
 public class ContentReadAccessTests(TestWebApplicationFactory factory)
     : IClassFixture<TestWebApplicationFactory>
@@ -127,29 +127,6 @@ public class ContentReadAccessTests(TestWebApplicationFactory factory)
         using var student = await ClientForMemberAsync(scene.GroupId);
 
         var response = await student.GetAsync($"/api/content/{scene.ContentId}");
-
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task Mentor_OfTheClassThatReadsTheCourse_CanRead()
-    {
-        var scene = await AddSceneAsync();
-        using var mentor = await ClientForMemberAsync(scene.GroupId, GroupRole.Mentor);
-
-        var response = await mentor.GetAsync($"/api/content/{scene.ContentId}");
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task Mentor_OfAnotherClass_GetsNotFound()
-    {
-        var scene = await AddSceneAsync();
-        var other = await AddSceneAsync();
-        using var mentor = await ClientForMemberAsync(other.GroupId, GroupRole.Mentor);
-
-        var response = await mentor.GetAsync($"/api/content/{scene.ContentId}");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }

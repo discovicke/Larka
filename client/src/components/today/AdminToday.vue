@@ -46,7 +46,6 @@ const withoutPassword = computed<ClassCount[]>(() => {
 // Räknas per kurs och per klass, inte per användare: en klass där tolv saknar lösenord är en sak att ordna.
 // Elever utan klass är en sak, eftersom de ordnas på samma ställe.
 const attentionCount = computed(() => (overview.value?.coursesWithoutTeacher.length ?? 0)
-  + (overview.value?.classesWithoutMentor.length ?? 0)
   + withoutPassword.value.length
   + ((overview.value?.studentsWithoutClass.length ?? 0) > 0
     ? 1
@@ -143,24 +142,6 @@ load()
     </section>
 
     <section
-      v-if="overview.classesWithoutMentor.length"
-      aria-labelledby="a-no-mentor-heading"
-      class="flex flex-col gap-1.5"
-      data-test="no-mentor"
-    >
-      <h2 id="a-no-mentor-heading" class="text-base">Klasser utan mentor</h2>
-      <p class="text-muted-foreground text-sm">Utse en mentor på klassens sida.</p>
-      <ul class="flex flex-col">
-        <li v-for="group in overview.classesWithoutMentor" :key="group.groupId" data-test="no-mentor-item">
-          <RouterLink :to="classLink(group.groupId)" :class="linkClass">
-            {{ group.name }}
-            <span v-if="group.term" class="text-muted-foreground text-xs font-normal">{{ group.term }}</span>
-          </RouterLink>
-        </li>
-      </ul>
-    </section>
-
-    <section
       v-if="withoutPassword.length"
       aria-labelledby="a-no-password-heading"
       class="flex flex-col gap-1.5"
@@ -210,7 +191,7 @@ load()
     </section>
 
     <p v-if="attentionCount === 0" class="text-muted-foreground text-sm" data-test="admin-all-good">
-      Alla kurser har lärare, alla klasser har mentor, alla elever har en klass och alla användare kan logga in.
+      Alla kurser har lärare, alla elever har en klass och alla användare kan logga in.
     </p>
   </div>
 </template>

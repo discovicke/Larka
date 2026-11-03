@@ -145,15 +145,15 @@ describe('AddMemberDialog', () => {
       const wrapper = await openCreate()
 
       await fill({name: ' Ny Elev ', email: 'ny@example.com', password: 'hemligt123', schoolRole: 'Teacher'})
-      await choose('member-role-select', 'Mentor')
+      await choose('member-role-select', 'Teacher')
       field('confirm-add-member').click()
       await flushPromises()
 
       expect(sent('POST', '/api/users')).toEqual({
         schoolId: 's1', name: 'Ny Elev', email: 'ny@example.com', role: 'Teacher', password: 'hemligt123',
       })
-      expect(sent('POST', '/api/groups/g1/members')).toEqual({userId: 'u9', role: 'Mentor'})
-      expect(wrapper.emitted('added')?.[0]).toEqual([{userId: 'u9', name: 'Ny Elev', role: 'Mentor'}])
+      expect(sent('POST', '/api/groups/g1/members')).toEqual({userId: 'u9', role: 'Teacher'})
+      expect(wrapper.emitted('added')?.[0]).toEqual([{userId: 'u9', name: 'Ny Elev', role: 'Teacher'}])
       expect(wrapper.emitted('update:open')?.at(-1)).toEqual([false])
     })
 

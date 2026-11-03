@@ -202,7 +202,7 @@ export const routes: RouteRecordRaw[] = [
         meta: {
           title: 'Bedöm',
           fullBleed: true,
-          requires: 'readSubmissions',
+          requires: 'grade',
           breadcrumbs: (route) => assignmentBreadcrumbs(
             route,
             {

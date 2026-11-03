@@ -8,8 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace backend.Tests;
 
-// Luckor i behörigheterna (#360): vem som kan vara mentor eller lärare, en mentor per klass,
-// e-postregeln och vem som ser kursens personal.
+// Luckor i behörigheterna (#360): vem som kan vara lärare i en klass, e-postregeln och vem som ser kursens personal.
 public class PermissionGapTests(TestWebApplicationFactory factory) : IClassFixture<TestWebApplicationFactory>
 {
     private readonly HttpClient _client = factory.CreateClient();
@@ -23,11 +22,9 @@ public class PermissionGapTests(TestWebApplicationFactory factory) : IClassFixtu
     private record StaffResponse(Guid UserId, string Name, string Email, List<string> Groups);
 
     [Theory]
-    [InlineData(UserRole.Admin, "mentor")]
-    [InlineData(UserRole.Student, "mentor")]
     [InlineData(UserRole.Admin, "teacher")]
     [InlineData(UserRole.Student, "teacher")]
-    public async Task AddMember_AsMentorOrClassTeacher_RejectsAdminAndStudent(UserRole userRole, string role)
+    public async Task AddMember_AsClassTeacher_RejectsAdminAndStudent(UserRole userRole, string role)
     {
         await using var db = OpenDb();
         var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
@@ -44,18 +41,15 @@ public class PermissionGapTests(TestWebApplicationFactory factory) : IClassFixtu
     [Theory]
     [InlineData(UserRole.Admin)]
     [InlineData(UserRole.Student)]
-    public async Task UpdateMember_ToMentorOrClassTeacher_RejectsAdminAndStudent(UserRole userRole)
+    public async Task UpdateMember_ToClassTeacher_RejectsAdminAndStudent(UserRole userRole)
     {
         await using var db = OpenDb();
         var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
         var member = await TestData.AddMemberAsync(db, group, GroupRole.Student, userRole);
 
-        var asMentor = await _client.PutAsJsonAsync(
-            $"/api/groups/{group.Id}/members/{member.Id}", new { role = "mentor" });
         var asTeacher = await _client.PutAsJsonAsync(
             $"/api/groups/{group.Id}/members/{member.Id}", new { role = "teacher" });
 
-        Assert.Equal(HttpStatusCode.BadRequest, asMentor.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, asTeacher.StatusCode);
     }
 
@@ -71,41 +65,35 @@ public class PermissionGapTests(TestWebApplicationFactory factory) : IClassFixtu
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
-    [Fact]
-    public async Task AddMember_AsMentor_ReplacesTheExistingMentor()
+    [Theory]
+    [InlineData("Mentor")]
+    [InlineData("mentor")]
+    public async Task AddMember_WithTheRemovedMentorRole_ReturnsBadRequest(string role)
     {
         await using var db = OpenDb();
         var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
-        var first = await TestData.AddMemberAsync(db, group, GroupRole.Mentor, UserRole.Teacher);
-        var second = await TestData.AddUserAsync(db, group.SchoolId, UserRole.Teacher);
+        var teacher = await TestData.AddUserAsync(db, group.SchoolId, UserRole.Teacher);
 
         var response = await _client.PostAsJsonAsync(
-            $"/api/groups/{group.Id}/members", new { userId = second.Id, role = "mentor" });
+            $"/api/groups/{group.Id}/members", new { userId = teacher.Id, role });
 
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        var members = await _client.GetFromJsonAsync<List<MemberResponse>>($"/api/groups/{group.Id}/members");
-        var mentor = Assert.Single(members!);
-        Assert.Equal((second.Id, "Mentor"), (mentor.UserId, mentor.Role));
-        Assert.DoesNotContain(members!, member => member.UserId == first.Id);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.False(await db.Enrollments.AnyAsync(enrollment => enrollment.GroupId == group.Id));
     }
 
     [Fact]
-    public async Task UpdateMember_ToMentor_ReplacesTheExistingMentor_ButKeepsStudents()
+    public async Task UpdateMember_ToTheRemovedMentorRole_ReturnsBadRequest_AndKeepsTheRole()
     {
         await using var db = OpenDb();
         var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
-        await TestData.AddMemberAsync(db, group, GroupRole.Mentor, UserRole.Teacher);
-        var student = await TestData.AddMemberAsync(db, group);
         var teacher = await TestData.AddMemberAsync(db, group, GroupRole.Teacher, UserRole.Teacher);
 
         var response = await _client.PutAsJsonAsync(
-            $"/api/groups/{group.Id}/members/{teacher.Id}", new { role = "mentor" });
+            $"/api/groups/{group.Id}/members/{teacher.Id}", new { role = "Mentor" });
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var members = await _client.GetFromJsonAsync<List<MemberResponse>>($"/api/groups/{group.Id}/members");
-        Assert.Equal(2, members!.Count);
-        Assert.Equal("Mentor", members.Single(member => member.UserId == teacher.Id).Role);
-        Assert.Equal("Student", members.Single(member => member.UserId == student.Id).Role);
+        Assert.Equal("Teacher", Assert.Single(members!).Role);
     }
 
     [Theory]
@@ -145,21 +133,20 @@ public class PermissionGapTests(TestWebApplicationFactory factory) : IClassFixtu
     }
 
     [Fact]
-    public async Task GetStaff_IsForTheCourseTeachersStudentsMentorAndAdminOnly()
+    public async Task GetStaff_IsForTheCourseTeachersStudentsAndAdminOnly()
     {
         await using var db = OpenDb();
         var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
         var course = await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId, group.Id, placeholderTeaches: false);
         var teacher = await TestData.AddCourseTeacherAsync(db, course);
         var student = await TestData.AddMemberAsync(db, group);
-        var mentor = await TestData.AddMemberAsync(db, group, GroupRole.Mentor, UserRole.Teacher);
         var otherGroup = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
         var otherStudent = await TestData.AddMemberAsync(db, otherGroup);
         var otherTeacher = await TestData.AddUserAsync(db, PlaceholderIds.SchoolId, UserRole.Teacher);
         var otherSchoolAdmin = await TestData.AddUserAsync(db, role: UserRole.Admin);
         var path = $"/api/courses/{course.Id}/staff";
 
-        foreach (var allowed in new[] { teacher.Id, student.Id, mentor.Id, PlaceholderIds.UserId })
+        foreach (var allowed in new[] { teacher.Id, student.Id, PlaceholderIds.UserId })
         {
             var response = await GetAsync(path, allowed);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);

@@ -28,7 +28,6 @@ import {
 import {Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty'
 import {Input} from '@/components/ui/input'
 import {Textarea} from '@/components/ui/textarea'
-import {useCurrentUser} from '@/composables/useCurrentUser'
 import {type Schema} from '@/lib/api'
 import {formatDate} from '@/lib/content'
 import {mayMarkAllNotSubmitted} from '@/lib/gradingWindow'
@@ -77,10 +76,6 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{reload: []}>()
-
-// Mentorn läser inlämningarna men bedömer inte.
-const {can} = useCurrentUser()
-const canGrade = computed(() => can('grade', props.courseId))
 
 const filter = ref<Filter>('all')
 const search = ref('')
@@ -227,8 +222,7 @@ const unit = computed(() => {
 // Efter deadlinen kan läraren markera alla som inte lämnat in som Ej inlämnat på en gång.
 const notStartedCount = computed(() => props.submissions
   .filter((submission) => submission.status === 'NotStarted').length)
-const canMarkAll = computed(() => canGrade.value
-  && notStartedCount.value > 0
+const canMarkAll = computed(() => notStartedCount.value > 0
   && mayMarkAllNotSubmitted({dueAt: props.dueAt ?? null, resubmitDueAt: []}))
 
 function markedAll(count: number) {
@@ -442,12 +436,12 @@ function repoUrl(row: TrackingRow): string | null {
 
 // Komplettera väntar på eleven, så där är det inget att bedöma än.
 function canAssess(row: TrackingRow): boolean {
-  return canGrade.value && row.status === 'Submitted'
+  return row.status === 'Submitted'
 }
 
 // En elev som inte lämnat in kan markeras Ej inlämnat, och ett Ej inlämnat kan ändras igen.
 function canMarkMissing(row: TrackingRow): boolean {
-  return canGrade.value && !row.group && (row.status === 'NotStarted' || row.status === 'NotSubmitted')
+  return !row.group && (row.status === 'NotStarted' || row.status === 'NotSubmitted')
 }
 
 function reviewRoute(row: TrackingRow) {

@@ -15,7 +15,6 @@ import CourseStatusBadge from '@/components/course/CourseStatusBadge.vue'
 import CourseTeachersDialog from '@/components/groups/CourseTeachersDialog.vue'
 import ImportStudentsDialog from '@/components/groups/ImportStudentsDialog.vue'
 import NewCourseDialog from '@/components/groups/NewCourseDialog.vue'
-import SetMentorDialog from '@/components/groups/SetMentorDialog.vue'
 import StudentOverviewDialog from '@/components/groups/StudentOverviewDialog.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import {Button} from '@/components/ui/button'
@@ -41,7 +40,7 @@ import {initials} from '@/lib/person'
 import NotFoundView from '@/views/NotFoundView.vue'
 
 const route = useRoute()
-const {can, me} = useCurrentUser()
+const {can} = useCurrentUser()
 const {setCrumbLabel} = useCrumbLabels()
 const {loadCourses} = useCourses()
 const {showToast} = useToast()
@@ -61,7 +60,6 @@ const memberToRemove = ref<Schema<'GroupMemberDto'> | null>(null)
 const linkingCourse = ref(false)
 const creatingCourse = ref(false)
 const importingStudents = ref(false)
-const settingMentor = ref(false)
 const courseForTeachers = ref<Schema<'CourseDto'> | null>(null)
 // Lärarna per kurs, bara för admin. En kurs som saknas här har inte fått sina lärare hämtade.
 const teachersByCourse = ref<Record<string, Schema<'CourseTeacherDto'>[]>>({})
@@ -97,7 +95,6 @@ const setupSteps = computed(() => {
   const steps = [
     {label: 'Lägg till kurser', done: courses.value.length > 0},
     {label: 'Lägg in elever', done: members.value.some((member) => member.role === 'Student')},
-    {label: 'Utse mentor', done: members.value.some((member) => member.role === 'Mentor')},
   ]
   return steps.every((step) => step.done)
     ? []
@@ -124,24 +121,18 @@ const courseGroups = computed(() => {
 // Avslutade kurser är hopfällda tills man öppnar dem. Kurserna finns kvar och går att nå.
 const openParts = ref<Record<string, boolean>>({running: true, upcoming: true, finished: false})
 
-// Mentorn i klassen och admin kan öppna en elevs läge i klassens kurser.
-const canSeeStudents = computed(() => isAdmin.value
-  || members.value.some((member) => member.userId === me.value?.id && member.role === 'Mentor'))
-
+// Admin kan öppna en elevs läge i klassens kurser.
 function showOverview(member: Schema<'GroupMemberDto'>) {
   studentToOverview.value = member
   overviewOpen.value = true
 }
-
-// Mentor är en roll i klassen. Admin ser den alltid på en klass, också utan mentor, för att kunna utse en.
-const canSetMentor = computed(() => isAdmin.value && group.value?.type === 'Class')
 
 const membersByRole = computed(() => roles
   .map((role) => ({
     ...role,
     members: members.value.filter((member) => member.role === role.value),
   }))
-  .filter((role) => role.members.length > 0 || (role.value === 'Mentor' && canSetMentor.value)))
+  .filter((role) => role.members.length > 0))
 
 async function load() {
   const id = groupId.value
@@ -197,7 +188,7 @@ async function loadTeachers(id: string) {
   }
 }
 
-// Efter Ny kurs och Byt mentor hämtas listorna igen, så att sidan visar det som faktiskt sparades.
+// Efter Ny kurs hämtas listan igen, så att sidan visar det som faktiskt sparades.
 async function reloadCourses() {
   const id = groupId.value
   try {
@@ -237,11 +228,6 @@ function addMembers(added: Schema<'GroupMemberDto'>[]) {
   showToast(added.length === 1
     ? `1 person är tillagd i ${group.value?.name}.`
     : `${added.length} personer är tillagda i ${group.value?.name}.`)
-}
-
-async function mentorChanged() {
-  await reloadMembers()
-  showToast('Mentorn är sparad.')
 }
 
 async function roleChanged() {
@@ -479,24 +465,8 @@ watch(isAdmin, (admin) => {
         class="flex flex-col gap-2.5"
         data-test="member-role"
       >
-        <div class="flex items-center justify-between gap-3">
-          <h3 class="text-muted-foreground text-sm font-medium">{{ role.label }}</h3>
-          <Button
-            v-if="role.value === 'Mentor' && canSetMentor"
-            variant="outline"
-            class="h-8"
-            data-test="set-mentor"
-            @click="settingMentor = true"
-          >
-            {{ role.members.length > 0
-              ? 'Byt mentor'
-              : 'Utse mentor' }}
-          </Button>
-        </div>
-        <p v-if="role.members.length === 0" class="text-muted-foreground text-sm" data-test="no-mentor">
-          Klassen har ingen mentor ännu.
-        </p>
-        <div v-else class="overflow-hidden rounded-[11px] border">
+        <h3 class="text-muted-foreground text-sm font-medium">{{ role.label }}</h3>
+        <div class="overflow-hidden rounded-[11px] border">
           <div
             v-for="member in role.members"
             :key="member.userId"
@@ -509,7 +479,7 @@ watch(isAdmin, (admin) => {
             <span class="font-medium" data-test="member-name">{{ member.name }}</span>
             <div class="ml-auto flex items-center gap-1">
               <Button
-                v-if="canSeeStudents && member.role === 'Student'"
+                v-if="isAdmin && member.role === 'Student'"
                 variant="outline"
                 size="sm"
                 :aria-label="`Visa läget för ${member.name}`"
@@ -564,7 +534,6 @@ watch(isAdmin, (admin) => {
         :group-name="group.name"
         :school-id="group.schoolId"
         :member-ids="members.map((member) => member.userId)"
-        :has-mentor="members.some((member) => member.role === 'Mentor')"
         @added="addMember"
         @paste="pasteStudents"
       />
@@ -574,13 +543,6 @@ watch(isAdmin, (admin) => {
         :group-name="group.name"
         :member-ids="members.map((member) => member.userId)"
         @added="addMembers"
-      />
-      <SetMentorDialog
-        v-model:open="settingMentor"
-        :group-id="group.id"
-        :group-name="group.name"
-        :members="members"
-        @changed="mentorChanged"
       />
       <NewCourseDialog
         v-model:open="creatingCourse"
@@ -606,7 +568,6 @@ watch(isAdmin, (admin) => {
         :group-id="group.id"
         :group-name="group.name"
         :member="memberToChange"
-        :members="members"
         @update:open="(value) => { if (!value) memberToChange = null }"
         @changed="roleChanged"
       />

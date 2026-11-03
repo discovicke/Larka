@@ -8,15 +8,15 @@ Modellen beslutades 30 oktober 2026 och byggs i #269. Per kurs-lärare är #274,
 
 Den globala rollen säger vad du administrerar. Din koppling till en kurs eller klass säger vad du gör där.
 
-|                                          | Admin                         | Lärare, egna kurser | Mentor, egen klass | Elev               |
-| ---------------------------------------- | ----------------------------- | ------------------- | ------------------ | ------------------ |
-| Skola, användare, integrationer          | Hanterar                      | –                   | –                  | –                  |
-| Klasser, inskrivning, lärare på kurs     | Hanterar                      | Läser klasslistan   | Läser klasslistan  | Egna klasskamrater |
-| Skapa och ta bort kurser                 | Hanterar                      | –                   | –                  | –                  |
-| Kursens titel, poäng, datum, beskrivning | Hanterar (utom beskrivningen) | Hanterar            | Läser              | Läser              |
-| Veckor, innehåll, nyheter                | Läser                         | Hanterar            | Läser              | Läser publicerat   |
-| Inlämningar och betyg                    | –                             | Hanterar            | Läser              | Bara egna          |
-| Lämna in, kommentera, klarmarkera        | –                             | –                   | –                  | Ja                 |
+|                                          | Admin                         | Lärare, egna kurser | Elev               |
+| ---------------------------------------- | ----------------------------- | ------------------- | ------------------ |
+| Skola, användare, integrationer          | Hanterar                      | –                   | –                  |
+| Klasser, inskrivning, lärare på kurs     | Hanterar                      | Läser klasslistan   | Egna klasskamrater |
+| Skapa och ta bort kurser                 | Hanterar                      | –                   | –                  |
+| Kursens titel, poäng, datum, beskrivning | Hanterar (utom beskrivningen) | Hanterar            | Läser              |
+| Veckor, innehåll, nyheter                | Läser                         | Hanterar            | Läser publicerat   |
+| Inlämningar och betyg                    | –                             | Hanterar            | Bara egna          |
+| Lämna in, kommentera, klarmarkera        | –                             | –                   | Ja                 |
 
 **Vem ändrar vad på en kurs.** En lärare som är tilldelad kursen får ändra kursens titel, poäng, datum och beskrivning, och bygger veckorna och innehållet. Admin skapar och tar bort kurser och tilldelar lärarna. Det finns ingen arkivering: en kurs är avslutad när slutdatumet har passerat, och en klass när alla dess kurser är det. Beskrivningen är lärarens egen text, så admin skriver den inte.
 
@@ -28,7 +28,7 @@ Eleven ser namn på dem i samma grupp, och kontaktuppgifter till kursens lärare
 
 Sidorna byggs efter arbetet, inte efter databasens objekt.
 
-1. **Sätt upp klassen (admin, en gång).** Skapa klassen, lägg in eleverna och utse mentor.
+1. **Sätt upp klassen (admin, en gång).** Skapa klassen, lägg in eleverna.
 2. **Planera terminen (admin, några gånger om året).** Skapa varje kurs från klassens sida, med datum och lärare. Har kursen gått förut utgår admin från den tidigare kursen, så följer namn, omfattning, lärare och valda veckor med.
 3. **Förbered kursen (lärare).** Kursen syns i Idag under Behöver förberedas när beskrivningen är tom, eller när kursen inte har börjat och saknar publicerade delar. Läraren skriver beskrivningen, bygger veckorna eller kopierar dem från ett tidigare tillfälle och publicerar.
    En ny, tom vecka är också ett utkast och syns inte för eleverna förrän den har en publicerad del. Allt kopierat är utkast. En vecka med bara utkast syns inte för eleverna, oavsett datum, tills läraren väljer Publicera veckan eller Publicera alla veckor. Delarna syns sedan på sina egna datum.
@@ -37,9 +37,9 @@ Sidorna byggs efter arbetet, inte efter databasens objekt.
 
 ## Var saker hör hemma
 
-- **Klassen** är en årskull och håller elever och mentor. Den har ingen beskrivning.
+- **Klassen** är en årskull och håller eleverna. Den har ingen beskrivning.
 - **Kursen** håller lärarna, veckorna och innehållet. Varje rad är ett tillfälle med egna datum, så de flesta kurser hör till en klass.
-- **Klassens sida** är admins arbetsyta. Ny kurs är den primära handlingen där och finns bara på en klass eller grupp, inte på Alla grupper: först väljer admin en tidigare kurs eller en tom kurs, sedan namn, kod, omfattning, datum och lärare, och kursen skapas, kopplas till klassen och får sina lärare i ett flöde. Att ordna visar vad som återstår tills klassen har kurser, elever och mentor. Koppla kurs är för en kurs som delas mellan klasser. Varje kursrad visar lärarna, och en kurs utan lärare har märket Ingen lärare. Där lägger admin också in elever, en i taget eller genom att klistra in en lista med namn och e-post (nya elever skapas utan lösenord), och utser klassens mentor. Mentor är en roll i klassen och en klass har en mentor: att byta tar bort den förra ur klassen.
+- **Klassens sida** är admins arbetsyta. Ny kurs är den primära handlingen där och finns bara på en klass eller grupp, inte på Alla grupper: först väljer admin en tidigare kurs eller en tom kurs, sedan namn, kod, omfattning, datum och lärare, och kursen skapas, kopplas till klassen och får sina lärare i ett flöde. Att ordna visar vad som återstår tills klassen har kurser och elever. Koppla kurs är för en kurs som delas mellan klasser. Varje kursrad visar lärarna, och en kurs utan lärare har märket Ingen lärare. Där lägger admin också in elever, en i taget eller genom att klistra in en lista med namn och e-post (nya elever skapas utan lösenord).
 - **Kursbeskrivningen** är lärarens text och valfri. Admin skriver den inte när kursen skapas.
 
 ## Inlämning och bedömning
@@ -53,7 +53,7 @@ Deadlinerna bestämmer när eleven får lämna in och vad läraren får sätta. 
 - **En Inlämnad inlämning låses** när huvuddeadlinen har gått, tills läraren har bedömt den.
 - **Efter sista deadline** går inget att lämna in.
 
-**Ej inlämnat.** Läraren sätter Ej inlämnat, helst för alla på en gång med _Markera alla som ej inlämnat_ (bara efter huvuddeadlinen). Det informerar eleven och mentorn och låser inte upp något: eleven kan lämna in tills nästa deadline, precis som före.
+**Ej inlämnat.** Läraren sätter Ej inlämnat, helst för alla på en gång med _Markera alla som ej inlämnat_ (bara efter huvuddeadlinen). Det informerar eleven och låser inte upp något: eleven kan lämna in tills nästa deadline, precis som före.
 
 **IG och Komplettera.** IG sätts alltid av läraren, aldrig automatiskt, och bara när ingen deadline återstår. Så länge en deadline återstår är "inte godkänd" Komplettera eller Ej inlämnat: samma nya chans, olika budskap. Komplettera kan inte begäras när ingen deadline återstår.
 
@@ -217,25 +217,12 @@ flowchart LR
 
 Läraren väljer flik efter vad som väntar: Inlämnat bedöms, Inte inlämnat efter deadline får Ej inlämnat, och Chanserna slut får IG. Se _Inlämning och bedömning_ ovan.
 
-### M1 · Följa klassen
-
-Mentorn läser och ändrar ingenting.
-
-```mermaid
-flowchart LR
-    A["Klassens sida<br/>/groups/:id"] --> B["Klassens kurser"]
-    B --> C["Inlämningar och betyg<br/>?tab=inlamningar, bara läsning"]
-    C --> D{"Behöver någon stöd?"}
-    D ==>|"ja"| E(["Mentorn tar kontakt eller säger det till läraren"])
-```
-
 ### A1 · Sätta upp klassen
 
 ```mermaid
 flowchart LR
     A["Skolans IT skapar adresserna<br/>namn.efternamn.net25@..."] --> B["Ny klass<br/>/groups"]
-    B --> C["Utse mentor<br/>Toast: Mentorn är sparad."]
-    C --> D["Lägg till medlemmar<br/>en i taget eller klistra in en lista"]
+    B --> D["Lägg till medlemmar<br/>en i taget eller klistra in en lista"]
     D --> E["Toast: ... är tillagd i klassen."]
     A ==> F(["Eleverna loggar in, F1, och hamnar i klassen via koden"])
     F --> G["Elever utan klass på Idag, se A5"]
@@ -275,15 +262,15 @@ flowchart LR
     C --> D["Ny kurs, utgå från den gamla, A2"]
 ```
 
-Ingen stänger terminen med en knapp. Avslutade kurser och klasser följer av datumen och flyttas till en hopfälld grupp _Avslutade_ i sidomenyn, i Alla grupper, på klassens sida, i kalenderns kursval och bland materialets flikar (_Visa avslutade_). Idag visar eleven bara pågående och kommande kurser, och läraren bara pågående kurser och avslutade med inlämningar kvar att bedöma. Avslutade kurser och klasser räknas inte som saknad lärare eller mentor i _Att ordna_. Inget tas bort och ingen förlorar åtkomst: länkar, material, betyg, studieplan, _Att bedöma_ och sökning når allt. Kurser utan datum räknas som pågående.
+Ingen stänger terminen med en knapp. Avslutade kurser och klasser följer av datumen och flyttas till en hopfälld grupp _Avslutade_ i sidomenyn, i Alla grupper, på klassens sida, i kalenderns kursval och bland materialets flikar (_Visa avslutade_). Idag visar eleven bara pågående och kommande kurser, och läraren bara pågående kurser och avslutade med inlämningar kvar att bedöma. Avslutade kurser och klasser räknas inte som saknad lärare i _Att ordna_. Inget tas bort och ingen förlorar åtkomst: länkar, material, betyg, studieplan, _Att bedöma_ och sökning når allt. Kurser utan datum räknas som pågående.
 
 ### A5 · Ordna det som saknas
 
 ```mermaid
 flowchart LR
     A["Idag<br/>Att ordna"] --> B["Klass eller kurs"]
-    B --> C["Utan klass, Ingen lärare eller Saknar mentor"]
-    C --> D["Åtgärd: placera, tilldela eller utse"]
+    B --> C["Utan klass, Ingen lärare eller Kan inte logga in"]
+    C --> D["Åtgärd: placera eller tilldela"]
     D --> E["Toast med vad som sparades"]
     E --> F["Att ordna är tomt"]
 ```

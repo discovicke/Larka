@@ -99,7 +99,7 @@ function linkFor(item: Item): RouteLocationRaw | null {
   if (!item.courseId) {
     return null
   }
-  if (item.contentType === 'Assignment' && can('readSubmissions', item.courseId)) {
+  if (item.contentType === 'Assignment' && can('grade', item.courseId)) {
     return {name: 'assignment-submissions', params: {courseId: item.courseId, linkId: item.linkId}}
   }
   // Eleven landar på delen i kursvyn. Kurssidan skickar alla andra vidare till delens egen sida.

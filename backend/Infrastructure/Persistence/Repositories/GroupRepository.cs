@@ -94,25 +94,6 @@ public class GroupRepository(AppDb db) : IGroupRepository
         || await db.Enrollments.AnyAsync(
             enrollment => enrollment.UserId == userId && enrollment.Role == GroupRole.Teacher, ct);
 
-    public async Task<HashSet<Guid>> GetMentoredStudentIdsAsync(Guid userId, CancellationToken ct)
-    {
-        var mentoredGroupIds = db.Enrollments
-            .Where(enrollment => enrollment.UserId == userId && enrollment.Role == GroupRole.Mentor)
-            .Select(enrollment => enrollment.GroupId);
-        return (await db.Enrollments
-                .Where(enrollment => enrollment.Role == GroupRole.Student
-                    && mentoredGroupIds.Contains(enrollment.GroupId))
-                .Select(enrollment => enrollment.UserId)
-                .Distinct()
-                .ToListAsync(ct))
-            .ToHashSet();
-    }
-
-    public Task<List<Enrollment>> GetMentorEnrollmentsAsync(Guid groupId, CancellationToken ct) =>
-        db.Enrollments
-            .Where(enrollment => enrollment.GroupId == groupId && enrollment.Role == GroupRole.Mentor)
-            .ToListAsync(ct);
-
     public Task<List<Enrollment>> GetEnrollmentsForSchoolAsync(Guid schoolId, CancellationToken ct) =>
         db.Enrollments
             .Where(enrollment => db.Groups.Any(group => group.Id == enrollment.GroupId && group.SchoolId == schoolId))
@@ -151,8 +132,8 @@ public class GroupRepository(AppDb db) : IGroupRepository
             .ToDictionary(grouping => grouping.Key, grouping => grouping.Select(row => row.Name).ToList());
     }
 
-    // Lärare i en kurs är den som står i CourseTeachers. Lärarrollen i en klass räknas inte här, bara mentor och
-    // elev, och läraren behöver inte vara medlem i någon klass som läser kursen.
+    // Lärare i en kurs är den som står i CourseTeachers. Lärarrollen i en klass räknas inte här, bara eleven,
+    // och läraren behöver inte vara medlem i någon klass som läser kursen.
     public async Task<List<CourseRole>> GetCourseRolesAsync(Guid userId, CancellationToken ct)
     {
         var rows = await db.Enrollments
@@ -233,14 +214,13 @@ public class GroupRepository(AppDb db) : IGroupRepository
             .Select(row => new GroupMemberDto(row.UserId, row.Name, row.Role))
             .ToListAsync(ct);
 
-    // Lärare går före mentor, som går före elev.
+    // Lärare går före elev.
     private static GroupRole Strongest(IEnumerable<GroupRole> roles) =>
         roles.OrderByDescending(Rank).First();
 
     private static int Rank(GroupRole role) => role switch
     {
-        GroupRole.Teacher => 3,
-        GroupRole.Mentor => 2,
+        GroupRole.Teacher => 2,
         _ => 1
     };
 

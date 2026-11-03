@@ -15,7 +15,7 @@ import {useAsync} from '@/composables/useAsync'
 import type {Schema} from '@/lib/api'
 import {fetchStudentOverview} from '@/lib/groupsApi'
 
-// Mentorns vy av en elev i klassen: läget i varje kurs klassen läser. Bara läsning.
+// Adminens vy av en elev i klassen: läget i varje kurs klassen läser. Bara läsning.
 const props = defineProps<{groupId: string, student: Schema<'GroupMemberDto'> | null}>()
 
 const open = defineModel<boolean>('open', {required: true})

@@ -26,7 +26,7 @@ public interface IPermissions
     Task<bool> CanTeachContentAsync(Guid contentId, CancellationToken ct);
 
     /// <summary>
-    /// Elev eller mentor i en grupp som läser en kurs där innehållet ligger i en länk som eleverna ser (publicerat,
+    /// Elev i en grupp som läser en kurs där innehållet ligger i en länk som eleverna ser (publicerat,
     /// PublishAt passerat, veckan öppen), eller i en grupp som innehållet är riktat till.
     /// </summary>
     Task<bool> CanReadPublishedContentAsync(Guid contentId, CancellationToken ct);
@@ -37,12 +37,9 @@ public interface IPermissions
     /// </summary>
     Task<bool> CanManageCourseAsync(Guid courseId, CancellationToken ct);
 
-    /// <summary>Läsa kursens innehåll: lärare, mentor eller elev via kursen, eller admin i kursens skola.</summary>
+    /// <summary>Läsa kursens innehåll: lärare eller elev via kursen, eller admin i kursens skola.</summary>
     Task<bool> CanReadCourseAsync(Guid courseId, CancellationToken ct);
 
     /// <summary>Läsa gruppens innehåll: medlem, lärare i en kurs gruppen läser, eller admin i gruppens skola.</summary>
     Task<bool> CanReadGroupAsync(Guid groupId, CancellationToken ct);
-
-    /// <summary>Användaren är mentor i en grupp där eleven är elev, och får alltså läsa elevens inlämningar.</summary>
-    Task<bool> IsMentorOfStudentAsync(Guid studentId, CancellationToken ct);
 }

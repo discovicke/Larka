@@ -2,7 +2,7 @@ import {flushPromises} from '@vue/test-utils'
 import {describe, expect, it, vi} from 'vitest'
 
 import {mockApi, requests, sent} from '@/test/mockApi'
-import {mentorAs, meAs} from '@/test/me'
+import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
 const course = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps'}
@@ -180,21 +180,6 @@ function radios(wrapper: Awaited<ReturnType<typeof renderApp>>['wrapper']): stri
 }
 
 describe('ReviewView', () => {
-  it('mentorn läser inlämningen och betyget men kan inte bedöma', async () => {
-    backend({me: mentorAs(['c1']), submission: gradedSubmission})
-
-    const {wrapper} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
-
-    expect(wrapper.find('h1').text()).toBe('Anna Andersson')
-    expect(wrapper.find('strong').text()).toBe('lösning')
-    expect(wrapper.find('[data-test="read-only-grade"]').text()).toBe('Godkänd')
-    expect(wrapper.text()).toContain('Tidigare kommentar')
-    expect(wrapper.findAll('[role="radio"]')).toHaveLength(0)
-    expect(wrapper.find('textarea').exists()).toBe(false)
-    expect(wrapper.text()).not.toContain('Spara')
-    expect(wrapper.text()).not.toContain('Begär komplettering')
-  })
-
   it('läraren ser bedömningsformuläret', async () => {
     backend()
 
@@ -538,17 +523,6 @@ describe('ReviewView', () => {
       await flushPromises()
 
       expect(router.currentRoute.value.name).toBe('part')
-    })
-
-    it('mentorn ser varken formulär eller kö', async () => {
-      backend({me: mentorAs(['c1']), queue})
-
-      const {wrapper} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
-
-      expect(wrapper.find('[data-test="review-save"]').exists()).toBe(false)
-      expect(wrapper.find('[data-test="review-remaining"]').exists()).toBe(false)
-      expect(wrapper.find('[data-test="review-skip"]').exists()).toBe(false)
-      expect(requests.some((request) => request.path === '/api/links/l1/submissions')).toBe(false)
     })
   })
 

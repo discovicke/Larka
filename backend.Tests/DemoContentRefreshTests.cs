@@ -221,9 +221,9 @@ public class DemoContentRefreshTests
                 course => course.Code,
                 course => course.Teachers.Select(key => key == "larare"
                         ? "larare"
-                        : DemoPeople.Teachers.Concat(DemoPeople.Mentors).Single(person => person.Key == key).Email)
+                        : DemoPeople.Teachers.Single(person => person.Key == key).Email)
                     .Order().ToList());
-        var catalogEmails = DemoPeople.Teachers.Concat(DemoPeople.Mentors).Select(person => person.Email)
+        var catalogEmails = DemoPeople.Teachers.Select(person => person.Email)
             .Append("larare").ToHashSet();
         var emailOf = await db.Users.ToDictionaryAsync(user => user.Id, user => user.Email);
         var codeOf = await db.Courses.ToDictionaryAsync(course => course.Id, course => course.Code);

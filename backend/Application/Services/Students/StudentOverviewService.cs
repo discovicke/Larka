@@ -5,14 +5,12 @@ using Backend.Domain.Enums;
 
 namespace Backend.Application.Services;
 
-// Mentorns vy av en elev i klassen: läget i alla klassens kurser, samlat. Mentorn i klassen och admin i skolan
-// får läsa den. Alla andra, också lärare i en av klassens kurser, svarar som om eleven inte fanns.
+// Adminens vy av en elev i klassen: läget i alla klassens kurser, samlat. Bara admin i skolan får läsa den. Alla andra, också lärare i en av klassens kurser, svarar som om eleven inte fanns.
 public class StudentOverviewService(
     IGroupRepository groups,
     IUserRepository users,
     StudyPlanService studyPlan,
     IPermissions permissions,
-    ICurrentUser currentUser,
     ICurrentSchool currentSchool,
     TimeProvider time)
 {
@@ -25,8 +23,7 @@ public class StudentOverviewService(
             return ServiceResult<StudentOverviewDto>.NotFound("group not found");
         }
 
-        var mentor = await groups.GetMemberAsync(groupId, currentUser.UserId, ct);
-        if (mentor?.Role != GroupRole.Mentor && !await permissions.IsAdminAsync(ct))
+        if (!await permissions.IsAdminAsync(ct))
         {
             return ServiceResult<StudentOverviewDto>.NotFound("group not found");
         }

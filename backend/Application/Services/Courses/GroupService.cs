@@ -299,12 +299,6 @@ public class GroupService(
             return ServiceResult<MemberDto>.Invalid(roleError);
         }
 
-        // Klassen har en mentor. En ny mentor ersätter den förra, som i Byt mentor på klassens sida.
-        if (dto.Role == GroupRole.Mentor)
-        {
-            await RemoveOtherMentorsAsync(groupId, dto.UserId, ct);
-        }
-
         var enrollment = new Enrollment { GroupId = groupId, UserId = dto.UserId, Role = dto.Role };
         groups.AddMember(enrollment);
         await unitOfWork.SaveChangesAsync(ct);
@@ -418,32 +412,16 @@ public class GroupService(
             return ServiceResult<MemberDto>.Invalid(roleError);
         }
 
-        if (dto.Role == GroupRole.Mentor)
-        {
-            await RemoveOtherMentorsAsync(groupId, userId, ct);
-        }
-
         enrollment.Role = dto.Role;
         await unitOfWork.SaveChangesAsync(ct);
         return ServiceResult<MemberDto>.Ok(MemberDto.From(enrollment));
     }
 
-    // Bara en lärare i skolan kan vara mentor eller lärare i en klass. Admin och elever kan det inte.
+    // Bara en lärare i skolan kan vara lärare i en klass. Admin och elever kan det inte.
     private static string? RoleError(User user, GroupRole role) =>
         role != GroupRole.Student && user.Role != UserRole.Teacher
-            ? "only a teacher can be a mentor or a teacher in a group"
+            ? "only a teacher can be a teacher in a group"
             : null;
-
-    private async Task RemoveOtherMentorsAsync(Guid groupId, Guid keepUserId, CancellationToken ct)
-    {
-        foreach (var mentor in await groups.GetMentorEnrollmentsAsync(groupId, ct))
-        {
-            if (mentor.UserId != keepUserId)
-            {
-                groups.RemoveMember(mentor);
-            }
-        }
-    }
 
     // Elevens inlämningar ligger kvar, de hör till användaren och inte till medlemskapet.
     public async Task<ServiceResult<bool>> RemoveMemberAsync(Guid groupId, Guid userId, CancellationToken ct)

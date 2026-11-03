@@ -112,7 +112,6 @@ public class DemoSeedTests(DemoSeedTests.DemoFixture fixture) : IClassFixture<De
                 .ToDictionaryAsync(rows => rows.Key, rows => rows.Count());
             Assert.InRange(roles[GroupRole.Student], 18, 24);
             Assert.InRange(roles[GroupRole.Teacher], 3, 4);
-            Assert.Equal(1, roles[GroupRole.Mentor]);
             Assert.True(await db.GroupCourses.AnyAsync(link => link.GroupId == group.Id));
         }
 
@@ -181,7 +180,7 @@ public class DemoSeedTests(DemoSeedTests.DemoFixture fixture) : IClassFixture<De
             Assert.Equal(
                 course.Teachers.Select(key => key == "larare"
                         ? "larare"
-                        : DemoPeople.Teachers.Concat(DemoPeople.Mentors).Single(person => person.Key == key).Email)
+                        : DemoPeople.Teachers.Single(person => person.Key == key).Email)
                     .Order(),
                 taught[course.Code]);
         }

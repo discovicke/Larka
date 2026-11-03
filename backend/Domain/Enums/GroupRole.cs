@@ -4,6 +4,5 @@ namespace Backend.Domain.Enums;
 public enum GroupRole
 {
     Student,
-    Teacher,
-    Mentor
+    Teacher
 }

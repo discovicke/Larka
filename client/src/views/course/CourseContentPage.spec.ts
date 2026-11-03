@@ -2,7 +2,7 @@ import {flushPromises} from '@vue/test-utils'
 import {describe, expect, it} from 'vitest'
 
 import {mockApi} from '@/test/mockApi'
-import {mentorAs, meAs} from '@/test/me'
+import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
 const course = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps'}
@@ -55,16 +55,6 @@ describe('CourseContentPage', () => {
 
     expect(router.currentRoute.value.name).toBe('part')
     expect(router.currentRoute.value.fullPath).toBe('/courses/c1/parts/l1')
-  })
-
-  it('skickar en mentor med ?del= vidare till delens sida', async () => {
-    backend(mentorAs(['c1']))
-
-    const {router} = await renderApp('/courses/c1/content?del=l1')
-    await flushPromises()
-
-    expect(router.currentRoute.value.name).toBe('part')
-    expect(router.currentRoute.value.params.linkId).toBe('l1')
   })
 
   it('låter en elev stanna kvar på kurssidan med ?del=', async () => {

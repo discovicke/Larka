@@ -30,14 +30,3 @@ export function meAs(
     gitHubInUse,
   }
 }
-
-/**
- * En mentor. Den globala rollen är Teacher, som hos de seedade mentorerna, men i klassens kurser är rollen Mentor.
- * Mentorn får därför läsa kursen och inlämningarna men inte bedöma.
- */
-export function mentorAs(courses: string[] = [], name = 'Malin Ekström'): Me {
-  return {
-    ...meAs('Teacher', courses, name),
-    courses: courses.map((courseId) => ({courseId, role: 'Mentor'})),
-  }
-}

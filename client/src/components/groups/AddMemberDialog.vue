@@ -21,7 +21,7 @@ import {addGroupMember} from '@/lib/groupsApi'
 import {fetchMicrosoftSettings} from '@/lib/auth/microsoft'
 import {fetchUsers} from '@/lib/usersApi'
 
-const props = defineProps<{groupId: string, groupName: string, schoolId: string, memberIds: string[], hasMentor?: boolean}>()
+const props = defineProps<{groupId: string, groupName: string, schoolId: string, memberIds: string[]}>()
 const emit = defineEmits<{added: [member: Schema<'GroupMemberDto'>], paste: []}>()
 
 const open = defineModel<boolean>('open', {required: true})
@@ -58,19 +58,9 @@ const passwordError = computed(() => form.password !== '' && form.password.lengt
   ? 'Lösenordet måste vara minst 8 tecken.'
   : '')
 
-// Mentor och lärare i gruppen är alltid lärare i skolan. Admin och elever kan bara vara elever. Klassen har en
-// mentor, och den byts med Byt mentor på sidan, så Mentor finns inte som val när klassen redan har en.
-const roleOptions = computed(() => groupRoles.filter((option) => {
-  if (option.value === 'Student') {
-    return true
-  }
-
-  if (creating.value && form.schoolRole !== 'Teacher') {
-    return false
-  }
-
-  return option.value !== 'Mentor' || !props.hasMentor
-}))
+// Lärare i gruppen är alltid lärare i skolan. Admin och elever kan bara vara elever.
+const roleOptions = computed(() => groupRoles.filter((option) =>
+  option.value === 'Student' || !creating.value || form.schoolRole === 'Teacher'))
 
 // Den som redan är medlem kan inte läggas till igen.
 const candidates = computed(() => {
@@ -335,9 +325,6 @@ async function addToGroup(user: Schema<'UserDto'> | null | undefined) {
               {{ option.label }}
             </NativeSelectOption>
           </NativeSelect>
-          <p v-if="hasMentor" class="text-muted-foreground text-sm" data-test="has-mentor">
-            Klassen har redan en mentor. Använd Byt mentor på klassens sida för att byta.
-          </p>
         </div>
 
         <Alert v-if="error" variant="destructive">

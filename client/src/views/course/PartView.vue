@@ -21,7 +21,7 @@ import {fetchCourseModules} from '@/lib/modulesApi'
 import {gradeScaleName, handInLabel} from '@/lib/submissions'
 import {fetchLinkSubmissions} from '@/lib/submissionsApi'
 
-// Delens sida för den som inte är elev: läraren, mentorn och admin läser delen här och går vidare till
+// Delens sida för den som inte är elev: läraren och admin läser delen här och går vidare till
 // redigeraren eller inlämningarna. Eleven har sin egen vy av samma del på kurssidan.
 const route = useRoute()
 const router = useRouter()
@@ -35,7 +35,6 @@ const courseId = computed(() => String(route.params.courseId))
 const linkId = computed(() => String(route.params.linkId))
 const canEdit = computed(() => can('editContent', courseId.value))
 const canGrade = computed(() => can('grade', courseId.value))
-const canReadSubmissions = computed(() => can('readSubmissions', courseId.value))
 
 const moduleId = ref('')
 const weekTitle = ref('')
@@ -48,7 +47,7 @@ const notFound = ref(false)
 const publishing = ref(false)
 
 // Inlämningar finns bara på uppgifter med inlämningssätt, och bara för dem som får läsa dem.
-const hasSubmissions = computed(() => canReadSubmissions.value && part.value?.completionRule != null)
+const hasSubmissions = computed(() => canGrade.value && part.value?.completionRule != null)
 const tab = computed(() => route.query.tab === 'inlamningar' && hasSubmissions.value
   ? 'submissions'
   : 'content')
@@ -105,7 +104,7 @@ function selectTab(value: 'content' | 'submissions') {
 
 // Eleven har inget att göra här: länken leder till samma del på kurssidan.
 function isStudentOfCourse(): boolean {
-  return !canReadSubmissions.value
+  return !canGrade.value
     && !can('manageCourse', courseId.value)
     && (me.value?.courses ?? []).some((course) => course.courseId === courseId.value && course.role === 'Student')
 }
@@ -146,7 +145,7 @@ async function load(showSkeleton = true) {
     setCrumbLabel(`assignment:${linkId.value}`, item.title)
     const [loadedContent, loadedSubmissions] = await Promise.all([
       fetchContent(item.contentId),
-      canReadSubmissions.value && item.completionRule != null
+      canGrade.value && item.completionRule != null
         ? fetchLinkSubmissions(linkId.value)
         : Promise.resolve([]),
     ])
@@ -354,7 +353,7 @@ watch([courseId, linkId], () => {
               Publicera
             </Button>
             <Button
-              v-if="hasSubmissions && canGrade && toGrade > 0"
+              v-if="hasSubmissions && toGrade > 0"
               data-test="grade-part"
               @click="selectTab('submissions')"
             >

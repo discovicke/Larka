@@ -66,9 +66,6 @@ public class PermissionService(
             || await groups.TeachesCourseOfGroupAsync(groupId, currentUser.UserId, ct);
     }
 
-    public async Task<bool> IsMentorOfStudentAsync(Guid studentId, CancellationToken ct) =>
-        (await groups.GetMentoredStudentIdsAsync(currentUser.UserId, ct)).Contains(studentId);
-
     private async Task<bool> IsAdminOfSchoolAsync(Guid schoolId, CancellationToken ct)
     {
         var user = await users.GetAsync(currentUser.UserId, ct);

@@ -75,7 +75,6 @@ internal sealed record ClassSpec(
     string Term,
     GroupType Type,
     string[] Teachers,
-    string? Mentor,
     int FirstStudent,
     int StudentCount,
     bool HasPublicStudent,

@@ -40,7 +40,7 @@ public class ContentRepository(AppDb db) : IContentRepository
     public Task<bool> IsVisibleToMemberOfContentAsync(
         Guid contentId, Guid userId, DateTimeOffset now, CancellationToken ct)
     {
-        // Elev eller mentor i gruppen. Lärarrollen i en grupp ger ingen läsrätt här, den prövas som undervisning.
+        // Elev i gruppen. Lärarrollen i en grupp ger ingen läsrätt här, den prövas som undervisning.
         var myGroupIds = db.Enrollments
             .Where(enrollment => enrollment.UserId == userId && enrollment.Role != GroupRole.Teacher)
             .Select(enrollment => enrollment.GroupId);

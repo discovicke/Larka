@@ -52,7 +52,7 @@ export async function removeGroupMember(groupId: string, userId: string) {
   await api.DELETE('/api/groups/{id}/members/{userId}', {params: {path: {id: groupId, userId}}})
 }
 
-/** Mentorns vy av en elev: läget i varje kurs klassen läser. Bara mentorn i klassen och admin får läsa den. */
+/** Adminens vy av en elev: läget i varje kurs klassen läser. Bara admin får läsa den. */
 export async function fetchStudentOverview(groupId: string, studentId: string) {
   const {data} = await api.GET('/api/groups/{id}/students/{studentId}/overview', {
     params: {path: {id: groupId, studentId}},

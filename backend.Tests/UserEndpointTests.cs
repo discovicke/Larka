@@ -144,13 +144,12 @@ public class UserEndpointTests(TestWebApplicationFactory factory) : IClassFixtur
     }
 
     [Fact]
-    public async Task ListUsers_AsStudentTeacherOrMentor_IsForbiddenAndLeaksNothing()
+    public async Task ListUsers_AsStudentOrTeacher_IsForbiddenAndLeaksNothing()
     {
         var student = await AddUserAsync(PlaceholderIds.SchoolId, UserRole.Student);
         var teacher = await AddUserAsync(PlaceholderIds.SchoolId, UserRole.Teacher);
-        var mentor = await AddUserAsync(PlaceholderIds.SchoolId, UserRole.Teacher, GroupRole.Mentor);
 
-        foreach (var caller in new[] { student, teacher, mentor })
+        foreach (var caller in new[] { student, teacher })
         {
             var response = await GetAsync("/api/users", caller.Id);
 
@@ -190,15 +189,14 @@ public class UserEndpointTests(TestWebApplicationFactory factory) : IClassFixtur
     }
 
     [Fact]
-    public async Task GetUser_AsStudentTeacherMentorOrOtherSchool_IsForbidden()
+    public async Task GetUser_AsStudentTeacherOrOtherSchool_IsForbidden()
     {
         var target = await AddUserAsync(PlaceholderIds.SchoolId, UserRole.Student);
         var classmate = await AddUserAsync(PlaceholderIds.SchoolId, UserRole.Student);
         var teacher = await AddUserAsync(PlaceholderIds.SchoolId, UserRole.Teacher);
-        var mentor = await AddUserAsync(PlaceholderIds.SchoolId, UserRole.Teacher, GroupRole.Mentor);
         var outsider = await AddUserAsync(null, UserRole.Student);
 
-        foreach (var caller in new[] { target, classmate, teacher, mentor, outsider })
+        foreach (var caller in new[] { target, classmate, teacher, outsider })
         {
             var response = await GetAsync($"/api/users/{target.Id}", caller.Id);
 

@@ -33,14 +33,12 @@ public class StudentOverviewEndpointTests(TestWebApplicationFactory factory) : I
         Guid CourseId,
         Guid StudentId,
         Guid OtherStudentId,
-        Guid MentorId,
         Guid TeacherId,
         Guid CourseTeacherId,
-        Guid OtherMentorId,
         Guid OtherSchoolAdminId);
 
     [Fact]
-    public async Task Overview_AsMentorOfTheClass_CountsTheStudentsStatusPerCourse()
+    public async Task Overview_AsAdmin_CountsTheStudentsStatusPerCourse()
     {
         var scenario = await AddScenarioAsync();
         var moduleId = await CreateModuleAsync(scenario.CourseId);
@@ -57,7 +55,7 @@ public class StudentOverviewEndpointTests(TestWebApplicationFactory factory) : I
             await SubmitAsync(scenario.StudentId, needsWork), new { feedback = "Mer", outcome = "needsWork" });
         await SubmitAsync(scenario.StudentId, submitted);
 
-        var response = await GetAsync(scenario, scenario.MentorId);
+        var response = await GetAsync(scenario, null);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var overview = (await response.Content.ReadFromJsonAsync<OverviewResponse>())!;
@@ -68,16 +66,6 @@ public class StudentOverviewEndpointTests(TestWebApplicationFactory factory) : I
             (6, 1, 1, 1, 2, 0, 1, 1),
             (course.AssignmentCount, course.NeedsWorkCount, course.LateCount, course.SubmittedCount,
                 course.GradedCount, course.FailCount, course.PassCount, course.DistinctionCount));
-    }
-
-    [Fact]
-    public async Task Overview_AsAdminOfTheSchool_IsAllowed()
-    {
-        var scenario = await AddScenarioAsync();
-
-        var response = await GetAsync(scenario, null);
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     [Fact]
@@ -98,7 +86,7 @@ public class StudentOverviewEndpointTests(TestWebApplicationFactory factory) : I
             await db.SaveChangesAsync();
         }
 
-        var overview = (await (await GetAsync(scenario, scenario.MentorId))
+        var overview = (await (await GetAsync(scenario, null))
             .Content.ReadFromJsonAsync<OverviewResponse>())!;
 
         Assert.Equal(scenario.CourseId, Assert.Single(overview.Courses).CourseId);
@@ -109,12 +97,12 @@ public class StudentOverviewEndpointTests(TestWebApplicationFactory factory) : I
     {
         var scenario = await AddScenarioAsync();
 
-        // Eleven själv, en klasskamrat, en lärare i klassen, en lärare bara i en av kurserna, mentorn i en annan
-        // klass och admin i en annan skola.
+        // Eleven själv, en klasskamrat, en lärare i klassen, en lärare bara i en av kurserna och admin i en
+        // annan skola.
         foreach (var caller in new[]
         {
             scenario.StudentId, scenario.OtherStudentId, scenario.TeacherId, scenario.CourseTeacherId,
-            scenario.OtherMentorId, scenario.OtherSchoolAdminId
+            scenario.OtherSchoolAdminId
         })
         {
             var response = await GetAsync(scenario, caller);
@@ -128,10 +116,10 @@ public class StudentOverviewEndpointTests(TestWebApplicationFactory factory) : I
     {
         var scenario = await AddScenarioAsync();
 
-        var teacher = await GetAsync(scenario, scenario.MentorId, scenario.TeacherId);
-        var stranger = await GetAsync(scenario, scenario.MentorId, Guid.NewGuid());
+        var teacher = await GetAsync(scenario, null, scenario.TeacherId);
+        var stranger = await GetAsync(scenario, null, Guid.NewGuid());
         var unknownGroup = await SendAsync(
-            $"/api/groups/{Guid.NewGuid()}/students/{scenario.StudentId}/overview", scenario.MentorId);
+            $"/api/groups/{Guid.NewGuid()}/students/{scenario.StudentId}/overview", null);
 
         Assert.Equal(HttpStatusCode.NotFound, teacher.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, stranger.StatusCode);
@@ -157,18 +145,15 @@ public class StudentOverviewEndpointTests(TestWebApplicationFactory factory) : I
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
         var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
-        var otherGroup = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
         var course = await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId, group.Id);
         var student = await TestData.AddMemberAsync(db, group);
         var otherStudent = await TestData.AddMemberAsync(db, group);
-        var mentor = await TestData.AddMemberAsync(db, group, GroupRole.Mentor, UserRole.Teacher);
         var teacher = await TestData.AddMemberAsync(db, group, GroupRole.Teacher, UserRole.Teacher);
         var courseTeacher = await TestData.AddCourseTeacherAsync(db, course);
-        var otherMentor = await TestData.AddMemberAsync(db, otherGroup, GroupRole.Mentor, UserRole.Teacher);
         var otherSchoolAdmin = await TestData.AddUserAsync(db, role: UserRole.Admin);
         return new Scenario(
-            group.Id, course.Id, student.Id, otherStudent.Id, mentor.Id, teacher.Id, courseTeacher.Id,
-            otherMentor.Id, otherSchoolAdmin.Id);
+            group.Id, course.Id, student.Id, otherStudent.Id, teacher.Id, courseTeacher.Id,
+            otherSchoolAdmin.Id);
     }
 
     private async Task<Guid> CreateModuleAsync(Guid courseId)

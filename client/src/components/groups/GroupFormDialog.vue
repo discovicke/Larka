@@ -95,7 +95,7 @@ async function save() {
           <DialogDescription>
             <template v-if="isEdit">Ändra namn, typ eller termin. Medlemmarna påverkas inte.</template>
             <template v-else-if="isClass">
-              En klass är en årskull. Kurser, elever och mentor lägger du till på klassens sida.
+              En klass är en årskull. Kurser och elever lägger du till på klassens sida.
             </template>
             <template v-else>Medlemmar och kurser lägger du till på gruppens sida.</template>
           </DialogDescription>

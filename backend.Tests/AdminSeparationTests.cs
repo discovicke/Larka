@@ -10,7 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace backend.Tests;
 
 // Admin bestämmer vem som undervisar vad, läraren bestämmer vad som händer i kursen. Admin har ingen genväg in i
-// undervisningen och får inte läsa inlämningar eller betyg. Mentorn läser, men bedömer inte. En admin som också
+// undervisningen och får inte läsa inlämningar eller betyg. Eleven läser sina egna inlämningar, men bedömer inte. En admin som också
 // undervisar får lärarrätt genom en rad i CourseTeachers, inte genom sin roll.
 public class AdminSeparationTests(TestWebApplicationFactory factory) : IClassFixture<TestWebApplicationFactory>
 {
@@ -25,7 +25,6 @@ public class AdminSeparationTests(TestWebApplicationFactory factory) : IClassFix
         Guid TeacherId,
         Guid AdminId,
         Guid AdminTeacherId,
-        Guid MentorId,
         Guid StudentA,
         Guid StudentB,
         Guid ClassTeacherId,
@@ -60,14 +59,11 @@ public class AdminSeparationTests(TestWebApplicationFactory factory) : IClassFix
     private record OverviewResponse(
         CourseCounts Courses,
         List<CourseWithoutTeacher> CoursesWithoutTeacher,
-        List<ClassRef> ClassesWithoutMentor,
         List<UserWithoutPassword> UsersWithoutPassword);
 
     private record CourseCounts(int Upcoming, int Running, int Finished, int Undated);
 
     private record CourseWithoutTeacher(Guid CourseId, string Code, Guid? GroupId);
-
-    private record ClassRef(Guid GroupId, string Name);
 
     private record UserWithoutPassword(Guid UserId, string Name, Guid? GroupId);
 
@@ -121,29 +117,6 @@ public class AdminSeparationTests(TestWebApplicationFactory factory) : IClassFix
     }
 
     [Fact]
-    public async Task Admin_SetAsMentor_CannotReadSubmissionsThroughTheMentorPath()
-    {
-        var scenario = await AddScenarioAsync();
-        await using (var db = OpenDb())
-        {
-            db.Enrollments.Add(new Enrollment
-            {
-                UserId = scenario.AdminId,
-                GroupId = scenario.ClassA,
-                Role = GroupRole.Mentor
-            });
-            await db.SaveChangesAsync();
-        }
-
-        var single = await SendAsync(HttpMethod.Get, $"/api/submissions/{scenario.SubmissionA}", scenario.AdminId);
-        var list = await SendAsync(
-            HttpMethod.Get, $"/api/links/{scenario.AssignmentLinkId}/submissions", scenario.AdminId);
-
-        Assert.Equal(HttpStatusCode.Forbidden, single.StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, list.StatusCode);
-    }
-
-    [Fact]
     public async Task Admin_CannotReadSubmissionsOrGrades_ButAnAdminWithATeacherRowCan()
     {
         var scenario = await AddScenarioAsync();
@@ -192,7 +165,7 @@ public class AdminSeparationTests(TestWebApplicationFactory factory) : IClassFix
     }
 
     [Fact]
-    public async Task CreateContent_IsForTheOneWhoTeachesSomething_NotForTheGlobalTeacherRoleOrMentors()
+    public async Task CreateContent_IsForTheOneWhoTeachesSomething_NotForTheGlobalTeacherRole()
     {
         var scenario = await AddScenarioAsync();
         Guid roleOnlyTeacher;
@@ -205,13 +178,11 @@ public class AdminSeparationTests(TestWebApplicationFactory factory) : IClassFix
         var byCourseTeacher = await SendAsync(HttpMethod.Post, "/api/content", scenario.TeacherId, content);
         var byClassTeacher = await SendAsync(HttpMethod.Post, "/api/content", scenario.ClassTeacherId, content);
         var byRoleOnly = await SendAsync(HttpMethod.Post, "/api/content", roleOnlyTeacher, content);
-        var byMentor = await SendAsync(HttpMethod.Post, "/api/content", scenario.MentorId, content);
         var byAdmin = await SendAsync(HttpMethod.Post, "/api/content", scenario.AdminId, content);
 
         Assert.Equal(HttpStatusCode.Created, byCourseTeacher.StatusCode);
         Assert.Equal(HttpStatusCode.Created, byClassTeacher.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, byRoleOnly.StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, byMentor.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, byAdmin.StatusCode);
     }
 
@@ -289,10 +260,10 @@ public class AdminSeparationTests(TestWebApplicationFactory factory) : IClassFix
         Assert.Equal(HttpStatusCode.Forbidden, outsideTeacher.StatusCode);
     }
 
-    // --- Mentorn läser men bedömer inte ---
+    // --- Eleven läser sin egen inlämning men bedömer inte ---
 
     [Fact]
-    public async Task Mentor_ReadsSubmissionsAndGradesOfTheirOwnClass_ButCannotGrade()
+    public async Task Student_ReadsOnlyTheirOwnSubmissionAndGrade_ButCannotGrade()
     {
         var scenario = await AddScenarioAsync();
         await using (var db = OpenDb())
@@ -308,13 +279,13 @@ public class AdminSeparationTests(TestWebApplicationFactory factory) : IClassFix
         }
 
         var list = await GetAsync<List<SubmissionResponse>>(
-            $"/api/links/{scenario.AssignmentLinkId}/submissions", scenario.MentorId);
-        var own = await GetAsync<SubmissionResponse>($"/api/submissions/{scenario.SubmissionA}", scenario.MentorId);
-        var other = await SendAsync(HttpMethod.Get, $"/api/submissions/{scenario.SubmissionB}", scenario.MentorId);
+            $"/api/links/{scenario.AssignmentLinkId}/submissions", scenario.StudentA);
+        var own = await GetAsync<SubmissionResponse>($"/api/submissions/{scenario.SubmissionA}", scenario.StudentA);
+        var other = await SendAsync(HttpMethod.Get, $"/api/submissions/{scenario.SubmissionB}", scenario.StudentA);
         var grade = await SendAsync(
             HttpMethod.Post,
             $"/api/submissions/{scenario.SubmissionA}/grade",
-            scenario.MentorId,
+            scenario.StudentA,
             new { level = "distinction", feedback = "Toppen" });
 
         Assert.Equal([scenario.StudentA], list.Select(submission => submission.StudentId));
@@ -324,16 +295,16 @@ public class AdminSeparationTests(TestWebApplicationFactory factory) : IClassFix
     }
 
     [Fact]
-    public async Task Mentor_ReadsPublishedContentOfTheClassCourse_ButNotDrafts_AndCannotPostNews()
+    public async Task Student_ReadsPublishedContentOfTheClassCourse_ButNotDrafts_AndCannotPostNews()
     {
         var scenario = await AddScenarioAsync();
 
         var weeks = await GetAsync<List<ModuleResponse>>(
             $"/api/courses/{scenario.CourseId}/modules",
-            scenario.MentorId);
-        var feed = await GetAsync<List<FeedItem>>($"/api/courses/{scenario.CourseId}/content", scenario.MentorId);
-        var draft = await SendAsync(HttpMethod.Get, $"/api/content/{scenario.DraftContentId}", scenario.MentorId);
-        var news = await SendAsync(HttpMethod.Post, "/api/content/with-link", scenario.MentorId, new
+            scenario.StudentA);
+        var feed = await GetAsync<List<FeedItem>>($"/api/courses/{scenario.CourseId}/content", scenario.StudentA);
+        var draft = await SendAsync(HttpMethod.Get, $"/api/content/{scenario.DraftContentId}", scenario.StudentA);
+        var news = await SendAsync(HttpMethod.Post, "/api/content/with-link", scenario.StudentA, new
         {
             content = new { type = "news", title = "Nyhet", bodyMd = "Text" },
             link = new { groupId = scenario.ClassA }
@@ -354,7 +325,7 @@ public class AdminSeparationTests(TestWebApplicationFactory factory) : IClassFix
         var scenario = await AddScenarioAsync();
         var path = $"/api/courses/{scenario.CourseId}/content";
 
-        foreach (var user in new[] { scenario.TeacherId, scenario.MentorId, scenario.StudentA, scenario.AdminId })
+        foreach (var user in new[] { scenario.TeacherId, scenario.StudentA, scenario.AdminId })
         {
             Assert.Equal(HttpStatusCode.OK, (await SendAsync(HttpMethod.Get, path, user)).StatusCode);
         }
@@ -373,7 +344,6 @@ public class AdminSeparationTests(TestWebApplicationFactory factory) : IClassFix
 
         foreach (var user in new[] {
             scenario.StudentA,
-            scenario.MentorId,
             scenario.ClassTeacherId,
             scenario.TeacherId,
             scenario.AdminId })
@@ -401,12 +371,12 @@ public class AdminSeparationTests(TestWebApplicationFactory factory) : IClassFix
     }
 
     [Fact]
-    public async Task Draft_IsHiddenFromStudentsAndMentors_ButReadableByTheTeacherAndReadOnlyForAdmin()
+    public async Task Draft_IsHiddenFromStudents_ButReadableByTheTeacherAndReadOnlyForAdmin()
     {
         var scenario = await AddScenarioAsync();
         var path = $"/api/courses/{scenario.CourseId}/modules";
 
-        foreach (var user in new[] { scenario.StudentA, scenario.MentorId })
+        foreach (var user in new[] { scenario.StudentA })
         {
             var weeks = await GetAsync<List<ModuleResponse>>(path, user);
             Assert.DoesNotContain(weeks.Single().Content, item => item.ContentId == scenario.DraftContentId);
@@ -449,8 +419,6 @@ public class AdminSeparationTests(TestWebApplicationFactory factory) : IClassFix
         var teacher = await SendAsync(HttpMethod.Get, "/api/me/admin-overview", scenario.TeacherId);
         var student2 = await SendAsync(HttpMethod.Get, "/api/me/admin-overview", scenario.StudentA);
 
-        Assert.Contains(overview.ClassesWithoutMentor, group => group.GroupId == emptyClass);
-        Assert.DoesNotContain(overview.ClassesWithoutMentor, group => group.GroupId == scenario.ClassA);
         Assert.Contains(overview.UsersWithoutPassword, user => user.UserId == noPassword && user.GroupId == emptyClass);
         Assert.DoesNotContain(overview.CoursesWithoutTeacher, course => course.CourseId == scenario.CourseId);
         Assert.Contains(overview.CoursesWithoutTeacher, course => course.CourseId == scenario.OtherCourseId
@@ -466,9 +434,7 @@ public class AdminSeparationTests(TestWebApplicationFactory factory) : IClassFix
     public async Task AdminOverview_SkipsFinishedCoursesAndClasses_ButKeepsUndatedOnes()
     {
         var scenario = await AddScenarioAsync();
-        Guid finishedClass;
         Guid finishedCourse;
-        Guid mixedClass;
         Guid undatedCourse;
         await using (var db = OpenDb())
         {
@@ -480,16 +446,12 @@ public class AdminSeparationTests(TestWebApplicationFactory factory) : IClassFix
             db.GroupCourses.Add(new GroupCourse { GroupId = mixed.Id, CourseId = old.Id });
             old.EndsOn = past;
             await db.SaveChangesAsync();
-            finishedClass = finished.Id;
             finishedCourse = old.Id;
-            mixedClass = mixed.Id;
             undatedCourse = undated.Id;
         }
 
         var overview = await GetAsync<OverviewResponse>("/api/me/admin-overview", scenario.AdminId);
 
-        Assert.DoesNotContain(overview.ClassesWithoutMentor, group => group.GroupId == finishedClass);
-        Assert.Contains(overview.ClassesWithoutMentor, group => group.GroupId == mixedClass);
         Assert.DoesNotContain(overview.CoursesWithoutTeacher, course => course.CourseId == finishedCourse);
         Assert.Contains(overview.CoursesWithoutTeacher, course => course.CourseId == undatedCourse);
     }
@@ -536,7 +498,7 @@ public class AdminSeparationTests(TestWebApplicationFactory factory) : IClassFix
         return await _client.SendAsync(request);
     }
 
-    // Kursen läses av två klasser. Klass A har en mentor, klass B inte. Kursen har en vecka med en publicerad del,
+    // Kursen läses av två klasser. Kursen har en vecka med en publicerad del,
     // ett utkast och en inlämning som båda klassernas elever har lämnat in. Den andra kursen läses av klass B och
     // saknar lärare.
     private async Task<Scenario> AddScenarioAsync()
@@ -556,7 +518,6 @@ public class AdminSeparationTests(TestWebApplicationFactory factory) : IClassFix
         var adminTeacher = await TestData.AddUserAsync(db, school.Id, UserRole.Admin);
         await TestData.AddCourseTeacherAsync(db, course, adminTeacher);
         var otherSchoolAdmin = await TestData.AddUserAsync(db, role: UserRole.Admin);
-        var mentor = await TestData.AddMemberAsync(db, classA, GroupRole.Mentor, UserRole.Teacher);
         var classTeacher = await TestData.AddMemberAsync(db, classA, GroupRole.Teacher, UserRole.Teacher);
         var studentA = await TestData.AddMemberAsync(db, classA);
         var studentB = await TestData.AddMemberAsync(db, classB);
@@ -645,7 +606,6 @@ public class AdminSeparationTests(TestWebApplicationFactory factory) : IClassFix
             teacher.Id,
             admin.Id,
             adminTeacher.Id,
-            mentor.Id,
             studentA.Id,
             studentB.Id,
             classTeacher.Id,

@@ -51,7 +51,7 @@ const today = ref<Today | null>(null)
 const currentCourses = computed(() => splitFinished(today.value?.courses ?? []).current)
 const tab = ref<Tab>('upcoming')
 // Idag följer relationen: admin ser skolans översikt, den som undervisar i en kurs ser lärarens, och alla andra,
-// eleven och mentorn, ser elevens. Båda hämtar sin egen data. En admin som också undervisar ser båda.
+// eleven, ser elevens. Båda hämtar sin egen data. En admin som också undervisar ser båda.
 const isAdmin = ref(false)
 const isTeacher = ref(false)
 // Den som har loggat in första gången utan att hamna i en klass har inget att se än.

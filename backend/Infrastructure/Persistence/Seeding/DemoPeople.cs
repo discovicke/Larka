@@ -24,11 +24,7 @@ internal static class DemoPeople
         new("patrik", "Patrik Sundqvist"),
         new("mikael", "Mikael Strand"),
         new("camilla", "Camilla Dahlberg"),
-        new("roger", "Roger Hedström")
-    ];
-
-    public static readonly DemoPerson[] Mentors =
-    [
+        new("roger", "Roger Hedström"),
         new("malin", "Malin Ekström"),
         new("henrik", "Henrik Lindahl"),
         new("sofie", "Sofie Brännström")

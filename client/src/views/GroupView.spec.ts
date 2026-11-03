@@ -3,7 +3,7 @@ import {describe, expect, it, vi} from 'vitest'
 
 import DatePicker from '@/components/DatePicker.vue'
 import {mockApi, requests, sent} from '@/test/mockApi'
-import {meAs, mentorAs} from '@/test/me'
+import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
 const classGroup = {id: 'g1', schoolId: 's1', type: 'Class', name: 'TE22A', term: 'HT25'}
@@ -26,7 +26,6 @@ const users = [
 const members = [
   {userId: 'u1', name: 'Siv Student', role: 'Student'},
   {userId: 'u2', name: 'Lars Lärare', role: 'Teacher'},
-  {userId: 'u3', name: 'Malin Mentor', role: 'Mentor'},
   {userId: 'u4', name: 'Stina Student', role: 'Student'},
 ]
 
@@ -36,8 +35,6 @@ interface Backend {
   members?: unknown[]
   membersStatus?: number
   role?: 'Teacher' | 'Admin'
-  // Den inloggade är mentor i klassen (och står i medlemslistan som det).
-  mentor?: boolean
   // Lärarna per kurs-id. Utan post har kursen inga lärare.
   teachers?: Record<string, {userId: string, name: string, email: string}[]>
   // Namnen på de andra klasserna som läser kursen, per kurs-id.
@@ -53,9 +50,7 @@ function backend(options: Backend = {}) {
   const linked: unknown[] = []
   mockApi((method, path, body) => {
     if (path === '/api/me') {
-      return {status: 200, body: options.mentor
-        ? mentorAs(['c1'])
-        : meAs(options.role ?? 'Teacher', ['c1'])}
+      return {status: 200, body: meAs(options.role ?? 'Teacher', ['c1'])}
     }
     if (path === '/api/users') {
       return {status: 200, body: users}
@@ -134,8 +129,8 @@ function backend(options: Backend = {}) {
 }
 
 describe('GroupView', () => {
-  it('låter mentorn öppna en elevs läge i klassens kurser', async () => {
-    backend({mentor: true, members: [...members, {userId: 'u-me', name: 'Malin Ekström', role: 'Mentor'}]})
+  it('låter admin öppna en elevs läge i klassens kurser', async () => {
+    backend({role: 'Admin'})
 
     const {wrapper} = await renderApp('/groups/g1')
     const rows = wrapper.findAll('[data-test="member-row"]')
@@ -182,9 +177,9 @@ describe('GroupView', () => {
     const {wrapper} = await renderApp('/groups/g1')
 
     const sections = wrapper.findAll('[data-test="member-role"]')
-    expect(sections.map((section) => section.find('h3').text())).toEqual(['Lärare', 'Mentor', 'Elev'])
+    expect(sections.map((section) => section.find('h3').text())).toEqual(['Lärare', 'Elev'])
     expect(sections[0].findAll('[data-test="member-name"]').map((name) => name.text())).toEqual(['Lars Lärare'])
-    expect(sections[2].findAll('[data-test="member-row"]')).toHaveLength(2)
+    expect(sections[1].findAll('[data-test="member-row"]')).toHaveLength(2)
   })
 
   it('döljer roller utan medlemmar', async () => {
@@ -337,10 +332,9 @@ describe('GroupView', () => {
       expect(options.some((text) => text?.includes('Siv Student'))).toBe(false)
       expect(options.some((text) => text?.includes('Nils Ny'))).toBe(true)
 
-      // Klassen har redan en mentor, så Mentor är inget val här, och bara lärare kan vara lärare i gruppen.
+      // Bara lärare kan vara lärare i gruppen.
       const role = modal().querySelector('[data-test="member-role-select"]') as HTMLSelectElement
       expect([...role.options].map((option) => option.value)).toEqual(['Teacher', 'Student'])
-      expect(modal().querySelector('[data-test="has-mentor"]')).not.toBeNull()
       role.value = 'Teacher'
       role.dispatchEvent(new Event('change'))
       await flushPromises()
@@ -395,8 +389,8 @@ describe('GroupView', () => {
       backend({role: 'Admin'})
       const {wrapper} = await renderApp('/groups/g1')
 
-      expect(wrapper.findAll('[data-test="member-row"]')).toHaveLength(4)
-      expect(wrapper.findAll('[data-test="member-menu"]')).toHaveLength(4)
+      expect(wrapper.findAll('[data-test="member-row"]')).toHaveLength(3)
+      expect(wrapper.findAll('[data-test="member-menu"]')).toHaveLength(3)
       expect(wrapper.find('select').exists()).toBe(false)
       expect(wrapper.text()).not.toContain('Ta bort')
       await openMemberMenu(wrapper, 'Siv Student')
@@ -418,21 +412,6 @@ describe('GroupView', () => {
       expect(sent('PUT', '/api/groups/g1/members/u1')).toEqual({role: 'Teacher'})
       expect(requests.some((request) => request.method === 'DELETE')).toBe(false)
       expect(modal()).toBeNull()
-    })
-
-    it('byter mentor när en medlem får rollen Mentor', async () => {
-      backend({role: 'Admin'})
-      const {wrapper} = await renderApp('/groups/g1')
-
-      await openMemberMenu(wrapper, 'Lars Lärare')
-      await chooseAction('Ändra roll')
-      await chooseRole('Mentor')
-      expect(modal().querySelector('[data-test="mentor-leaves"]')?.textContent).toContain('Malin Mentor lämnar klassen')
-      await click(modal().querySelector('[data-test="confirm-change-role"]'))
-
-      expect(sent('PUT', '/api/groups/g1/members/u2')).toEqual({role: 'Mentor'})
-      // API:et låter den förra mentorn lämna klassen, så klienten tar inte bort någon själv.
-      expect(requests.some((request) => request.method === 'DELETE')).toBe(false)
     })
 
     it('behåller rollen och visar felet när rollbytet misslyckas', async () => {
@@ -672,45 +651,6 @@ describe('GroupView', () => {
       expect(rows[1].find('[data-test="course-teacher-names"]').text()).toBe('Lärare: Tina Tränare')
     })
 
-    it('utser en mentor som redan är med i klassen, och den förra lämnar via API:et', async () => {
-      backend({role: 'Admin'})
-      const {wrapper} = await renderApp('/groups/g1')
-
-      expect(wrapper.find('[data-test="set-mentor"]').text()).toBe('Byt mentor')
-      await wrapper.find('[data-test="set-mentor"]').trigger('click')
-      await flushPromises()
-      await pick(modal().querySelector('[data-test="mentor-user"]'), 'u2')
-      expect(modal().querySelector('[data-test="mentor-leaves"]')?.textContent).toContain('Malin Mentor lämnar klassen')
-      await click(modal().querySelector('[data-test="confirm-mentor"]'))
-
-      expect(sent('PUT', '/api/groups/g1/members/u2')).toEqual({role: 'Mentor'})
-      expect(requests.some((request) => request.method === 'DELETE')).toBe(false)
-      expect(modal()).toBeNull()
-    })
-
-    it('utser en mentor som inte är med i klassen när klassen saknar mentor', async () => {
-      backend({role: 'Admin', members: [members[0]]})
-      const {wrapper} = await renderApp('/groups/g1')
-
-      expect(wrapper.find('[data-test="no-mentor"]').text()).toBe('Klassen har ingen mentor ännu.')
-      expect(wrapper.find('[data-test="set-mentor"]').text()).toBe('Utse mentor')
-      await wrapper.find('[data-test="set-mentor"]').trigger('click')
-      await flushPromises()
-      await pick(modal().querySelector('[data-test="mentor-user"]'), 'u6')
-      await click(modal().querySelector('[data-test="confirm-mentor"]'))
-
-      expect(sent('POST', '/api/groups/g1/members')).toEqual({userId: 'u6', role: 'Mentor'})
-      expect(requests.some((request) => request.method === 'DELETE')).toBe(false)
-    })
-
-    it('visar ingen mentorsrad för en kommitté', async () => {
-      backend({role: 'Admin', group: committee, members: [], courses: []})
-
-      const {wrapper} = await renderApp('/groups/g2')
-
-      expect(wrapper.find('[data-test="set-mentor"]').exists()).toBe(false)
-    })
-
     it('förhandsvisar en inklistrad lista och lägger till eleverna', async () => {
       backend({
         role: 'Admin',
@@ -773,7 +713,7 @@ describe('GroupView', () => {
       const {wrapper} = await renderApp('/groups/g1')
 
       const steps = wrapper.findAll('[data-test="group-setup-step"]').map((step) => step.text())
-      expect(steps).toEqual(['Lägg till kurser', 'Lägg in elever', 'Utse mentor'])
+      expect(steps).toEqual(['Lägg till kurser', 'Lägg in elever'])
     })
 
     it('fyller i formuläret från en tidigare kurs och skapar allt i ett anrop', async () => {

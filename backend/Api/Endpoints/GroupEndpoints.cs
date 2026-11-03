@@ -65,7 +65,7 @@ public static class GroupEndpoints
         groups.MapGet("/{id:guid}/members", async (Guid id, GroupService service, CancellationToken ct) =>
             (await service.GetMembersAsync(id, ct)).ToHttp(members => TypedResults.Ok(members)));
 
-        // Mentorns vy av en elev: läget i alla klassens kurser. Bara mentorn i klassen och admin, andra får 404.
+        // Adminens vy av en elev: läget i alla klassens kurser. Bara admin, andra får 404.
         groups.MapGet("/{id:guid}/students/{studentId:guid}/overview",
             async (Guid id, Guid studentId, StudentOverviewService service, CancellationToken ct) =>
                 (await service.GetAsync(id, studentId, ct)).ToHttp(overview => TypedResults.Ok(overview)));

@@ -13,7 +13,7 @@ public class ContentAccess(
     public Task<bool> MayEditAsync(Content content, CancellationToken ct) =>
         permissions.CanTeachContentAsync(content.Id, ct);
 
-    // Läsa får den som får ändra innehållet, elever och mentorer i en kurs eller grupp där en länk syns för
+    // Läsa får den som får ändra innehållet, elever i en kurs eller grupp där en länk syns för
     // eleverna (publicerat, PublishAt passerat, veckan öppen), och admin i skolan där innehållets författare
     // hör hemma (admin läser kursernas innehåll, med utkast, men undervisar inte). Alla andra, också
     // inloggade i en annan kurs eller skola, får samma svar som för innehåll som inte finns.

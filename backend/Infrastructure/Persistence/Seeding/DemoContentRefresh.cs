@@ -175,7 +175,7 @@ public sealed class DemoContentRefresh(AppDb db, TimeProvider time, ILogger<Demo
             .OfType<User>()
             .Select(user => user.Id)
             .ToHashSet();
-        var catalogPeople = Teachers.Concat(Mentors).Select(person => person.Email).Append("larare").ToList();
+        var catalogPeople = Teachers.Select(person => person.Email).Append("larare").ToList();
         var catalogUserIds = _users.Values
             .Where(user => catalogPeople.Contains(user.Email))
             .Select(user => user.Id)
@@ -452,7 +452,6 @@ public sealed class DemoContentRefresh(AppDb db, TimeProvider time, ILogger<Demo
     private async Task LoadUsersAsync(CancellationToken ct)
     {
         var emails = Teachers
-            .Concat(Mentors)
             .Concat(Enumerable.Range(0, 80).Select(Student))
             .Select(person => person.Email)
             .Append("larare")
@@ -464,12 +463,12 @@ public sealed class DemoContentRefresh(AppDb db, TimeProvider time, ILogger<Demo
         }
     }
 
-    /// <summary>Användaren för en nyckel (lärare, mentor, elevN, larare eller elev). Skapas aldrig här.</summary>
+    /// <summary>Användaren för en nyckel (lärare, elevN, larare eller elev). Skapas aldrig här.</summary>
     private User? UserOf(string key)
     {
         var email = key is "larare" or "elev"
             ? key
-            : (Teachers.Concat(Mentors).FirstOrDefault(person => person.Key == key)
+            : (Teachers.FirstOrDefault(person => person.Key == key)
                 ?? Student(int.Parse(key["elev".Length..]))).Email;
         return _users.GetValueOrDefault(email);
     }

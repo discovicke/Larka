@@ -108,7 +108,7 @@ public class CourseRunService(
         courses.Add(course);
         groups.AddCourse(new GroupCourse { GroupId = group.Id, CourseId = course.Id });
 
-        // Lärarna hör till kursen. Klassen får inga lärare, den har bara elever och en mentor.
+        // Lärarna hör till kursen. Klassen får inga lärare, den har bara elever.
         foreach (var teacherId in teacherIds)
         {
             courses.AddTeacher(new CourseTeacher { CourseId = course.Id, UserId = teacherId });

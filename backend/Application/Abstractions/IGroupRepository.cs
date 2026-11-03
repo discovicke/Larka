@@ -4,7 +4,7 @@ using Backend.Domain.Enums;
 
 namespace Backend.Application.Abstractions;
 
-/// <summary>Användarens starkaste roll i en kurs: lärare via kursen, mentor och elev via grupperna som läser den.</summary>
+/// <summary>Användarens starkaste roll i en kurs: lärare via kursen och elev via grupperna som läser den.</summary>
 public record CourseRole(Guid CourseId, GroupRole Role);
 
 /// <summary>En kurs användaren läser som elev, och grupperna hen läser den i.</summary>
@@ -42,12 +42,6 @@ public interface IGroupRepository
     /// <summary>Användaren är lärare i minst en kurs, eller har lärarrollen i minst en grupp.</summary>
     Task<bool> TeachesAnythingAsync(Guid userId, CancellationToken ct);
 
-    /// <summary>Eleverna i grupperna där användaren är mentor.</summary>
-    Task<HashSet<Guid>> GetMentoredStudentIdsAsync(Guid userId, CancellationToken ct);
-
-    /// <summary>Mentorerna i gruppen, också spärrade, för att byta mentor.</summary>
-    Task<List<Enrollment>> GetMentorEnrollmentsAsync(Guid groupId, CancellationToken ct);
-
     /// <summary>Medlemskapen i skolans grupper, för adminöversikten.</summary>
     Task<List<Enrollment>> GetEnrollmentsForSchoolAsync(Guid schoolId, CancellationToken ct);
 
@@ -64,7 +58,7 @@ public interface IGroupRepository
     Task<Dictionary<Guid, List<string>>> GetOtherGroupNamesReadingCoursesAsync(
         IReadOnlyCollection<Guid> courseIds, Guid exceptGroupId, CancellationToken ct);
 
-    /// <summary>Användarens starkaste roll per kurs, Teacher före Mentor före Student.</summary>
+    /// <summary>Användarens starkaste roll per kurs, Teacher före Student.</summary>
     Task<List<CourseRole>> GetCourseRolesAsync(Guid userId, CancellationToken ct);
 
     /// <summary>Grupperna användaren är elev i.</summary>

@@ -246,7 +246,7 @@ public class ContentService(
     }
 
     /// <summary>
-    /// Som gruppens flöde, men för kursen: lärare, mentor och elev i kursen, och admin i skolan får läsa.
+    /// Som gruppens flöde, men för kursen: lärare och elev i kursen, och admin i skolan får läsa.
     /// </summary>
     public async Task<ServiceResult<List<ContentFeedItem>>> GetCourseFeedAsync(
         Guid courseId, string? type, CancellationToken ct)

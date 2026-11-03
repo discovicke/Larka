@@ -13,7 +13,7 @@ public class CourseRepository(AppDb db) : ICourseRepository
     public Task<List<Course>> GetForSchoolAsync(Guid schoolId, CancellationToken ct) =>
         db.Courses.Where(course => course.SchoolId == schoolId).OrderBy(course => course.Code).ToListAsync(ct);
 
-    // Lärarrollen i en klass ger ingen kurs. Kurserna kommer från CourseTeachers och från elev- och mentorsrollen.
+    // Lärarrollen i en klass ger ingen kurs. Kurserna kommer från CourseTeachers och från elevrollen.
     public Task<List<Course>> GetForMemberAsync(Guid schoolId, Guid userId, CancellationToken ct) =>
         db.Courses
             .Where(course => course.SchoolId == schoolId

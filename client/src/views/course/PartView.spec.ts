@@ -2,7 +2,7 @@ import {flushPromises} from '@vue/test-utils'
 import {describe, expect, it, vi} from 'vitest'
 
 import {mockApi, requests, sent} from '@/test/mockApi'
-import {mentorAs, meAs} from '@/test/me'
+import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
 const course = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps'}
@@ -144,19 +144,6 @@ function rowNames(wrapper: Awaited<ReturnType<typeof renderApp>>['wrapper']): st
 }
 
 describe('PartView', () => {
-  it('mentorn läser listan och får Visa i stället för Bedöm', async () => {
-    backend({me: mentorAs(['c1'])})
-
-    const {wrapper} = await renderApp('/courses/c1/assignments/l1')
-
-    expect(rowNames(wrapper)).toContain('Bo Berg')
-    const row = wrapper.findAll('[data-test="submission-row"]')
-      .find((candidate) => candidate.text().includes('Bo Berg'))!
-    expect(text(row.find('a'))).toBe('Visa')
-    const actions = wrapper.findAll('[data-test="submission-row"] a').map(text)
-    expect(actions).not.toContain('Bedöm')
-  })
-
   it('läraren får Bedöm', async () => {
     backend()
 
@@ -219,16 +206,6 @@ describe('PartView', () => {
     await flushPromises()
 
     expect(sent('PUT', '/api/content/x1/status')).toEqual({status: 'Published'})
-  })
-
-  it('mentorn ser inlämningar men kan inte redigera eller bedöma härifrån', async () => {
-    backend({me: mentorAs(['c1'])})
-
-    const {wrapper} = await renderApp('/courses/c1/parts/l1')
-
-    expect(wrapper.find('[data-test="tab-submissions"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="edit-part"]').exists()).toBe(false)
-    expect(wrapper.find('[data-test="grade-part"]').exists()).toBe(false)
   })
 
   it('admin läser delen utan inlämningar och utan att redigera', async () => {
@@ -514,7 +491,7 @@ describe('PartView', () => {
       expect(wrapper.find('[data-test="mark-all-notice"]').text()).toBe('1 elev markerades som ej inlämnat.')
     })
 
-    it('syns inte före deadlinen, utan någon som saknar inlämning eller för mentorn', async () => {
+    it('syns inte före deadlinen, utan någon som saknar inlämning eller för admin', async () => {
       backend({part: {...assignment, dueAt: '2099-01-01T10:00:00Z'}})
       const before = await renderApp('/courses/c1/assignments/l1')
       await flushPromises()
@@ -530,10 +507,10 @@ describe('PartView', () => {
       await flushPromises()
       expect(nobody.wrapper.find('[data-test="mark-all-not-submitted"]').exists()).toBe(false)
 
-      backend({me: mentorAs(['c1'])})
-      const mentor = await renderApp('/courses/c1/assignments/l1')
+      backend({me: meAs('Admin', [], 'Ada Admin')})
+      const admin = await renderApp('/courses/c1/assignments/l1')
       await flushPromises()
-      expect(mentor.wrapper.find('[data-test="mark-all-not-submitted"]').exists()).toBe(false)
+      expect(admin.wrapper.find('[data-test="mark-all-not-submitted"]').exists()).toBe(false)
     })
   })
 })

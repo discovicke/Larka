@@ -8,7 +8,7 @@ import {auth} from '@/lib/auth'
 import {createAppRouter} from '@/router'
 import {signOutForTests} from '@/test/auth'
 import {mockApi, requests} from '@/test/mockApi'
-import {mentorAs, meAs} from '@/test/me'
+import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
 async function render(path: string, router?: Router) {
@@ -238,47 +238,6 @@ describe('AppLayout', () => {
     expect(page.find('[data-slot="sidebar"]').text()).toContain('Att bedöma')
   })
 
-  it('mentorn ser klassens kurser och inte Att bedöma, trots rollen Teacher i skolan', async () => {
-    meBackend(mentorAs(['c1']))
-
-    const page = await render('/')
-
-    const sidebar = page.find('[data-slot="sidebar"]')
-    expect(sidebar.text()).toContain('Klassens kurser')
-    expect(sidebar.text()).toContain('DevOps')
-    expect(sidebar.text()).not.toContain('Att bedöma')
-  })
-
-  it('märker en kurs som läraren bara läser som mentor', async () => {
-    mockApi((_method, path) => {
-      if (path === '/api/me') {
-        return {status: 200, body: {
-          ...meAs('Teacher', ['c1', 'c9']),
-          courses: [{courseId: 'c1', role: 'Teacher'}, {courseId: 'c9', role: 'Mentor'}],
-        }}
-      }
-      if (path === '/api/courses') {
-        return {status: 200, body: [devOps, {...devOps, id: 'c9', code: 'NET26-JAVA', title: 'Java'}]}
-      }
-      return {status: 404}
-    })
-
-    const page = await render('/')
-
-    const marks = page.findAll('[data-test="mentor-course"]')
-    expect(marks).toHaveLength(1)
-    expect(marks[0].text()).toBe('Läser som mentor')
-    expect(marks[0].element.parentElement?.textContent).toContain('Java')
-  })
-
-  it('märker inte kurserna när användaren bara är mentor', async () => {
-    meBackend(mentorAs(['c1']))
-
-    const page = await render('/')
-
-    expect(page.find('[data-test="mentor-course"]').exists()).toBe(false)
-  })
-
   it('läraren ser Mina kurser och Att bedöma', async () => {
     const page = await render('/')
 
@@ -296,17 +255,6 @@ describe('AppLayout', () => {
     const {router} = await renderApp(path)
 
     expect(router.currentRoute.value.name).toBe('today')
-  })
-
-  it('mentorn får läsa inlämningarna men inte öppna Att bedöma', async () => {
-    meBackend(mentorAs(['c1']))
-
-    const grading = await renderApp('/grading')
-    expect(grading.router.currentRoute.value.name).toBe('today')
-
-    const submissions = await renderApp('/courses/c1/assignments/l1')
-    expect(submissions.router.currentRoute.value.name).toBe('part')
-    expect(submissions.router.currentRoute.value.query.tab).toBe('inlamningar')
   })
 
   it('användarmenyn har Logga ut', async () => {

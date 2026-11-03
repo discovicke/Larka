@@ -113,7 +113,7 @@ public class CourseEndpointTests(TestWebApplicationFactory factory) : IClassFixt
     }
 
     [Fact]
-    public async Task ListCourses_ShowsStudentsAndMentorsTheCoursesTheirGroupsRead_AndAClassTeacherNone()
+    public async Task ListCourses_ShowsStudentsTheCoursesTheirGroupsRead_AndAClassTeacherNone()
     {
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
@@ -124,18 +124,15 @@ public class CourseEndpointTests(TestWebApplicationFactory factory) : IClassFixt
         var unlinked = await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId);
         var student = await TestData.AddMemberAsync(db, ownGroup);
         var teacher = await TestData.AddMemberAsync(db, ownGroup, GroupRole.Teacher, UserRole.Teacher);
-        var mentor = await TestData.AddMemberAsync(db, ownGroup, GroupRole.Mentor, UserRole.Teacher);
         var outsider = await TestData.AddUserAsync(db, PlaceholderIds.SchoolId);
 
         var admin = await _client.GetFromJsonAsync<List<CourseResponse>>("/api/courses");
         var asStudent = await ListCoursesAsync(student.Id);
         var asClassTeacher = await ListCoursesAsync(teacher.Id);
-        var asMentor = await ListCoursesAsync(mentor.Id);
         var asOutsider = await ListCoursesAsync(outsider.Id);
 
         Assert.All([own, other, unlinked], course => Assert.Contains(admin!, item => item.Id == course.Id));
         Assert.Equal([own.Id], asStudent.Select(item => item.Id));
-        Assert.Equal([own.Id], asMentor.Select(item => item.Id));
         Assert.Empty(asClassTeacher);
         Assert.Empty(asOutsider);
     }

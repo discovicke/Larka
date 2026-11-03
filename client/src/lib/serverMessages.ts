@@ -41,7 +41,7 @@ const exact: Record<string, string> = {
 
   // Roller
   'user must be a teacher or an admin': 'Användaren måste vara lärare eller admin.',
-  'only a teacher can be a mentor or a teacher in a group': 'Bara en lärare kan vara mentor eller lärare i en klass.',
+  'only a teacher can be a teacher in a group': 'Bara en lärare kan vara lärare i en klass.',
   'you cannot deactivate yourself': 'Du kan inte spärra dig själv.',
   'you cannot change your own role': 'Du kan inte ändra din egen roll.',
   'a committee cannot read courses, unlink them first': 'En kommitté kan inte läsa kurser. Koppla bort kurserna först.',

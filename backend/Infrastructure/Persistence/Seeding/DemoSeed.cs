@@ -8,7 +8,7 @@ using static Backend.Infrastructure.Persistence.Seeding.DemoPeople;
 namespace Backend.Infrastructure.Persistence.Seeding;
 
 /// <summary>
-/// Realistisk demodata för Edugrade: tre klasser och ett klassråd med lärare, mentor och ett tjugotal elever
+/// Realistisk demodata för Edugrade: tre klasser och ett klassråd med lärare och ett tjugotal elever
 /// vardera, avslutade, pågående och kommande kurser, veckor med material och uppgifter, inlämningar i alla
 /// lägen, betyg, nyheter och kommentarer. Körs vid start efter AccountSeed, bara när Database:SeedDemoData är
 /// true (Edugrades prod, satt i Infisical). Se DemoCatalog för innehållet och DemoPeople för namnen.
@@ -93,7 +93,6 @@ public sealed class DemoSeed(AppDb db, IPasswordHasher<User> passwordHasher, ILo
     private async Task<Dictionary<string, User>> LoadExistingUsersAsync(CancellationToken ct)
     {
         var emails = Teachers
-            .Concat(Mentors)
             .Concat(Enumerable.Range(0, 80).Select(Student))
             .Select(person => person.Email)
             .ToList();
@@ -219,12 +218,6 @@ internal sealed class DemoBuilder(
         {
             db.Enrollments
                 .Add(new Enrollment { UserId = UserOf(key).Id, GroupId = group.Id, Role = GroupRole.Teacher });
-        }
-
-        if (spec.Mentor is not null)
-        {
-            db.Enrollments.Add(
-                new Enrollment { UserId = UserOf(spec.Mentor).Id, GroupId = group.Id, Role = GroupRole.Mentor });
         }
 
         var students = Enumerable.Range(spec.FirstStudent, spec.StudentCount)
@@ -772,7 +765,7 @@ internal sealed class DemoBuilder(
             ? students[int.Parse(reference[1..])]
             : UserOf(reference);
 
-    /// <summary>Användaren för en nyckel (lärare, mentor, elevN, larare eller elev). Skapas första gången den behövs.</summary>
+    /// <summary>Användaren för en nyckel (lärare, elevN, larare eller elev). Skapas första gången den behövs.</summary>
     private User UserOf(string key)
     {
         if (_users.TryGetValue(key, out var known))
@@ -780,9 +773,9 @@ internal sealed class DemoBuilder(
             return known;
         }
 
-        var person = Teachers.Concat(Mentors).FirstOrDefault(candidate => candidate.Key == key)
+        var person = Teachers.FirstOrDefault(candidate => candidate.Key == key)
             ?? Student(int.Parse(key["elev".Length..]));
-        var role = Teachers.Any(teacher => teacher.Key == key) || Mentors.Any(mentor => mentor.Key == key)
+        var role = Teachers.Any(teacher => teacher.Key == key)
             ? UserRole.Teacher
             : UserRole.Student;
 

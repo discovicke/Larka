@@ -94,7 +94,7 @@ public class MeEndpointTests(TestWebApplicationFactory factory) : IClassFixture<
         var teacher = await TestData.AddUserAsync(db, school.Id, UserRole.Teacher);
         db.CourseTeachers.Add(new CourseTeacher { CourseId = course.Id, UserId = teacher.Id });
         db.Enrollments.AddRange(
-            new Enrollment { UserId = teacher.Id, GroupId = group.Id, Role = GroupRole.Mentor },
+            new Enrollment { UserId = teacher.Id, GroupId = group.Id, Role = GroupRole.Student },
             // Samma kurs via en annan grupp, där läraren bara är elev: Teacher, från kursen, vinner.
             new Enrollment { UserId = teacher.Id, GroupId = otherGroup.Id, Role = GroupRole.Student });
         db.GroupCourses.Add(new GroupCourse { GroupId = otherGroup.Id, CourseId = course.Id });

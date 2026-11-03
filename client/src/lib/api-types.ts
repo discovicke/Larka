@@ -6306,13 +6306,6 @@ export interface components {
             /** Format: uuid */
             groupId: null | string;
         };
-        /** @description En klass. */
-        AdminGroupRefDto: {
-            /** Format: uuid */
-            groupId: string;
-            name: string;
-            term: string;
-        };
         /**
          * @description Adminens Idag-sida: skolans kurser per läge och det som saknar något. Varje rad pekar på klassen eller kursen
          *     där admin ordnar det.
@@ -6320,7 +6313,6 @@ export interface components {
         AdminOverviewDto: {
             courses: components["schemas"]["AdminCourseCountsDto"];
             coursesWithoutTeacher: components["schemas"]["AdminCourseWithoutTeacherDto"][];
-            classesWithoutMentor: components["schemas"]["AdminGroupRefDto"][];
             usersWithoutPassword: components["schemas"]["AdminUserWithoutPasswordDto"][];
             studentsWithoutClass: components["schemas"]["AdminUserRefDto"][];
         };
@@ -6529,7 +6521,7 @@ export interface components {
             /** Format: date */
             endsOn: null | string;
         };
-        /** @description Användarens starkaste roll i kursen: Teacher, Mentor eller Student. */
+        /** @description Användarens starkaste roll i kursen: Teacher eller Student. */
         CourseRoleDto: {
             /** Format: uuid */
             courseId: string;
@@ -6795,7 +6787,7 @@ export interface components {
             name: string;
         };
         /** @enum {unknown} */
-        GroupRole: "Student" | "Teacher" | "Mentor";
+        GroupRole: "Student" | "Teacher";
         /** @enum {unknown} */
         GroupType: "Class" | "Committee" | "Other";
         /** Format: binary */
@@ -7166,7 +7158,7 @@ export interface components {
             /** Format: int32 */
             distinctionCount: number;
         };
-        /** @description En elev i klassen sett av mentorn: läget i varje kurs klassen läser. Bara läsning. */
+        /** @description En elev i klassen sett av admin: läget i varje kurs klassen läser. Bara läsning. */
         StudentOverviewDto: {
             /** Format: uuid */
             studentId: string;
@@ -7570,7 +7562,7 @@ export const contentTypeValues: ReadonlyArray<FlattenedDeepRequired<components>[
 export const gradeLevelValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GradeLevel"]> = ["Fail", "Pass", "Distinction"];
 export const gradeOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GradeOutcome"]> = ["Graded", "NeedsWork", "NotSubmitted"];
 export const gradeScaleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GradeScale"]> = ["None", "PassFail", "PassFailDistinction"];
-export const groupRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GroupRole"]> = ["Student", "Teacher", "Mentor"];
+export const groupRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GroupRole"]> = ["Student", "Teacher"];
 export const groupTypeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GroupType"]> = ["Class", "Committee", "Other"];
 export const importStudentOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["ImportStudentOutcome"]> = ["Created", "Added", "AlreadyMember", "NotStudent", "Duplicate", "Invalid"];
 export const notificationKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationKind"]> = ["NewsPublished", "AssignmentPublished", "DeadlineSoon", "SubmissionNeedsWork", "SubmissionGraded", "StudentHelpRequested", "SubmissionNotSubmitted"];

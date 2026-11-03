@@ -10,7 +10,6 @@ const overview = {
     {courseId: 'c1', code: 'MOLN26', title: 'Molnsäkerhet', groupId: 'g1'},
     {courseId: 'c2', code: 'FRI', title: 'Fristående', groupId: null},
   ],
-  classesWithoutMentor: [{groupId: 'g2', name: 'FIB26', term: 'VT26'}],
   usersWithoutPassword: [
     {userId: 'u1', name: 'Anna Elev', groupId: 'g1', groupName: 'NET26'},
     {userId: 'u2', name: 'Bo Elev', groupId: 'g1', groupName: 'NET26'},
@@ -22,7 +21,6 @@ const overview = {
 const nothingToDo = {
   courses: {upcoming: 0, running: 1, finished: 0, undated: 0},
   coursesWithoutTeacher: [],
-  classesWithoutMentor: [],
   usersWithoutPassword: [],
   studentsWithoutClass: [],
 }
@@ -64,7 +62,7 @@ describe('AdminToday', () => {
 
     const dashboard = wrapper.find('[data-test="admin-dashboard"]')
     expect(dashboard.find('h1').text()).toBe('God morgon, Ada')
-    expect(dashboard.text()).toContain('Onsdag 21 oktober · vecka 43 · 5 saker att ordna')
+    expect(dashboard.text()).toContain('Onsdag 21 oktober · vecka 43 · 4 saker att ordna')
     expect(wrapper.find('[data-test="teacher-dashboard"]').exists()).toBe(false)
   })
 
@@ -118,16 +116,6 @@ describe('AdminToday', () => {
     expect(items[1].find('a').attributes('href')).toBe('/courses/c2/content')
   })
 
-  it('klasser utan mentor länkar till klassen', async () => {
-    backend()
-
-    const {wrapper} = await renderApp('/')
-
-    const item = wrapper.find('[data-test="no-mentor-item"]')
-    expect(item.text()).toContain('FIB26')
-    expect(item.find('a').attributes('href')).toBe('/groups/g2')
-  })
-
   it('användare utan lösenord samlas per klass', async () => {
     backend()
 
@@ -148,7 +136,6 @@ describe('AdminToday', () => {
     const {wrapper} = await renderApp('/')
 
     expect(wrapper.find('[data-test="no-teacher"]').exists()).toBe(false)
-    expect(wrapper.find('[data-test="no-mentor"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="no-password"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="admin-all-good"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="admin-dashboard"]').text()).toContain('Inget behöver ordnas')

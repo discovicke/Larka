@@ -23,7 +23,7 @@ public class ModuleService(
 {
     /// <summary>
     /// Kursens veckor med innehåll. Läraren ser allt, med utkast, schemalagt och antal inlämningar. Admin i skolan
-    /// läser också allt, men utan inlämningar. Mentor och elev ser bara det som är publicerat och öppet,
+    /// läser också allt, men utan inlämningar. Eleven ser bara det som är publicerat och öppet,
     /// och aldrig en vecka där alla delar är dolda. En ny, tom vecka är ett utkast tills den har en publicerad del.
     /// Övriga får 403.
     /// </summary>

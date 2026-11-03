@@ -6225,32 +6225,10 @@
         },
         "description": "En kurs utan lärare. GroupId är en klass som läser kursen, där admin lägger till läraren."
       },
-      "AdminGroupRefDto": {
-        "required": [
-          "groupId",
-          "name",
-          "term"
-        ],
-        "type": "object",
-        "properties": {
-          "groupId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "name": {
-            "type": "string"
-          },
-          "term": {
-            "type": "string"
-          }
-        },
-        "description": "En klass."
-      },
       "AdminOverviewDto": {
         "required": [
           "courses",
           "coursesWithoutTeacher",
-          "classesWithoutMentor",
           "usersWithoutPassword",
           "studentsWithoutClass"
         ],
@@ -6263,12 +6241,6 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/AdminCourseWithoutTeacherDto"
-            }
-          },
-          "classesWithoutMentor": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AdminGroupRefDto"
             }
           },
           "usersWithoutPassword": {
@@ -7010,7 +6982,7 @@
             "$ref": "#/components/schemas/GroupRole"
           }
         },
-        "description": "Användarens starkaste roll i kursen: Teacher, Mentor eller Student."
+        "description": "Användarens starkaste roll i kursen: Teacher eller Student."
       },
       "CourseRunResultDto": {
         "required": [
@@ -7966,8 +7938,7 @@
       "GroupRole": {
         "enum": [
           "Student",
-          "Teacher",
-          "Mentor"
+          "Teacher"
         ]
       },
       "GroupType": {
@@ -9324,7 +9295,7 @@
             }
           }
         },
-        "description": "En elev i klassen sett av mentorn: läget i varje kurs klassen läser. Bara läsning."
+        "description": "En elev i klassen sett av admin: läget i varje kurs klassen läser. Bara läsning."
       },
       "StudentRepoDto": {
         "required": [

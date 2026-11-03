@@ -12,7 +12,7 @@ Under titeln står en metarad som vanlig text: typ, vecka, deadline, betygsskala
 
 ## Delens sida för lärare
 
-Läraren, mentorn och admin öppnar en del läsbar på `courses/:courseId/parts/:linkId`. Klicket på en del öppnar alltså inte redigeraren. Redigera ligger uppe till höger, och efter sparandet kommer läraren tillbaka hit. Panelen Läge visar publicering, inlämnade och hur många som väntar på bedömning. Uppgifter med inlämning har flikarna Innehåll och Inlämningar, där den andra öppnas med `?tab=inlamningar`. Teori har inga flikar. Eleven har sin egen vy av delen på kurssidan.
+Läraren och admin öppnar en del läsbar på `courses/:courseId/parts/:linkId`. Klicket på en del öppnar alltså inte redigeraren. Redigera ligger uppe till höger, och efter sparandet kommer läraren tillbaka hit. Panelen Läge visar publicering, inlämnade och hur många som väntar på bedömning. Uppgifter med inlämning har flikarna Innehåll och Inlämningar, där den andra öppnas med `?tab=inlamningar`. Teori har inga flikar. Eleven har sin egen vy av delen på kurssidan.
 
 ## Tabeller på mobil
 

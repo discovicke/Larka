@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, ref, watch} from 'vue'
+import {ref, watch} from 'vue'
 
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Button} from '@/components/ui/button'
@@ -21,7 +21,6 @@ const props = defineProps<{
   groupId: string
   groupName: string
   member: Schema<'GroupMemberDto'> | null
-  members: Schema<'GroupMemberDto'>[]
 }>()
 const emit = defineEmits<{changed: []}>()
 
@@ -30,11 +29,6 @@ const open = defineModel<boolean>('open', {required: true})
 const role = ref<Schema<'GroupRole'>>('Student')
 const saving = ref(false)
 const error = ref('')
-
-// En klass har en mentor, så den som redan är mentor lämnar klassen när en ny utses.
-const leavingMentors = computed(() => role.value === 'Mentor'
-  ? props.members.filter((found) => found.role === 'Mentor' && found.userId !== props.member?.userId)
-  : [])
 
 watch(open, (isOpen) => {
   if (isOpen && props.member) {
@@ -52,7 +46,6 @@ async function save() {
   saving.value = true
   error.value = ''
   try {
-    // API:et låter den förra mentorn lämna klassen i samma steg.
     await changeMemberRole(props.groupId, member.userId, role.value)
     emit('changed')
     open.value = false
@@ -87,10 +80,6 @@ async function save() {
             </NativeSelectOption>
           </NativeSelect>
         </div>
-
-        <p v-if="leavingMentors.length > 0" class="text-muted-foreground text-sm" data-test="mentor-leaves">
-          {{ leavingMentors.map((mentor) => mentor.name).join(', ') }} lämnar klassen när du byter.
-        </p>
 
         <Alert v-if="error" variant="destructive">
           <AlertDescription>{{ error }}</AlertDescription>

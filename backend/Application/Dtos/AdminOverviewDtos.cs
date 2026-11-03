@@ -7,7 +7,6 @@ namespace Backend.Application.Dtos;
 public record AdminOverviewDto(
     AdminCourseCountsDto Courses,
     List<AdminCourseWithoutTeacherDto> CoursesWithoutTeacher,
-    List<AdminGroupRefDto> ClassesWithoutMentor,
     List<AdminUserWithoutPasswordDto> UsersWithoutPassword,
     List<AdminUserRefDto> StudentsWithoutClass);
 
@@ -18,9 +17,6 @@ public record AdminCourseCountsDto(int Upcoming, int Running, int Finished, int 
 
 /// <summary>En kurs utan lärare. GroupId är en klass som läser kursen, där admin lägger till läraren.</summary>
 public record AdminCourseWithoutTeacherDto(Guid CourseId, string Code, string Title, Guid? GroupId);
-
-/// <summary>En klass.</summary>
-public record AdminGroupRefDto(Guid GroupId, string Name, string Term);
 
 /// <summary>
 /// En användare som inte kan logga in: inget lösenord, och skolan har inte Microsoft-inloggning. GroupId är en klass

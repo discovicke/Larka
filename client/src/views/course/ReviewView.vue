@@ -38,9 +38,7 @@ const router = useRouter()
 const courseId = computed(() => String(route.params.courseId))
 const linkId = computed(() => String(route.params.linkId))
 const submissionId = computed(() => String(route.params.submissionId))
-// Mentorn läser inlämningen och betyget men bedömer inte.
 const {can} = useCurrentUser()
-const canGrade = computed(() => can('grade', courseId.value))
 const {setFlash, takeFlash} = useFlash()
 const {courses, status: coursesStatus} = useCourses()
 
@@ -83,7 +81,7 @@ const gradedAt = computed(() => submission.value?.grade
 const taskChecklist = computed(() => parseChecklist(task.value?.bodyMd ?? ''))
 const hasTask = computed(() => Boolean(taskChecklist.value.body) || taskChecklist.value.items.length > 0)
 // Bara en inlämnad inlämning ingår i kön. Komplettera och Bedömd sparar tillbaka till listan.
-const inQueue = computed(() => canGrade.value && submission.value?.status === 'Submitted')
+const inQueue = computed(() => submission.value?.status === 'Submitted')
 const next = computed(() => submission.value && inQueue.value
   ? nextInQueue(queue.value, submission.value)
   : null)
@@ -100,8 +98,7 @@ const saveLabel = computed(() => {
     ? 'Spara och nästa'
     : 'Spara och tillbaka'
 })
-const dirty = computed(() => canGrade.value
-  && (feedback.value !== savedFeedback.value || level.value !== savedLevel.value))
+const dirty = computed(() => feedback.value !== savedFeedback.value || level.value !== savedLevel.value)
 
 function checkRunLabel(run: Schema<'GitHubCheckRunDto'>): string {
   if (run.status !== 'completed') {
@@ -119,10 +116,9 @@ function checkRunClass(run: Schema<'GitHubCheckRunDto'>): string {
 }
 
 // Ej inlämnat går bara att sätta när inget lämnats in som väntar på bedömning.
-const canMarkNotSubmitted = computed(() => canGrade.value
-  && (submission.value?.status === 'NotStarted'
-    || submission.value?.status === 'NeedsWork'
-    || submission.value?.status === 'NotSubmitted'))
+const canMarkNotSubmitted = computed(() => submission.value?.status === 'NotStarted'
+  || submission.value?.status === 'NeedsWork'
+  || submission.value?.status === 'NotSubmitted')
 
 // Utan inlämning finns inget att betygsätta eller komplettera, bara Ej inlämnat. Bedömning på plats är undantaget:
 // där sätter läraren betyget i klassrummet utan att eleven lämnat in något.
@@ -141,9 +137,7 @@ const {run: load, loading, error: loadError} = useAsync(async () => {
   const [submissionResult, modules, queueResult] = await Promise.all([
     api.GET('/api/submissions/{id}', {params: {path: {id: submissionId.value}}}),
     fetchCourseModules(courseId.value),
-    canGrade.value
-      ? fetchLinkSubmissions(linkId.value)
-      : Promise.resolve([]),
+    fetchLinkSubmissions(linkId.value),
   ])
   queue.value = queueResult
   const found = submissionResult.data ?? null
@@ -443,13 +437,13 @@ watch([courseId, linkId, submissionId], () => {
         >
           <section class="flex flex-col gap-2">
             <h2 class="text-sm font-semibold">Betyg</h2>
-            <p v-if="canGrade && nothingToGrade" class="text-muted-foreground text-sm" data-test="review-nothing-to-grade">
+            <p v-if="nothingToGrade" class="text-muted-foreground text-sm" data-test="review-nothing-to-grade">
               {{ submission.status === 'NotSubmitted'
                 ? 'Markerad som ej inlämnat. Lämnar eleven in något kan du bedöma det då.'
                 : 'Eleven har inte lämnat in något att bedöma. Har inget kommit in kan du markera uppgiften som ej inlämnad.' }}
             </p>
             <div
-              v-else-if="hasGrades && canGrade"
+              v-else-if="hasGrades"
               role="radiogroup"
               class="grid gap-2"
               :class="levels.length === 3
@@ -477,19 +471,14 @@ watch([courseId, linkId, submissionId], () => {
                 >{{ gradeName(option) }}</span>
               </button>
             </div>
-            <p v-else-if="hasGrades" class="text-sm" data-test="read-only-grade">
-              {{ level
-                ? gradeName(level)
-                : 'Inte bedömd än.' }}
-            </p>
             <p v-else class="text-muted-foreground text-sm">Uppgiften har inget betyg, bara återkoppling.</p>
-            <p v-if="canGrade && !nothingToGrade && failHidden" class="text-muted-foreground text-[13px]" data-test="review-fail-later">
+            <p v-if="!nothingToGrade && failHidden" class="text-muted-foreground text-[13px]" data-test="review-fail-later">
               IG kan sättas när sista deadline har passerat. Så länge en deadline återstår kan du begära komplettering
               eller markera som ej inlämnat.
             </p>
           </section>
 
-          <div v-if="canGrade" class="flex flex-col gap-2">
+          <div class="flex flex-col gap-2">
             <label for="feedback" class="font-heading text-sm font-semibold">Sammanfattande kommentar</label>
             <Textarea
               id="feedback"
@@ -499,11 +488,6 @@ watch([courseId, linkId, submissionId], () => {
               placeholder="Skriv en kommentar till eleven…"
             />
           </div>
-
-          <section v-else-if="feedback" class="flex flex-col gap-2">
-            <h2 class="text-sm font-semibold">Kommentar</h2>
-            <p class="text-sm whitespace-pre-line">{{ feedback }}</p>
-          </section>
 
           <Alert v-if="notice" data-test="review-notice">
             <AlertDescription>{{ notice }}</AlertDescription>
@@ -517,61 +501,59 @@ watch([courseId, linkId, submissionId], () => {
 
           <div class="mt-auto flex flex-col gap-2">
             <p v-if="gradedAt" class="text-muted-foreground text-xs">Bedömd {{ gradedAt }}</p>
-            <template v-if="canGrade">
-              <p class="text-muted-foreground flex items-center gap-1.5 text-xs">
-                <PhInfo class="size-3.5"/>
-                Eleven ser betyget och kommentaren direkt.
-              </p>
-              <p v-if="inQueue" class="text-sm font-medium" data-test="review-remaining">
-                {{ remaining }} kvar att bedöma
-              </p>
-              <p v-if="needsComment" class="text-muted-foreground text-[13px]" data-test="review-fail-hint">
-                Skriv en kommentar som förklarar varför eleven får IG.
-              </p>
-              <Button
-                v-if="!nothingToGrade"
-                class="w-full"
-                :disabled="saving || needsComment"
-                data-test="review-save"
-                @click="publish"
-              >
-                {{ saveLabel }}
-              </Button>
-              <Button
-                v-if="!nothingToGrade && needsWorkAllowed"
-                variant="outline"
-                class="w-full"
-                :disabled="saving"
-                data-test="review-request-work"
-                @click="requestWork"
-              >
-                Begär komplettering
-              </Button>
-              <Button
-                v-if="canMarkNotSubmitted"
-                :variant="nothingToGrade
-                  ? 'default'
-                  : 'outline'"
-                class="w-full"
-                :disabled="saving"
-                data-test="review-not-submitted"
-                @click="markNotSubmitted"
-              >
-                {{ submission.status === 'NotSubmitted'
-                  ? 'Spara kommentaren'
-                  : 'Markera som ej inlämnat' }}
-              </Button>
-              <Button
-                v-if="next"
-                variant="ghost"
-                class="w-full"
-                :disabled="saving"
-                data-test="review-skip"
-                @click="skip"
-              >
-                Hoppa över till nästa
-              </Button>
-            </template>
+            <p class="text-muted-foreground flex items-center gap-1.5 text-xs">
+              <PhInfo class="size-3.5"/>
+              Eleven ser betyget och kommentaren direkt.
+            </p>
+            <p v-if="inQueue" class="text-sm font-medium" data-test="review-remaining">
+              {{ remaining }} kvar att bedöma
+            </p>
+            <p v-if="needsComment" class="text-muted-foreground text-[13px]" data-test="review-fail-hint">
+              Skriv en kommentar som förklarar varför eleven får IG.
+            </p>
+            <Button
+              v-if="!nothingToGrade"
+              class="w-full"
+              :disabled="saving || needsComment"
+              data-test="review-save"
+              @click="publish"
+            >
+              {{ saveLabel }}
+            </Button>
+            <Button
+              v-if="!nothingToGrade && needsWorkAllowed"
+              variant="outline"
+              class="w-full"
+              :disabled="saving"
+              data-test="review-request-work"
+              @click="requestWork"
+            >
+              Begär komplettering
+            </Button>
+            <Button
+              v-if="canMarkNotSubmitted"
+              :variant="nothingToGrade
+                ? 'default'
+                : 'outline'"
+              class="w-full"
+              :disabled="saving"
+              data-test="review-not-submitted"
+              @click="markNotSubmitted"
+            >
+              {{ submission.status === 'NotSubmitted'
+                ? 'Spara kommentaren'
+                : 'Markera som ej inlämnat' }}
+            </Button>
+            <Button
+              v-if="next"
+              variant="ghost"
+              class="w-full"
+              :disabled="saving"
+              data-test="review-skip"
+              @click="skip"
+            >
+              Hoppa över till nästa
+            </Button>
           </div>
         </div>
       </aside>

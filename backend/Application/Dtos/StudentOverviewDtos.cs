@@ -1,7 +1,7 @@
 namespace Backend.Application.Dtos;
 
 /// <summary>
-/// En elev i klassen sett av mentorn: läget i varje kurs klassen läser. Bara läsning.
+/// En elev i klassen sett av admin: läget i varje kurs klassen läser. Bara läsning.
 /// </summary>
 public record StudentOverviewDto(Guid StudentId, string Name, Guid GroupId, List<StudentOverviewCourseDto> Courses);
 

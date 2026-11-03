@@ -37,10 +37,8 @@ const props = defineProps<{
   module: Schema<'ModuleWithContentDto'>
   canMoveUp: boolean
   canMoveDown: boolean
-  // Eleven, mentorn och admin ser delarna men inga kontroller som ändrar dem.
+  // Eleven och admin ser delarna men inga kontroller som ändrar dem.
   canEdit: boolean
-  // Mentorn läser inlämningarna utan att kunna redigera.
-  canReadSubmissions?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -231,7 +229,7 @@ function badgeOf(item: Schema<'ModuleContentItem'>): {status: StatusKey, label?:
             >
               {{ item.submittedCount }}/{{ item.studentCount }} inlämnade
             </RouterLink>
-          </template><template v-else-if="canReadSubmissions && item.completionRule != null">
+          </template><template v-else-if="canEdit && item.completionRule != null">
             {{ ' · ' }}<RouterLink
               :to="{name: 'assignment-submissions', params: {courseId: module.courseId, linkId: item.linkId}}"
               class="no-underline! hover:underline!"

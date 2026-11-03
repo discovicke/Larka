@@ -2,15 +2,10 @@ import {flushPromises} from '@vue/test-utils'
 import {describe, expect, it} from 'vitest'
 
 import {mockApi, requests, sent} from '@/test/mockApi'
-import {mentorAs, meAs} from '@/test/me'
+import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
-// Eleverna får elevvyn på samma sida. Den skrivskyddade listan visas för mentorer, som kan läsa kursen men inte ändra den.
-function mentorOf(courseId: string) {
-  const me = meAs('Student', [courseId])
-  return {...me, courses: me.courses.map((course) => ({...course, role: 'Mentor'}))}
-}
-
+// Eleverna får elevvyn på samma sida. Den skrivskyddade listan visas för admin, som kan läsa kursen men inte ändra den.
 const course = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps'}
 
 function week(id: string, title: string, content: unknown[] = [], publishAt: string | null = null) {
@@ -325,10 +320,10 @@ describe('CourseContentView', () => {
     expect(items[1]!.text()).not.toContain('inlämnade')
   })
 
-  it('en mentor ser inga antal inlämnade', async () => {
+  it('admin ser inga antal inlämnade', async () => {
     mockApi((_method, path) => {
       if (path === '/api/me') {
-        return {status: 200, body: mentorOf('c1')}
+        return {status: 200, body: meAs('Admin', [])}
       }
       if (path === '/api/courses') {
         return {status: 200, body: [course]}
@@ -343,30 +338,6 @@ describe('CourseContentView', () => {
 
     expect(wrapper.text()).toContain('Release-pipeline')
     expect(wrapper.text()).not.toContain('inlämnade')
-  })
-
-  it('en mentor får en länk till inlämningarna, men bara för uppgifter med inlämning', async () => {
-    mockApi((_method, path) => {
-      if (path === '/api/me') {
-        return {status: 200, body: mentorAs(['c1'])}
-      }
-      if (path === '/api/courses') {
-        return {status: 200, body: [course]}
-      }
-      if (path === '/api/courses/c1/modules') {
-        const handIn = {...submission, completionRule: 'Submitted'}
-        return {status: 200, body: [week('m1', 'Vecka 1', [handIn, draft])]}
-      }
-      return {status: 200, body: []}
-    })
-
-    const {wrapper} = await renderApp('/courses/c1/content')
-
-    const items = wrapper.findAll('[data-test="module-item"]')
-    expect(items[0]!.find('[data-test="submissions-link"]').attributes('href')).toBe('/courses/c1/assignments/l1')
-    expect(items[1]!.find('[data-test="submissions-link"]').exists()).toBe(false)
-    expect(wrapper.find('[data-test="add-module"]').exists()).toBe(false)
-    expect(wrapper.find('[aria-label="Fler val för Release-pipeline"]').exists()).toBe(false)
   })
 
   it('admin läser kursen, med utkast, men utan redigera, publicera eller bedöma', async () => {
@@ -409,10 +380,10 @@ describe('CourseContentView', () => {
     expect(wrapper.find('[aria-label="Fler val för Release-pipeline"]').exists()).toBe(true)
   })
 
-  it('en mentor ser delarna utan redigeringskontroller', async () => {
+  it('admin ser delarna utan redigeringskontroller', async () => {
     mockApi((_method, path) => {
       if (path === '/api/me') {
-        return {status: 200, body: mentorOf('c1')}
+        return {status: 200, body: meAs('Admin', [])}
       }
       if (path === '/api/courses') {
         return {status: 200, body: [course]}
@@ -434,10 +405,10 @@ describe('CourseContentView', () => {
     expect(wrapper.find('a[href="/courses/c1/modules/m1/content/l1/edit"]').exists()).toBe(false)
   })
 
-  it('en mentor ser varken Flytta till vecka eller veckomenyns namn och radering', async () => {
+  it('admin ser varken Flytta till vecka eller veckomenyns namn och radering', async () => {
     mockApi((_method, path) => {
       if (path === '/api/me') {
-        return {status: 200, body: mentorOf('c1')}
+        return {status: 200, body: meAs('Admin', [])}
       }
       if (path === '/api/courses') {
         return {status: 200, body: [course]}

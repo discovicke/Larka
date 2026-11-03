@@ -183,14 +183,12 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
         var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
         var teacher = await TestData.AddMemberAsync(db, group, GroupRole.Teacher, UserRole.Teacher);
-        var mentor = await TestData.AddMemberAsync(db, group, GroupRole.Mentor, UserRole.Teacher);
         var student = await TestData.AddMemberAsync(db, group);
 
         var members = await _client.GetFromJsonAsync<List<GroupMemberResponse>>($"/api/groups/{group.Id}/members");
 
-        Assert.Equal(3, members!.Count);
+        Assert.Equal(2, members!.Count);
         Assert.Equal("Teacher", members.Single(member => member.UserId == teacher.Id).Role);
-        Assert.Equal("Mentor", members.Single(member => member.UserId == mentor.Id).Role);
         var studentRow = members.Single(member => member.UserId == student.Id);
         Assert.Equal("Student", studentRow.Role);
         Assert.Equal(student.Name, studentRow.Name);
@@ -241,7 +239,7 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
     {
         var scenario = await AddRosterScenarioAsync();
 
-        foreach (var caller in new[] { scenario.Student, scenario.Teacher, scenario.Mentor })
+        foreach (var caller in new[] { scenario.Student, scenario.Teacher })
         {
             var response = await GetAsync($"/api/groups/{scenario.GroupId}/members", caller);
 
@@ -250,7 +248,7 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
             Assert.DoesNotContain("@example.com", body);
             Assert.DoesNotContain("email", body, StringComparison.OrdinalIgnoreCase);
             var members = await response.Content.ReadFromJsonAsync<List<GroupMemberResponse>>();
-            Assert.Equal(4, members!.Count);
+            Assert.Equal(3, members!.Count);
         }
     }
 
@@ -262,7 +260,7 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
         var members = await _client.GetFromJsonAsync<List<GroupMemberResponse>>(
             $"/api/groups/{scenario.GroupId}/members");
 
-        Assert.Equal(4, members!.Count);
+        Assert.Equal(3, members!.Count);
     }
 
     [Fact]
@@ -536,11 +534,11 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
         var student = await TestData.AddMemberAsync(db, group, GroupRole.Student, UserRole.Teacher);
 
         var response = await _client.PutAsJsonAsync(
-            $"/api/groups/{group.Id}/members/{student.Id}", new { role = "mentor" });
+            $"/api/groups/{group.Id}/members/{student.Id}", new { role = "teacher" });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var members = await _client.GetFromJsonAsync<List<GroupMemberResponse>>($"/api/groups/{group.Id}/members");
-        Assert.Equal("Mentor", members!.Single().Role);
+        Assert.Equal("Teacher", members!.Single().Role);
     }
 
     [Fact]
@@ -778,12 +776,11 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
         Guid GroupId,
         Guid Student,
         Guid Teacher,
-        Guid Mentor,
         Guid OutsideStudent,
         Guid OutsideTeacher,
         string StudentName);
 
-    // En grupp med två elever, en lärare och en mentor, och en elev och en lärare i en annan grupp i samma skola.
+    // En grupp med två elever och en lärare, och en elev och en lärare i en annan grupp i samma skola.
     private async Task<RosterScenario> AddRosterScenarioAsync()
     {
         using var scope = factory.Services.CreateScope();
@@ -793,13 +790,12 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
         var student = await TestData.AddMemberAsync(db, group);
         await TestData.AddMemberAsync(db, group);
         var teacher = await TestData.AddMemberAsync(db, group, GroupRole.Teacher, UserRole.Teacher);
-        var mentor = await TestData.AddMemberAsync(db, group, GroupRole.Mentor, UserRole.Teacher);
         var outsideStudent = await TestData.AddMemberAsync(db, otherGroup);
         var outsideTeacher = await TestData.AddMemberAsync(db, otherGroup, GroupRole.Teacher, UserRole.Teacher);
         student.Name = "Synlig Klasskamrat";
         await db.SaveChangesAsync();
         return new RosterScenario(
-            group.Id, student.Id, teacher.Id, mentor.Id, outsideStudent.Id, outsideTeacher.Id, student.Name);
+            group.Id, student.Id, teacher.Id, outsideStudent.Id, outsideTeacher.Id, student.Name);
     }
 
     private async Task<Guid> AddSchoolAsync()
