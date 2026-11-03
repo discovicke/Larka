@@ -1,5 +1,5 @@
 import {flushPromises, mount} from '@vue/test-utils'
-import {describe, expect, it} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 import {defineComponent, h, ref} from 'vue'
 
 import MarkdownView from './MarkdownView.vue'
@@ -56,5 +56,47 @@ describe('MarkdownView', () => {
 
     expect(wrapper.text()).toContain('Sedan')
     expect(wrapper.find('strong').text()).toBe('igen')
+  })
+  it('visar ett kodblock som ett block med språk, kopieringsknapp och färgad syntax', async () => {
+    const {wrapper} = render('Före\n\n```html\n<form id="x">\n  <label>Rum</label>\n</form>\n```')
+    await flushPromises()
+
+    const blocks = wrapper.findAll('[data-code-block]')
+    expect(blocks).toHaveLength(1)
+    expect(blocks[0]!.find('[data-code-language]').text()).toBe('HTML')
+    expect(blocks[0]!.findAll('pre')).toHaveLength(1)
+    expect(blocks[0]!.find('pre code').text()).toBe('<form id="x">\n  <label>Rum</label>\n</form>')
+    expect(blocks[0]!.find('pre code .hljs-name').exists()).toBe(true)
+  })
+
+  it('kopierar kodblockets text', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {value: {writeText}, configurable: true})
+    const {wrapper} = render('```csharp\nvar x = 1;\n```')
+    await flushPromises()
+
+    const button = wrapper.find('[data-code-block] button')
+    expect(button.attributes('aria-label')).toBe('Kopiera C#-koden')
+    await button.trigger('click')
+    await flushPromises()
+
+    expect(writeText).toHaveBeenCalledWith('var x = 1;')
+    expect(button.text()).toBe('Kopierat')
+  })
+
+  it('visar ett kodblock utan språk som Kod', async () => {
+    const {wrapper} = render('```\nnpm ci\n```')
+    await flushPromises()
+
+    expect(wrapper.find('[data-code-language]').text()).toBe('Kod')
+  })
+
+  it('låter en enkel radbrytning i ett stycke flyta ihop med texten', async () => {
+    const {wrapper} = render('Ett ramverk som\nVue bygger ovanpå det.')
+    await flushPromises()
+
+    expect(wrapper.findAll('p')).toHaveLength(1)
+    expect(wrapper.find('br').exists()).toBe(false)
+    expect(wrapper.find('.ProseMirror').classes()).toContain('[&_p]:whitespace-normal')
   })
 })

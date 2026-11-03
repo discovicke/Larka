@@ -151,3 +151,56 @@
     cursor: pointer;
   }
 }
+
+/* Syntaxfärger för kodblock (highlight.js-klasser från lowlight). Färgerna kommer från temat, så de
+   följer ljust och mörkt läge. */
+@layer components {
+  .hljs-comment,
+  .hljs-quote {
+    @apply text-muted-foreground italic;
+  }
+  .hljs-keyword,
+  .hljs-selector-tag,
+  .hljs-built_in,
+  .hljs-meta .hljs-keyword,
+  .hljs-attr,
+  .hljs-attribute,
+  .hljs-property {
+    color: var(--info);
+  }
+  .hljs-string,
+  .hljs-regexp,
+  .hljs-addition,
+  .hljs-template-tag,
+  .hljs-template-variable {
+    color: var(--success);
+  }
+  .hljs-number,
+  .hljs-literal,
+  .hljs-symbol,
+  .hljs-bullet,
+  .hljs-variable,
+  .hljs-selector-attr,
+  .hljs-selector-pseudo {
+    color: var(--warning);
+  }
+  .hljs-tag .hljs-name,
+  .hljs-name,
+  .hljs-selector-id,
+  .hljs-selector-class,
+  .hljs-deletion {
+    color: var(--destructive);
+  }
+  .hljs-title,
+  .hljs-section,
+  .hljs-type,
+  .hljs-meta {
+    @apply font-semibold;
+  }
+  .hljs-emphasis {
+    @apply italic;
+  }
+  .hljs-strong {
+    @apply font-semibold;
+  }
+}
