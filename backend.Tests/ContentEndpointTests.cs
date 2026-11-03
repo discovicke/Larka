@@ -520,8 +520,10 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
             repos.Select(repo => repo.DesiredRepoName!).Order().ToArray());
     }
 
-    [Fact]
-    public async Task LockGroupRepos_MarksEveryGroupMemberAsSubmitted()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task LockGroupRepos_MarksEveryGroupMemberAsSubmitted_OnlyWithAnOwnCommit(bool ownCommit)
     {
         var (courseId, firstId, secondId) = await AddCourseWithTwoStudentsAsync();
         var week = await CreateModuleAsync(courseId, "Vecka 1");
@@ -567,7 +569,10 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
         Assert.All(repos, repo => Assert.NotNull(repo.AssignmentGroupId));
         foreach (var repo in repos)
         {
-            repo.LastSha = "abc123";
+            repo.InitialSha = "template-sha";
+            repo.LastSha = ownCommit
+                ? "abc123"
+                : "template-sha";
             repo.ProvisioningState = RepoProvisioningState.Ready;
         }
         await db.SaveChangesAsync();
@@ -580,7 +585,10 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
             Assert.Equal(2, contexts.Count);
             Assert.All(contexts, context =>
                 Assert.Equal(RepoProvisioningState.Ready, context.Repo.ProvisioningState));
-            Assert.All(contexts, context => Assert.Equal("abc123", context.Repo.LastSha));
+            var expectedSha = ownCommit
+                ? "abc123"
+                : "template-sha";
+            Assert.All(contexts, context => Assert.Equal(expectedSha, context.Repo.LastSha));
         }
 
         var response = await _client.PostAsync($"/api/links/{linkId}/repos/lock", null);
@@ -595,8 +603,15 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
             .Where(repo => submissionIds.Contains(repo.SubmissionId))
             .ToListAsync();
         Assert.Equal(2, submissions.Count);
-        Assert.All(repos, repo => Assert.Equal("abc123", repo.SubmissionSha));
-        Assert.All(submissions, submission => Assert.Equal(SubmissionStatus.Submitted, submission.Status));
+        Assert.All(repos, repo => Assert.NotNull(repo.LockedAt));
+        var expectedSubmissionSha = ownCommit
+            ? "abc123"
+            : null;
+        var expectedStatus = ownCommit
+            ? SubmissionStatus.Submitted
+            : SubmissionStatus.NotStarted;
+        Assert.All(repos, repo => Assert.Equal(expectedSubmissionSha, repo.SubmissionSha));
+        Assert.All(submissions, submission => Assert.Equal(expectedStatus, submission.Status));
     }
 
     [Fact]

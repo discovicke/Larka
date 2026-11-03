@@ -1,4 +1,5 @@
 using Backend.Application.Abstractions;
+using Backend.Application.Services;
 using Backend.Domain.Entities;
 using Backend.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -172,25 +173,54 @@ public class SubmissionRepository(AppDb db) : ISubmissionRepository
             .ToList();
     }
 
-    public Task<List<RepoLockContext>> GetReposToLockAsync(
-        DateTimeOffset now, int take, CancellationToken ct) =>
-        (from repo in db.StudentRepos
-         join submission in db.Submissions on repo.SubmissionId equals submission.Id
-         join student in db.Users on submission.StudentId equals student.Id
-         join link in db.ContentLinks on submission.ContentLinkId equals link.Id
-         join content in db.Content on link.ContentId equals content.Id
-         where repo.ProvisioningState == RepoProvisioningState.Ready
-             && repo.LockedAt == null
-             && repo.ReopenedAt == null
-             && link.DueAt != null
-             && link.DueAt <= now
-             && content.Assignment != null
-             && content.Assignment.LockAtDeadline
-             && content.Assignment.SubmissionModes.Contains(SubmissionMode.Repo)
-         orderby link.DueAt, repo.UpdatedAt
-         select new RepoLockContext(repo, submission, student.SchoolId, link.DueAt!.Value))
-        .Take(take)
-        .ToListAsync(ct);
+    // Ett repo är öppet när det aldrig låsts eller har öppnats igen efter en komplettering. UpdatedAt är
+    // stämpeln för senast behandlade deadline: lås, öppning och varje behandling sätter den, så ett repo
+    // är aktuellt först när en deadline som är nyare än stämpeln har passerat. När ingen deadline återstår
+    // är varje öppet repo aktuellt, även ett som skapades efter sista deadline.
+    public async Task<List<RepoLockContext>> GetReposToLockAsync(
+        DateTimeOffset now, int take, CancellationToken ct)
+    {
+        var rows = await (
+            from repo in db.StudentRepos
+            join submission in db.Submissions on repo.SubmissionId equals submission.Id
+            join student in db.Users on submission.StudentId equals student.Id
+            join link in db.ContentLinks on submission.ContentLinkId equals link.Id
+            join content in db.Content on link.ContentId equals content.Id
+            where repo.ProvisioningState == RepoProvisioningState.Ready
+                && (repo.LockedAt == null || repo.ReopenedAt != null)
+                && link.DueAt != null
+                && ((link.DueAt >= repo.UpdatedAt && link.DueAt <= now)
+                    || link.ResubmitDueAt.Any(due => due >= repo.UpdatedAt && due <= now)
+                    || (link.DueAt <= now && !link.ResubmitDueAt.Any(due => due > now)))
+                && content.Assignment != null
+                && content.Assignment.LockAtDeadline
+                && content.Assignment.SubmissionModes.Contains(SubmissionMode.Repo)
+            orderby repo.UpdatedAt
+            select new
+            {
+                Repo = repo,
+                Submission = submission,
+                student.SchoolId,
+                DueAt = link.DueAt!.Value,
+                link.ResubmitDueAt
+            })
+            .Take(take)
+            .ToListAsync(ct);
+
+        return rows
+            .Select(row =>
+            {
+                var window = new GradingWindow(row.DueAt, row.ResubmitDueAt, now);
+                return new RepoLockContext(
+                    row.Repo,
+                    row.Submission,
+                    row.SchoolId,
+                    window.LastPassedDeadline ?? row.DueAt,
+                    row.DueAt,
+                    row.ResubmitDueAt);
+            })
+            .ToList();
+    }
 
     public Task<List<RepoLockContext>> GetRepoContextsForLinkAsync(
         Guid linkId, DateTimeOffset now, CancellationToken ct) =>
@@ -200,7 +230,8 @@ public class SubmissionRepository(AppDb db) : ISubmissionRepository
          join link in db.ContentLinks on submission.ContentLinkId equals link.Id
          where submission.ContentLinkId == linkId
          orderby student.Name
-         select new RepoLockContext(repo, submission, student.SchoolId, link.DueAt ?? now))
+         select new RepoLockContext(
+             repo, submission, student.SchoolId, link.DueAt ?? now, link.DueAt, link.ResubmitDueAt))
         .ToListAsync(ct);
 
     public Task<StudentRepoContext?> GetRepoContextByFullNameAsync(

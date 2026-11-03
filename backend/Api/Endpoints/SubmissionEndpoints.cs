@@ -27,6 +27,10 @@ public static class SubmissionEndpoints
             .DisableAntiforgery() // inloggning med cookies finns inte, så inget CSRF-skydd behövs
             .WithMetadata(new RequestSizeLimitAttribute((int)FileUploadPolicy.MaxRequestBytes));
 
+        links.MapPost("/mark-not-submitted", async (Guid id, SubmissionService service, CancellationToken ct) =>
+            (await service.MarkAllNotSubmittedAsync(id, ct)).ToHttp(
+                count => TypedResults.Ok(new MarkedNotSubmittedDto(count))));
+
         var submissions = app.MapGroup("/submissions").WithTags("Submissions");
 
         submissions.MapGet("/{id:guid}", async (Guid id, SubmissionService service, CancellationToken ct) =>

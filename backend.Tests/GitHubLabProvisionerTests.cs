@@ -353,6 +353,105 @@ public class GitHubLabProvisionerTests
         Assert.Null(repo.LockError);
     }
 
+    private static StudentRepo ReadyRepo(string? initialSha = "template-sha") => new()
+    {
+        SubmissionId = Guid.NewGuid(),
+        RepoFullName = "EduEdugrade-Sandbox/labb-1-alice",
+        ProvisioningState = RepoProvisioningState.Ready,
+        InitialSha = initialSha
+    };
+
+    private static FakeGitHubAppService GitHubWithLatest(string sha, int count) => new()
+    {
+        CommitSummary = new GitHubCommitSummary(
+            new GitHubCommit(sha, "commit", DateTimeOffset.Parse("2026-11-02T08:00:00Z")), count)
+    };
+
+    [Fact]
+    public async Task LockAtDeadlineAsync_WithOnlyTheTemplateCommit_LeavesTheRepoOpen()
+    {
+        var github = GitHubWithLatest("template-sha", 1);
+        var repo = ReadyRepo();
+
+        var result = await CreateProvisioner(github).LockAtDeadlineAsync(
+            new StudentRepoContext(repo, _schoolId), DateTimeOffset.UtcNow, false, CancellationToken.None);
+
+        Assert.False(result.Locked);
+        Assert.False(result.OwnCommit);
+        Assert.Empty(github.Archived);
+        Assert.Null(repo.LockedAt);
+        Assert.Null(repo.SubmissionSha);
+    }
+
+    [Fact]
+    public async Task LockAtDeadlineAsync_WithAnOwnCommit_ArchivesAndSavesItAsTheSubmission()
+    {
+        var github = GitHubWithLatest("student-sha", 2);
+        var repo = ReadyRepo();
+
+        var result = await CreateProvisioner(github).LockAtDeadlineAsync(
+            new StudentRepoContext(repo, _schoolId), DateTimeOffset.UtcNow, false, CancellationToken.None);
+
+        Assert.True(result.Locked);
+        Assert.True(result.OwnCommit);
+        Assert.Equal("student-sha", result.Sha);
+        Assert.Single(github.Archived);
+        Assert.NotNull(repo.LockedAt);
+        Assert.Equal("student-sha", repo.SubmissionSha);
+    }
+
+    [Fact]
+    public async Task LockAtDeadlineAsync_AfterTheLastDeadline_LocksAnUntouchedRepoWithoutASubmission()
+    {
+        var github = GitHubWithLatest("template-sha", 1);
+        var repo = ReadyRepo();
+
+        var result = await CreateProvisioner(github).LockAtDeadlineAsync(
+            new StudentRepoContext(repo, _schoolId), DateTimeOffset.UtcNow, true, CancellationToken.None);
+
+        Assert.True(result.Locked);
+        Assert.False(result.OwnCommit);
+        Assert.Null(result.Sha);
+        Assert.Single(github.Archived);
+        Assert.NotNull(repo.LockedAt);
+        Assert.Null(repo.SubmissionSha);
+    }
+
+    [Theory]
+    [InlineData(1, false)]
+    [InlineData(2, true)]
+    public async Task LockAtDeadlineAsync_WithoutInitialSha_FallsBackToTheCommitCount(int count, bool own)
+    {
+        var github = GitHubWithLatest("some-sha", count);
+        var repo = ReadyRepo(initialSha: null);
+
+        var result = await CreateProvisioner(github).LockAtDeadlineAsync(
+            new StudentRepoContext(repo, _schoolId), DateTimeOffset.UtcNow, false, CancellationToken.None);
+
+        Assert.Equal(own, result.Locked);
+        Assert.Equal(own, result.OwnCommit);
+    }
+
+    [Fact]
+    public async Task LockAtDeadlineAsync_AfterAReopen_NeedsACommitThatIsNotTheLastSubmission()
+    {
+        var github = GitHubWithLatest("handed-in-sha", 3);
+        var repo = ReadyRepo();
+        repo.SubmissionSha = "handed-in-sha";
+        repo.LockedAt = DateTimeOffset.UtcNow.AddDays(-9);
+        repo.ReopenedAt = DateTimeOffset.UtcNow.AddDays(-8);
+
+        var same = await CreateProvisioner(github).LockAtDeadlineAsync(
+            new StudentRepoContext(repo, _schoolId), DateTimeOffset.UtcNow, false, CancellationToken.None);
+        var fixedUp = await CreateProvisioner(GitHubWithLatest("fixed-sha", 4)).LockAtDeadlineAsync(
+            new StudentRepoContext(repo, _schoolId), DateTimeOffset.UtcNow, false, CancellationToken.None);
+
+        Assert.False(same.Locked);
+        Assert.True(fixedUp.Locked);
+        Assert.Equal("fixed-sha", repo.SubmissionSha);
+        Assert.Null(repo.ReopenedAt);
+    }
+
     [Fact]
     public async Task RefreshCheckStatusAsync_StoresCommitAndCheckSummary()
     {
@@ -667,9 +766,14 @@ public class GitHubLabProvisionerTests
                 ? throw new NotSupportedException()
                 : Task.FromResult(ExistingRepository);
 
+        public List<(long InstallationId, string Owner, string Name)> Archived { get; } = [];
+
         public Task ArchiveRepositoryAsync(
-            long installationId, string owner, string name, CancellationToken ct) =>
-            throw new NotSupportedException();
+            long installationId, string owner, string name, CancellationToken ct)
+        {
+            Archived.Add((installationId, owner, name));
+            return Task.CompletedTask;
+        }
 
         public Task UnarchiveRepositoryAsync(
             long installationId, string owner, string name, CancellationToken ct)

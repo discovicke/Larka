@@ -18,8 +18,12 @@ public record StudentRepoContext(StudentRepo Repo, Guid SchoolId);
 public record RepoProvisioningContext(
     StudentRepo Repo, User Student, IReadOnlyList<User>? GroupMembers = null);
 
-/// <summary>Resultatet av en deadline-låsning. Sha är null när eleven saknade commit före deadline.</summary>
-public record RepoLockResult(bool Locked, string? Sha, DateTimeOffset? CommitAt, string? Error);
+/// <summary>
+/// Resultatet av en deadline-låsning. Locked är sant när repot arkiverades. OwnCommit är sant när eleven har
+/// en egen commit före deadline; bara då är Sha en inlämning. Sha är null utan egen commit.
+/// </summary>
+public record RepoLockResult(
+    bool Locked, string? Sha, DateTimeOffset? CommitAt, string? Error, bool OwnCommit = false);
 
 public interface ILabProvisioner
 {
@@ -35,9 +39,15 @@ public interface ILabProvisioner
     /// <summary>Skapar ett enskilt repo från en pending rad. Används av bakgrundsjobbet.</summary>
     Task<StudentRepo> ProvisionOneAsync(RepoProvisioningContext context, CancellationToken ct);
 
-    /// <summary>Låser repot vid deadline och sparar senaste commit före deadline som inlämning.</summary>
+    /// <summary>
+    /// Låser repot vid deadline när eleven har en egen commit före deadline och sparar den som inlämning.
+    /// Utan egen commit lämnas repot öppet, om inte lockWithoutOwnCommit är satt (ingen deadline återstår).
+    /// </summary>
     Task<RepoLockResult> LockAtDeadlineAsync(
-        StudentRepoContext context, DateTimeOffset deadline, CancellationToken ct);
+        StudentRepoContext context,
+        DateTimeOffset deadline,
+        bool lockWithoutOwnCommit,
+        CancellationToken ct);
 
     /// <summary>Avarkiverar repot så att eleven kan committa igen efter en begärd komplettering.</summary>
     Task ReopenForResubmissionAsync(StudentRepoContext context, CancellationToken ct);

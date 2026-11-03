@@ -23,6 +23,9 @@ public record GradeSubmissionDto(string Feedback, GradeLevel? Level = null, Grad
 
 // --- responses ---
 
+/// <summary>Hur många elever som markerades som Ej inlämnat i en och samma åtgärd.</summary>
+public record MarkedNotSubmittedDto(int Count);
+
 public record SubmissionDto(
     Guid Id,
     Guid ContentLinkId,

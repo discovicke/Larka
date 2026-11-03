@@ -130,7 +130,10 @@ public class GitHubLinkingServiceTests(TestWebApplicationFactory factory)
             throw new NotSupportedException();
 
         public Task<RepoLockResult> LockAtDeadlineAsync(
-            StudentRepoContext context, DateTimeOffset deadline, CancellationToken ct) =>
+            StudentRepoContext context,
+            DateTimeOffset deadline,
+            bool lockWithoutOwnCommit,
+            CancellationToken ct) =>
             throw new NotSupportedException();
 
         public Task ReopenForResubmissionAsync(

@@ -24,6 +24,7 @@ import {api, type Schema} from '@/lib/api'
 import {parseChecklist} from '@/lib/checklist'
 import {formatDate} from '@/lib/content'
 import {fetchContent} from '@/lib/contentApi'
+import {allowsFail, allowsNeedsWork} from '@/lib/gradingWindow'
 import {fetchGradingRows, type GradingRow, nextGradingRow} from '@/lib/gradingQueue'
 import {formatSize} from '@/lib/material'
 import {fetchCourseModules} from '@/lib/modulesApi'
@@ -59,8 +60,18 @@ const savedFeedback = ref('')
 const savedLevel = ref<Schema<'GradeLevel'> | null>(null)
 let leaving = false
 
-const levels = computed(() => levelsFor(assignment.value?.gradeScale ?? null))
-const hasGrades = computed(() => levels.value.length > 0)
+// IG och Komplettera följer deadlinerna: IG först när ingen deadline återstår, Komplettera bara så länge en gör det.
+// Utan uppgiften i listan finns inga deadlines att gå på, så då erbjuds allt och backend avgör.
+const deadlines = computed(() => ({
+  dueAt: assignment.value?.dueAt ?? null,
+  resubmitDueAt: assignment.value?.resubmitDueAt ?? [],
+}))
+const failAllowed = computed(() => allowsFail(deadlines.value))
+const needsWorkAllowed = computed(() => allowsNeedsWork(deadlines.value))
+const allLevels = computed(() => levelsFor(assignment.value?.gradeScale ?? null))
+const levels = computed(() => allLevels.value.filter((option) => option !== 'Fail' || failAllowed.value))
+const failHidden = computed(() => allLevels.value.length > levels.value.length)
+const hasGrades = computed(() => allLevels.value.length > 0)
 const studentName = computed(() => submission.value?.studentName ?? '')
 const repoUrl = computed(() => submission.value?.repo?.repoFullName
   ? `https://github.com/${submission.value.repo.repoFullName}`
@@ -216,7 +227,7 @@ watch([loading, coursesStatus, inQueue, next], async () => {
 
 async function publish() {
   formError.value = ''
-  if (hasGrades.value && level.value === null) {
+  if (hasGrades.value && (level.value === null || !levels.value.includes(level.value))) {
     formError.value = 'Välj ett betyg.'
     return
   }
@@ -472,6 +483,10 @@ watch([courseId, linkId, submissionId], () => {
                 : 'Inte bedömd än.' }}
             </p>
             <p v-else class="text-muted-foreground text-sm">Uppgiften har inget betyg, bara återkoppling.</p>
+            <p v-if="canGrade && !nothingToGrade && failHidden" class="text-muted-foreground text-[13px]" data-test="review-fail-later">
+              IG kan sättas när sista deadline har passerat. Så länge en deadline återstår kan du begära komplettering
+              eller markera som ej inlämnat.
+            </p>
           </section>
 
           <div v-if="canGrade" class="flex flex-col gap-2">
@@ -523,7 +538,7 @@ watch([courseId, linkId, submissionId], () => {
                 {{ saveLabel }}
               </Button>
               <Button
-                v-if="!nothingToGrade"
+                v-if="!nothingToGrade && needsWorkAllowed"
                 variant="outline"
                 class="w-full"
                 :disabled="saving"

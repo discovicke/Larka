@@ -23,7 +23,9 @@ public record RepoLockContext(
     StudentRepo Repo,
     Submission Submission,
     Guid SchoolId,
-    DateTimeOffset Deadline);
+    DateTimeOffset Deadline,
+    DateTimeOffset? DueAt = null,
+    IReadOnlyList<DateTimeOffset>? ResubmitDueAt = null);
 
 // Inlämningar hämtas med filer, repo och betyg.
 public interface ISubmissionRepository

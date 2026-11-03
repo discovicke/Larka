@@ -42,6 +42,62 @@ Sidorna byggs efter arbetet, inte efter databasens objekt.
 - **Klassens sida** är admins arbetsyta. Ny kurs är den primära handlingen där och finns bara på en klass eller grupp, inte på Alla grupper: först väljer admin en tidigare kurs eller en tom kurs, sedan namn, kod, omfattning, datum och lärare, och kursen skapas, kopplas till klassen och får sina lärare i ett flöde. Att ordna visar vad som återstår tills klassen har kurser, elever och mentor. Koppla kurs är för en kurs som delas mellan klasser. Varje kursrad visar lärarna, och en kurs utan lärare har märket Ingen lärare. Där lägger admin också in elever, en i taget eller genom att klistra in en lista med namn och e-post (nya elever skapas utan lösenord), och utser klassens mentor. Mentor är en roll i klassen och en klass har en mentor: att byta tar bort den förra ur klassen.
 - **Kursbeskrivningen** är lärarens text och valfri. Admin skriver den inte när kursen skapas.
 
+## Inlämning och bedömning
+
+Deadlinerna bestämmer när eleven får lämna in och vad läraren får sätta. Reglerna bor på ett ställe i backend (`GradingWindow`) och är speglade i ett ställe i klienten (`lib/gradingWindow.ts`). Beslutade i #403.
+
+**Deadlines.** Uppgiften har en huvuddeadline och högst fem kompletteringsdeadlines (`ResubmitDueAt`). Nästa deadline är den första av dem som ligger efter nu, jämförd i UTC.
+
+- **Fram till huvuddeadlinen** får alla lämna in och ändra sin inlämning.
+- **Efter en deadline** får den som inte är godkänd och inte väntar på bedömning (Inte inlämnad, Ej inlämnat, Komplettera) lämna in fram till nästa kompletteringsdeadline, utan att vänta på läraren.
+- **En Inlämnad inlämning låses** när huvuddeadlinen har gått, tills läraren har bedömt den.
+- **Efter sista deadline** går inget att lämna in.
+
+**Ej inlämnat.** Läraren sätter Ej inlämnat, helst för alla på en gång med _Markera alla som ej inlämnat_ (bara efter huvuddeadlinen). Det informerar eleven och mentorn och låser inte upp något: eleven kan lämna in tills nästa deadline, precis som före.
+
+**IG och Komplettera.** IG sätts alltid av läraren, aldrig automatiskt, och bara när ingen deadline återstår. Så länge en deadline återstår är "inte godkänd" Komplettera eller Ej inlämnat: samma nya chans, olika budskap. Komplettera kan inte begäras när ingen deadline återstår.
+
+**Bara det senaste gäller.** Appen sparar bara den senaste bedömningen och ingen historik. Läraren kan alltid ändra en bedömning, även efter sista deadline. Det finns ingen extra deadline per elev, och ingen varning när en elev ändrar medan läraren bedömer.
+
+### Lägen
+
+| Läge                         | Eleven får lämna in?                       | Läraren får sätta                                          |
+| ---------------------------- | ------------------------------------------ | ---------------------------------------------------------- |
+| Inte inlämnad (`NotStarted`) | Ja, till nästa deadline som återstår       | Ej inlämnat, efter huvuddeadlinen                          |
+| Inlämnad (`Submitted`)       | Ändra fram till huvuddeadlinen, sedan låst | G eller VG. Komplettera om en deadline återstår, annars IG |
+| Komplettera (`NeedsWork`)    | Ja, till nästa kompletteringsdeadline      | IG när sista deadline har passerat                         |
+| Ej inlämnat (`NotSubmitted`) | Ja, till nästa kompletteringsdeadline      | IG när sista deadline har passerat                         |
+| G eller VG (`Graded`)        | Nej                                        | Rätta ett misstag                                          |
+| IG (`Graded`, `Fail`)        | Nej                                        | Rätta ett misstag                                          |
+
+### Repo-uppgifter
+
+Repot är öppet exakt när eleven får lämna in och låst annars. Vid varje deadline, huvud- och kompletteringsdeadlines, gäller:
+
+- **Eleven har en egen commit:** repot låses, inlämningen blir Inlämnad och `SubmissionSha` är den commiten.
+- **Ingen egen commit:** repot lämnas öppet till nästa deadline. Efter sista deadline låses alla repon.
+
+Elevens egen commit är senaste commit före deadlinen när den skiljer sig från mallens första commit (`StudentRepo.InitialSha`). Efter en öppning (`ReopenedAt`) måste den dessutom vara en ny commit, inte den som lämnades in förra gången. Komplettera öppnar ett låst repo igen. Ej inlämnat rör inte repot.
+
+### Att bedöma
+
+Sidan _Att bedöma_ har fyra flikar, med antalet på varje, och raderna är grupperade per uppgift:
+
+| Flik                         | Innehåll                                                               | Läraren gör                              |
+| ---------------------------- | ---------------------------------------------------------------------- | ---------------------------------------- |
+| Inlämnat                     | Inlämnade inlämningar                                                  | Bedömer: G, VG, Komplettera eller IG     |
+| Inte inlämnat efter deadline | Elever som inte lämnat in efter huvuddeadlinen                         | Sätter Ej inlämnat, en och en eller alla |
+| Chanserna slut               | Komplettera eller Ej inlämnat när ingen deadline återstår              | Sätter IG, en i taget                    |
+| Väntar på eleven             | Komplettera eller Ej inlämnat medan en deadline återstår, som översikt | Inget, eleven har en ny chans            |
+
+Raden skiljer inte på komplettering och Ej inlämnat. Den visar _Första inlämningen_, eller _Inlämnat igen_ när en tidigare bedömning finns.
+
+### Specialfall
+
+- **Uppgift utan deadline (`DueAt`):** ingen deadlinelogik gäller. Inlämning står öppen tills den är bedömd och alla utfall är tillåtna.
+- **På plats (`OnSite`):** läraren bedömer utan inlämning. Bara tidsreglerna för IG och Komplettera gäller.
+- **Grupprepon:** gruppens medlemmar delar repo, och statusen sätts för hela gruppen när repot låses.
+
 ## Användarflöden
 
 Ett flöde per mål. Rutorna är sidor eller steg, och rutorna med dubbla kanter är överlämningar där nästa person får veta att det är deras tur. ID:na (F1, E1 och så vidare) används i E2E-testerna och i issues. Alla flöden slutar på en sida där användaren ser att det gick bra, med en toast eller en ruta på sidan.
@@ -98,12 +154,14 @@ flowchart LR
     C --> D["Toast: Uppgiften är inlämnad."]
     D ==> E(["Läraren ser den i Att bedöma"])
     E --> F{"Läraren bedömer"}
-    F -->|"Komplettera"| G(["Eleven ser Komplettera i Att göra"])
+    F -->|"Komplettera, en deadline återstår"| G(["Eleven ser Komplettera i Att göra"])
     G --> H["Läs återkopplingen och ändra"]
-    H --> I["Lämna in igen<br/>Toast: Uppgiften är inlämnad igen."]
+    H --> I["Lämna in igen till nästa deadline<br/>Toast: Uppgiften är inlämnad igen."]
     I ==> E
     F -->|"Betyg"| J["Se E4"]
 ```
+
+Efter huvuddeadlinen är en Inlämnad inlämning låst tills läraren har bedömt den. Den som inte lämnat in, har fått Ej inlämnat eller ska komplettera lämnar in fram till nästa kompletteringsdeadline. Efter sista deadline är uppgiften stängd.
 
 ### E4 · Återkoppling och betyg
 
@@ -149,13 +207,15 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    A["Att bedöma<br/>/grading"] --> B["Inlämning<br/>/assignments/:linkId/submissions/:id"]
+    A["Att bedöma<br/>/grading, fyra flikar"] --> B["Inlämning<br/>/assignments/:linkId/submissions/:id"]
     B --> C["Betyg och kommentar<br/>Icke godkänd kräver en kommentar"]
     C --> D["Spara och nästa<br/>Bedömningen är sparad."]
     D -->|"fler i kön"| B
     D -->|"kön är tom"| A
     D ==> E(["Eleven ser betyget i Inkorg, E4"])
 ```
+
+Läraren väljer flik efter vad som väntar: Inlämnat bedöms, Inte inlämnat efter deadline får Ej inlämnat, och Chanserna slut får IG. Se _Inlämning och bedömning_ ovan.
 
 ### M1 · Följa klassen
 

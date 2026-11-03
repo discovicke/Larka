@@ -227,6 +227,18 @@ public class SubmissionService(
         }
 
         var submission = await submissions.GetForStudentAsync(linkId, currentUser.UserId, ct);
+        if (submission?.Status == SubmissionStatus.Graded)
+        {
+            return ServiceResult<SubmissionDto>.Invalid("already graded");
+        }
+
+        var window = new GradingWindow(linked.Link.DueAt, linked.Link.ResubmitDueAt, time.GetUtcNow());
+        var windowError = window.HandInError(submission?.Status ?? SubmissionStatus.NotStarted);
+        if (windowError is not null)
+        {
+            return ServiceResult<SubmissionDto>.Invalid(windowError);
+        }
+
         var keptFiles = submission is null || dto.KeepFileIds is null
             ? []
             : submission.Files.Where(file => dto.KeepFileIds.Contains(file.Id)).ToList();
@@ -240,10 +252,6 @@ public class SubmissionService(
             // Eleven fanns inte i gruppen när uppgiften delades ut.
             submission = new Submission { ContentLinkId = linkId, StudentId = currentUser.UserId };
             submissions.Add(submission);
-        }
-        else if (submission.Status == SubmissionStatus.Graded)
-        {
-            return ServiceResult<SubmissionDto>.Invalid("already graded");
         }
 
         submission.Status = SubmissionStatus.Submitted;
@@ -339,7 +347,8 @@ public class SubmissionService(
         var linked = await contents.GetLinkWithContentAsync(submission.ContentLinkId, ct);
         var spec = linked!.Content.Assignment!;
 
-        var gradeError = CheckGrade(submission, spec, dto);
+        var window = new GradingWindow(linked.Link.DueAt, linked.Link.ResubmitDueAt, time.GetUtcNow());
+        var gradeError = CheckGrade(submission, spec, dto, window);
         if (gradeError is not null)
         {
             return ServiceResult<SubmissionDto>.Invalid(gradeError);
@@ -372,7 +381,69 @@ public class SubmissionService(
         return ServiceResult<SubmissionDto>.Ok(await ToDtoAsync(submission, ct));
     }
 
-    private static string? CheckGrade(Submission submission, AssignmentSpec spec, GradeSubmissionDto dto)
+    /// <summary>
+    /// Markerar alla elever på utdelningen som inte lämnat in (NotStarted, även de utan rad) som Ej inlämnat.
+    /// Kräver att huvuddeadlinen har gått ut. Låser inget upp och ger varje elev en notis. Returnerar antalet.
+    /// </summary>
+    public async Task<ServiceResult<int>> MarkAllNotSubmittedAsync(Guid linkId, CancellationToken ct)
+    {
+        if (!await permissions.CanTeachLinkAsync(linkId, ct))
+        {
+            return ServiceResult<int>.Forbidden();
+        }
+
+        var linked = await contents.GetLinkWithContentAsync(linkId, ct);
+        if (linked is null)
+        {
+            return ServiceResult<int>.NotFound("link not found");
+        }
+
+        var spec = linked.Content.Assignment;
+        if (spec is null || !StudentSubmits(spec.SubmissionModes))
+        {
+            return ServiceResult<int>.Invalid("this content takes no submissions");
+        }
+
+        var now = time.GetUtcNow();
+        if (linked.Link.DueAt is null)
+        {
+            return ServiceResult<int>.Invalid(GradingWindow.NoDeadlineToMarkMessage);
+        }
+
+        if (linked.Link.DueAt.Value.UtcDateTime > now.UtcDateTime)
+        {
+            return ServiceResult<int>.Invalid(GradingWindow.DeadlineNotPassedMessage);
+        }
+
+        var existing = await submissions.GetByLinkAsync(linkId, ct);
+        var groupIds = linked.Link.GroupId is not null
+            ? [linked.Link.GroupId.Value]
+            : await groups.GetGroupIdsReadingCourseAsync(linked.Link.CourseId!.Value, ct);
+        var students = await users.GetStudentsInGroupsAsync(groupIds, ct);
+        var rowByStudent = existing.ToDictionary(submission => submission.StudentId);
+
+        var toMark = existing.Where(submission => submission.Status == SubmissionStatus.NotStarted).ToList();
+        foreach (var student in students.Where(student => !rowByStudent.ContainsKey(student.Id)))
+        {
+            var created = new Submission { ContentLinkId = linkId, StudentId = student.Id };
+            submissions.Add(created);
+            toMark.Add(created);
+        }
+
+        var dto = new GradeSubmissionDto("", null, GradeOutcome.NotSubmitted);
+        foreach (var submission in toMark)
+        {
+            ApplyGrade(submission, dto);
+            await notifications.NotifySubmissionAsync(
+                submission, linked.Content.Id, NotificationKind.SubmissionNotSubmitted, ct);
+        }
+
+        await unitOfWork.SaveChangesAsync(ct);
+        return ServiceResult<int>.Ok(toMark.Count);
+    }
+
+    private static string? CheckGrade(
+        Submission submission, AssignmentSpec spec, GradeSubmissionDto dto, GradingWindow window)
     {
         var outcome = dto.Outcome;
         if (outcome == GradeOutcome.NotSubmitted)
@@ -394,7 +465,14 @@ public class SubmissionService(
 
         if (outcome == GradeOutcome.NeedsWork)
         {
-            return null;
+            return window.AllowsNeedsWork
+                ? null
+                : GradingWindow.NeedsWorkTooLateMessage;
+        }
+
+        if (dto.Level == GradeLevel.Fail && !window.AllowsFail)
+        {
+            return GradingWindow.FailTooEarlyMessage;
         }
 
         // Ett IG måste motiveras så att eleven vet vad som saknas.
@@ -509,31 +587,33 @@ public class SubmissionService(
         var locked = 0;
         foreach (var context in contexts)
         {
-            if (context.Repo.ProvisioningState != RepoProvisioningState.Ready)
+            var alreadyLocked = context.Repo.LockedAt is not null && context.Repo.ReopenedAt is null;
+            if (context.Repo.ProvisioningState != RepoProvisioningState.Ready || alreadyLocked)
             {
                 continue;
             }
 
             try
             {
+                // Läraren låser nu, så nu räknas som deadline. Samma regler som deadlinejobbet gäller:
+                // bara repon med egen commit låses så länge en deadline återstår.
                 var result = await provisioner.LockAtDeadlineAsync(
-                    new StudentRepoContext(context.Repo, context.SchoolId), now, ct);
+                    new StudentRepoContext(context.Repo, context.SchoolId),
+                    now,
+                    RepoLockPolicy.LocksWithoutOwnCommit(context, now),
+                    ct);
                 if (!result.Locked)
                 {
                     continue;
                 }
 
-                if (!string.IsNullOrWhiteSpace(result.Sha))
+                if (result.OwnCommit && !string.IsNullOrWhiteSpace(result.Sha))
                 {
                     var groupSubmissions = context.Repo.AssignmentGroupId is not null
                         ? await submissions.GetSubmissionsForGroupAsync(
                             context.Repo.AssignmentGroupId.Value, ct)
                         : [context.Submission];
-                    foreach (var submission in groupSubmissions)
-                    {
-                        submission.Status = SubmissionStatus.Submitted;
-                        submission.SubmittedAt = result.CommitAt ?? now;
-                    }
+                    RepoLockPolicy.MarkSubmitted(groupSubmissions, result.CommitAt ?? now);
                 }
 
                 context.Repo.LockError = result.Error;

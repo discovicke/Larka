@@ -1,7 +1,7 @@
 import {describe, expect, it} from 'vitest'
 
 import type {Schema} from '@/lib/api'
-import {nextResubmitDue, openableParts, resubmitLabel, sectionsFor} from '@/lib/studentCourse'
+import {openableParts, resubmitLabel, sectionsFor} from '@/lib/studentCourse'
 
 type Item = Schema<'StudentContentItem'>
 type Module = Schema<'StudentModuleWithContentDto'>
@@ -110,11 +110,5 @@ describe('kompletteringsdeadlines', () => {
   it('listar dem under deadlinen, tomt utan', () => {
     expect(resubmitLabel({resubmitDueAt: []})).toBe('')
     expect(resubmitLabel({resubmitDueAt: dates})).toMatch(/^Kompletteringar: .+nov.+, .+nov/)
-  })
-
-  it('väljer nästa som inte har passerat', () => {
-    expect(nextResubmitDue({resubmitDueAt: dates}, new Date('2026-11-10T08:00:00Z'))).toBe(dates[0])
-    expect(nextResubmitDue({resubmitDueAt: dates}, new Date('2026-11-20T08:00:00Z'))).toBe(dates[1])
-    expect(nextResubmitDue({resubmitDueAt: dates}, new Date('2026-12-01T08:00:00Z'))).toBeNull()
   })
 })

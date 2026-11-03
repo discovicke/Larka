@@ -1,12 +1,12 @@
 using Backend.Application.Abstractions;
-using Backend.Domain.Enums;
 using Microsoft.Extensions.Options;
 
 namespace Backend.Application.Services;
 
 /// <summary>
-/// Låser elevrepon när uppgiftens deadline har passerat. Senaste commit före deadline sparas som
-/// inlämning. Körningen är idempotent eftersom rader med LockedAt redan är undantagna.
+/// Vid varje deadline (huvud- och kompletteringsdeadlines) låses elevrepon som har en egen commit, och
+/// senaste commit före deadline sparas som inlämning. Repon utan egen commit lämnas öppna tills nästa
+/// deadline, och efter sista deadline låses alla. Varje deadline behandlas en gång per repo.
 /// </summary>
 public class GitHubDeadlineLockService(
     ISubmissionRepository submissions,
@@ -31,27 +31,27 @@ public class GitHubDeadlineLockService(
                 var result = await provisioner.LockAtDeadlineAsync(
                     new StudentRepoContext(context.Repo, context.SchoolId),
                     context.Deadline,
+                    RepoLockPolicy.LocksWithoutOwnCommit(context, now),
                     ct);
+
+                // Stämplar behandlingen så att samma deadline inte tas om, även när repot lämnas öppet.
+                context.Repo.UpdatedAt = now;
                 if (!result.Locked)
                 {
+                    await unitOfWork.SaveChangesAsync(ct);
                     continue;
                 }
 
-                if (!string.IsNullOrWhiteSpace(result.Sha))
+                if (result.OwnCommit && !string.IsNullOrWhiteSpace(result.Sha))
                 {
                     var groupSubmissions = context.Repo.AssignmentGroupId is not null
                         ? await submissions.GetSubmissionsForGroupAsync(
                             context.Repo.AssignmentGroupId.Value, ct)
                         : [context.Submission];
-                    foreach (var submission in groupSubmissions)
-                    {
-                        submission.Status = SubmissionStatus.Submitted;
-                        submission.SubmittedAt = result.CommitAt ?? context.Deadline;
-                    }
+                    RepoLockPolicy.MarkSubmitted(groupSubmissions, result.CommitAt ?? context.Deadline);
                 }
 
                 context.Repo.LockError = result.Error;
-                context.Repo.UpdatedAt = now;
                 locked++;
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -61,7 +61,8 @@ public class GitHubDeadlineLockService(
             catch (Exception exception)
             {
                 context.Repo.LockError = SafeError(exception);
-                context.Repo.UpdatedAt = now;
+                // Behåller deadlinen som aktuell så att den provas igen, men efter orörda repon i kön.
+                context.Repo.UpdatedAt = context.Deadline;
                 logger.LogWarning(
                     exception,
                     "Could not lock GitHub repo for submission {SubmissionId}",

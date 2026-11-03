@@ -12,6 +12,7 @@ import {
 import {computed, ref} from 'vue'
 import {RouterLink} from 'vue-router'
 
+import MarkAllNotSubmittedButton from '@/components/course/MarkAllNotSubmittedButton.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Badge} from '@/components/ui/badge'
@@ -30,8 +31,10 @@ import {Textarea} from '@/components/ui/textarea'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {type Schema} from '@/lib/api'
 import {formatDate} from '@/lib/content'
+import {mayMarkAllNotSubmitted} from '@/lib/gradingWindow'
 import {lockGitHubRepos, refreshGitHubRepos} from '@/lib/integrations'
 import {submissionStatusKey} from '@/lib/status'
+import {markedNotSubmittedMessage} from '@/lib/submissionsApi'
 import {resolveStudentHelp} from '@/lib/support'
 import {checkClass, checkLabel, gradeBadgeVariant, gradeLabel, gradeName, statusLabel} from '@/lib/submissions'
 
@@ -69,6 +72,8 @@ const props = defineProps<{
   courseId: string
   linkId: string
   submissions: Submission[]
+  /** Uppgiftens huvuddeadline. Utan den finns ingen Ej inlämnat för alla. */
+  dueAt?: string | null
 }>()
 
 const emit = defineEmits<{reload: []}>()
@@ -82,6 +87,7 @@ const search = ref('')
 const refreshing = ref(false)
 const locking = ref(false)
 const actionError = ref('')
+const notice = ref('')
 const cloneOpen = ref(false)
 const expanded = ref<string[]>([])
 
@@ -218,6 +224,18 @@ const unit = computed(() => {
     ? 'elev'
     : 'elever'
 })
+// Efter deadlinen kan läraren markera alla som inte lämnat in som Ej inlämnat på en gång.
+const notStartedCount = computed(() => props.submissions
+  .filter((submission) => submission.status === 'NotStarted').length)
+const canMarkAll = computed(() => canGrade.value
+  && notStartedCount.value > 0
+  && mayMarkAllNotSubmitted({dueAt: props.dueAt ?? null, resubmitDueAt: []}))
+
+function markedAll(count: number) {
+  notice.value = markedNotSubmittedMessage(count)
+  emit('reload')
+}
+
 const hasRepos = computed(() => props.submissions.some((submission) => submission.repo !== null))
 
 function countOf(status: Schema<'SubmissionStatus'>): number {
@@ -451,6 +469,14 @@ function rowBorder(index: number) {
     <Alert v-if="actionError" variant="destructive" data-test="github-action-error">
       <AlertDescription>{{ actionError }}</AlertDescription>
     </Alert>
+
+    <Alert v-if="notice" data-test="mark-all-notice">
+      <AlertDescription>{{ notice }}</AlertDescription>
+    </Alert>
+
+    <div v-if="canMarkAll" class="flex justify-end">
+      <MarkAllNotSubmittedButton :link-id="linkId" :count="notStartedCount" @done="markedAll"/>
+    </div>
 
     <div v-if="hasRepos" class="flex flex-wrap items-center justify-end gap-2">
       <Button

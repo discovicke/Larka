@@ -20,8 +20,8 @@ function assignment(linkId: string, contentId: string, title: string) {
     status: 'Published',
     groupId: null,
     publishAt: '2026-10-01T08:00:00Z',
-    dueAt: null,
-    resubmitDueAt: [],
+    dueAt: null as string | null,
+    resubmitDueAt: [] as string[],
     isPinned: false,
     blockedBy: [],
   }
@@ -39,7 +39,13 @@ function week(id: string, content: unknown[]) {
   return {id, courseId: 'c1', title: 'Vecka 1', description: '', position: 1, content}
 }
 
-function submission(id: string, studentId: string, status: string, submittedAt: string | null = null) {
+function submission(
+  id: string,
+  studentId: string,
+  status: string,
+  submittedAt: string | null = null,
+  grade: unknown = null,
+) {
   return {
     id,
     contentLinkId: 'l1',
@@ -50,7 +56,7 @@ function submission(id: string, studentId: string, status: string, submittedAt: 
     submittedAt,
     files: [],
     repo: null,
-    grade: null,
+    grade,
   }
 }
 
@@ -96,35 +102,142 @@ function text(element: {text: () => string}): string {
 }
 
 describe('GradingView', () => {
-  it('samlar inlämnade uppgifter från kurserna, äldst först', async () => {
+  it('grupperar inlämnade per uppgift med namnen i ordning och en länk per rad', async () => {
     backend()
+
+    const {wrapper} = await renderApp('/grading')
+    await flushPromises()
+
+    const groups = wrapper.findAll('[data-test="grading-group"]')
+    expect(groups).toHaveLength(2)
+    expect(text(groups[0])).toContain('Release-pipeline')
+    expect(text(groups[0])).toContain('DevOps')
+    expect(text(groups[0])).toContain('Ingen deadline')
+    expect(text(groups[1])).toContain('Docker-uppgift')
+
+    const rows = wrapper.findAll('[data-test="grading-row"]')
+    expect(rows).toHaveLength(2)
+    expect(text(rows[0])).toContain('Anna Andersson')
+    expect(text(rows[1])).toContain('Bo Berg')
+    expect(rows[0].find('a').attributes('href'))
+      .toBe('/courses/c1/assignments/l1/submissions/s1')
+    expect(rows[1].find('a').attributes('href'))
+      .toBe('/courses/c2/assignments/l3/submissions/s4')
+  })
+
+  it('knappen Bedöm i ordning öppnar gruppens första inlämning', async () => {
+    backend({
+      release: [
+        submission('s1', 'u3', 'Submitted', '2026-10-10T10:00:00Z'),
+        submission('s2', 'u2', 'Submitted', '2026-10-09T10:00:00Z'),
+      ],
+    })
+
+    const {wrapper} = await renderApp('/grading')
+    await flushPromises()
+
+    const button = wrapper.find('[data-test="grade-in-order"]')
+    expect(text(button)).toBe('Bedöm 2 i ordning')
+    expect(button.attributes('href')).toBe('/courses/c1/assignments/l1/submissions/s2')
+  })
+
+  it('markerar första inlämningen och inlämnat igen', async () => {
+    backend({
+      release: [
+        submission('s1', 'u1', 'Submitted', '2026-10-10T10:00:00Z'),
+        submission('s2', 'u2', 'Submitted', '2026-10-09T10:00:00Z', {
+          gradedById: 'u0', level: null, feedback: 'Komplettera', gradedAt: '2026-10-08T10:00:00Z',
+        }),
+      ],
+    })
 
     const {wrapper} = await renderApp('/grading')
     await flushPromises()
 
     const rows = wrapper.findAll('[data-test="grading-row"]')
-    expect(rows).toHaveLength(2)
-    expect(text(rows[0])).toContain('Bo Berg')
-    expect(text(rows[0])).toContain('Docker-uppgift')
-    expect(text(rows[0])).toContain('Databaser')
-    expect(text(rows[1])).toContain('Anna Andersson')
-    expect(text(rows[1])).toContain('Release-pipeline')
-    expect(text(rows[1])).toContain('DevOps')
-
-    expect(rows[0].find('a').attributes('href'))
-      .toBe('/courses/c2/assignments/l3/submissions/s4')
-    expect(rows[1].find('a').attributes('href'))
-      .toBe('/courses/c1/assignments/l1/submissions/s1')
+    expect(text(rows[0])).toContain('Första inlämningen')
+    expect(text(rows[1])).toContain('Inlämnat igen')
   })
 
-  it('hoppar över bedömda, kompletteringar och teoridelar', async () => {
-    backend()
+  it('visar deadlineraden i gruppens huvud', async () => {
+    const closed = {...release, dueAt: '2026-11-01T12:00:00Z', resubmitDueAt: ['2026-11-02T12:00:00Z']}
+    mockApi((_method, path) => {
+      if (path === '/api/me') {
+        return {status: 200, body: meAs('Teacher', ['c1'])}
+      }
+      if (path === '/api/courses') {
+        return {status: 200, body: [devops]}
+      }
+      if (path === '/api/courses/c1/modules') {
+        return {status: 200, body: [week('m1', [closed])]}
+      }
+      if (path === '/api/links/l1/submissions') {
+        return {status: 200, body: releaseSubmissions}
+      }
+      return {status: 404}
+    })
 
     const {wrapper} = await renderApp('/grading')
     await flushPromises()
 
-    expect(wrapper.findAll('[data-test="grading-row"]')).toHaveLength(2)
-    expect(requests.map((request) => request.path)).not.toContain('/api/links/l2/submissions')
+    expect(text(wrapper.find('[data-test="grading-deadline"]')))
+      .toBe('Sista deadline passerad 2 nov · bara G eller IG')
+  })
+
+  it('delar upp i fyra flikar med antal och byter innehåll', async () => {
+    const passed = '2020-01-01T10:00:00Z'
+    const withDeadlines = {...release, dueAt: passed, resubmitDueAt: ['2099-01-01T10:00:00Z']}
+    const lastPassed = {...docker, dueAt: passed, resubmitDueAt: ['2020-02-01T10:00:00Z']}
+    mockApi((_method, path) => {
+      if (path === '/api/me') {
+        return {status: 200, body: meAs('Teacher', ['c1', 'c2'])}
+      }
+      if (path === '/api/courses') {
+        return {status: 200, body: [devops, databases]}
+      }
+      if (path === '/api/courses/c1/modules') {
+        return {status: 200, body: [week('m1', [withDeadlines])]}
+      }
+      if (path === '/api/courses/c2/modules') {
+        return {status: 200, body: [week('m2', [lastPassed])]}
+      }
+      if (path === '/api/links/l1/submissions') {
+        return {
+          status: 200,
+          body: [
+            submission('s1', 'u1', 'Submitted', '2026-10-10T10:00:00Z'),
+            submission('s2', 'u2', 'NotStarted'),
+            submission('s3', 'u3', 'NeedsWork', '2026-10-09T10:00:00Z'),
+          ],
+        }
+      }
+      if (path === '/api/links/l3/submissions') {
+        return {status: 200, body: [submission('s4', 'u2', 'NotSubmitted')]}
+      }
+      return {status: 404}
+    })
+
+    const {wrapper} = await renderApp('/grading')
+    await flushPromises()
+
+    const counts = wrapper.findAll('[data-test="grading-tab-count"]').map((count) => count.text())
+    expect(counts).toEqual(['1', '1', '1', '1'])
+
+    await wrapper.find('[data-test="grading-tab-missed"]').trigger('click')
+    expect(text(wrapper.find('[data-test="grading-group"]'))).toContain('Bo Berg')
+    expect(text(wrapper.find('[data-test="grading-group"]'))).toContain('Markera med kommentar')
+    expect(wrapper.find('[data-test="grading-group-actions"]').exists()).toBe(true)
+
+    await wrapper.find('[data-test="grading-tab-out"]').trigger('click')
+    expect(text(wrapper.find('[data-test="grading-group"]'))).toContain('Ej inlämnat')
+    expect(text(wrapper.find('[data-test="grading-group"]'))).toContain('Sätt IG')
+
+    await wrapper.find('[data-test="grading-tab-waiting"]').trigger('click')
+    const waiting = wrapper.find('[data-test="grading-row"]')
+    expect(text(waiting)).toContain('Clara Carlsson')
+    expect(text(waiting)).toContain('Komplettera')
+    expect(text(waiting)).toContain('Chans till')
+    expect(waiting.find('a').exists()).toBe(false)
   })
 
   it('visar en tom sida när inget väntar på bedömning', async () => {
@@ -138,6 +251,15 @@ describe('GradingView', () => {
 
     expect(wrapper.text()).toContain('Inget att bedöma')
     expect(wrapper.findAll('[data-test="grading-row"]')).toHaveLength(0)
+  })
+
+  it('hoppar över teoridelar', async () => {
+    backend()
+
+    await renderApp('/grading')
+    await flushPromises()
+
+    expect(requests.map((request) => request.path)).not.toContain('/api/links/l2/submissions')
   })
 
   it('en elev som öppnar Att bedöma hamnar på Idag', async () => {
@@ -161,5 +283,50 @@ describe('GradingView', () => {
     expect(wrapper.text()).toContain('Idag')
     // Omdirigeringen är inte tyst: användaren får veta varför.
     expect(wrapper.find('[data-test="toast"]').text()).toContain('Du har inte behörighet till den sidan.')
+  })
+
+  it('Markera alla som ej inlämnat bekräftas, skickas per uppgift och visar antalet', async () => {
+    const passed = {...release, dueAt: '2020-01-01T10:00:00Z', resubmitDueAt: ['2099-01-01T10:00:00Z']}
+    let marked = false
+    mockApi((method, path) => {
+      if (path === '/api/me') {
+        return {status: 200, body: meAs('Teacher', ['c1'])}
+      }
+      if (path === '/api/courses') {
+        return {status: 200, body: [devops]}
+      }
+      if (path === '/api/courses/c1/modules') {
+        return {status: 200, body: [week('m1', [passed])]}
+      }
+      if (method === 'POST' && path === '/api/links/l1/submissions/mark-not-submitted') {
+        marked = true
+        return {status: 200, body: {count: 2}}
+      }
+      if (path === '/api/links/l1/submissions') {
+        return {
+          status: 200,
+          body: marked
+            ? [submission('s2', 'u2', 'NotSubmitted'), submission('s3', 'u3', 'NotSubmitted')]
+            : [submission('s2', 'u2', 'NotStarted'), submission('s3', 'u3', 'NotStarted')],
+        }
+      }
+      return {status: 404}
+    })
+
+    const {wrapper} = await renderApp('/grading')
+    await flushPromises()
+    await wrapper.find('[data-test="grading-tab-missed"]').trigger('click')
+
+    await wrapper.find('[data-test="grading-group-actions"] [data-test="mark-all-not-submitted"]').trigger('click')
+    await flushPromises()
+    expect(requests.some((request) => request.method === 'POST')).toBe(false)
+    expect(document.querySelector('[data-test="mark-all-dialog"]')?.textContent).toContain('2 elever')
+
+    document.querySelector<HTMLButtonElement>('[data-test="mark-all-confirm"]')!.click()
+    await flushPromises()
+
+    expect(requests.filter((request) => request.method === 'POST')).toHaveLength(1)
+    expect(wrapper.find('[data-test="grading-notice"]').text()).toBe('2 elever markerades som ej inlämnat.')
+    expect(wrapper.find('[data-test="grading-group-actions"]').exists()).toBe(false)
   })
 })

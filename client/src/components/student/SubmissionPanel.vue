@@ -11,7 +11,7 @@ import {useAsync} from '@/composables/useAsync'
 import {useToast} from '@/composables/useToast'
 import {api, errorMessage, multipart, type Schema} from '@/lib/api'
 import {formatDate} from '@/lib/content'
-import {nextResubmitDue} from '@/lib/studentCourse'
+import {handInWindow} from '@/lib/gradingWindow'
 import {formatSize} from '@/lib/material'
 import {fetchLinkSubmissions} from '@/lib/submissionsApi'
 
@@ -41,16 +41,29 @@ const hasForm = computed(() => hasText.value || hasFiles.value)
 const onSite = computed(() => props.item.submissionModes.includes('OnSite'))
 const status = computed(() => props.item.submissionStatus ?? 'NotStarted')
 // Den som inte lämnat in, eller ska komplettera, ser formuläret direkt. En inlämnad kan välja att ändra.
+const windowState = computed(() => handInWindow(props.item, status.value))
 const formOpen = computed(() => hasForm.value
   && loaded.value
+  && windowState.value.open
   && (status.value === 'NotStarted' || status.value === 'NotSubmitted' || status.value === 'NeedsWork' || editing.value))
 const isLate = computed(() => !!props.item.dueAt
-  && status.value !== 'Graded'
+  && windowState.value.open
   && new Date(props.item.dueAt) < new Date())
-// Den som ska komplettera får veta när nästa chans går ut.
-const nextResubmit = computed(() => status.value === 'NeedsWork'
-  ? nextResubmitDue(props.item)
-  : null)
+// Eleven får veta till när hen kan lämna in, eller varför det är stängt.
+const windowText = computed(() => {
+  const state = windowState.value
+  if (state.open && state.until) {
+    return status.value === 'Submitted'
+      ? `Du kan ändra din inlämning till ${formatDate(state.until, true)}.`
+      : `Du kan lämna in till ${formatDate(state.until, true)}.`
+  }
+  if (state.closed === 'locked') {
+    return 'Deadlinen har gått ut. Din inlämning är låst tills läraren har bedömt den.'
+  }
+  return state.closed === 'closed'
+    ? 'Det går inte längre att lämna in. Sista deadline har passerat.'
+    : ''
+})
 const submitLabel = computed(() => status.value === 'NotStarted' || status.value === 'NotSubmitted'
   ? 'Lämna in'
   : status.value === 'NeedsWork'
@@ -158,8 +171,14 @@ function onFilesChosen(event: Event) {
       </span>
     </div>
 
-    <p v-if="nextResubmit" class="text-sm font-medium" data-test="submission-next-resubmit">
-      Nästa kompletteringsdeadline {{ formatDate(nextResubmit, true) }}
+    <p
+      v-if="windowText && (hasForm || hasRepo)"
+      class="text-sm font-medium"
+      :data-test="windowState.open
+        ? 'submission-open-until'
+        : 'submission-closed'"
+    >
+      {{ windowText }}
     </p>
 
     <p v-if="onSite" class="text-muted-foreground text-sm" data-test="submission-onsite">
@@ -184,7 +203,7 @@ function onFilesChosen(event: Event) {
         När du lämnar in sparas senaste commit som din inlämning. Du kan lämna in igen fram till deadline.
       </p>
       <Button
-        v-if="status !== 'Graded' && !repoLocked"
+        v-if="windowState.open && !repoLocked"
         type="button"
         :disabled="saving"
         data-test="repo-submission-submit"
@@ -306,7 +325,7 @@ function onFilesChosen(event: Event) {
           <span class="text-muted-foreground text-xs">{{ formatSize(file.sizeBytes) }}</span>
         </li>
       </ul>
-      <div v-if="status === 'Submitted'">
+      <div v-if="status === 'Submitted' && windowState.open">
         <Button variant="outline" data-test="submission-edit" @click="startEditing">Ändra inlämning</Button>
       </div>
     </div>

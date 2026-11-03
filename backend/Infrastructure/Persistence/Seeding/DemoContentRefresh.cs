@@ -1,3 +1,4 @@
+using Backend.Application.Services;
 using Backend.Domain.Entities;
 using Backend.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -19,11 +20,15 @@ namespace Backend.Infrastructure.Persistence.Seeding;
 /// lärare i alla klassens kurser, och här görs det om till det katalogen beskriver: i varje demokurs tas lärare ur
 /// katalogens personer bort om katalogen inte har dem där, och de som katalogen har men som saknas läggs till.
 /// Andra användare än katalogens personer (riktiga konton) lämnas alltid orörda.
+///
+/// Det andra undantaget är betygsreglerna: en demouppgift vars elever ska komplettera eller har fått Ej inlämnat
+/// får samma kompletteringsdeadline som DemoSeed ger den (<see cref="DemoBuilder.ResubmitFor"/>), men bara om
+/// uppgiften saknar en. Ett IG på en uppgift där en deadline återstår blir Komplettera igen. Inget annat ändras.
 /// </summary>
 public sealed class DemoContentRefresh(AppDb db, TimeProvider time, ILogger<DemoContentRefresh> logger)
 {
     /// <summary>Höj när DemoCatalog ändrats så att prod ska få ändringen. Format: ÅÅÅÅ-MM-DD.löpnummer.</summary>
-    public const string ContentVersion = "2026-10-30.1";
+    public const string ContentVersion = "2026-11-03.1";
 
     internal static string PatchId => $"demo-content@{ContentVersion}";
 
@@ -36,10 +41,14 @@ public sealed class DemoContentRefresh(AppDb db, TimeProvider time, ILogger<Demo
     private int _commentsAdded;
     private int _teachersAdded;
     private int _teachersRemoved;
+    private int _deadlinesAdded;
+    private int _failsReopened;
+    private readonly List<(ContentLink Link, PartSpec Part)> _deadlineCandidates = [];
 
     /// <summary>Resultatet av en körning. Null om versionen redan var körd eller det inte finns någon demodata.</summary>
     internal sealed record Result(
-        int Updated, int Created, int CommentsAdded, int TeachersAdded = 0, int TeachersRemoved = 0);
+        int Updated, int Created, int CommentsAdded, int TeachersAdded = 0, int TeachersRemoved = 0,
+        int DeadlinesAdded = 0, int FailsReopened = 0);
 
     internal Task<Result?> RefreshAsync(CancellationToken ct) => RefreshAsync(DemoCatalog.Classes(), ct);
 
@@ -92,20 +101,69 @@ public sealed class DemoContentRefresh(AppDb db, TimeProvider time, ILogger<Demo
             RefreshNews(group, data, null, classSpec.News, students);
         }
 
+        await ApplyGradingRulesAsync(ct);
+
         db.DataPatches.Add(new DataPatch { Id = PatchId, AppliedAt = time.GetUtcNow() });
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
 
         logger.LogInformation(
             "Demoinnehållet uppdaterat till {Version}: {Updated} ändrade, {Created} nya och {Comments} nya kommentarer, "
-            + "{TeachersAdded} lärare tillagda och {TeachersRemoved} borttagna i kurserna.",
+            + "{TeachersAdded} lärare tillagda och {TeachersRemoved} borttagna i kurserna, "
+            + "{Deadlines} kompletteringsdeadliner och {Fails} IG som blev Komplettera.",
             ContentVersion,
             _updated,
             _created,
             _commentsAdded,
             _teachersAdded,
-            _teachersRemoved);
-        return new Result(_updated, _created, _commentsAdded, _teachersAdded, _teachersRemoved);
+            _teachersRemoved,
+            _deadlinesAdded,
+            _failsReopened);
+        return new Result(
+            _updated, _created, _commentsAdded, _teachersAdded, _teachersRemoved, _deadlinesAdded, _failsReopened);
+    }
+
+    // Låter en befintlig demo följa betygsreglerna. Bara delar som katalogen matchat rörs, alltså demoklassernas egna
+    // länkar. En länk med huvuddeadline men utan kompletteringsdeadline får den som DemoSeed ger, om någon elev ligger
+    // på Komplettera eller Ej inlämnat. Ett IG på en länk där en deadline återstår blir Komplettera, för IG sätts
+    // först när ingen deadline återstår. Körs bara en gång per version, och ger inget nytt andra gången ändå.
+    private async Task ApplyGradingRulesAsync(CancellationToken ct)
+    {
+        var links = _deadlineCandidates.Where(item => item.Link.DueAt is not null).ToList();
+        var linkIds = links.Select(item => item.Link.Id).ToList();
+        var submissions = await db.Submissions
+            .Include(row => row.Grade)
+            .Where(row => linkIds.Contains(row.ContentLinkId))
+            .ToListAsync(ct);
+        var now = time.GetUtcNow();
+
+        foreach (var (link, part) in links)
+        {
+            var rows = submissions.Where(row => row.ContentLinkId == link.Id).ToList();
+            if (link.ResubmitDueAt.Count == 0
+                && rows.Any(row => row.Status is SubmissionStatus.NeedsWork or SubmissionStatus.NotSubmitted))
+            {
+                var wanted = DemoBuilder.ResubmitFor(part with { DueAt = link.DueAt });
+                if (wanted.Count > 0)
+                {
+                    link.ResubmitDueAt = wanted;
+                    _deadlinesAdded++;
+                }
+            }
+
+            if (!new GradingWindow(link.DueAt, link.ResubmitDueAt, now).DeadlineRemains)
+            {
+                continue;
+            }
+
+            foreach (var row in rows.Where(row => row.Status == SubmissionStatus.Graded
+                && row.Grade?.Level == GradeLevel.Fail))
+            {
+                row.Status = SubmissionStatus.NeedsWork;
+                row.Grade!.Level = null;
+                _failsReopened++;
+            }
+        }
     }
 
     // Katalogens lärare i kursen. Bara katalogens personer rörs: en lärare som katalogen inte har i kursen tas bort,
@@ -230,6 +288,7 @@ public sealed class DemoContentRefresh(AppDb db, TimeProvider time, ILogger<Demo
                 ordered, row => data.Contents[row.ContentId].Title, row => row.Id, matched, part.Title, part.Was);
             if (link is not null)
             {
+                _deadlineCandidates.Add((link, part));
                 var content = data.Contents[link.ContentId];
                 if (content.Title != part.Title || content.BodyMd != part.Body)
                 {

@@ -64,16 +64,31 @@ public class FakeLabProvisioner(IConfiguration cfg) : ILabProvisioner
     }
 
     public Task<RepoLockResult> LockAtDeadlineAsync(
-        StudentRepoContext context, DateTimeOffset deadline, CancellationToken ct)
+        StudentRepoContext context,
+        DateTimeOffset deadline,
+        bool lockWithoutOwnCommit,
+        CancellationToken ct)
     {
         var repo = context.Repo;
         var sha = repo.LastSha ?? "fake-submission-sha";
-        repo.SubmissionSha = sha;
+        var ownCommit = RepoLockPolicy.HasOwnCommit(repo, sha, repo.CommitCount, repo.LastCommitAt);
+        if (!ownCommit && !lockWithoutOwnCommit)
+        {
+            return Task.FromResult(new RepoLockResult(false, null, null, null));
+        }
+
+        if (ownCommit)
+        {
+            repo.SubmissionSha = sha;
+        }
+
         repo.LockedAt = DateTimeOffset.UtcNow;
         repo.LockError = null;
         repo.ReopenedAt = null;
         repo.UpdatedAt = repo.LockedAt.Value;
-        return Task.FromResult(new RepoLockResult(true, sha, deadline, null));
+        return Task.FromResult(ownCommit
+            ? new RepoLockResult(true, sha, deadline, null, true)
+            : new RepoLockResult(true, null, null, null));
     }
 
     public Task ReopenForResubmissionAsync(

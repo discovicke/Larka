@@ -98,6 +98,9 @@ function backend(options: {
     if (method === 'POST' && path === '/api/links/l1/repos/refresh') {
       return {status: 204}
     }
+    if (method === 'POST' && path === '/api/links/l1/submissions/mark-not-submitted') {
+      return {status: 200, body: {count: 1}}
+    }
     if (method === 'POST' && path === '/api/links/l1/repos/lock') {
       return {status: 204}
     }
@@ -488,5 +491,49 @@ describe('PartView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('Inga elever matchar sökningen.')
+  })
+
+  describe('Markera alla som ej inlämnat', () => {
+    it('visas efter deadlinen när någon inte lämnat in, och bekräftas innan det skickas', async () => {
+      backend()
+
+      const {wrapper} = await renderApp('/courses/c1/assignments/l1')
+      await flushPromises()
+
+      await wrapper.find('[data-test="mark-all-not-submitted"]').trigger('click')
+      await flushPromises()
+      expect(document.querySelector('[data-test="mark-all-dialog"]')?.textContent).toContain('1 elev')
+      expect(requests.some((request) => request.path.endsWith('/mark-not-submitted'))).toBe(false)
+
+      document.querySelector<HTMLButtonElement>('[data-test="mark-all-confirm"]')!.click()
+      await flushPromises()
+
+      expect(requests.filter((request) => request.method === 'POST'
+        && request.path === '/api/links/l1/submissions/mark-not-submitted')).toHaveLength(1)
+      expect(requests.filter((request) => request.path === '/api/links/l1/submissions').length).toBeGreaterThan(1)
+      expect(wrapper.find('[data-test="mark-all-notice"]').text()).toBe('1 elev markerades som ej inlämnat.')
+    })
+
+    it('syns inte före deadlinen, utan någon som saknar inlämning eller för mentorn', async () => {
+      backend({part: {...assignment, dueAt: '2099-01-01T10:00:00Z'}})
+      const before = await renderApp('/courses/c1/assignments/l1')
+      await flushPromises()
+      expect(before.wrapper.find('[data-test="mark-all-not-submitted"]').exists()).toBe(false)
+
+      backend({part: {...assignment, dueAt: null}})
+      const without = await renderApp('/courses/c1/assignments/l1')
+      await flushPromises()
+      expect(without.wrapper.find('[data-test="mark-all-not-submitted"]').exists()).toBe(false)
+
+      backend({submissions: [graded, submitted]})
+      const nobody = await renderApp('/courses/c1/assignments/l1')
+      await flushPromises()
+      expect(nobody.wrapper.find('[data-test="mark-all-not-submitted"]').exists()).toBe(false)
+
+      backend({me: mentorAs(['c1'])})
+      const mentor = await renderApp('/courses/c1/assignments/l1')
+      await flushPromises()
+      expect(mentor.wrapper.find('[data-test="mark-all-not-submitted"]').exists()).toBe(false)
+    })
   })
 })

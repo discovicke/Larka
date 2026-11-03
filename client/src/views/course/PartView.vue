@@ -285,6 +285,7 @@ watch([courseId, linkId], () => {
         :course-id="courseId"
         :link-id="linkId"
         :submissions="submissions"
+        :due-at="part?.dueAt ?? null"
         @reload="load(false)"
       />
 

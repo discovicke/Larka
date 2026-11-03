@@ -168,11 +168,6 @@ export function resubmitLabel(item: Pick<Item, 'resubmitDueAt'>): string {
     : ''
 }
 
-/** Nästa kompletteringsdeadline som inte har passerat, för den som ska komplettera. */
-export function nextResubmitDue(item: Pick<Item, 'resubmitDueAt'>, now = new Date()): string | null {
-  return item.resubmitDueAt.find((value) => new Date(value) > now) ?? null
-}
-
 // Klar eller inlämnad är inte försenad, så deadlinen får inget läge då.
 function isDone(item: Item): boolean {
   return item.isCompleted || item.submissionStatus === 'Submitted' || item.submissionStatus === 'Graded'

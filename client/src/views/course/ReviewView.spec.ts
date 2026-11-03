@@ -50,7 +50,7 @@ const gradedSubmission = {
   },
 }
 
-function week(scale: string) {
+function week(scale: string, dueAt: string | null = null, resubmitDueAt: string[] = []) {
   return {
     id: 'm1',
     courseId: 'c1',
@@ -67,8 +67,8 @@ function week(scale: string) {
       status: 'Published',
       groupId: null,
       publishAt: '2026-10-01T08:00:00Z',
-      dueAt: '2026-10-23T21:59:00Z',
-      resubmitDueAt: [],
+      dueAt,
+      resubmitDueAt,
       isPinned: false,
       blockedBy: [],
     }],
@@ -97,6 +97,8 @@ function backend(options: {
   queue?: unknown[]
   otherAssignment?: unknown[]
   modes?: string[]
+  dueAt?: string
+  resubmitDueAt?: string[]
 } = {}) {
   mockApi((method, path) => {
     if (path === '/api/me') {
@@ -106,7 +108,7 @@ function backend(options: {
       return {status: 200, body: [course]}
     }
     if (path === '/api/courses/c1/modules') {
-      const first = week(options.scale ?? 'PassFail')
+      const first = week(options.scale ?? 'PassFail', options.dueAt ?? null, options.resubmitDueAt ?? [])
       return {
         status: 200,
         body: [options.otherAssignment
@@ -168,6 +170,11 @@ function button(wrapper: Awaited<ReturnType<typeof renderApp>>['wrapper'], label
   return found
 }
 
+async function radiosButton(wrapper: Awaited<ReturnType<typeof renderApp>>['wrapper'], label: string) {
+  const found = wrapper.findAll('[role="radio"]').find((candidate) => text(candidate).startsWith(label))
+  await found!.trigger('click')
+}
+
 function radios(wrapper: Awaited<ReturnType<typeof renderApp>>['wrapper']): string[] {
   return wrapper.findAll('[role="radio"]').map(text)
 }
@@ -217,6 +224,71 @@ describe('ReviewView', () => {
     expect(wrapper.text()).toContain('Tester: 12/12')
     expect(wrapper.text()).toContain('Gröna')
     expect(wrapper.text()).toContain('Öppnat för komplettering')
+  })
+
+  describe('deadlines styr IG och Komplettera', () => {
+    const past = '2020-01-01T10:00:00Z'
+    const future = '2999-01-01T10:00:00Z'
+
+    it('döljer IG och förklarar varför medan en deadline återstår, men erbjuder Komplettera', async () => {
+      backend({scale: 'PassFailDistinction', dueAt: past, resubmitDueAt: [future]})
+
+      const {wrapper} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
+
+      expect(radios(wrapper)).toHaveLength(2)
+      expect(radios(wrapper).join(' ')).not.toContain('IG')
+      expect(wrapper.find('[data-test="review-fail-later"]').exists()).toBe(true)
+      expect(wrapper.find('[data-test="review-request-work"]').exists()).toBe(true)
+    })
+
+    it('erbjuder IG men inte Komplettera när sista deadline har passerat', async () => {
+      backend({scale: 'PassFail', dueAt: past, resubmitDueAt: ['2020-02-01T10:00:00Z']})
+
+      const {wrapper} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
+
+      expect(radios(wrapper)[0]).toContain('IG')
+      expect(wrapper.find('[data-test="review-request-work"]').exists()).toBe(false)
+      expect(wrapper.find('[data-test="review-fail-later"]').exists()).toBe(false)
+    })
+
+    it('erbjuder allt när uppgiften saknar deadline', async () => {
+      backend({scale: 'PassFail'})
+
+      const {wrapper} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
+
+      expect(radios(wrapper)).toHaveLength(2)
+      expect(wrapper.find('[data-test="review-request-work"]').exists()).toBe(true)
+    })
+
+    it('kräver nytt val om ett tidigare IG inte längre är tillåtet', async () => {
+      backend({
+        scale: 'PassFail',
+        dueAt: future,
+        submission: {...gradedSubmission, grade: {...gradedSubmission.grade, level: 'Fail'}},
+      })
+
+      const {wrapper} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
+      await button(wrapper, 'Spara').trigger('click')
+      await flushPromises()
+
+      expect(wrapper.text()).toContain('Välj ett betyg.')
+      expect(requests.filter((request) => request.method === 'POST')).toHaveLength(0)
+    })
+
+    it('håller Spara och nästa igång med bara G kvar', async () => {
+      backend({
+        scale: 'PassFail',
+        dueAt: future,
+        queue: [queued('s1', 'Anna'), queued('s2', 'Bo')],
+      })
+
+      const {wrapper} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
+      await radiosButton(wrapper, 'G')
+      await button(wrapper, 'Spara och nästa').trigger('click')
+      await flushPromises()
+
+      expect(sent('POST', '/api/submissions/s1/grade')).toMatchObject({level: 'Pass', outcome: 'Graded'})
+    })
   })
 
   it('visar IG och G för skalan IG-G', async () => {

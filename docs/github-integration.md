@@ -287,8 +287,8 @@ stateDiagram-v2
     Submitted --> NeedsWork: Läraren begär komplettering
     Submitted --> Graded: Läraren bedömer
     NeedsWork --> Graded: Läraren bedömer
-    NotStarted --> Submitted: Deadlinejobbet hittar commit före deadline
-    NotStarted --> NotStarted: Ingen commit, LockError sparas
+    NotStarted --> Submitted: Deadlinejobbet hittar elevens egen commit före en deadline
+    NotStarted --> NotStarted: Ingen egen commit, repot lämnas öppet
 ```
 
 ### Eleven lämnar in själv
@@ -299,29 +299,28 @@ För repo-uppgifter finns knappen **Lämna in senaste commit** i elevens inlämn
 - sparar aktuell commit som `SubmissionSha`,
 - sparar tiden för inlämningen.
 
-Eleven kan lämna in igen fram till deadline.
+Eleven kan lämna in igen fram till huvuddeadlinen. Efter den är en Inlämnad inlämning låst tills läraren har bedömt den. Reglerna står i [roller-och-floden.md](roller-och-floden.md#inlämning-och-bedömning).
 
 ### Deadline låser repot
 
-`GitHubDeadlineLockJob` körs var 60:e sekund. När en uppgift har passerat deadline:
+Repot är öppet exakt när eleven får lämna in och låst annars. `GitHubDeadlineLockJob` körs var 60:e sekund och behandlar varje deadline, huvud- och kompletteringsdeadlines, en gång per repo. Vid en deadline:
 
 1. hämtar backend senaste commit **före deadline**,
 2. uppdaterar commit, commits och check runs,
-3. arkiverar repot i GitHub,
-4. sparar `SubmissionSha` och `LockedAt`,
-5. sätter inlämningen till `Submitted` om det finns en commit.
+3. om commiten är elevens egen (skiljer sig från mallens första commit `InitialSha`, och efter en öppning är nyare än förra inlämningen) arkiveras repot, `SubmissionSha` och `LockedAt` sparas och inlämningen sätts till `Submitted`,
+4. om det inte finns någon egen commit lämnas repot öppet till nästa deadline, och inlämningen förblir `NotStarted`.
 
-Om det inte finns någon commit sparas `LockError = "Ingen commit före deadline."` och inlämningen förblir `NotStarted`.
+Efter sista deadline låses alla repon, med eller utan egen commit.
 
 ### Komplettering
 
-När läraren begär komplettering:
+När läraren begär komplettering, vilket kräver att en deadline återstår:
 
 - sätts inlämningen till `NeedsWork`,
 - avarkiveras repot,
 - `ReopenedAt` sätts.
 
-Eleven kan då pusha igen och lämna in på nytt. Nästa gång läraren låser repon arkiveras det igen och `ReopenedAt` rensas.
+Eleven kan då pusha igen och lämna in på nytt fram till nästa kompletteringsdeadline. Vid den deadlinen låses repot igen om det finns en ny commit, och `ReopenedAt` rensas. Ej inlämnat ändrar inte repot.
 
 ---
 

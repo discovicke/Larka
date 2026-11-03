@@ -1,3 +1,4 @@
+using Backend.Application.Services;
 using Backend.Domain.Entities;
 using Backend.Domain.Enums;
 using Backend.Infrastructure;
@@ -339,6 +340,112 @@ public class DemoContentRefreshTests
             .Select(link => link.Position).OrderBy(position => position).ToListAsync();
         Assert.Equal(Enumerable.Range(1, titles.Count), positions);
     }
+
+    [Fact]
+    public async Task Refresh_OnOldProd_BackfillsResubmitDeadlines_ReopensEarlyFails_AndIsIdempotent()
+    {
+        using var database = new TestWebApplicationFactory();
+        using var scope = database.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        await SeedAsync(scope);
+        var group = await db.Groups.SingleAsync(row => row.Name == DemoSeed.MarkerGroupName);
+
+        // Gammal prod: demolänkarna saknar kompletteringsdeadline. Den kommande (kön) får ett IG som inte hör hemma.
+        var demoLinks = await db.ContentLinks.Where(link => link.GroupId == group.Id && link.DueAt != null)
+            .ToListAsync();
+        var withDeadline = demoLinks.Where(link => link.ResubmitDueAt.Count > 0).ToList();
+        Assert.NotEmpty(withDeadline);
+        var needsWorkLinkIds = await db.Submissions
+            .Where(row => row.Status == SubmissionStatus.NeedsWork || row.Status == SubmissionStatus.NotSubmitted)
+            .Select(row => row.ContentLinkId).Distinct().ToListAsync();
+        var oldShape = withDeadline.Where(link => needsWorkLinkIds.Contains(link.Id)).ToList();
+        Assert.NotEmpty(oldShape);
+        var expected = oldShape.ToDictionary(link => link.Id, link => link.ResubmitDueAt.ToList());
+        foreach (var link in withDeadline)
+        {
+            link.ResubmitDueAt = [];
+        }
+
+        // Ett IG på en länk som har fler elever att komplettera, så länken behåller sitt skäl till en deadline.
+        var needsWorkRows = await db.Submissions.Include(row => row.Grade)
+            .Where(row => row.Status == SubmissionStatus.NeedsWork && oldShape.Select(link => link.Id)
+                .Contains(row.ContentLinkId))
+            .ToListAsync();
+        var failing = needsWorkRows.First(
+            row => needsWorkRows.Count(other => other.ContentLinkId == row.ContentLinkId) > 1);
+        var early = oldShape.Single(link => link.Id == failing.ContentLinkId);
+        failing.Status = SubmissionStatus.Graded;
+        failing.Grade!.Level = GradeLevel.Fail;
+
+        // Utan elever som ska komplettera finns inget skäl att ge deadline.
+        var untouched = withDeadline.Where(link => !needsWorkLinkIds.Contains(link.Id)).ToList();
+
+        // En riktig skola med samma slags rader rörs inte.
+        var school = new School { Name = "Riktiga skolan" };
+        db.Schools.Add(school);
+        await db.SaveChangesAsync();
+        var realGroup = new Group { Name = "Riktig klass", SchoolId = school.Id };
+        db.Groups.Add(realGroup);
+        var realLink = new ContentLink
+        {
+            ContentId = (await db.Content.FirstAsync()).Id,
+            GroupId = realGroup.Id,
+            DueAt = DateTimeOffset.Parse("2026-10-01T10:00:00Z")
+        };
+        db.ContentLinks.Add(realLink);
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+
+        var refresh = scope.ServiceProvider.GetRequiredService<DemoContentRefresh>();
+        var first = await refresh.RefreshAsync(CancellationToken.None);
+
+        Assert.NotNull(first);
+        Assert.Equal(oldShape.Count, first.DeadlinesAdded);
+        db.ChangeTracker.Clear();
+        foreach (var (id, deadlines) in expected)
+        {
+            Assert.Equal(deadlines, (await db.ContentLinks.SingleAsync(link => link.Id == id)).ResubmitDueAt);
+        }
+
+        foreach (var link in untouched)
+        {
+            Assert.Empty((await db.ContentLinks.SingleAsync(row => row.Id == link.Id)).ResubmitDueAt);
+        }
+
+        Assert.Empty((await db.ContentLinks.SingleAsync(link => link.Id == realLink.Id)).ResubmitDueAt);
+
+        // IG ligger kvar där ingen deadline återstår och blir Komplettera där en gör det.
+        var window = new GradingWindow(early.DueAt, expected[early.Id], DateTimeOffset.UtcNow);
+        var reopened = await db.Submissions.Include(row => row.Grade).SingleAsync(row => row.Id == failing.Id);
+        Assert.Equal(window.DeadlineRemains, reopened.Status == SubmissionStatus.NeedsWork);
+        Assert.Equal(
+            window.DeadlineRemains
+                ? 1
+                : 0,
+            first.FailsReopened);
+
+        // Andra körningen (nu med versionen struken) ändrar inget.
+        var snapshot = await DeadlinesAsync(db);
+        db.DataPatches.RemoveRange(db.DataPatches);
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+        using var secondScope = database.Services.CreateScope();
+        var second = await secondScope.ServiceProvider.GetRequiredService<DemoContentRefresh>()
+            .RefreshAsync(CancellationToken.None);
+
+        Assert.NotNull(second);
+        Assert.Equal(0, second.DeadlinesAdded);
+        Assert.Equal(0, second.FailsReopened);
+        db.ChangeTracker.Clear();
+        Assert.Equal(snapshot, await DeadlinesAsync(db));
+    }
+
+    private static async Task<List<string>> DeadlinesAsync(AppDb db) =>
+        (await db.ContentLinks.OrderBy(link => link.Id).ToListAsync())
+        .Select(link => $"{link.Id}:{string.Join(",", link.ResubmitDueAt.Select(value => value.UtcTicks))}")
+        .Concat((await db.Submissions.Include(row => row.Grade).OrderBy(row => row.Id).ToListAsync())
+            .Select(row => $"{row.Id}:{row.Status}:{row.Grade?.Level}"))
+        .ToList();
 
     private static bool IsSubmittedPart(PartSpec part) =>
         part.Modes.Length > 0 && part.Pattern != SubmissionPattern.None;

@@ -110,7 +110,7 @@ public class StudyPlanEndpointTests(TestWebApplicationFactory factory) : IClassF
 
         var moduleId = await CreateModuleAsync(courseId);
         var gradedLinkId = await LinkAssignmentAsync(
-            courseId, moduleId, "Laboration: CI/CD", dueAt: "2026-10-23T16:00:00Z");
+            courseId, moduleId, "Laboration: CI/CD", dueAt: "2099-10-23T16:00:00Z");
         await LinkAssignmentAsync(courseId, moduleId, "Inlämningsuppgift 1");
         var studentId = setup.StudentIds[0];
         var otherStudentId = setup.StudentIds[1];
@@ -144,7 +144,7 @@ public class StudyPlanEndpointTests(TestWebApplicationFactory factory) : IClassF
         }
 
         var moduleId = await CreateModuleAsync(courseId);
-        var dueAt = "2026-11-11T16:00:00Z";
+        var dueAt = "2099-11-11T16:00:00Z";
         var courseWideGraded = await LinkAssignmentAsync(courseId, moduleId, "Docker", dueAt: dueAt);
         var groupGraded = await LinkAssignmentAsync(
             courseId, moduleId, "Kubernetes", dueAt: dueAt, groupId: setup.GroupId);

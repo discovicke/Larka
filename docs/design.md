@@ -44,9 +44,9 @@ Statusmärken (pills) visar läget hos något, och bara det. Alla lägen finns p
 | Ton           | Badge-variant | Betyder                     | Lägen                                                                                                   |
 | ------------- | ------------- | --------------------------- | ------------------------------------------------------------------------------------------------------- |
 | Neutral       | `outline`     | Information, inget att göra | Kommande, Pågår, Avslutad, Utkast, Delvis publicerad, Publicerad, Låst, Att göra, Inte inlämnad, Bedömd |
-| Info (blå)    | `info`        | Väntar på någon annan       | Schemalagd, Inlämnad                                                                                    |
+| Info (blå)    | `info`        | Väntar på någon annan       | Schemalagd, Inlämnad, Första inlämningen                                                                |
 | Varning (gul) | `warning`     | Behöver uppmärksamhet snart | Deadline snart, Ingen lärare                                                                            |
-| Fel (röd)     | `destructive` | Behöver åtgärd nu           | Försenad, Komplettera, Ej inlämnat                                                                      |
+| Fel (röd)     | `destructive` | Behöver åtgärd nu           | Försenad, Komplettera, Ej inlämnat, Inlämnat igen                                                       |
 | Klart (grön)  | `success`     | Eleven är klar              | Klar                                                                                                    |
 
 Inga nya färger: tonerna använder de befintliga tokens `info`, `warning`, `destructive` och `success`. Avslutad är alltså neutral och inte grön, eftersom grönt bara betyder att eleven har gjort klart något.
@@ -56,7 +56,7 @@ Inga nya färger: tonerna använder de befintliga tokens `info`, `warning`, `des
 - **Kursens läge** (`lib/courseStatus.ts`): Kommande, Pågår och Avslutad är neutrala. Ingen lärare (en kurs som admin ännu inte har gett en lärare) är en varning.
 - **Publicering** (lärarvyer): Utkast, Schemalagd (med datum som text i märket), Delvis publicerad, Publicerad.
 - **Elevens framsteg**: Att göra, Låst, Klar.
-- **Inlämning och bedömning**: Inte inlämnad, Inlämnad, Komplettera, Ej inlämnat, Bedömd. Inte inlämnad är bara läget innan eleven lämnat in. Ej inlämnat sätter läraren på bedömningssidan när eleven inte lämnade in eller inte kompletterade, utan betyg men med en frivillig kommentar. "Sen inlämning" är vanlig text vid inlämningsdatumet, inget läge. Bedömd visar betyget som stämpel bredvid.
+- **Inlämning och bedömning**: Inte inlämnad, Inlämnad, Komplettera, Ej inlämnat, Bedömd. Inte inlämnad är bara läget innan eleven lämnat in. Inlämnad är blå (väntar på läraren) och låst för eleven efter huvuddeadlinen tills den är bedömd. Komplettera och Ej inlämnat är röda och betyder att eleven har en ny chans fram till nästa kompletteringsdeadline. Ej inlämnat sätter läraren när eleven inte lämnade in eller inte kompletterade, utan betyg men med en frivillig kommentar, och det låser inte upp något. IG är en stämpel och sätts först när ingen deadline återstår. I Att bedöma visar raden Första inlämningen (blå) eller Inlämnat igen (röd, en tidigare bedömning finns). Flikarna är Inlämnat, Inte inlämnat efter deadline, Chanserna slut och Väntar på eleven. Reglerna står i [roller-och-floden.md](roller-och-floden.md#inlämning-och-bedömning). "Sen inlämning" är vanlig text vid inlämningsdatumet, inget läge. Bedömd visar betyget som stämpel bredvid.
 - **Deadline**: Deadline snart (inom två dygn) och Försenad. En deadline utan läge är ett datum i klartext. Klara och inlämnade delar är aldrig försenade.
 
 GitHub-uppgiftens teststatus ingår inte än.

@@ -18,7 +18,8 @@ test('3: läraren bedömer och eleven ser betyget', async ({apiAs, pageAs, reque
   const teacherPage = await pageAs(await login(request, world.teacher.email))
   await teacherPage.goto('/grading')
   await teacherPage.getByTestId('grading-row').filter({hasText: student.name}).getByRole('link').click()
-  await teacherPage.getByRole('radiogroup').getByRole('radio').nth(2).click()
+  // VG är sista valet. IG visas inte medan en deadline återstår, så valen räknas inte från början.
+  await teacherPage.getByRole('radiogroup').getByRole('radio').last().click()
   await teacherPage.getByLabel('Sammanfattande kommentar').fill('Tydlig och välstrukturerad.')
   await teacherPage.getByTestId('review-save').click()
   await expect(teacherPage).toHaveURL(/\/grading$/)

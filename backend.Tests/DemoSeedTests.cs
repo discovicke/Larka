@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using Backend.Application.Services;
 using Backend.Domain.Entities;
 using Backend.Domain.Enums;
 using Backend.Infrastructure;
@@ -325,6 +326,60 @@ public class DemoSeedTests(DemoSeedTests.DemoFixture fixture) : IClassFixture<De
         Assert.True(await db.PartCompletions.AnyAsync());
         Assert.False(await db.StudentRepos.AnyAsync());
         Assert.False(await db.SchoolGitHubInstallations.AnyAsync());
+    }
+
+    private record GradeResponse(string? Level);
+
+    private record LinkSubmissionResponse(string Status, GradeResponse? Grade);
+
+    [Fact]
+    public async Task Seed_FollowsTheGradingRules_AndFillsEveryAttBedomaTab()
+    {
+        using var scope = fixture.Factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var links = await db.ContentLinks.Where(link => link.DueAt != null).ToListAsync();
+        var submissions = await db.Submissions
+            .Include(submission => submission.Grade)
+            .Where(submission => db.ContentLinks.Any(
+                link => link.Id == submission.ContentLinkId && link.DueAt != null))
+            .ToListAsync();
+
+        GradingWindow WindowOf(ContentLink link) => new(link.DueAt, link.ResubmitDueAt, _demoDay);
+        var windows = links.ToDictionary(link => link.Id, WindowOf);
+
+        // IG sätts först när ingen deadline återstår.
+        Assert.DoesNotContain(
+            submissions,
+            submission => submission.Grade?.Level == GradeLevel.Fail
+                && windows[submission.ContentLinkId].DeadlineRemains);
+        Assert.Contains(submissions, submission => submission.Grade?.Level == GradeLevel.Fail);
+
+        // Chanserna slut: Komplettera och Ej inlämnat utan deadline kvar finns bara där läraren har IG kvar att sätta.
+        var outOfChances = submissions
+            .Where(submission => submission.Status is SubmissionStatus.NeedsWork or SubmissionStatus.NotSubmitted
+                && !windows[submission.ContentLinkId].DeadlineRemains)
+            .ToList();
+        Assert.NotEmpty(outOfChances);
+        Assert.All(outOfChances, submission => Assert.True(windows[submission.ContentLinkId].HasDeadline));
+
+        // Väntar på eleven: Komplettera eller Ej inlämnat med en komplettering kvar.
+        Assert.Contains(
+            submissions,
+            submission => submission.Status is SubmissionStatus.NeedsWork or SubmissionStatus.NotSubmitted
+                && windows[submission.ContentLinkId].DeadlineRemains
+                && windows[submission.ContentLinkId].DueAt < _demoDay);
+
+        // Inlämnat, och Inlämnat igen: en Inlämnad rad med en tidigare bedömning.
+        var submitted = submissions.Where(submission => submission.Status == SubmissionStatus.Submitted).ToList();
+        Assert.Contains(submitted, submission => submission.Grade is null);
+        Assert.Contains(submitted, submission => submission.Grade is not null);
+
+        // Inte inlämnat efter deadline: en elev utan inlämning på en uppgift vars huvuddeadline har gått men som har
+        // en komplettering kvar. Raden saknas i databasen och kommer från listan med uppgiftens inlämningar.
+        var teacher = await db.Users.SingleAsync(user => user.Email == "larare");
+        var missedLink = links.First(link => link.DueAt < _demoDay && windows[link.Id].DeadlineRemains);
+        var missed = await GetAsync<List<LinkSubmissionResponse>>("larare", $"/api/links/{missedLink.Id}/submissions");
+        Assert.Contains(missed, item => item.Status == "NotStarted");
     }
 
     [Fact]

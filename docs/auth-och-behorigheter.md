@@ -68,15 +68,15 @@ Eftersom seeden hoppar över allt när `.NET25` finns når ändringar i `DemoCat
 
 DevOps (`.NET25_DEVOPS`, 12 oktober till 13 november, 25 poäng) har veckorna v42–v46 med tre lektioner vardera (Git-flöden, CI med GitHub Actions, Docker, tester, semantisk versionering och driftsättning), en läsuppgift och fem inlämningsuppgifter. Deadlines och lägen kring demodagen, måndag 2 november:
 
-| Uppgift                      | Deadline | Läge                                                                                    |
-| ---------------------------- | -------- | --------------------------------------------------------------------------------------- |
-| Git-flöde i teamet           | 23 okt   | Nästan alla betygsatta, någon ska komplettera, någon saknas                             |
-| CI-pipeline för er backend   | 28 okt   | Många väntar på bedömning (kön i _Att bedöma_), några betygsatta, några ska komplettera |
-| Containerisera applikationen | 30 okt   | Försenad: bara en del har lämnat in, resten saknas                                      |
-| Testautomation i CI          | 6 nov    | Ska in i veckan (veckan öppnar fredag 30 okt)                                           |
-| Releasa och driftsätt        | 13 nov   | Längre fram (veckan öppnar fredag 6 nov)                                                |
+| Uppgift                      | Deadline | Läge                                                                                                                                   |
+| ---------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Git-flöde i teamet           | 23 okt   | Nästan alla betygsatta (någon IG), kompletteringen 30 okt har gått ut: någon har Chanserna slut                                        |
+| CI-pipeline för er backend   | 28 okt   | Många väntar på bedömning (kön i _Att bedöma_, några Inlämnat igen), några ska komplettera, några saknas. Kompletteringsdeadline 6 nov |
+| Containerisera applikationen | 30 okt   | Försenad: bara en del har lämnat in, ingen kompletteringsdeadline                                                                      |
+| Testautomation i CI          | 6 nov    | Ska in i veckan (veckan öppnar fredag 30 okt)                                                                                          |
+| Releasa och driftsätt        | 13 nov   | Längre fram (veckan öppnar fredag 6 nov)                                                                                               |
 
-Alla inlämningar och betyg är daterade senast 29 oktober 2026, så inget ligger i framtiden. Dessutom finns nyheter i klasserna och kurserna (välkomst, schemaändring, påminnelse före deadline) med kommentarer, klarmarkerade lektioner, beroenden mellan lektioner (en låst del) och inkorg för `elev` och `larare`. Avslutade kurser har betyg på varje uppgift för varje elev (G eller VG). Det finns inga GitHub-repon eller installationer i demodatan.
+Alla inlämningar och betyg är daterade senast 29 oktober 2026, så inget ligger i framtiden. Demodatan följer betygsreglerna: Komplettera och Ej inlämnat finns bara där en kompletteringsdeadline återstår (CI-pipeline, 6 nov) eller har gått ut (då väntar IG), och varje flik i _Att bedöma_ har minst en rad. Dessutom finns nyheter i klasserna och kurserna (välkomst, schemaändring, påminnelse före deadline) med kommentarer, klarmarkerade lektioner, beroenden mellan lektioner (en låst del) och inkorg för `elev` och `larare`. Avslutade kurser har betyg på varje uppgift för varje elev (G eller VG). Det finns inga GitHub-repon eller installationer i demodatan.
 
 **Logga in som, för att visa:**
 

@@ -152,7 +152,10 @@ public sealed class GitHubLabProvisioner(
     }
 
     public async Task<RepoLockResult> LockAtDeadlineAsync(
-        StudentRepoContext context, DateTimeOffset deadline, CancellationToken ct)
+        StudentRepoContext context,
+        DateTimeOffset deadline,
+        bool lockWithoutOwnCommit,
+        CancellationToken ct)
     {
         EnsureAppConfigured();
         var repo = context.Repo;
@@ -167,6 +170,16 @@ public sealed class GitHubLabProvisioner(
         var (owner, name) = ParseRepo(repo.RepoFullName, nameof(repo.RepoFullName));
         var latest = await github.GetCommitSummaryAsync(
             connection.InstallationId, owner, name, ct, deadline);
+        var ownCommit = latest is not null
+            && RepoLockPolicy.HasOwnCommit(
+                repo, latest.Latest.Sha, latest.Count, latest.Latest.AuthoredAt);
+
+        // Utan egen commit lämnas repot öppet så att eleven kan fortsätta till nästa deadline.
+        if (!ownCommit && !lockWithoutOwnCommit)
+        {
+            return new RepoLockResult(false, null, null, null);
+        }
+
         if (latest is not null)
         {
             repo.LastSha = latest.Latest.Sha;
@@ -190,15 +203,21 @@ public sealed class GitHubLabProvisioner(
         await github.ArchiveRepositoryAsync(connection.InstallationId, owner, name, ct);
 
         var lockedAt = time.GetUtcNow();
-        repo.SubmissionSha = latest?.Latest.Sha;
+        // Utan egen commit sparas ingen SubmissionSha, eftersom mallens commit inte är något elevarbete.
+        if (ownCommit)
+        {
+            repo.SubmissionSha = latest!.Latest.Sha;
+        }
+
         repo.LockedAt = lockedAt;
         repo.LockError = latest is null
             ? "Ingen commit före deadline."
             : null;
         repo.ReopenedAt = null;
         repo.UpdatedAt = lockedAt;
-        return new RepoLockResult(
-            true, latest?.Latest.Sha, latest?.Latest.AuthoredAt, repo.LockError);
+        return ownCommit
+            ? new RepoLockResult(true, latest!.Latest.Sha, latest.Latest.AuthoredAt, repo.LockError, true)
+            : new RepoLockResult(true, null, null, repo.LockError);
     }
 
     public async Task ReopenForResubmissionAsync(
@@ -261,7 +280,6 @@ public sealed class GitHubLabProvisioner(
                 repo.ChecksTotal = checks.Total;
                 var now = time.GetUtcNow();
                 await ApplyCheckRunsAsync(repo, checks.Runs, now, ct);
-                repo.UpdatedAt = now;
             }
             catch (GitHubApiException exception)
             {

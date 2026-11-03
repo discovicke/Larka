@@ -5321,6 +5321,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/links/{id}/submissions/mark-not-submitted": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MarkedNotSubmittedDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/submissions/{id}": {
         parameters: {
             query?: never;
@@ -6773,6 +6837,11 @@ export interface components {
             accessToken: string;
             /** Format: date-time */
             expiresAt: string;
+        };
+        /** @description Hur många elever som markerades som Ej inlämnat i en och samma åtgärd. */
+        MarkedNotSubmittedDto: {
+            /** Format: int32 */
+            count: number;
         };
         /** @description Den inloggade användaren, skolan och rollen per kurs. */
         MeDto: {

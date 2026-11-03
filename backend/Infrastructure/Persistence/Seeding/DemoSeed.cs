@@ -195,7 +195,9 @@ internal sealed class DemoBuilder(
         Submitted,
         NeedsWork,
         Graded,
-        NotSubmitted
+        NotSubmitted,
+        Failed, // IG: sätts först när ingen deadline återstår
+        Resubmitted // lämnat in igen efter Komplettera: Inlämnad med en tidigare bedömning
     }
 
     public void Build()
@@ -405,6 +407,17 @@ internal sealed class DemoBuilder(
                 {
                     AddSubmission(spec, link, author, student, outcome, partSalt, index);
                 }
+                else if (spec.Pattern is SubmissionPattern.Queue or SubmissionPattern.MostlyGraded)
+                {
+                    // Den som inte lämnat in har en NotStarted-rad, som när uppgiften delas ut. Där deadlinen har gått
+                    // hamnar eleven under Inte inlämnat efter deadline i Att bedöma.
+                    db.Submissions.Add(new Submission
+                    {
+                        ContentLinkId = link.Id,
+                        StudentId = student.Id,
+                        Status = SubmissionStatus.NotStarted
+                    });
+                }
             }
         }
     }
@@ -416,18 +429,24 @@ internal sealed class DemoBuilder(
             ? Outcome.Graded
             : roll < 2
                 ? Outcome.None
-                : roll < 5
+                : roll < 8
                     ? Outcome.NotSubmitted
-                    : roll < 12
-                    ? Outcome.NeedsWork
-                    : Outcome.Graded,
+                    : roll < 14
+                        ? Outcome.NeedsWork
+                        : roll < 18
+                            ? Outcome.Failed
+                            : Outcome.Graded,
         SubmissionPattern.Queue => isPublicStudent
             ? Outcome.NeedsWork
-            : roll < 12
+            : roll < 6
                 ? Outcome.None
-                : roll < 22
-                    ? Outcome.NeedsWork
-                    : roll < 50
+                : roll < 12
+                    ? Outcome.NotSubmitted
+                    : roll < 18
+                    ? Outcome.Resubmitted
+                    : roll < 22
+                        ? Outcome.NeedsWork
+                        : roll < 50
                         ? Outcome.Graded
                         : Outcome.Submitted,
         SubmissionPattern.Early => isPublicStudent
@@ -460,6 +479,7 @@ internal sealed class DemoBuilder(
                 Outcome.Graded => SubmissionStatus.Graded,
                 Outcome.NeedsWork => SubmissionStatus.NeedsWork,
                 Outcome.NotSubmitted => SubmissionStatus.NotSubmitted,
+                Outcome.Failed => SubmissionStatus.Graded,
                 _ => SubmissionStatus.Submitted
             },
             SubmittedAt = outcome == Outcome.NotSubmitted
@@ -470,14 +490,18 @@ internal sealed class DemoBuilder(
                 : null
         };
 
-        if (outcome is Outcome.Graded or Outcome.NeedsWork or Outcome.NotSubmitted)
+        if (outcome is Outcome.Graded or Outcome.NeedsWork or Outcome.NotSubmitted or Outcome.Failed
+            or Outcome.Resubmitted)
         {
             var gradedAt = Earlier((due > submittedAt
                 ? due
                 : submittedAt).AddHours(6 + (roll % 48)), 0);
-            var level = outcome == Outcome.Graded
-                ? LevelOf(spec.Scale, roll)
-                : (GradeLevel?)null;
+            var level = outcome switch
+            {
+                Outcome.Graded => LevelOf(spec.Scale, roll),
+                Outcome.Failed => GradeLevel.Fail,
+                _ => (GradeLevel?)null
+            };
             submission.Grade = new Grade
             {
                 SubmissionId = submission.Id,
@@ -488,7 +512,18 @@ internal sealed class DemoBuilder(
                     : FeedbackFor(spec, level, roll),
                 GradedAt = gradedAt
             };
-            _graded.Add(new GradedItem(student.Id, link, submission, gradedAt));
+            if (outcome == Outcome.Resubmitted)
+            {
+                // Eleven kompletterade efter bedömningen. Bedömningen finns kvar tills läraren bedömer på nytt.
+                submission.SubmittedAt = gradedAt.AddHours(8 + (roll % 30));
+                submission.BodyMd = spec.Modes.Contains(SubmissionMode.Text)
+                    ? spec.Answers[(roll + 1) % spec.Answers.Length]
+                    : null;
+            }
+            else
+            {
+                _graded.Add(new GradedItem(student.Id, link, submission, gradedAt));
+            }
         }
 
         db.Submissions.Add(submission);
@@ -503,7 +538,7 @@ internal sealed class DemoBuilder(
     {
         var pool = level switch
         {
-            null => spec.NeedsWork.Length > 0
+            null or GradeLevel.Fail => spec.NeedsWork.Length > 0
                 ? spec.NeedsWork
                 : DemoCatalog.NeedsWorkFeedback,
             GradeLevel.Distinction => DemoCatalog.DistinctionFeedback,
@@ -551,6 +586,26 @@ internal sealed class DemoBuilder(
             : _cutoff.AddDays(-7));
     }
 
+    /// <summary>
+    /// Kompletteringsdeadlinerna. Den som ska komplettera eller har fått Ej inlämnat behöver en deadline kvar, annars
+    /// kan eleven inte lämna in och läraren kan inte be om komplettering. Laborationen i kön har en kvar (demodagen är
+    /// 2026-11-02). Loggarna som bedömts färdigt har en som redan gått ut, så att där återstår bara IG att sätta.
+    /// </summary>
+    internal static List<DateTimeOffset> ResubmitFor(PartSpec part)
+    {
+        if (part.DueAt is null)
+        {
+            return [];
+        }
+
+        return part.Pattern switch
+        {
+            SubmissionPattern.Queue => [part.DueAt.Value.AddDays(9)],
+            SubmissionPattern.MostlyGraded => [part.DueAt.Value.AddDays(7)],
+            _ => []
+        };
+    }
+
     internal static (Content Content, ContentLink Link) NewPart(
         PartSpec part,
         Guid authorId,
@@ -580,7 +635,8 @@ internal sealed class DemoBuilder(
             ModuleId = moduleId,
             Position = position,
             PublishAt = publishAt,
-            DueAt = part.DueAt
+            DueAt = part.DueAt,
+            ResubmitDueAt = ResubmitFor(part)
         };
         return (content, link);
     }

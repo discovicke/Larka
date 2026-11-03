@@ -72,6 +72,9 @@ const definitions = {
   'submission.needsWork': {family: 'submission', label: 'Komplettera', tone: 'destructive', icon: PhWarningCircle},
   'submission.graded': {family: 'submission', label: 'Bedömd', tone: 'neutral'},
   // Läraren har markerat att eleven inte lämnade in. Skiljer sig från Inte inlämnad, som bara är ett läge före deadline.
+  // Raderna i Att bedöma: om läraren bedömer en första inlämning eller en inlämning efter komplettering.
+  'submission.first': {family: 'submission', label: 'Första inlämningen', tone: 'info'},
+  'submission.again': {family: 'submission', label: 'Inlämnat igen', tone: 'destructive'},
   'submission.missed': {family: 'submission', label: 'Ej inlämnat', tone: 'destructive', icon: PhXCircle},
 
   'deadline.soon': {family: 'deadline', label: 'Deadline snart', tone: 'warning', icon: PhClock},
