@@ -2,6 +2,7 @@ import {flushPromises} from '@vue/test-utils'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 
 import type {Schema} from '@/lib/api'
+import {testNews, testNotification} from '@/test/fixtures'
 import {mockApi, requests, respond} from '@/test/mockApi'
 import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
@@ -14,53 +15,6 @@ const devops: Schema<'CourseDto'> = {id: 'c1', schoolId: 's1', code: 'DEVOPS', t
 const databases: Schema<'CourseDto'> = {id: 'c2', schoolId: 's1', code: 'DB', title: 'Databaser', description: '', points: null, startsOn: null, endsOn: null}
 const group1: Schema<'GroupDto'> = {id: 'g1', schoolId: 's1', type: 'Class', name: 'Lag 1', memberCount: 0, lastCourseEndsOn: null}
 const group2: Schema<'GroupDto'> = {id: 'g2', schoolId: 's1', type: 'Committee', name: 'Lag 2', memberCount: 0, lastCourseEndsOn: null}
-
-function news(
-  linkId: string,
-  contentId: string,
-  title: string,
-  publishAt: string,
-  extra: Partial<Schema<'ContentFeedItem'>> = {},
-): Schema<'ContentFeedItem'> {
-  return {
-    linkId,
-    contentId,
-    type: 'News',
-    title,
-    bodyMd: `${title} – brödtext`,
-    authorId: 'u1',
-    authorName: 'Anna Lärare',
-    groupId: null,
-    courseId: null,
-    moduleId: null,
-    publishAt,
-    dueAt: null,
-    isPinned: false,
-    ...extra,
-  }
-}
-
-function notification(
-  id: string,
-  kind: Schema<'NotificationKind'>,
-  extra: Partial<Schema<'NotificationDto'>> = {},
-): Schema<'NotificationDto'> {
-  return {
-    id,
-    kind,
-    contentId: null,
-    submissionId: null,
-    linkId: null,
-    title: null,
-    courseId: null,
-    courseTitle: null,
-    groupName: null,
-    level: null,
-    createdAt: '2026-10-19T10:00:00Z',
-    readAt: null,
-    ...extra,
-  }
-}
 
 interface Feeds {
   courses?: Record<string, Schema<'ContentFeedItem'>[]>
@@ -141,7 +95,7 @@ async function openTab(wrapper: Awaited<ReturnType<typeof renderApp>>['wrapper']
   await flushPromises()
 }
 
-const gradeNotification = notification('n-grade', 'SubmissionGraded', {
+const gradeNotification = testNotification('n-grade', 'SubmissionGraded', {
   title: 'Laboration: CI/CD',
   level: 'Pass',
   courseId: 'c1',
@@ -149,13 +103,13 @@ const gradeNotification = notification('n-grade', 'SubmissionGraded', {
   submissionId: 's1',
   createdAt: '2026-10-21T11:20:00Z',
 })
-const needsWorkNotification = notification('n-work', 'SubmissionNeedsWork', {
+const needsWorkNotification = testNotification('n-work', 'SubmissionNeedsWork', {
   title: 'Testplan',
   courseId: 'c1',
   courseTitle: 'DevOps',
   createdAt: '2026-10-20T09:00:00Z',
 })
-const deadlineNotification = notification('n-deadline', 'DeadlineSoon', {
+const deadlineNotification = testNotification('n-deadline', 'DeadlineSoon', {
   title: 'E2E-tester',
   courseId: 'c1',
   courseTitle: 'DevOps',
@@ -195,11 +149,11 @@ describe('InboxView', () => {
   it('kombinerar nyheterna från kurser och grupper', async () => {
     backend({
       courses: {
-        c1: [news('l1', 'x1', 'Välkommen till kursen', '2026-10-01T10:00:00Z', {courseId: 'c1'})],
-        c2: [news('l2', 'x2', 'Inlämning flyttad', '2026-10-10T10:00:00Z', {courseId: 'c2'})],
+        c1: [testNews('l1', 'x1', 'Välkommen till kursen', '2026-10-01T10:00:00Z', {courseId: 'c1'})],
+        c2: [testNews('l2', 'x2', 'Inlämning flyttad', '2026-10-10T10:00:00Z', {courseId: 'c2'})],
       },
       groups: {
-        g1: [news('l3', 'x3', 'Studiebesök', '2026-10-19T10:00:00Z', {groupId: 'g1'})],
+        g1: [testNews('l3', 'x3', 'Studiebesök', '2026-10-19T10:00:00Z', {groupId: 'g1'})],
       },
     })
 
@@ -211,7 +165,7 @@ describe('InboxView', () => {
   it('har flikarna Alla, Olästa, Betyg och Nyheter med Alla vald', async () => {
     backend({
       courses: {
-        c1: [news('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1'})],
+        c1: [testNews('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1'})],
       },
     })
 
@@ -226,7 +180,7 @@ describe('InboxView', () => {
   it('blandar nyheter och notiser, nyast först, och visar rubriken på betyget', async () => {
     backend({
       courses: {
-        c1: [news('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1'})],
+        c1: [testNews('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1'})],
       },
       notifications: [gradeNotification, needsWorkNotification, deadlineNotification],
     })
@@ -246,14 +200,14 @@ describe('InboxView', () => {
     backend({
       courses: {
         c1: [
-          news('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1'}),
-          news('l2', 'x2', 'Äldre nyhet', '2026-10-01T10:00:00Z', {courseId: 'c1'}),
+          testNews('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1'}),
+          testNews('l2', 'x2', 'Äldre nyhet', '2026-10-01T10:00:00Z', {courseId: 'c1'}),
         ],
       },
       notifications: [
         gradeNotification,
         deadlineNotification,
-        notification('n-news', 'NewsPublished', {contentId: 'x1', createdAt: '2026-10-19T10:00:00Z'}),
+        testNotification('n-news', 'NewsPublished', {contentId: 'x1', createdAt: '2026-10-19T10:00:00Z'}),
       ],
     })
 
@@ -271,7 +225,7 @@ describe('InboxView', () => {
   it('filtrerar på Betyg och Nyheter', async () => {
     backend({
       courses: {
-        c1: [news('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1'})],
+        c1: [testNews('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1'})],
       },
       notifications: [gradeNotification, needsWorkNotification, deadlineNotification],
     })
@@ -291,7 +245,7 @@ describe('InboxView', () => {
   it('visar en tom flik med en egen text när inget passar filtret', async () => {
     backend({
       courses: {
-        c1: [news('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1'})],
+        c1: [testNews('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1'})],
       },
     })
 
@@ -320,11 +274,11 @@ describe('InboxView', () => {
     backend({
       courses: {
         c1: [
-          news('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1'}),
-          news('l2', 'x2', 'Äldre nyhet', '2026-10-01T10:00:00Z', {courseId: 'c1'}),
+          testNews('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1'}),
+          testNews('l2', 'x2', 'Äldre nyhet', '2026-10-01T10:00:00Z', {courseId: 'c1'}),
         ],
       },
-      notifications: [notification('n-news', 'NewsPublished', {contentId: 'x1'})],
+      notifications: [testNotification('n-news', 'NewsPublished', {contentId: 'x1'})],
     })
 
     const {wrapper} = await renderApp('/inbox')
@@ -343,9 +297,9 @@ describe('InboxView', () => {
   it('markerar en nyhet som läst när den öppnas via en länk med ?post=', async () => {
     backend({
       courses: {
-        c1: [news('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1'})],
+        c1: [testNews('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1'})],
       },
-      notifications: [notification('n-news', 'NewsPublished', {contentId: 'x1'})],
+      notifications: [testNotification('n-news', 'NewsPublished', {contentId: 'x1'})],
     })
 
     await renderApp('/inbox?post=x1')
@@ -377,7 +331,7 @@ describe('InboxView', () => {
 
   it('öppnar en ny uppgift som meddelande och går till kursen via knappen', async () => {
     backend({
-      notifications: [notification('n-new', 'AssignmentPublished', {title: 'Ny labb', courseId: 'c1', courseTitle: 'DevOps'})],
+      notifications: [testNotification('n-new', 'AssignmentPublished', {title: 'Ny labb', courseId: 'c1', courseTitle: 'DevOps'})],
     })
 
     const {wrapper, router} = await renderApp('/inbox')
@@ -397,9 +351,9 @@ describe('InboxView', () => {
   it('markerar inte en nyhet när en ny uppgift är öppen', async () => {
     backend({
       courses: {
-        c1: [news('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1'})],
+        c1: [testNews('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1'})],
       },
-      notifications: [notification('n-new', 'AssignmentPublished', {
+      notifications: [testNotification('n-new', 'AssignmentPublished', {
         title: 'Ny labb',
         courseId: 'c1',
         courseTitle: 'DevOps',
@@ -426,7 +380,7 @@ describe('InboxView', () => {
     ['DeadlineSoon', 'Snart labb'],
   ] as const)('öppnar delens sida för en lärare när %s har kurs och del', async (kind, title) => {
     backend({
-      notifications: [notification('n-part', kind, {title, courseId: 'c1', courseTitle: 'DevOps', linkId: 'l9'})],
+      notifications: [testNotification('n-part', kind, {title, courseId: 'c1', courseTitle: 'DevOps', linkId: 'l9'})],
     })
 
     const {wrapper, router} = await renderApp('/inbox')
@@ -447,12 +401,12 @@ describe('InboxView', () => {
   it('Markera alla som lästa skickar ett anrop och nollställer olästa', async () => {
     backend({
       courses: {
-        c1: [news('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1'})],
+        c1: [testNews('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1'})],
       },
       notifications: [
         gradeNotification,
         needsWorkNotification,
-        notification('n-news', 'NewsPublished', {contentId: 'x1'}),
+        testNotification('n-news', 'NewsPublished', {contentId: 'x1'}),
       ],
     })
 
@@ -498,7 +452,7 @@ describe('InboxView', () => {
   it('det går inte att skapa en nyhet från inkorgen', async () => {
     backend({
       courses: {
-        c1: [news('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1'})],
+        c1: [testNews('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1'})],
       },
     })
 
@@ -510,7 +464,7 @@ describe('InboxView', () => {
   it('visar mål och rubrik i detaljen', async () => {
     backend({
       courses: {
-        c1: [news('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1'})],
+        c1: [testNews('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1'})],
       },
     })
 
@@ -524,7 +478,7 @@ describe('InboxView', () => {
   it('visar nyhetens text formaterad som markdown', async () => {
     backend({
       courses: {
-        c1: [news('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1', bodyMd: 'Ligger under **Kurser**'})],
+        c1: [testNews('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1', bodyMd: 'Ligger under **Kurser**'})],
       },
     })
 
@@ -536,10 +490,10 @@ describe('InboxView', () => {
   it('visar en nyhet som är publicerad i både en kurs och en grupp bara en gång, med båda namnen', async () => {
     backend({
       courses: {
-        c1: [news('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1'})],
+        c1: [testNews('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1'})],
       },
       groups: {
-        g1: [news('l2', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {groupId: 'g1'})],
+        g1: [testNews('l2', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {groupId: 'g1'})],
       },
     })
 
@@ -556,8 +510,8 @@ describe('InboxView', () => {
     backend({
       courses: {
         c1: [
-          news('l1', 'x1', 'Välkommen till kursen', '2026-10-10T10:00:00Z', {courseId: 'c1'}),
-          news('l2', 'x2', 'Studiebesök', '2026-10-05T10:00:00Z', {courseId: 'c1', isPinned: true}),
+          testNews('l1', 'x1', 'Välkommen till kursen', '2026-10-10T10:00:00Z', {courseId: 'c1'}),
+          testNews('l2', 'x2', 'Studiebesök', '2026-10-05T10:00:00Z', {courseId: 'c1', isPinned: true}),
         ],
       },
     })
@@ -577,9 +531,9 @@ describe('InboxView', () => {
     backend({
       courses: {
         c1: [
-          news('l1', 'x1', 'Idag-nyhet', '2026-10-20T09:15:00'),
-          news('l2', 'x2', 'Igår-nyhet', '2026-10-19T15:30:00'),
-          news('l3', 'x3', 'Äldre nyhet', '2026-10-01T10:00:00'),
+          testNews('l1', 'x1', 'Idag-nyhet', '2026-10-20T09:15:00'),
+          testNews('l2', 'x2', 'Igår-nyhet', '2026-10-19T15:30:00'),
+          testNews('l3', 'x3', 'Äldre nyhet', '2026-10-01T10:00:00'),
         ],
       },
     })
@@ -600,8 +554,8 @@ describe('InboxView', () => {
     backend({
       courses: {
         c1: [
-          news('l1', 'x1', 'Välkommen till kursen', '2026-10-01T10:00:00Z', {courseId: 'c1'}),
-          news('l2', 'x2', 'Studiebesök', '2026-10-10T10:00:00Z', {courseId: 'c1'}),
+          testNews('l1', 'x1', 'Välkommen till kursen', '2026-10-01T10:00:00Z', {courseId: 'c1'}),
+          testNews('l2', 'x2', 'Studiebesök', '2026-10-10T10:00:00Z', {courseId: 'c1'}),
         ],
       },
     })
@@ -627,8 +581,8 @@ describe('InboxView', () => {
     backend({
       courses: {
         c1: [
-          news('l1', 'x1', 'Välkommen till kursen', '2026-10-01T10:00:00Z', {courseId: 'c1'}),
-          news('l2', 'x2', 'Studiebesök', '2026-10-10T10:00:00Z', {courseId: 'c1'}),
+          testNews('l1', 'x1', 'Välkommen till kursen', '2026-10-01T10:00:00Z', {courseId: 'c1'}),
+          testNews('l2', 'x2', 'Studiebesök', '2026-10-10T10:00:00Z', {courseId: 'c1'}),
         ],
       },
       notifications: [gradeNotification],
@@ -673,11 +627,11 @@ describe('InboxView', () => {
     backend({
       courses: {
         c1: [
-          news('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1'}),
-          news('l2', 'x2', 'Äldre nyhet', '2026-10-01T10:00:00Z', {courseId: 'c1'}),
+          testNews('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1'}),
+          testNews('l2', 'x2', 'Äldre nyhet', '2026-10-01T10:00:00Z', {courseId: 'c1'}),
         ],
       },
-      notifications: [notification('n-news', 'NewsPublished', {contentId: 'x1'})],
+      notifications: [testNotification('n-news', 'NewsPublished', {contentId: 'x1'})],
     })
 
     const {wrapper, router} = await renderApp('/inbox')
@@ -704,7 +658,7 @@ describe('InboxView', () => {
       removeEventListener: vi.fn(),
     }))
     backend({
-      notifications: [notification('n-part', 'SubmissionGraded', {
+      notifications: [testNotification('n-part', 'SubmissionGraded', {
         title: 'Laboration: CI/CD',
         courseId: 'c1',
         courseTitle: 'DevOps',
@@ -731,10 +685,10 @@ describe('InboxView', () => {
   it('raderar nyheten från alla mål när den är publicerad i flera', async () => {
     backend({
       courses: {
-        c1: [news('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1'})],
+        c1: [testNews('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1'})],
       },
       groups: {
-        g1: [news('l2', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {groupId: 'g1'})],
+        g1: [testNews('l2', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {groupId: 'g1'})],
       },
     })
 
@@ -762,7 +716,7 @@ describe('InboxView', () => {
   it('visar ett fel när ett flöde inte kan hämtas', async () => {
     backend({
       courses: {
-        c1: [news('l1', 'x1', 'Välkommen till kursen', '2026-10-01T10:00:00Z', {courseId: 'c1'})],
+        c1: [testNews('l1', 'x1', 'Välkommen till kursen', '2026-10-01T10:00:00Z', {courseId: 'c1'})],
       },
       fail: 'g2',
     })

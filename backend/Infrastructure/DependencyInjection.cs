@@ -87,17 +87,6 @@ public static class DependencyInjection
                 .LogError(exception, "Demodatan kunde inte läggas in");
         }
 
-        // Förnyar texterna i en demodata som redan finns (se DemoContentRefresh). Egen transaktion och eget felfång,
-        // så att ett fel här varken stoppar starten eller rullar tillbaka seeden.
-        try
-        {
-            await scope.ServiceProvider.GetRequiredService<DemoContentRefresh>().RefreshAsync(CancellationToken.None);
-        }
-        catch (Exception exception)
-        {
-            scope.ServiceProvider.GetRequiredService<ILogger<DemoContentRefresh>>()
-                .LogError(exception, "Demoinnehållet kunde inte uppdateras");
-        }
     }
 
     /// <summary>
@@ -120,7 +109,6 @@ public static class DependencyInjection
         services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
         services.AddScoped<AccountSeed>();
         services.AddScoped<DemoSeed>();
-        services.AddScoped<DemoContentRefresh>();
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUser, ClaimsCurrentUser>();
 
@@ -261,19 +249,11 @@ public static class DependencyInjection
         // Läses vid körning så att t.ex. tester kan byta connection string.
         services.AddDbContext<AppDb>((serviceProvider, options) =>
         {
-            var databaseOptions = serviceProvider.GetRequiredService<IOptions<DatabaseOptions>>().Value;
             var connectionString = serviceProvider.GetRequiredService<IConfiguration>().GetConnectionString("Default")
                 ?? throw new InvalidOperationException("ConnectionStrings:Default saknas.");
 
             options.UseNpgsql(connectionString);
 
-            // Exempeldata i en tom dev-databas, så att /dev och klienten har något att visa.
-            if (databaseOptions.SeedDevData)
-            {
-                options.UseSeeding((context, _) => DevSeed.Seed((AppDb)context));
-                options.UseAsyncSeeding((context, _, cancellationToken) =>
-                    DevSeed.SeedAsync((AppDb)context, cancellationToken));
-            }
         });
 
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();

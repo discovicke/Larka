@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import {PhMagnifyingGlass} from '@phosphor-icons/vue'
 import {computed, ref} from 'vue'
 
 import {Badge} from '@/components/ui/badge'
+import PillTabs from '@/components/ui/PillTabs.vue'
 import {Button} from '@/components/ui/button'
-import {Input} from '@/components/ui/input'
+import SearchField from '@/components/ui/SearchField.vue'
 import {studentProgressStatus, type StudentAnalyticsRow} from '@/lib/analytics'
 
 const props = defineProps<{rows: StudentAnalyticsRow[], scopeFinished: boolean}>()
@@ -43,44 +43,21 @@ const visibleRows = computed(() => {
 <template>
   <div class="flex flex-col gap-3">
     <div class="flex flex-wrap items-center justify-between gap-3">
-      <div role="tablist" class="bg-muted flex rounded-[7px] p-[3px]">
-        <button
-          type="button"
-          role="tab"
-          :aria-selected="filter === 'all'"
-          class="rounded-[5px] px-2.5 py-1 text-[13px]"
-          :class="filter === 'all'
-            ? 'bg-background font-medium shadow-sm'
-            : 'text-muted-foreground'"
-          @click="filter = 'all'"
-        >
-          Alla elever
-        </button>
-        <button
-          type="button"
-          role="tab"
-          :aria-selected="filter === 'risk'"
-          class="rounded-[5px] px-2.5 py-1 text-[13px]"
-          :class="filter === 'risk'
-            ? 'bg-background font-medium shadow-sm'
-            : 'text-muted-foreground'"
-          data-test="risk-filter"
-          @click="filter = 'risk'"
-        >
-          Behöver stöttning {{ riskCount }}
-        </button>
-      </div>
+      <PillTabs
+        v-model="filter"
+        :items="[
+          {value: 'all', label: 'Alla elever'},
+          {value: 'risk', label: `Behöver stöttning ${riskCount}`, dataTest: 'risk-filter'},
+        ]"
+      />
 
-      <div class="relative w-full sm:w-[220px]">
-        <label for="analytics-student-search" class="sr-only">Sök elev</label>
-        <PhMagnifyingGlass class="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2"/>
-        <Input
-          id="analytics-student-search"
-          v-model="search"
-          class="pl-8"
-          placeholder="Sök elev…"
-        />
-      </div>
+      <SearchField
+        id="analytics-student-search"
+        v-model="search"
+        class="sm:w-[220px]"
+        label="Sök elev"
+        placeholder="Sök elev…"
+      />
     </div>
 
     <div v-if="visibleRows.length === 0" class="text-muted-foreground rounded-[11px] border border-dashed p-6 text-center text-sm">

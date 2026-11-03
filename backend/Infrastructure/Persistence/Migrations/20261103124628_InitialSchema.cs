@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -6,29 +7,18 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Backend.Infrastructure.Persistence.Migrations
 {
     /// <inheritdoc />
-    public partial class Baseline : Migration
+    public partial class InitialSchema : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
-                name: "DataPatches",
-                columns: table => new
-                {
-                    Id = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    AppliedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_DataPatches", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "Schools",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    Name = table.Column<string>(type: "text", nullable: false)
+                    Name = table.Column<string>(type: "text", nullable: false),
+                    EntraTenantId = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -66,8 +56,7 @@ namespace Backend.Infrastructure.Persistence.Migrations
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     SchoolId = table.Column<Guid>(type: "uuid", nullable: false),
                     Type = table.Column<string>(type: "text", nullable: false),
-                    Name = table.Column<string>(type: "text", nullable: false),
-                    Term = table.Column<string>(type: "text", nullable: false)
+                    Name = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -115,7 +104,10 @@ namespace Backend.Infrastructure.Persistence.Migrations
                     Email = table.Column<string>(type: "text", nullable: false),
                     Role = table.Column<string>(type: "text", nullable: false),
                     PasswordHash = table.Column<string>(type: "text", nullable: true),
+                    ExternalId = table.Column<string>(type: "text", nullable: true),
+                    DeactivatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
                     GitHubLogin = table.Column<string>(type: "text", nullable: true),
+                    AvatarKey = table.Column<string>(type: "text", nullable: true),
                     MutedNotificationKinds = table.Column<int[]>(type: "integer[]", nullable: false)
                 },
                 constraints: table =>
@@ -333,6 +325,7 @@ namespace Backend.Infrastructure.Persistence.Migrations
                     Position = table.Column<int>(type: "integer", nullable: false),
                     PublishAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     DueAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    ResubmitDueAt = table.Column<List<DateTimeOffset>>(type: "timestamp with time zone[]", nullable: false, defaultValueSql: "'{}'"),
                     IsPinned = table.Column<bool>(type: "boolean", nullable: false)
                 },
                 constraints: table =>
@@ -385,6 +378,52 @@ namespace Backend.Infrastructure.Persistence.Migrations
                         column: x => x.ContentId,
                         principalTable: "AssignmentSpecs",
                         principalColumn: "ContentId",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "AssignmentGroups",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    ContentLinkId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Name = table.Column<string>(type: "text", nullable: false),
+                    Position = table.Column<int>(type: "integer", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AssignmentGroups", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_AssignmentGroups_ContentLinks_ContentLinkId",
+                        column: x => x.ContentLinkId,
+                        principalTable: "ContentLinks",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "AssignmentReferences",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    SourceLinkId = table.Column<Guid>(type: "uuid", nullable: false),
+                    TargetLinkId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Position = table.Column<int>(type: "integer", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AssignmentReferences", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_AssignmentReferences_ContentLinks_SourceLinkId",
+                        column: x => x.SourceLinkId,
+                        principalTable: "ContentLinks",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_AssignmentReferences_ContentLinks_TargetLinkId",
+                        column: x => x.TargetLinkId,
+                        principalTable: "ContentLinks",
+                        principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -503,12 +542,37 @@ namespace Backend.Infrastructure.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "AssignmentGroupMembers",
+                columns: table => new
+                {
+                    AssignmentGroupId = table.Column<Guid>(type: "uuid", nullable: false),
+                    StudentId = table.Column<Guid>(type: "uuid", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AssignmentGroupMembers", x => new { x.AssignmentGroupId, x.StudentId });
+                    table.ForeignKey(
+                        name: "FK_AssignmentGroupMembers_AssignmentGroups_AssignmentGroupId",
+                        column: x => x.AssignmentGroupId,
+                        principalTable: "AssignmentGroups",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_AssignmentGroupMembers_Users_StudentId",
+                        column: x => x.StudentId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Submissions",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     ContentLinkId = table.Column<Guid>(type: "uuid", nullable: false),
                     StudentId = table.Column<Guid>(type: "uuid", nullable: false),
+                    AssignmentGroupId = table.Column<Guid>(type: "uuid", nullable: true),
                     Status = table.Column<string>(type: "text", nullable: false),
                     BodyMd = table.Column<string>(type: "text", nullable: true),
                     SubmittedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
@@ -516,6 +580,12 @@ namespace Backend.Infrastructure.Persistence.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Submissions", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Submissions_AssignmentGroups_AssignmentGroupId",
+                        column: x => x.AssignmentGroupId,
+                        principalTable: "AssignmentGroups",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_Submissions_ContentLinks_ContentLinkId",
                         column: x => x.ContentLinkId,
@@ -597,6 +667,7 @@ namespace Backend.Infrastructure.Persistence.Migrations
                 columns: table => new
                 {
                     SubmissionId = table.Column<Guid>(type: "uuid", nullable: false),
+                    AssignmentGroupId = table.Column<Guid>(type: "uuid", nullable: true),
                     RepoFullName = table.Column<string>(type: "text", nullable: false),
                     TemplateRepo = table.Column<string>(type: "text", nullable: true),
                     AssignmentTitle = table.Column<string>(type: "text", nullable: true),
@@ -626,6 +697,12 @@ namespace Backend.Infrastructure.Persistence.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_StudentRepos", x => x.SubmissionId);
+                    table.ForeignKey(
+                        name: "FK_StudentRepos_AssignmentGroups_AssignmentGroupId",
+                        column: x => x.AssignmentGroupId,
+                        principalTable: "AssignmentGroups",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_StudentRepos_Submissions_SubmissionId",
                         column: x => x.SubmissionId,
@@ -679,13 +756,39 @@ namespace Backend.Infrastructure.Persistence.Migrations
 
             migrationBuilder.InsertData(
                 table: "Schools",
-                columns: new[] { "Id", "Name" },
-                values: new object[] { new Guid("00000000-0000-0000-0000-00000000000a"), "Placeholder-skolan" });
+                columns: new[] { "Id", "EntraTenantId", "Name" },
+                values: new object[] { new Guid("00000000-0000-0000-0000-00000000000a"), null, "Placeholder-skolan" });
 
             migrationBuilder.InsertData(
                 table: "Users",
-                columns: new[] { "Id", "Email", "GitHubLogin", "MutedNotificationKinds", "Name", "PasswordHash", "Role", "SchoolId" },
-                values: new object[] { new Guid("00000000-0000-0000-0000-000000000001"), "placeholder@larka.local", null, new int[0], "Placeholder", null, "Admin", new Guid("00000000-0000-0000-0000-00000000000a") });
+                columns: new[] { "Id", "AvatarKey", "DeactivatedAt", "Email", "ExternalId", "GitHubLogin", "MutedNotificationKinds", "Name", "PasswordHash", "Role", "SchoolId" },
+                values: new object[] { new Guid("00000000-0000-0000-0000-000000000001"), null, null, "placeholder@larka.local", null, null, new int[0], "Placeholder", null, "Admin", new Guid("00000000-0000-0000-0000-00000000000a") });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AssignmentGroupMembers_StudentId",
+                table: "AssignmentGroupMembers",
+                column: "StudentId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AssignmentGroups_ContentLinkId_Position",
+                table: "AssignmentGroups",
+                columns: new[] { "ContentLinkId", "Position" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AssignmentReferences_SourceLinkId_Position",
+                table: "AssignmentReferences",
+                columns: new[] { "SourceLinkId", "Position" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AssignmentReferences_SourceLinkId_TargetLinkId",
+                table: "AssignmentReferences",
+                columns: new[] { "SourceLinkId", "TargetLinkId" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AssignmentReferences_TargetLinkId",
+                table: "AssignmentReferences",
+                column: "TargetLinkId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_AssignmentRequirements_ContentId_Position",
@@ -775,9 +878,9 @@ namespace Backend.Infrastructure.Persistence.Migrations
                 column: "CourseId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Groups_SchoolId_Name_Term",
+                name: "IX_Groups_SchoolId_Name",
                 table: "Groups",
-                columns: new[] { "SchoolId", "Name", "Term" },
+                columns: new[] { "SchoolId", "Name" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
@@ -818,6 +921,12 @@ namespace Backend.Infrastructure.Persistence.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_Schools_EntraTenantId",
+                table: "Schools",
+                column: "EntraTenantId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_StudentHelpRequests_ContentLinkId_StudentId",
                 table: "StudentHelpRequests",
                 columns: new[] { "ContentLinkId", "StudentId" },
@@ -834,9 +943,20 @@ namespace Backend.Infrastructure.Persistence.Migrations
                 column: "StudentId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_StudentRepos_AssignmentGroupId",
+                table: "StudentRepos",
+                column: "AssignmentGroupId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_SubmissionFiles_SubmissionId",
                 table: "SubmissionFiles",
                 column: "SubmissionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Submissions_AssignmentGroupId",
+                table: "Submissions",
+                column: "AssignmentGroupId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Submissions_ContentLinkId_StudentId",
@@ -856,6 +976,12 @@ namespace Backend.Infrastructure.Persistence.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_Users_ExternalId",
+                table: "Users",
+                column: "ExternalId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Users_GitHubLogin",
                 table: "Users",
                 column: "GitHubLogin",
@@ -870,6 +996,12 @@ namespace Backend.Infrastructure.Persistence.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropTable(
+                name: "AssignmentGroupMembers");
+
+            migrationBuilder.DropTable(
+                name: "AssignmentReferences");
+
             migrationBuilder.DropTable(
                 name: "AssignmentRequirements");
 
@@ -887,9 +1019,6 @@ namespace Backend.Infrastructure.Persistence.Migrations
 
             migrationBuilder.DropTable(
                 name: "CourseTeachers");
-
-            migrationBuilder.DropTable(
-                name: "DataPatches");
 
             migrationBuilder.DropTable(
                 name: "Enrollments");
@@ -926,6 +1055,9 @@ namespace Backend.Infrastructure.Persistence.Migrations
 
             migrationBuilder.DropTable(
                 name: "Submissions");
+
+            migrationBuilder.DropTable(
+                name: "AssignmentGroups");
 
             migrationBuilder.DropTable(
                 name: "ContentLinks");

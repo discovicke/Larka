@@ -36,7 +36,6 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
     {
         builder.UseEnvironment("Development");
         builder.UseSetting("ConnectionStrings:Default", _connectionString.Value);
-        builder.UseSetting("Database:SeedDevData", "false");
         builder.UseSetting("Database:SeedDemoData", "false");
 
         // Jobben körs inte av sig själva i testerna. Testerna anropar tjänsterna direkt.

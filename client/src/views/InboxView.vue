@@ -17,6 +17,7 @@ import {type RouteLocationRaw, useRoute, useRouter} from 'vue-router'
 
 import InboxRowContent from '@/components/inbox/InboxRowContent.vue'
 import PageActions from '@/components/layout/PageActions.vue'
+import PillTabs from '@/components/ui/PillTabs.vue'
 import NewsArticle from '@/components/news/NewsArticle.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Button} from '@/components/ui/button'
@@ -173,12 +174,6 @@ const selected = computed(() => {
       : visibleNews.value[0])
 })
 const isEmpty = computed(() => !loading.value && !loadFailed.value && rows.value.length === 0)
-
-function tabClass(value: InboxFilter) {
-  return activeTab.value === value
-    ? 'bg-background font-medium shadow-sm'
-    : 'text-muted-foreground'
-}
 
 // "DevOps · Betyg · 11:20". Fäst först för nyheter.
 function metaOf(row: InboxRow): string {
@@ -350,20 +345,7 @@ watch(status, (value) => {
     <template v-else>
       <div v-if="!isMobile || !hasDetail" class="flex min-w-0 flex-[1_1_420px] flex-col border-r max-md:border-r-0">
         <div class="border-b px-4 py-3">
-          <div role="tablist" class="bg-muted inline-flex flex-wrap rounded-[7px] p-[3px]">
-            <button
-              v-for="tab in tabs"
-              :key="tab.value"
-              type="button"
-              role="tab"
-              :aria-selected="activeTab === tab.value"
-              class="rounded-[5px] px-2.5 py-1 text-[13px]"
-              :class="tabClass(tab.value)"
-              @click="activeTab = tab.value"
-            >
-              {{ tab.label }}
-            </button>
-          </div>
+          <PillTabs v-model="activeTab" :items="tabs"/>
         </div>
 
         <Alert v-if="loadFailed" variant="destructive" class="m-4">

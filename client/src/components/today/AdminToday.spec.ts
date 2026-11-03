@@ -1,6 +1,7 @@
 import {flushPromises} from '@vue/test-utils'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
+import {testGroup} from '@/test/fixtures'
 import {mockApi} from '@/test/mockApi'
 import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
@@ -32,7 +33,7 @@ const overview = {
   studentsWithoutClass: [],
 }
 
-const classGroup = {id: 'g1', schoolId: 's1', type: 'Class', name: 'NET26', memberCount: 2}
+const classGroup = testGroup({name: 'NET26', memberCount: 2})
 
 const classAnalytics = {
   groupId: 'g1',

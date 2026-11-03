@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {PhDotsThree, PhLinkBreak, PhMagnifyingGlass, PhProhibit, PhUserCheck, PhUserGear} from '@phosphor-icons/vue'
+import {PhDotsThree, PhLinkBreak, PhProhibit, PhUserCheck, PhUserGear} from '@phosphor-icons/vue'
 import {computed, ref} from 'vue'
 import {useRoute} from 'vue-router'
 
@@ -9,13 +9,14 @@ import UnlinkMicrosoftDialog from '@/components/users/UnlinkMicrosoftDialog.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Badge} from '@/components/ui/badge'
 import {Button} from '@/components/ui/button'
+import PillTabs from '@/components/ui/PillTabs.vue'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import {Input} from '@/components/ui/input'
+import SearchField from '@/components/ui/SearchField.vue'
 import {Skeleton} from '@/components/ui/skeleton'
 import {useAsync} from '@/composables/useAsync'
 import {useCurrentUser} from '@/composables/useCurrentUser'
@@ -90,12 +91,6 @@ function onSaved(saved: User) {
     : user)
 }
 
-function tabClass(value: Filter) {
-  return filter.value === value
-    ? 'bg-background shadow-sm font-medium'
-    : 'text-muted-foreground'
-}
-
 function rowBorder(index: number) {
   return index < visibleUsers.value.length - 1
     ? 'border-b'
@@ -118,31 +113,15 @@ load()
       </div>
 
       <div class="flex flex-wrap items-center gap-2">
-        <div role="tablist" class="bg-muted flex rounded-[7px] p-[3px]">
-          <button
-            v-for="tab in filters"
-            :key="tab.value"
-            type="button"
-            role="tab"
-            :aria-selected="filter === tab.value"
-            class="rounded-[5px] px-2.5 py-1 text-[13px]"
-            :class="tabClass(tab.value)"
-            @click="filter = tab.value"
-          >
-            {{ tab.label }}
-          </button>
-        </div>
+        <PillTabs v-model="filter" :items="filters"/>
 
-        <div class="relative w-full sm:w-[220px]">
-          <label for="user-search" class="sr-only">Sök användare</label>
-          <PhMagnifyingGlass class="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2"/>
-          <Input
-            id="user-search"
-            v-model="search"
-            class="pl-8"
-            placeholder="Sök namn eller e-post…"
-          />
-        </div>
+        <SearchField
+          id="user-search"
+          v-model="search"
+          class="sm:w-[220px]"
+          label="Sök användare"
+          placeholder="Sök namn eller e-post…"
+        />
       </div>
     </div>
 

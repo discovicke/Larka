@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {PhCaretDown, PhMagnifyingGlass, PhPlus} from '@phosphor-icons/vue'
+import {PhCaretDown, PhPlus} from '@phosphor-icons/vue'
 import {computed, ref, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 
@@ -10,6 +10,7 @@ import GroupFormDialog from '@/components/groups/GroupFormDialog.vue'
 import GroupsTable from '@/components/groups/GroupsTable.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Button} from '@/components/ui/button'
+import PillTabs from '@/components/ui/PillTabs.vue'
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '@/components/ui/collapsible'
 import {
   DropdownMenu,
@@ -18,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {Empty, EmptyDescription, EmptyHeader, EmptyTitle} from '@/components/ui/empty'
-import {Input} from '@/components/ui/input'
+import SearchField from '@/components/ui/SearchField.vue'
 import {Skeleton} from '@/components/ui/skeleton'
 import {useAsync} from '@/composables/useAsync'
 import {useCourses} from '@/composables/useCourses'
@@ -231,12 +232,6 @@ function setFilter(value: Filter) {
     : value}})
 }
 
-function tabClass(value: Filter) {
-  return filter.value === value
-    ? 'bg-background shadow-sm font-medium'
-    : 'text-muted-foreground'
-}
-
 const {run: load, loading, error} = useAsync(async () => {
   const [me, loadedGroups] = await Promise.all([fetchMe(), fetchGroups()])
   school.value = me.school
@@ -255,31 +250,15 @@ load()
       </div>
 
       <div class="flex flex-wrap items-center gap-2">
-        <div role="tablist" class="bg-muted flex rounded-[7px] p-[3px]">
-          <button
-            v-for="tab in filters"
-            :key="tab.value"
-            type="button"
-            role="tab"
-            :aria-selected="filter === tab.value"
-            class="rounded-[5px] px-2.5 py-1 text-[13px]"
-            :class="tabClass(tab.value)"
-            @click="setFilter(tab.value)"
-          >
-            {{ tab.label }}
-          </button>
-        </div>
+        <PillTabs :model-value="filter" :items="filters" @update:model-value="setFilter"/>
 
-        <div class="relative w-full sm:w-[220px]">
-          <label for="group-search" class="sr-only">Sök grupp</label>
-          <PhMagnifyingGlass class="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2"/>
-          <Input
-            id="group-search"
-            v-model="search"
-            class="pl-8"
-            placeholder="Sök…"
-          />
-        </div>
+        <SearchField
+          id="group-search"
+          v-model="search"
+          class="sm:w-[220px]"
+          label="Sök grupp"
+          placeholder="Sök…"
+        />
 
         <DropdownMenu v-if="isAdmin">
           <DropdownMenuTrigger as-child>

@@ -404,20 +404,6 @@ namespace Backend.Infrastructure.Persistence.Migrations
                     b.ToTable("CourseTeachers");
                 });
 
-            modelBuilder.Entity("Backend.Domain.Entities.DataPatch", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<DateTimeOffset>("AppliedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("DataPatches");
-                });
-
             modelBuilder.Entity("Backend.Domain.Entities.Enrollment", b =>
                 {
                     b.Property<Guid>("UserId")

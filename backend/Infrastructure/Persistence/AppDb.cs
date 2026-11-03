@@ -31,7 +31,6 @@ public class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
     public DbSet<StudentHelpRequest> StudentHelpRequests => Set<StudentHelpRequest>();
     public DbSet<Grade> Grades => Set<Grade>();
     public DbSet<Comment> Comments => Set<Comment>();
-    public DbSet<DataPatch> DataPatches => Set<DataPatch>();
     public DbSet<Attachment> Attachments => Set<Attachment>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<SchoolGitHubInstallation> SchoolGitHubInstallations => Set<SchoolGitHubInstallation>();

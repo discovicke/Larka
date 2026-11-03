@@ -46,7 +46,7 @@ Kommandot kör backendtesterna (Docker måste vara igång) och frontendtesterna 
 
 Undantaget från täckningen:
 
-- Backend (`coverlet.runsettings`): EF-migreringar (genererade), `Program.cs` (uppstartskod), `DevSeed.cs` (dev-data), kod märkt `[GeneratedCode]` eller `[CompilerGenerated]` samt testprojekten och analyzern.
+- Backend (`coverlet.runsettings`): EF-migreringar (genererade), `Program.cs` (uppstartskod), kod märkt `[GeneratedCode]` eller `[CompilerGenerated]` samt testprojekten och analyzern.
 - Frontend (`client/vitest.config.ts`): genererade UI-komponenter, `main.ts`, `utils.ts` och genererade API-typer.
 
 I CI samlar backend- och frontendjobben varsin täckning och skriver sitt tal i jobbsammanfattningen. Jobbet `Coverage report` slår ihop dem. Sammanfattningen finns i det jobbet och hela HTML-rapporten i artefakten `coverage-report`. Jobbet är inget obligatoriskt krav. README:ns badge visar radtäckningen för hela repot och uppdateras av CD vid varje körning på `main`.

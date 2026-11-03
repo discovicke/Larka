@@ -3,35 +3,35 @@ using Backend.Domain.Enums;
 using Backend.Infrastructure.Persistence.Configurations;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using static Backend.Infrastructure.Persistence.Seeding.DemoPeople;
 
 namespace Backend.Infrastructure.Persistence.Seeding;
 
 /// <summary>
-/// Realistisk demodata för Edugrade: tre klasser och ett klassråd med lärare och ett tjugotal elever
-/// vardera, avslutade, pågående och kommande kurser, veckor med material och uppgifter, inlämningar i alla
-/// lägen, betyg, nyheter och kommentarer. Körs vid start efter AccountSeed, bara när Database:SeedDemoData är
-/// true (Edugrades prod, satt i Infisical). Se DemoCatalog för innehållet och DemoPeople för namnen.
-///
-/// Additiv och idempotent: finns klassen .NET25 (markören) görs ingenting, och inget som seeden inte skapat själv
-/// ändras eller tas bort. Undantagen är skolans namn (Placeholder-skolan blir Edugrade), demokontona larare och
-/// elev som placeras i .NET25, och Demo-klass med Demo-kurs som tas bort om ingen lämnat in något där.
-/// Allt sparas i en transaktion, så ett fel lämnar databasen som den var.
+/// Kompakt demodata för en kort demonstration: tre klasser med en avslutad, en pågående och en kommande kurs,
+/// åtta elever per klass och inlämningar i blandade lägen. Kontona admin, larare och elev skapas av AccountSeed.
 /// </summary>
-public sealed class DemoSeed(AppDb db, IPasswordHasher<User> passwordHasher, ILogger<DemoSeed> logger)
+public sealed class DemoSeed(
+    AppDb db,
+    IPasswordHasher<User> passwordHasher,
+    TimeProvider time,
+    ILogger<DemoSeed> logger)
 {
-    /// <summary>Gemensamt lösenord för alla seedade användare. Demodata är offentlig, så det är inte en hemlighet.</summary>
     public const string DemoPassword = "larka-demo";
-
-    /// <summary>Klassen som visar att seeden redan har körts.</summary>
     public const string MarkerGroupName = ".NET25";
 
-    public const string SchoolName = "Edugrade";
-    private const string _placeholderSchoolName = "Placeholder-skolan";
+    private static readonly string[] _studentNames =
+    [
+        "Anna Andersson", "Erik Johansson", "Sara Karlsson", "Oscar Nilsson",
+        "Elin Eriksson", "Hugo Larsson", "Maja Olsson", "Liam Persson",
+        "Alva Svensson", "Noah Gustafsson", "Ella Pettersson", "William Jonsson",
+        "Iris Jansson", "Adam Hansson", "Freja Bengtsson", "Lucas Lindberg",
+        "Nova Jakobsson", "Isak Magnusson", "Signe Lindqvist", "Leo Berg",
+        "Sofia Ström", "Viktor Ek", "Tilda Holm", "Axel Dahl",
+    ];
 
     public async Task<bool> SeedAsync(CancellationToken ct)
     {
-        var school = await FindSchoolAsync(ct);
+        var school = await FindSchoolAsync(db, ct);
         if (school is null)
         {
             logger.LogWarning("Demodata hoppades över: det finns ingen skola.");
@@ -44,761 +44,375 @@ public sealed class DemoSeed(AppDb db, IPasswordHasher<User> passwordHasher, ILo
             return false;
         }
 
-        var publicTeacher = await FindAccountAsync("larare", ct);
-        var publicStudent = await FindAccountAsync("elev", ct);
+        var teacher = await db.Users.SingleAsync(user => user.Email == "larare", ct);
+        var publicStudent = await db.Users.SingleAsync(user => user.Email == "elev", ct);
+        var studentHash = passwordHasher.HashPassword(new User(), DemoPassword);
+        var today = DateOnly.FromDateTime(time.GetUtcNow().UtcDateTime);
 
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
-        if (school.Name == _placeholderSchoolName)
-        {
-            school.Name = SchoolName;
-        }
+        var net = BuildClass(".NET25", today, teacher, studentHash, publicStudent, 0, 18);
+        var java = BuildClass("JAVA25", today, teacher, studentHash, null, 8, 35);
+        var fiber = BuildClass("FIBER25", today, teacher, studentHash, null, 16, 50);
 
-        // Ett enda hash för alla: hashen innehåller sitt eget salt och kontrollerar vilket lösenord som helst som
-        // matchar, så 60 olika hashar (med 10 000-tals iterationer vardera) skulle bara göra starten långsammare.
-        var passwordHash = passwordHasher.HashPassword(new User(), DemoPassword);
-        var existingUsers = await LoadExistingUsersAsync(ct);
-
-        new DemoBuilder(db, school.Id, passwordHash, publicTeacher, publicStudent, existingUsers).Build();
-        var created = db.ChangeTracker.Entries().Count(entry => entry.State == EntityState.Added);
         await db.SaveChangesAsync(ct);
-
-        var removed = await RemoveDemoClassAsync(school.Id, ct);
         await transaction.CommitAsync(ct);
 
         logger.LogInformation(
-            "Demodata skapad i skolan {School}: {Created} rader. Demo-klass och Demo-kurs {Removed}.",
-            school.Name,
-            created,
-            removed
-                ? "togs bort"
-                : "behölls");
+            "Kompakt demodata skapad: {Net}, {Java}, {Fiber}.",
+            net.Name,
+            java.Name,
+            fiber.Name);
         return true;
     }
-
-    private Task<School?> FindSchoolAsync(CancellationToken ct) => FindSchoolAsync(db, ct);
 
     internal static async Task<School?> FindSchoolAsync(AppDb db, CancellationToken ct) =>
         await db.Schools.FirstOrDefaultAsync(row => row.Id == PlaceholderIds.SchoolId, ct)
         ?? await db.Schools.OrderBy(row => row.Name).FirstOrDefaultAsync(ct);
 
-    private async Task<User> FindAccountAsync(string username, CancellationToken ct) =>
-        await db.Users.FirstOrDefaultAsync(user => user.Email.ToLower() == username, ct)
-        ?? throw new InvalidOperationException($"Kontot {username} saknas. AccountSeed ska köras före DemoSeed.");
-
-    /// <summary>
-    /// Finns en användare med samma e-post redan återanvänds hen, och lösenordet lämnas orört. Det borde inte
-    /// hända, men en seed ska aldrig skriva över någon annans konto.
-    /// </summary>
-    private async Task<Dictionary<string, User>> LoadExistingUsersAsync(CancellationToken ct)
+    private Group BuildClass(
+        string name,
+        DateOnly today,
+        User teacher,
+        string studentHash,
+        User? publicStudent,
+        int studentOffset,
+        int currentCourseDaysLeft)
     {
-        var emails = Teachers
-            .Concat(Enumerable.Range(0, 80).Select(Student))
-            .Select(person => person.Email)
-            .ToList();
-        return await db.Users.Where(user => emails.Contains(user.Email)).ToDictionaryAsync(user => user.Email, ct);
-    }
-
-    /// <summary>
-    /// Tar bort Demo-klass och Demo-kurs från AccountSeed, men bara om det är säkert: ingen har lämnat in något,
-    /// ingen annan kurs eller medlem hör till klassen och kursen läses inte av någon annan klass.
-    /// Annars lämnas båda orörda.
-    /// </summary>
-    private async Task<bool> RemoveDemoClassAsync(Guid schoolId, CancellationToken ct)
-    {
-        var demoGroup = await db.Groups.AsNoTracking()
-            .FirstOrDefaultAsync(group => group.SchoolId == schoolId && group.Name == AccountSeed.ClassName, ct);
-        var demoCourse = await db.Courses.AsNoTracking()
-            .FirstOrDefaultAsync(course => course.SchoolId == schoolId && course.Code == AccountSeed.CourseCode, ct);
-        if (demoGroup is null && demoCourse is null)
-        {
-            return false;
-        }
-
-        var groupId = demoGroup?.Id ?? Guid.Empty;
-        var courseId = demoCourse?.Id ?? Guid.Empty;
-        var links = await db.ContentLinks
-            .Where(link => link.GroupId == groupId || link.CourseId == courseId)
-            .Select(link => new { link.Id, link.ContentId })
-            .ToListAsync(ct);
-        var linkIds = links.Select(link => link.Id).ToList();
-        var contentIds = links.Select(link => link.ContentId).Distinct().ToList();
-
-        var accountIds = await db.Users
-            .Where(user => user.Email == "admin" || user.Email == "larare" || user.Email == "elev")
-            .Select(user => user.Id)
-            .ToListAsync(ct);
-        var hasSubmissions = await db.Submissions
-            .AnyAsync(submission => linkIds.Contains(submission.ContentLinkId), ct);
-        var groupHasOtherCourses = await db.GroupCourses.AnyAsync(
-            link => link.GroupId == groupId && link.CourseId != courseId, ct);
-        var courseHasOtherGroups = await db.GroupCourses.AnyAsync(
-            link => link.CourseId == courseId && link.GroupId != groupId, ct);
-        var groupHasOtherMembers = await db.Enrollments.AnyAsync(
-            enrollment => enrollment.GroupId == groupId
-                && enrollment.UserId != PlaceholderIds.UserId
-                && !accountIds.Contains(enrollment.UserId),
-            ct);
-        if (hasSubmissions || groupHasOtherCourses || courseHasOtherGroups || groupHasOtherMembers)
-        {
-            return false;
-        }
-
-        // Länkarna först (de pekar på modulerna), sedan det som bara de pekade på. Beroenden, klarmarkeringar,
-        // kommentarer och bilagor följer med via kaskad.
-        await db.ContentLinks.Where(link => linkIds.Contains(link.Id)).ExecuteDeleteAsync(ct);
-        await db.Content
-            .Where(content => contentIds.Contains(content.Id)
-                && !db.ContentLinks.Any(link => link.ContentId == content.Id))
-            .ExecuteDeleteAsync(ct);
-        await db.Modules.Where(module => module.CourseId == courseId).ExecuteDeleteAsync(ct);
-        await db.GroupCourses.Where(link => link.GroupId == groupId).ExecuteDeleteAsync(ct);
-        await db.CourseTeachers.Where(courseTeacher => courseTeacher.CourseId == courseId).ExecuteDeleteAsync(ct);
-        await db.Enrollments.Where(enrollment => enrollment.GroupId == groupId).ExecuteDeleteAsync(ct);
-        await db.Groups.Where(group => group.Id == groupId).ExecuteDeleteAsync(ct);
-        await db.Courses.Where(course => course.Id == courseId).ExecuteDeleteAsync(ct);
-        return true;
-    }
-}
-
-/// <summary>Bygger entiteterna för demodatan från katalogen. Sparar inget själv, det gör DemoSeed.</summary>
-internal sealed class DemoBuilder(
-    AppDb db,
-    Guid schoolId,
-    string passwordHash,
-    User publicTeacher,
-    User publicStudent,
-    Dictionary<string, User> existingUsers)
-{
-    // Inlämningar, betyg och kommentarer är daterade senast här, så att inget ligger i framtiden när seeden körs.
-    private static readonly DateTimeOffset _cutoff = Se(2026, 10, 29, 9);
-
-    // Eleven i demokontot sitter på plats 6 i .NET25, så att hen inte är först i klasslistan.
-    internal const int PublicStudentPosition = 6;
-
-    private readonly Dictionary<string, User> _users = new()
-    {
-        ["larare"] = publicTeacher,
-        ["elev"] = publicStudent
-    };
-
-    private readonly List<NewsItem> _news = [];
-    private readonly HashSet<(Guid CourseId, Guid UserId)> _taught = [];
-    private readonly List<GradedItem> _graded = [];
-    private readonly List<AssignmentItem> _assignments = [];
-    private int _courseCounter;
-
-    private enum Outcome
-    {
-        None,
-        Submitted,
-        NeedsWork,
-        Graded,
-        NotSubmitted,
-        Failed, // IG: sätts först när ingen deadline återstår
-        Resubmitted // lämnat in igen efter Komplettera: Inlämnad med en tidigare bedömning
-    }
-
-    public void Build()
-    {
-        foreach (var classSpec in DemoCatalog.Classes())
-        {
-            BuildClass(classSpec);
-        }
-
-        AddNotificationsForPublicAccounts();
-    }
-
-    private void BuildClass(ClassSpec spec)
-    {
-        var group = new Group { SchoolId = schoolId, Type = spec.Type, Name = spec.Name };
+        var group = new Group { SchoolId = teacher.SchoolId, Type = GroupType.Class, Name = name };
         db.Groups.Add(group);
+        db.Enrollments.Add(new Enrollment { GroupId = group.Id, UserId = teacher.Id, Role = GroupRole.Teacher });
 
-        foreach (var key in spec.Teachers)
+        var students = new List<User>();
+        if (publicStudent is not null)
         {
-            db.Enrollments
-                .Add(new Enrollment { UserId = UserOf(key).Id, GroupId = group.Id, Role = GroupRole.Teacher });
+            students.Add(publicStudent);
+            db.Enrollments.Add(new Enrollment
+            {
+                GroupId = group.Id,
+                UserId = publicStudent.Id,
+                Role = GroupRole.Student
+            });
         }
 
-        var students = Enumerable.Range(spec.FirstStudent, spec.StudentCount)
-            .Select(index => UserOf(Student(index).Key))
-            .ToList();
-        if (spec.HasPublicStudent)
+        for (var index = students.Count; index < 8; index += 1)
         {
-            students.Insert(Math.Min(PublicStudentPosition, students.Count), publicStudent);
+            var student = new User
+            {
+                SchoolId = teacher.SchoolId,
+                Name = _studentNames[studentOffset + index],
+                Email = $"{name.ToLowerInvariant()}.{index + 1}@larka.local",
+                Role = UserRole.Student,
+                PasswordHash = studentHash
+            };
+            db.Users.Add(student);
+            students.Add(student);
+            db.Enrollments.Add(new Enrollment
+            {
+                GroupId = group.Id,
+                UserId = student.Id,
+                Role = GroupRole.Student
+            });
         }
 
-        foreach (var student in students)
+        var codePrefix = name.TrimStart('.').Replace("25", "");
+        var program = name switch
         {
-            db.Enrollments.Add(new Enrollment { UserId = student.Id, GroupId = group.Id, Role = GroupRole.Student });
-        }
+            ".NET25" => "C#",
+            "JAVA25" => "Java",
+            _ => "Fiber"
+        };
+        var completed = BuildCourse(
+            group,
+            teacher,
+            students,
+            today.AddDays(-210),
+            today.AddDays(-140),
+            $"{program} 1",
+            $"{codePrefix}-BAS",
+            "Grundkurs med fokus på begrepp, verktyg och första leveransen.",
+            CoursePhase.Completed);
+        var current = BuildCourse(
+            group,
+            teacher,
+            students,
+            today.AddDays(-60),
+            today.AddDays(currentCourseDaysLeft),
+            program == "Fiber"
+                ? "Nätuppbyggnad"
+                : $"{program} i praktiken",
+            $"{codePrefix}-NUT",
+            "Pågående kurs där eleverna arbetar med en större gemensam uppgift.",
+            CoursePhase.Current);
+        var upcoming = BuildCourse(
+            group,
+            teacher,
+            students,
+            today.AddDays(45),
+            today.AddDays(45 + (program == "Fiber"
+                ? 84
+                : 70)),
+            program == "Fiber"
+                ? "Fältprojekt"
+                : "Fördjupning",
+            $"{codePrefix}-FORD",
+            "Kommande kurs som bygger vidare på den pågående kursen.",
+            CoursePhase.Upcoming);
 
-        foreach (var courseSpec in spec.Courses)
-        {
-            BuildCourse(group, courseSpec, students);
-        }
-
-        foreach (var news in spec.News)
-        {
-            AddNews(group, null, news, students);
-        }
+        AddCourseNews(group, teacher, completed, current, upcoming);
+        return group;
     }
 
-    private void BuildCourse(Group group, CourseSpec spec, List<User> students)
+    private Course BuildCourse(
+        Group group,
+        User teacher,
+        IReadOnlyList<User> students,
+        DateOnly startsOn,
+        DateOnly endsOn,
+        string title,
+        string code,
+        string description,
+        CoursePhase phase)
     {
-        _courseCounter++;
         var course = new Course
         {
-            SchoolId = schoolId,
-            Code = spec.Code,
-            Title = spec.Title,
-            Description = spec.Description,
-            Points = spec.Points,
-            StartsOn = spec.Start,
-            EndsOn = spec.End
+            SchoolId = teacher.SchoolId,
+            Title = title,
+            Code = code,
+            Description = description,
+            Points = phase == CoursePhase.Completed
+                ? 20
+                : 25,
+            StartsOn = startsOn,
+            EndsOn = endsOn
         };
         db.Courses.Add(course);
         db.GroupCourses.Add(new GroupCourse { GroupId = group.Id, CourseId = course.Id });
-        foreach (var key in spec.Teachers)
+        db.CourseTeachers.Add(new CourseTeacher { CourseId = course.Id, UserId = teacher.Id });
+
+        var start = AtStartOfDay(startsOn);
+        var first = new Module
         {
-            var teacher = UserOf(key);
-            db.CourseTeachers.Add(new CourseTeacher { CourseId = course.Id, UserId = teacher.Id });
-            _taught.Add((course.Id, teacher.Id));
+            CourseId = course.Id,
+            Title = "Vecka 1",
+            Description = "Introduktion och första uppgiften.",
+            Position = 1,
+            PublishAt = start
+        };
+        var second = new Module
+        {
+            CourseId = course.Id,
+            Title = "Vecka 2",
+            Description = "Fördjupning och nästa leverans.",
+            Position = 2,
+            PublishAt = start.AddDays(21)
+        };
+        db.Modules.AddRange(first, second);
+
+        var theory = new Content
+        {
+            AuthorId = teacher.Id,
+            Type = ContentType.Theory,
+            Title = $"Introduktion till {title}",
+            BodyMd = $"Kort introduktion till **{title}**. Materialet är avsiktligt kort i demon.",
+            Status = ContentStatus.Published
+        };
+        db.Content.Add(theory);
+        db.ContentLinks.Add(new ContentLink
+        {
+            ContentId = theory.Id,
+            CourseId = course.Id,
+            ModuleId = first.Id,
+            Position = 1,
+            PublishAt = start
+        });
+
+        var assignments = phase switch
+        {
+            CoursePhase.Completed => new[]
+            {
+                CreateAssignment(course, teacher, first, title, 1, start.AddDays(14)),
+                CreateAssignment(course, teacher, first, title, 2, start.AddDays(35)),
+                CreateAssignment(course, teacher, second, title, 3, start.AddDays(56)),
+            },
+            CoursePhase.Current => new[]
+            {
+                CreateAssignment(course, teacher, first, title, 1, start.AddDays(14)),
+                CreateAssignment(course, teacher, first, title, 2, start.AddDays(35)),
+                CreateAssignment(course, teacher, second, title, 3, start.AddDays(56)),
+                CreateAssignment(course, teacher, second, title, 4, start.AddDays(77)),
+            },
+            _ => new[]
+            {
+                CreateAssignment(course, teacher, first, title, 1, start.AddDays(14)),
+                CreateAssignment(course, teacher, second, title, 2, start.AddDays(42)),
+            },
+        };
+
+        if (phase != CoursePhase.Upcoming)
+        {
+            AddSubmissions(course, teacher, students, assignments, phase);
         }
 
-        var author = UserOf(spec.Author);
-        for (var moduleIndex = 0; moduleIndex < spec.Modules.Length; moduleIndex++)
-        {
-            BuildModule(group, course, spec, spec.Modules[moduleIndex], moduleIndex, author, students);
-        }
-
-        foreach (var news in spec.News)
-        {
-            AddNews(group, course, news, students);
-        }
+        return course;
     }
 
-    private void BuildModule(
-        Group group,
-        Course course,
-        CourseSpec courseSpec,
-        ModuleSpec spec,
-        int moduleIndex,
-        User author,
-        List<User> students)
+    private ContentLink CreateAssignment(
+        Course course, User teacher, Module module, string courseTitle, int number, DateTimeOffset dueAt)
     {
-        var module = NewModule(course.Id, spec, moduleIndex + 1);
-        db.Modules.Add(module);
-
-        var publishAt = PartPublishAt(courseSpec, spec);
-        var built = new List<(PartSpec Spec, Content Content, ContentLink Link)>();
-        foreach (var part in spec.Parts)
+        var content = new Content
         {
-            var (content, link) = NewPart(part, author.Id, group.Id, course.Id, module.Id, built.Count + 1, publishAt);
-            db.Content.Add(content);
-            db.ContentLinks.Add(link);
-            built.Add((part, content, link));
-        }
-
-        if (spec.Sequential)
+            AuthorId = teacher.Id,
+            Type = ContentType.Assignment,
+            Title = $"Inlämning {number} – {courseTitle}",
+            BodyMd = $"Beskriv hur du har löst uppgift {number}. Feedbacken blir kort i demon.",
+            Status = ContentStatus.Published,
+            Assignment = new AssignmentSpec
+            {
+                GradeScale = GradeScale.PassFailDistinction,
+                SubmissionModes = [SubmissionMode.Text],
+                CompletionRule = CompletionRule.Submitted
+            }
+        };
+        var link = new ContentLink
         {
-            var theory = built.Where(item => item.Spec.Type == ContentType.Theory).ToList();
-            for (var index = 1; index < theory.Count; index++)
-            {
-                db.ContentLinkDependencies.Add(new ContentLinkDependency
-                {
-                    BlockedLinkId = theory[index].Link.Id,
-                    BlockingLinkId = theory[index - 1].Link.Id
-                });
-            }
-        }
-
-        var salt = (_courseCounter * 100) + moduleIndex;
-        AddCompletions(spec, built.Select(item => (item.Spec, item.Link)).ToList(), students, salt);
-        AddSubmissions(group, built, author, students, salt);
-    }
-
-    /// <summary>
-    /// Klarmarkeringar av teori och läsuppgifter. Eleven klarar antingen allt i veckan, allt utom sista delen eller
-    /// inget, så att en låst del aldrig är klarmarkerad före delen som låser den. Veckor som inte öppnat än får inga.
-    /// </summary>
-    private void AddCompletions(
-        ModuleSpec module, List<(PartSpec Spec, ContentLink Link)> parts, List<User> students, int salt)
-    {
-        if (module.PublishAt > _cutoff)
-        {
-            return;
-        }
-
-        var manual = parts
-            .Where(part => part.Spec.Type == ContentType.Theory || part.Spec.Modes.Length == 0)
-            .ToList();
-        for (var index = 0; index < students.Count; index++)
-        {
-            var roll = Roll(salt, index, 7);
-            int count;
-            if (students[index].Id == publicStudent.Id)
-            {
-                count = module.Completion >= 85
-                    ? manual.Count
-                    : module.Completion >= 50
-                        ? manual.Count - 1
-                        : 0;
-            }
-            else if (roll < module.Completion)
-            {
-                count = manual.Count;
-            }
-            else if (roll < module.Completion + 8)
-            {
-                count = manual.Count - 1;
-            }
-            else
-            {
-                count = 0;
-            }
-
-            for (var part = 0; part < count; part++)
-            {
-                db.PartCompletions.Add(new PartCompletion
-                {
-                    ContentLinkId = manual[part].Link.Id,
-                    StudentId = students[index].Id,
-                    CompletedAt = Earlier(manual[part].Link.PublishAt.AddHours(8 + Roll(salt, index, part)), 1)
-                });
-            }
-        }
+            ContentId = content.Id,
+            CourseId = course.Id,
+            ModuleId = module.Id,
+            Position = number + 1,
+            PublishAt = dueAt.AddDays(-10),
+            DueAt = dueAt
+        };
+        db.Content.Add(content);
+        db.ContentLinks.Add(link);
+        return link;
     }
 
     private void AddSubmissions(
-        Group group,
-        List<(PartSpec Spec, Content Content, ContentLink Link)> parts,
-        User author,
-        List<User> students,
-        int salt)
+        Course course,
+        User teacher,
+        IReadOnlyList<User> students,
+        IReadOnlyList<ContentLink> assignments,
+        CoursePhase phase)
     {
-        foreach (var (spec, content, link) in parts)
+        for (var studentIndex = 0; studentIndex < students.Count; studentIndex += 1)
         {
-            if (spec.Type != ContentType.Assignment || spec.Modes.Length == 0)
+            for (var assignmentIndex = 0; assignmentIndex < assignments.Count; assignmentIndex += 1)
             {
-                continue;
-            }
-
-            _assignments.Add(new AssignmentItem(group.Id, content, link));
-            if (spec.Pattern == SubmissionPattern.None)
-            {
-                continue;
-            }
-
-            var partSalt = (salt * 100) + link.Position;
-            for (var index = 0; index < students.Count; index++)
-            {
-                var student = students[index];
-                var isPublicStudent = student.Id == publicStudent.Id;
-                var outcome = Decide(spec.Pattern, Roll(partSalt, index, 3), isPublicStudent);
-                if (outcome != Outcome.None)
+                var status = StatusFor(phase, assignmentIndex, studentIndex);
+                if (status is null)
                 {
-                    AddSubmission(spec, link, author, student, outcome, partSalt, index);
+                    continue;
                 }
-                else if (spec.Pattern is SubmissionPattern.Queue or SubmissionPattern.MostlyGraded)
+
+                var submission = new Submission
                 {
-                    // Den som inte lämnat in har en NotStarted-rad, som när uppgiften delas ut. Där deadlinen har gått
-                    // hamnar eleven under Inte inlämnat efter deadline i Att bedöma.
-                    db.Submissions.Add(new Submission
+                    ContentLinkId = assignments[assignmentIndex].Id,
+                    StudentId = students[studentIndex].Id,
+                    Status = status.Value,
+                    SubmittedAt = status == SubmissionStatus.NotSubmitted
+                        ? null
+                        : assignments[assignmentIndex].DueAt!.Value.AddDays(-2),
+                    BodyMd = status == SubmissionStatus.NotSubmitted
+                        ? null
+                        : "Min lösning finns i texten."
+                };
+                db.Submissions.Add(submission);
+
+                if (status == SubmissionStatus.Graded)
+                {
+                    var level = GradeFor(studentIndex, assignmentIndex);
+                    db.Grades.Add(new Grade
                     {
-                        ContentLinkId = link.Id,
-                        StudentId = student.Id,
-                        Status = SubmissionStatus.NotStarted
+                        SubmissionId = submission.Id,
+                        GradedById = teacher.Id,
+                        Level = level,
+                        Feedback = level == GradeLevel.Fail
+                            ? "Du behöver komplettera innan uppgiften är godkänd."
+                            : level == GradeLevel.Pass
+                                ? "Godkänt. Förtydliga gärna dina val nästa gång."
+                                : "Mycket väl genomfört med tydlig struktur.",
+                        GradedAt = assignments[assignmentIndex].DueAt!.Value.AddDays(2)
+                    });
+                }
+                else if (status == SubmissionStatus.NeedsWork)
+                {
+                    db.Grades.Add(new Grade
+                    {
+                        SubmissionId = submission.Id,
+                        GradedById = teacher.Id,
+                        Level = null,
+                        Feedback = "Komplettera det som saknas och lämna in igen.",
+                        GradedAt = assignments[assignmentIndex].DueAt!.Value.AddDays(2)
                     });
                 }
             }
         }
     }
 
-    private static Outcome Decide(SubmissionPattern pattern, int roll, bool isPublicStudent) => pattern switch
+    private static SubmissionStatus? StatusFor(CoursePhase phase, int assignmentIndex, int studentIndex)
     {
-        SubmissionPattern.Finished => Outcome.Graded,
-        SubmissionPattern.MostlyGraded => isPublicStudent
-            ? Outcome.Graded
-            : roll < 2
-                ? Outcome.None
-                : roll < 8
-                    ? Outcome.NotSubmitted
-                    : roll < 14
-                        ? Outcome.NeedsWork
-                        : roll < 18
-                            ? Outcome.Failed
-                            : Outcome.Graded,
-        SubmissionPattern.Queue => isPublicStudent
-            ? Outcome.NeedsWork
-            : roll < 6
-                ? Outcome.None
-                : roll < 12
-                    ? Outcome.NotSubmitted
-                    : roll < 18
-                    ? Outcome.Resubmitted
-                    : roll < 22
-                        ? Outcome.NeedsWork
-                        : roll < 50
-                        ? Outcome.Graded
-                        : Outcome.Submitted,
-        SubmissionPattern.Early => isPublicStudent
-            ? Outcome.Submitted
-            : roll < 35
-                ? Outcome.Submitted
-                : Outcome.None,
-        _ => Outcome.None
-    };
-
-    private void AddSubmission(
-        PartSpec spec, ContentLink link, User teacher, User student, Outcome outcome, int partSalt, int index)
-    {
-        var due = spec.DueAt!.Value;
-        var roll = Roll(partSalt, index, 11);
-
-        // Lämnar in en till tre dygn före deadline, men aldrig senare än att det hunnit hända.
-        var submittedAt = due.AddHours(-(2 + (roll % 60)));
-        if (submittedAt > _cutoff)
+        if (phase == CoursePhase.Completed || assignmentIndex < 2)
         {
-            submittedAt = _cutoff.AddHours(-(1 + (roll % 40)));
+            return SubmissionStatus.Graded;
         }
 
-        var submission = new Submission
+        if (assignmentIndex == 2)
         {
-            ContentLinkId = link.Id,
-            StudentId = student.Id,
-            Status = outcome switch
+            return (studentIndex % 10) switch
             {
-                Outcome.Graded => SubmissionStatus.Graded,
-                Outcome.NeedsWork => SubmissionStatus.NeedsWork,
-                Outcome.NotSubmitted => SubmissionStatus.NotSubmitted,
-                Outcome.Failed => SubmissionStatus.Graded,
-                _ => SubmissionStatus.Submitted
-            },
-            SubmittedAt = outcome == Outcome.NotSubmitted
-                ? null
-                : submittedAt,
-            BodyMd = outcome != Outcome.NotSubmitted && spec.Modes.Contains(SubmissionMode.Text)
-                ? spec.Answers[roll % spec.Answers.Length]
-                : null
-        };
-
-        if (outcome is Outcome.Graded or Outcome.NeedsWork or Outcome.NotSubmitted or Outcome.Failed
-            or Outcome.Resubmitted)
-        {
-            var gradedAt = Earlier((due > submittedAt
-                ? due
-                : submittedAt).AddHours(6 + (roll % 48)), 0);
-            var level = outcome switch
-            {
-                Outcome.Graded => LevelOf(spec.Scale, roll),
-                Outcome.Failed => GradeLevel.Fail,
-                _ => (GradeLevel?)null
+                0 or 1 => SubmissionStatus.NeedsWork,
+                2 => SubmissionStatus.NotSubmitted,
+                3 => SubmissionStatus.Submitted,
+                4 => SubmissionStatus.NotStarted,
+                _ => SubmissionStatus.Graded,
             };
-            submission.Grade = new Grade
-            {
-                SubmissionId = submission.Id,
-                GradedById = teacher.Id,
-                Level = level,
-                Feedback = outcome == Outcome.NotSubmitted
-                    ? DemoCatalog.NotSubmittedFeedback[roll % DemoCatalog.NotSubmittedFeedback.Length]
-                    : FeedbackFor(spec, level, roll),
-                GradedAt = gradedAt
-            };
-            if (outcome == Outcome.Resubmitted)
-            {
-                // Eleven kompletterade efter bedömningen. Bedömningen finns kvar tills läraren bedömer på nytt.
-                submission.SubmittedAt = gradedAt.AddHours(8 + (roll % 30));
-                submission.BodyMd = spec.Modes.Contains(SubmissionMode.Text)
-                    ? spec.Answers[(roll + 1) % spec.Answers.Length]
-                    : null;
-            }
-            else
-            {
-                _graded.Add(new GradedItem(student.Id, link, submission, gradedAt));
-            }
         }
 
-        db.Submissions.Add(submission);
+        return studentIndex % 3 == 0
+            ? SubmissionStatus.Submitted
+            : SubmissionStatus.NotStarted;
     }
 
-    private static GradeLevel LevelOf(GradeScale scale, int roll) =>
-        scale == GradeScale.PassFailDistinction && roll % 100 < 30
-            ? GradeLevel.Distinction
-            : GradeLevel.Pass;
-
-    private static string FeedbackFor(PartSpec spec, GradeLevel? level, int roll)
+    private static GradeLevel GradeFor(int studentIndex, int assignmentIndex)
     {
-        var pool = level switch
-        {
-            null or GradeLevel.Fail => spec.NeedsWork.Length > 0
-                ? spec.NeedsWork
-                : DemoCatalog.NeedsWorkFeedback,
-            GradeLevel.Distinction => DemoCatalog.DistinctionFeedback,
-            _ => spec.Feedback.Length > 0
-                ? spec.Feedback
-                : DemoCatalog.PassFeedback
-        };
-        return pool[(roll / 3) % pool.Length];
+        var roll = (studentIndex * 7 + assignmentIndex * 3) % 10;
+        return roll < 2
+            ? GradeLevel.Fail
+            : roll < 7
+                ? GradeLevel.Pass
+                : GradeLevel.Distinction;
     }
 
-    private void AddNews(Group group, Course? course, NewsSpec spec, List<User> students)
+    private void AddCourseNews(Group group, User teacher, params Course[] courses)
     {
-        var author = UserOf(spec.Author);
-        var (content, link) = NewNews(spec, author.Id, group.Id, course?.Id);
-        db.Content.Add(content);
-        db.ContentLinks.Add(link);
-        _news.Add(new NewsItem(group.Id, link.CourseId, content, spec.At, author.Id));
-
-        foreach (var comment in spec.Comments)
-        {
-            db.Comments.Add(NewComment(content.Id, CommentAuthor(comment.Author, students).Id, spec, comment));
-        }
-    }
-
-    // --- Delas med DemoContentRefresh, så att nytt innehåll i prod blir exakt som det seeden hade skapat ---
-
-    internal static Module NewModule(Guid courseId, ModuleSpec spec, int position) => new()
-    {
-        CourseId = courseId,
-        Title = spec.Title,
-        Description = spec.Description,
-        Position = position,
-        PublishAt = spec.PublishAt
-    };
-
-    /// <summary>
-    /// När veckans delar publiceras. En vecka utan eget publiceringsdatum är öppen direkt, även i en kurs som
-    /// startar längre fram.
-    /// </summary>
-    internal static DateTimeOffset PartPublishAt(CourseSpec courseSpec, ModuleSpec spec)
-    {
-        var courseStart = Se(courseSpec.Start, 7);
-        return spec.PublishAt ?? (courseStart < _cutoff.AddDays(-7)
-            ? courseStart
-            : _cutoff.AddDays(-7));
-    }
-
-    /// <summary>
-    /// Kompletteringsdeadlinerna. Den som ska komplettera eller har fått Ej inlämnat behöver en deadline kvar, annars
-    /// kan eleven inte lämna in och läraren kan inte be om komplettering. Laborationen i kön har en kvar (demodagen är
-    /// 2026-11-02). Loggarna som bedömts färdigt har en som redan gått ut, så att där återstår bara IG att sätta.
-    /// </summary>
-    internal static List<DateTimeOffset> ResubmitFor(PartSpec part)
-    {
-        if (part.DueAt is null)
-        {
-            return [];
-        }
-
-        return part.Pattern switch
-        {
-            SubmissionPattern.Queue => [part.DueAt.Value.AddDays(9)],
-            SubmissionPattern.MostlyGraded => [part.DueAt.Value.AddDays(7)],
-            _ => []
-        };
-    }
-
-    internal static (Content Content, ContentLink Link) NewPart(
-        PartSpec part,
-        Guid authorId,
-        Guid groupId,
-        Guid courseId,
-        Guid moduleId,
-        int position,
-        DateTimeOffset publishAt)
-    {
+        var current = courses[1];
         var content = new Content
         {
-            AuthorId = authorId,
-            Type = part.Type,
-            Title = part.Title,
-            BodyMd = part.Body,
-            Status = ContentStatus.Published,
-            CreatedAt = publishAt.AddDays(-3),
-            Assignment = part.Type == ContentType.Assignment
-                ? new AssignmentSpec { GradeScale = part.Scale, SubmissionModes = [.. part.Modes] }
-                : null
-        };
-        var link = new ContentLink
-        {
-            ContentId = content.Id,
-            GroupId = groupId,
-            CourseId = courseId,
-            ModuleId = moduleId,
-            Position = position,
-            PublishAt = publishAt,
-            DueAt = part.DueAt,
-            ResubmitDueAt = ResubmitFor(part)
-        };
-        return (content, link);
-    }
-
-    internal static (Content Content, ContentLink Link) NewNews(
-        NewsSpec spec, Guid authorId, Guid groupId, Guid? courseId)
-    {
-        var content = new Content
-        {
-            AuthorId = authorId,
+            AuthorId = teacher.Id,
             Type = ContentType.News,
-            Title = spec.Title,
-            BodyMd = spec.Body,
+            Title = $"Välkommen till {group.Name}",
+            BodyMd = $"Vi har kickat igång **{current.Title}**. Schemat och uppgifterna ligger i kursen.",
             Status = ContentStatus.Published,
-            CreatedAt = spec.At
+            CreatedAt = time.GetUtcNow().AddDays(-2)
         };
-        var link = new ContentLink
+        db.Content.Add(content);
+        db.ContentLinks.Add(new ContentLink
         {
             ContentId = content.Id,
-            GroupId = groupId,
-            CourseId = spec.InCourse
-                ? courseId
-                : null,
-            IsPinned = spec.Pinned,
-            PublishAt = spec.At
-        };
-        return (content, link);
-    }
-
-    internal static Comment NewComment(Guid contentId, Guid authorId, NewsSpec news, CommentSpec comment) => new()
-    {
-        ContentId = contentId,
-        AuthorId = authorId,
-        BodyMd = comment.Body,
-        CreatedAt = news.At.AddHours(comment.HoursAfter)
-    };
-
-    /// <summary>
-    /// Inkorgen för de två offentliga kontona, räknad på det som hänt de senaste veckorna. Andra användare får
-    /// sina notiser av notisjobbet för det som publiceras inom några dagar, och jobbet hoppar över dessa.
-    /// </summary>
-    private void AddNotificationsForPublicAccounts()
-    {
-        var since = _cutoff.AddDays(-14);
-        var memberGroups = db.Enrollments.Local
-            .Where(enrollment => enrollment.UserId == publicStudent.Id || enrollment.UserId == publicTeacher.Id)
-            .ToList();
-
-        foreach (var user in new[] { publicStudent, publicTeacher })
-        {
-            var groupIds = memberGroups.Where(enrollment => enrollment.UserId == user.Id)
-                .Select(enrollment => enrollment.GroupId)
-                .ToHashSet();
-
-            // Nyheter i en kurs når läraren bara om hen är kursens lärare, klassens nyheter når klassens lärare.
-            foreach (var news in _news.Where(item => groupIds.Contains(item.GroupId)
-                         && item.AuthorId != user.Id
-                         && item.At >= since
-                         && (user.Id == publicStudent.Id
-                             || item.CourseId is null
-                             || _taught.Contains((item.CourseId.Value, user.Id)))))
-            {
-                AddNotification(
-                    user,
-                    NotificationKind.NewsPublished,
-                    news.Content.Id,
-                    null,
-                    news.At,
-                    _cutoff.AddDays(-5));
-            }
-        }
-
-        foreach (var assignment in _assignments.Where(item =>
-                     item.Link.PublishAt >= since && item.Link.PublishAt <= _cutoff
-                     && memberGroups.Any(enrollment => enrollment.UserId == publicStudent.Id
-                         && enrollment.GroupId == item.GroupId)))
-        {
-            AddNotification(
-                publicStudent,
-                NotificationKind.AssignmentPublished,
-                assignment.Content.Id,
-                null,
-                assignment.Link.PublishAt,
-                _cutoff.AddDays(-5));
-        }
-
-        foreach (var graded in _graded.Where(item => item.StudentId == publicStudent.Id && item.GradedAt >= since))
-        {
-            var kind = graded.Submission.Status switch
-            {
-                SubmissionStatus.Graded => NotificationKind.SubmissionGraded,
-                SubmissionStatus.NotSubmitted => NotificationKind.SubmissionNotSubmitted,
-                _ => NotificationKind.SubmissionNeedsWork
-            };
-            AddNotification(
-                publicStudent,
-                kind,
-                graded.Link.ContentId,
-                graded.Submission.Id,
-                graded.GradedAt,
-                _cutoff.AddDays(-2));
-        }
-    }
-
-    // Äldre än unreadFrom räknas som lästa.
-    private void AddNotification(
-        User user,
-        NotificationKind kind,
-        Guid contentId,
-        Guid? submissionId,
-        DateTimeOffset createdAt,
-        DateTimeOffset unreadFrom) =>
-        db.Notifications.Add(new Notification
-        {
-            UserId = user.Id,
-            Kind = kind,
-            ContentId = contentId,
-            SubmissionId = submissionId,
-            CreatedAt = createdAt,
-            ReadAt = createdAt < unreadFrom
-                ? createdAt.AddHours(3)
-                : null
+            GroupId = group.Id,
+            PublishAt = time.GetUtcNow().AddDays(-2),
+            IsPinned = true
         });
-
-    // Ingenting som seeden skapar ska vara daterat efter _cutoff, men inte heller före tidpunkten själv.
-    private static DateTimeOffset Earlier(DateTimeOffset time, int marginHours) =>
-        time > _cutoff.AddHours(-marginHours)
-            ? _cutoff.AddHours(-marginHours)
-            : time;
-
-    private User CommentAuthor(string reference, List<User> students) =>
-        reference.StartsWith('#')
-            ? students[int.Parse(reference[1..])]
-            : UserOf(reference);
-
-    /// <summary>Användaren för en nyckel (lärare, elevN, larare eller elev). Skapas första gången den behövs.</summary>
-    private User UserOf(string key)
-    {
-        if (_users.TryGetValue(key, out var known))
-        {
-            return known;
-        }
-
-        var person = Teachers.FirstOrDefault(candidate => candidate.Key == key)
-            ?? Student(int.Parse(key["elev".Length..]));
-        var role = Teachers.Any(teacher => teacher.Key == key)
-            ? UserRole.Teacher
-            : UserRole.Student;
-
-        if (!existingUsers.TryGetValue(person.Email, out var user))
-        {
-            user = new User
-            {
-                SchoolId = schoolId,
-                Name = person.Name,
-                Email = person.Email,
-                Role = role,
-                PasswordHash = passwordHash
-            };
-            db.Users.Add(user);
-        }
-
-        _users[key] = user;
-        return user;
     }
 
-    private sealed record NewsItem(Guid GroupId, Guid? CourseId, Content Content, DateTimeOffset At, Guid AuthorId);
+    private static DateTimeOffset AtStartOfDay(DateOnly value) =>
+        new(value.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
 
-    private sealed record GradedItem(Guid StudentId, ContentLink Link, Submission Submission, DateTimeOffset GradedAt);
-
-    private sealed record AssignmentItem(Guid GroupId, Content Content, ContentLink Link);
+    private enum CoursePhase
+    {
+        Completed,
+        Current,
+        Upcoming
+    }
 }

@@ -53,42 +53,25 @@ När demodatan nedan finns skapas varken `Demo-klass` eller `Demo-kurs`, och kon
 
 ### Demodata (prod)
 
-Prod fylls med realistisk data för skolan **Edugrade**, så att varje funktion går att visa. Det gör `DemoSeed` (`backend/Infrastructure/Persistence/Seeding/DemoSeed.cs`, innehållet i `DemoCatalog.cs`) vid start, när `Database:SeedDemoData` är `true`. Inställningen sätts i Infisical (`prod`), och deployen skickar den till Render. Den är av som standard, i Development och i testerna, så en ny skola får ingen demodata. Se [konfiguration.md](konfiguration.md#databas).
+Prod kan fyllas med en kompakt demodata när `Database:SeedDemoData` är `true`. Den skapar tre klasser med åtta elever vardera, en lärare och tre kurser per klass:
 
-Seeden är additiv och idempotent. Finns klassen `.NET25` (markören) gör den ingenting, och den ändrar eller tar aldrig bort något den inte skapat själv. Undantagen: skolan döps om från `Placeholder-skolan` till `Edugrade`, kontona `larare` och `elev` placeras i `.NET25`, och `Demo-klass` med `Demo-kurs` tas bort om ingen har lämnat in något där (annars lämnas de). Allt sparas i en transaktion. Ett fel loggas men stoppar inte starten.
+| Klass     | Kurser                                                            |
+| --------- | ----------------------------------------------------------------- |
+| `.NET25`  | `NET-BAS` (avslutad), `NET-NUT` (pågående), `NET-FORD` (kommande) |
+| `JAVA25`  | `JAVA-BAS`, `JAVA-NUT`, `JAVA-FORD`                               |
+| `FIBER25` | `FIBER-BAS`, `FIBER-NUT`, `FIBER-FORD`                            |
 
-Eftersom seeden hoppar över allt när `.NET25` finns når ändringar i `DemoCatalog` aldrig en databas som redan har demodata. Därför kör `DemoContentRefresh` direkt efter seeden vid varje start, en gång per version: konstanten `DemoContentRefresh.ContentVersion` (höj den när katalogen ändrats) sparas i tabellen `DataPatches` när uppdateringen gått igenom. Uppdateringen går igenom katalogen och matchar veckor, delar och nyheter på titel, eller på den gamla titeln i `Was` om något döpts om. Den ändrar bara texten (kursers titel och beskrivning, veckors titel och beskrivning, delars och nyheters titel och brödtext), skapar det som saknas (delar utan inlämningar, nyheter och kommentarer) och lämnar allt annat orört: datum, skalor, inlämningar, betyg, klarmarkeringar, lärarnas egna delar och befintliga kommentarer. Den har samma flagga, egen transaktion och samma regel att ett fel loggas men inte stoppar starten.
+Varje kurs har två veckor, en teoridel och två till fyra uppgifter. Avslutade och pågående kurser har inlämningar med blandade betyg, kompletteringar och väntande bedömningar. Kommande kurser publiceras senare.
 
-| Grupp             | Typ       | Innehåll                                                                                                                                                                                                                          |
-| ----------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `.NET25` (HT25)   | Klass     | Systemutvecklare .NET med AI-kompetens. 22 elever, 4 lärare (`larare` och tre till). Avslutade kurser: Programmering med C#, Databaser, Webbapplikationer i C#. Pågående: DevOps. Kommande: AI-komponenter och ML i Azure, LIA 1. |
-| `.NET24` (HT24)   | Klass     | Äldre klass som är ute på LIA. 19 elever, 3 lärare. Fyra avslutade kurser (C#, Databaser, Webbapplikationer, DevOps), AI-kursen, och pågående LIA 2 med veckologg.                                                                |
-| `FIB25` (HT25)    | Klass     | Fibertekniker, utan kod och GitHub. 18 elever, 3 lärare. Skarvning och mätning (avslutad), Passiva fibernät och installation (pågående), Fältpraktik (kommande). Praktiska prov bedöms på plats.                                  |
-| `Klassråd .NET25` | Committee | Visar grupptyper: tre elever, `elev` och `larare`. Har en nyhet med kommentarer men inga kurser.                                                                                                                                  |
+Seedningen är idempotent och styrs av klassen `.NET25`. Den skapar konton via `AccountSeed` och placerar `larare` och `elev` i `.NET25`.
 
-DevOps (`.NET25_DEVOPS`, 12 oktober till 13 november, 25 poäng) har veckorna v42–v46 med tre lektioner vardera (Git-flöden, CI med GitHub Actions, Docker, tester, semantisk versionering och driftsättning), en läsuppgift och fem inlämningsuppgifter. Deadlines och lägen kring demodagen, måndag 2 november:
+**Logga in som:**
 
-| Uppgift                      | Deadline | Läge                                                                                                                                   |
-| ---------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Git-flöde i teamet           | 23 okt   | Nästan alla betygsatta (någon IG), kompletteringen 30 okt har gått ut: någon har Chanserna slut                                        |
-| CI-pipeline för er backend   | 28 okt   | Många väntar på bedömning (kön i _Att bedöma_, några Inlämnat igen), några ska komplettera, några saknas. Kompletteringsdeadline 6 nov |
-| Containerisera applikationen | 30 okt   | Försenad: bara en del har lämnat in, ingen kompletteringsdeadline                                                                      |
-| Testautomation i CI          | 6 nov    | Ska in i veckan (veckan öppnar fredag 30 okt)                                                                                          |
-| Releasa och driftsätt        | 13 nov   | Längre fram (veckan öppnar fredag 6 nov)                                                                                               |
-
-Alla inlämningar och betyg är daterade senast 29 oktober 2026, så inget ligger i framtiden. Demodatan följer betygsreglerna: Komplettera och Ej inlämnat finns bara där en kompletteringsdeadline återstår (CI-pipeline, 6 nov) eller har gått ut (då väntar IG), och varje flik i _Att bedöma_ har minst en rad. Dessutom finns nyheter i klasserna och kurserna (välkomst, schemaändring, påminnelse före deadline) med kommentarer, klarmarkerade lektioner, beroenden mellan lektioner (en låst del) och inkorg för `elev` och `larare`. Avslutade kurser har betyg på varje uppgift för varje elev (G eller VG). Det finns inga GitHub-repon eller installationer i demodatan.
-
-**Logga in som, för att visa:**
-
-| Konto                         | Lösenord     | Visar                                                                                                                                                                                                                                                                                                       |
-| ----------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `admin`                       | `admin`      | Skolans ordning: Idag med vad som behöver ordnas (kurser utan lärare, användare utan lösenord), alla klasser, användare och kurser, lärare på kurser och skolinställningarna. Läser kursernas innehåll, men undervisar inte: inga inlämningar, inget _Att bedöma_ och ingen redigering av veckor och delar. |
-| `larare`                      | `larare`     | Lärare i `.NET25`: Idag med _Att bedöma_-kö, deadlines och schemalagda veckor, kursflikarna i DevOps och Webbapplikationer i C#, klasslistor och bedömning.                                                                                                                                                 |
-| `elev`                        | `elev`       | Elev i `.NET25` med historik: Idag, Kalender, Inkorg, Material, Studieplan och betyg (95 av 225 poäng klara), inlämningar som är betygsatta, väntar och ska kompletteras.                                                                                                                                   |
-| `malin.ekstrom@demo.larka.se` | `larka-demo` | Lärare i LIA 1 (`.NET25`): Idag och _Att bedöma_ för kursen, men inte klassens övriga kurser.                                                                                                                                                                                                               |
-| Valfri seedad användare       | `larka-demo` | Alla lärare och elever har e-post `fornamn.efternamn@demo.larka.se` (utan å, ä, ö) och samma lösenord. Till exempel `karin.holmgren@demo.larka.se` (lärare), `malin.ekstrom@demo.larka.se` (lärare i LIA 1), `mikael.strand@demo.larka.se` (lärare i Fibertekniker).                                        |
-
-För att visa en annan klass: logga in som en lärare eller elev där, till exempel `henrik.lindahl@demo.larka.se` (lärare i LIA 2, `.NET24`) eller `sofie.brannstrom@demo.larka.se` (lärare i Fältpraktik (LIA) 1, `FIB25`). Seedade användare har samma lösenord, och det är medvetet offentligt, så logga inte in med riktiga uppgifter där.
+| Konto    | Lösenord | Visar                                                        |
+| -------- | -------- | ------------------------------------------------------------ |
+| `admin`  | `admin`  | Adminöversikt, klasser, kurser, användare och charts         |
+| `larare` | `larare` | Nio kurser, bedömningskö och elevlistor                      |
+| `elev`   | `elev`   | Studieplan med en avslutad, en pågående och en kommande kurs |
 
 ### Dev-inloggningar
 
@@ -190,8 +173,6 @@ Samma regel gäller överallt: `GET /api/me` (rollen per kurs), Idag-sidan för 
 | `DELETE /api/courses/{id}/teachers/{userId}` | `204`, tar bort läraren    | `403`                 |
 
 Användaren ska finnas i kursens skola och vara lärare eller admin i systemet (`400` annars, och `409` om hen redan är lärare i kursen). En kurs i en annan skola svarar `404`, även för admin. `GET /api/courses/{id}/staff` visar kursens lärare, med e-post och namnen på klasserna som läser kursen, för dem som hör till kursen (se ovan).
-
-Demodatan (`DemoCatalog`) anger lärarna per kurs. `larare` undervisar i DevOps och Webbapplikationer i C# i `.NET25`, men inte i klassens övriga kurser trots att hen är lärare i klassen. När `DemoContentRefresh.ContentVersion` höjs rättar uppdateringen lärarna i prod efter katalogen: den tar bara bort lärare ur katalogens personer som katalogen inte har i kursen, och lägger till de som saknas. Riktiga konton lämnas orörda.
 
 ### Admin, lärare och elev i kursen
 

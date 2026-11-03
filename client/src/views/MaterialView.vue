@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import {PhFolder, PhMagnifyingGlass} from '@phosphor-icons/vue'
+import {PhFolder} from '@phosphor-icons/vue'
 import {computed, ref, watch} from 'vue'
 
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty'
-import {Input} from '@/components/ui/input'
+import SearchField from '@/components/ui/SearchField.vue'
 import {Skeleton} from '@/components/ui/skeleton'
 import {useAsync} from '@/composables/useAsync'
 import {useCourses} from '@/composables/useCourses'
@@ -148,16 +148,13 @@ watch(status, (value) => {
         <p class="text-muted-foreground">Filer från dina kurser och grupper</p>
       </div>
 
-      <div class="relative w-full flex-[0_1_280px]">
-        <label for="material-search" class="sr-only">Sök material</label>
-        <PhMagnifyingGlass class="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2"/>
-        <Input
-          id="material-search"
-          v-model="search"
-          class="pl-8"
-          placeholder="Sök i allt material…"
-        />
-      </div>
+      <SearchField
+        id="material-search"
+        v-model="search"
+        class="flex-[0_1_280px]"
+        label="Sök material"
+        placeholder="Sök i allt material…"
+      />
     </div>
 
     <Alert v-if="loadFailed" variant="destructive">

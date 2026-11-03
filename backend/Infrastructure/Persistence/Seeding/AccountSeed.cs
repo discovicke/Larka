@@ -3,6 +3,7 @@ using Backend.Domain.Enums;
 using Backend.Infrastructure.Persistence.Configurations;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace Backend.Infrastructure.Persistence.Seeding;
 
@@ -17,6 +18,7 @@ public sealed class AccountSeed(
     AppDb db,
     IPasswordHasher<User> passwordHasher,
     TimeProvider time,
+    IOptions<DatabaseOptions> options,
     ILogger<AccountSeed> logger)
 {
     public const string ClassName = "Demo-klass";
@@ -41,8 +43,9 @@ public sealed class AccountSeed(
 
         // Finns demodatan (DemoSeed) är kontona placerade i riktiga klasser, och Demo-klass och Demo-kurs ska inte
         // skapas om. Då räcker det att användarna och lösenorden finns.
-        var hasDemoData = await db.Groups.AnyAsync(
-            row => row.SchoolId == school.Id && row.Name == DemoSeed.MarkerGroupName, ct);
+        var hasDemoData = options.Value.SeedDemoData
+            || await db.Groups.AnyAsync(
+                row => row.SchoolId == school.Id && row.Name == DemoSeed.MarkerGroupName, ct);
         if (!hasDemoData)
         {
             await EnsureDemoClassAsync(school, teacher, student, created, ct);

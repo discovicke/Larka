@@ -21,11 +21,10 @@ Var miljövariablerna kommer ifrån:
 
 ### Databas
 
-| Nyckel                      | Hemlig | Standard                      | Vad                                                                                                                                                                |
-| --------------------------- | ------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `ConnectionStrings:Default` | ja\*   | Docker-Postgres i Development | Connection string i .NET-format. I prod Supabase session pooler (IPv4).                                                                                            |
-| `Database:SeedDevData`      | nej    | `true` i Development          | Lägger in exempeldata om databasen saknar grupper.                                                                                                                 |
-| `Database:SeedDemoData`     | nej    | `false`                       | Lägger in demokontona och realistisk demodata för Edugrade vid start. Se [auth-och-behorigheter.md](auth-och-behorigheter.md#demodata-prod). Sätts bara i en demo. |
+| Nyckel                      | Hemlig | Standard                      | Vad                                                                                                               |
+| --------------------------- | ------ | ----------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `ConnectionStrings:Default` | ja\*   | Docker-Postgres i Development | Connection string i .NET-format. I prod Supabase session pooler (IPv4).                                           |
+| `Database:SeedDemoData`     | nej    | `true` i Development          | Lägger in demokonton och kompakt demodata. Se [auth-och-behorigheter.md](auth-och-behorigheter.md#demodata-prod). |
 
 \* Lokalt är standardvärdet bara dev-lösenordet till Docker-containern.
 

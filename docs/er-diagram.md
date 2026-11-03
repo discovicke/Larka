@@ -226,10 +226,6 @@ erDiagram
         timestamptz DisconnectedAt "nullable"
         timestamptz LastVerifiedAt "nullable"
     }
-    DataPatch {
-        string Id PK
-        timestamptz AppliedAt
-    }
 ```
 
 ## Varför relationerna ser ut så här
@@ -238,7 +234,7 @@ erDiagram
 
 - **School → User, Group, Course.** Allt hör till en skola. En användare tillhör en skola.
 - **GroupCourse (Group ↔ Course, M:N).** En klass läser flera kurser och en kurs kan läsas av flera klasser. Det här är den enda kopplingen mellan kurs och grupp. Det fanns tidigare även `Course.ProgramGroupId` ("ägande program"), men två kopplingar som kan säga olika saker togs bort till förmån för en. Committee-grupper har inga rader här.
-- **En klass är en årskull.** Klassen (`GroupType.Class`) är kullen genom hela programmet, till exempel `.NET25` som startade HT25, och `Term` är när den startade, inte en period. Varje rad i GroupCourse är ett kurstillfälle med egna datum (`Course.StartsOn`/`EndsOn`), och kursens läge (pågår, kommande eller avslutad) räknas fram ur datumen. Gruppens sida visar därför klassens kurser som en tidslinje.
+- **En klass är en årskull.** Klassen (`GroupType.Class`) är kullen genom hela programmet, till exempel `.NET25` som startade 2025. Varje rad i GroupCourse är ett kurstillfälle med egna datum (`Course.StartsOn`/`EndsOn`), och kursens läge (pågår, kommande eller avslutad) räknas fram ur datumen. Gruppens sida visar därför klassens kurser som en tidslinje.
 - **Module (Course → Module, 1:N)** delar in en kurs i delar, oftast veckor ("Vecka 2 – E2E och releasehantering"). `Position` är ordningen i kursen, 1, 2, 3 … utan luckor. Den är inte unik i databasen, eftersom en omsortering uppdaterar raderna en i taget och då skulle krocka med sig själv på vägen. `PublishAt` är veckans eget publiceringsdatum: tomt betyder öppen direkt, och ett framtida datum låser hela veckan även om delarna skulle ha tidigare datum.
 - **CourseTeacher (Course ↔ User, M:N).** Klassen har eleverna, kursen har sina lärare. Det är den här kopplingen som avgör vem som får redigera och bedöma en kurs, så en lärare i `.NET25` som undervisar i DevOps kan inte ändra eller betygsätta Databaser i samma klass. Läraren behöver inte vara medlem i klassen. Bara admin sätter lärare (`/api/courses/{id}/teachers`), och användaren ska vara lärare eller admin i kursens skola. En ny kursomgång (`POST /api/courses/{id}/runs`) får samma lärare som källkursen.
 - **Enrollment (User ↔ Group, M:N) med `Role`.** Rollen gäller _i gruppen_, så en lärare kan vara student i en annan grupp. Den är en enum i stället för fri text, så ett stavfel inte kan göra att en elev försvinner ur sin grupp. `Teacher` i gruppen gäller bara det som riktas till enbart gruppen, utan kurs (till exempel en nyhet till klassen), inte klassens kurser. `User.Role` är fortfarande användarens roll i systemet (Admin, Teacher, Student).
@@ -269,7 +265,6 @@ erDiagram
 - **Utkast i veckan publiceras när läraren sparar roadmapen.** Roadmapen omfattar veckans alla delar, och då får inget utkast ligga kvar och göra veckan omöjlig att slutföra. `PublishAt` lämnas orörd, så en schemalagd del publiceras fortfarande vid sitt datum.
 - **PartCompletion** är elevens egen klarmarkering av en teori-del eller en uppgift utan inlämningssätt. En rad per elev och länk (unik). Uppgifter med inlämningssätt blir aldrig klarmarkerade manuellt; de räknas som klara via `Submission` och `AssignmentSpec.CompletionRule`.
 - **ChecklistTick** är en elevs avbockning av en punkt i checklistan på en del. En rad per elev, länk och punkt, så att eleven ser sina egna bockar och läraren kan se var klassen är.
-- **DataPatch** är en markering att en engångsändring av data redan är körd, så att den inte körs igen vid nästa start. Den hör inte till något i skolan och har inga relationer.
 - **En del är tillgänglig** när veckan är öppen, innehållet är publicerat, delens eget `PublishAt` har passerat och alla delar som pekar på den via `BlockedLinkId` är klara. En låst del visas med lås och sina förutsättningar, men `BodyMd` skickas inte till eleven. En framtida vecka skickas som ett tomt skal med titel och öppningsdatum; varken delar, beskrivning eller innehåll läcker ut. Veckans datum gäller även flöden och nyheter.
 - **Flytt av en del** behåller länkens id och deadline, lägger delen sist i målveckan och tar bort beroenden på båda sidor. Källveckan komprimeras. Riktig elevaktivitet (inlämning, betyg eller klarmarkering) blockerar flytten, och svaret räknar upp de länkar vars beroenden påverkades.
 - **Vecka kan byta namn eller raderas.** Radering kräver att klienten bekräftar veckans titel. En publicerad inlämning utan elevaktivitet får raderas tillsammans med veckan; `NotStarted`-inlämningar städas bort. Finns riktig elevaktivitet blockeras raderingen. Delat content raderas inte, och bilagor tas bara bort när contentet självt raderas.
