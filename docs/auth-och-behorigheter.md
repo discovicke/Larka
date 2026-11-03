@@ -63,7 +63,7 @@ Prod kan fyllas med en kompakt demodata när `Database:SeedDemoData` är `true`.
 
 Varje kurs har två veckor, en teoridel och två till fyra uppgifter. Avslutade och pågående kurser har inlämningar med blandade betyg, kompletteringar och väntande bedömningar. Kommande kurser publiceras senare.
 
-Seedningen är idempotent och styrs av klassen `.NET25`. Den skapar konton via `AccountSeed` och placerar `larare` och `elev` i `.NET25`.
+Seedningen är idempotent och styrs av klassen `.NET25`. Den skapar konton via `AccountSeed` och placerar `larare` och `elev` i `.NET25`. Övriga elever i demodatan har e-post som `.net25.2@larka.local`, `java25.1@larka.local` och `fiber25.1@larka.local` (klassens namn och platsen i klassen) och lösenordet `larka-demo` (`DemoSeed.DemoPassword`), så att flera elever går att pröva.
 
 **Logga in som:**
 
@@ -87,7 +87,7 @@ Börja om från en tom databas: `docker compose down -v && npm run db`.
 
 ### Produktion
 
-Prod seedar inga lösenord utöver demokontona och demodatan. Admin kan ge en ny användare ett tillfälligt lösenord (minst 8 tecken) när hen skapas från _Lägg till medlem_ på en grupp, eller med `password` i `POST /api/users`. När Microsoft-inloggning är inställd visar _Lägg till medlem_ inget lösenordsfält, eftersom användaren loggar in med skolans konto. Utan lösenord kan användaren inte logga in. För äldre användare utan lösenord: hasha det med ASP.NET Core `PasswordHasher<User>` och skriv hashen i `Users.PasswordHash`.
+Prod seedar inga lösenord utöver demokontona och demodatans elever (`larka-demo`). Admin kan ge en ny användare ett tillfälligt lösenord (minst 8 tecken) när hen skapas från _Lägg till medlem_ på en grupp, eller med `password` i `POST /api/users`. När Microsoft-inloggning är inställd visar _Lägg till medlem_ inget lösenordsfält, eftersom användaren loggar in med skolans konto. Utan lösenord kan användaren inte logga in. För äldre användare utan lösenord: hasha det med ASP.NET Core `PasswordHasher<User>` och skriv hashen i `Users.PasswordHash`.
 
 ## Roller och behörigheter
 
