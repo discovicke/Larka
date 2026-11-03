@@ -9,7 +9,6 @@ import {
   PhGraduationCap,
   PhHouse,
   PhListChecks,
-  PhMagnifyingGlass,
   PhSignOut,
   PhTray,
   PhUserList,
@@ -190,15 +189,6 @@ function courseLabel(course: SidebarCourse): string {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        </SidebarMenuItem>
-
-        <!-- Sökningen kommer senare, knappen visar var den ska ligga. -->
-        <SidebarMenuItem>
-          <SidebarMenuButton tooltip="Sök" class="bg-sidebar-foreground/10 text-sidebar-foreground/70 border-sidebar-border border">
-            <PhMagnifyingGlass/>
-            <span class="flex-1 group-data-[collapsible=icon]:hidden">Sök…</span>
-            <kbd class="group-data-[collapsible=icon]:hidden bg-sidebar border-sidebar-border rounded border px-1 font-mono text-[11px]">⌘K</kbd>
-          </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>
     </SidebarHeader>
