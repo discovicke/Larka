@@ -25,6 +25,7 @@ public static class DependencyInjection
         services.AddScoped<ContentCommentService>();
         services.AddScoped<ContentAttachmentService>();
         services.AddScoped<MeService>();
+        services.AddScoped<AvatarService>();
         services.AddScoped<IntegrationService>();
         services.AddScoped<GitHubTemplateService>();
         services.AddScoped<GitHubLinkingService>();

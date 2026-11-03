@@ -44,7 +44,8 @@ public record CourseDto(
 }
 
 /// <summary>En lärare i kursen, med namnen på grupperna som läser kursen.</summary>
-public record CourseStaffDto(Guid UserId, string Name, string Email, List<string> Groups);
+public record CourseStaffDto(
+    Guid UserId, string Name, string Email, List<string> Groups, string? AvatarUrl = null);
 
 /// <summary>En lärare i kursen, som admin ser den.</summary>
 public record CourseTeacherDto(Guid UserId, string Name, string Email);

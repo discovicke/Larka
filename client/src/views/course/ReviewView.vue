@@ -10,7 +10,7 @@ import {
 
 import MarkdownView from '@/components/editor/MarkdownView.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
-import {Avatar, AvatarFallback} from '@/components/ui/avatar'
+import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar'
 import {Button} from '@/components/ui/button'
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '@/components/ui/collapsible'
 import {Skeleton} from '@/components/ui/skeleton'
@@ -283,6 +283,12 @@ watch([courseId, linkId, submissionId], () => {
       <div class="flex-[999_1_600px] min-w-0 flex flex-col">
         <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-b px-6 py-4">
           <Avatar class="size-9">
+            <AvatarImage
+              v-if="submission?.studentAvatarUrl"
+              :src="submission?.studentAvatarUrl"
+              alt=""
+              data-test="student-avatar-image"
+            />
             <AvatarFallback class="text-xs font-semibold">{{ initials(studentName) }}</AvatarFallback>
           </Avatar>
           <div class="flex flex-[1_1_260px] flex-col">

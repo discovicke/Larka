@@ -25,6 +25,19 @@ public class InMemoryFileStorage : IFileStorage
             ? Task.FromResult($"https://storage.local/{key}?expires={(int)expiresIn.TotalSeconds}")
             : throw new FileNotFoundException("No such file in storage.", key);
 
+    public async Task<IReadOnlyDictionary<string, string>> GetDownloadUrlsAsync(
+        IReadOnlyCollection<StoredFile> files, TimeSpan expiresIn, CancellationToken ct)
+    {
+        var urls = new Dictionary<string, string>();
+        foreach (var file in files)
+        {
+            urls[file.Key] = await GetSignedUrlAsync(file.Key, expiresIn, ct)
+                + $"&name={Uri.EscapeDataString(file.FileName)}";
+        }
+
+        return urls;
+    }
+
     public Task<string> CopyAsync(string sourceKey, string folder, CancellationToken ct)
     {
         if (!_files.TryGetValue(sourceKey, out var bytes))

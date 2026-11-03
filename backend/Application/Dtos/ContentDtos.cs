@@ -202,7 +202,8 @@ public record ContentFeedItem(
     Guid? ModuleId,
     DateTimeOffset PublishAt,
     DateTimeOffset? DueAt,
-    bool IsPinned);
+    bool IsPinned,
+    string? AuthorAvatarUrl = null);
 
 public record CommentDto(
     Guid Id,
@@ -210,10 +211,12 @@ public record CommentDto(
     Guid AuthorId,
     string AuthorName,
     string BodyMd,
-    DateTimeOffset CreatedAt)
+    DateTimeOffset CreatedAt,
+    string? AuthorAvatarUrl = null)
 {
-    public static CommentDto From(Comment comment, string authorName) =>
-        new(comment.Id, comment.ContentId, comment.AuthorId, authorName, comment.BodyMd, comment.CreatedAt);
+    public static CommentDto From(Comment comment, string authorName, string? authorAvatarUrl = null) =>
+        new(comment.Id, comment.ContentId, comment.AuthorId, authorName, comment.BodyMd, comment.CreatedAt,
+            authorAvatarUrl);
 }
 
 /// <summary>Url är en tidsbegränsad länk som skapas när bilagan läses, inte något som sparas.</summary>

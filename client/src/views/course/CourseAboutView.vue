@@ -8,7 +8,7 @@ import DeleteCourseDialog from '@/components/courses/DeleteCourseDialog.vue'
 import MarkdownEditor from '@/components/editor/MarkdownEditor.vue'
 import MarkdownView from '@/components/editor/MarkdownView.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
-import {Avatar, AvatarFallback} from '@/components/ui/avatar'
+import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar'
 import {Button} from '@/components/ui/button'
 import {
   Dialog,
@@ -197,6 +197,12 @@ watch(() => route.hash, scrollToStaff)
               data-test="staff-row"
             >
               <Avatar class="size-10">
+                <AvatarImage
+                  v-if="member.avatarUrl"
+                  :src="member.avatarUrl"
+                  alt=""
+                  data-test="member-avatar-image"
+                />
                 <AvatarFallback class="text-[13px] font-semibold">{{ initials(member.name) }}</AvatarFallback>
               </Avatar>
               <div class="flex min-w-0 flex-1 basis-[200px] flex-col">

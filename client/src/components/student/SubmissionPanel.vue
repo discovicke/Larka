@@ -10,6 +10,7 @@ import {Input} from '@/components/ui/input'
 import {useAsync} from '@/composables/useAsync'
 import {useToast} from '@/composables/useToast'
 import {api, errorMessage, multipart, type Schema} from '@/lib/api'
+import {UPLOAD_ACCEPT, uploadProblem} from '@/lib/uploads'
 import {formatDate} from '@/lib/content'
 import {handInWindow} from '@/lib/gradingWindow'
 import {formatSize} from '@/lib/material'
@@ -151,8 +152,14 @@ function cancelEditing() {
 
 function onFilesChosen(event: Event) {
   const input = event.target as HTMLInputElement
-  addedFiles.value = [...addedFiles.value, ...Array.from(input.files ?? [])]
+  const chosen = [...addedFiles.value, ...Array.from(input.files ?? [])]
   input.value = ''
+  // Fel filtyp, för stora eller för många filer sägs direkt, i stället för när eleven trycker Lämna in.
+  const problem = uploadProblem([...chosen])
+  error.value = problem ?? ''
+  if (!problem) {
+    addedFiles.value = chosen
+  }
 }
 
 </script>
@@ -278,7 +285,7 @@ function onFilesChosen(event: Event) {
           id="submission-files"
           type="file"
           multiple
-          accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.txt,.md,.docx,.pptx,.xlsx,.zip"
+          :accept="UPLOAD_ACCEPT"
           data-test="submission-file-input"
           @change="onFilesChosen"
         />

@@ -1,5 +1,6 @@
 using Backend.Application.Abstractions;
 using Backend.Application.Dtos;
+using Backend.Application.Files;
 using Backend.Application.Results;
 using Backend.Domain.Entities;
 
@@ -21,9 +22,12 @@ public class ContentCommentService(
         }
 
         var comments = await contents.GetCommentsAsync(contentId, ct);
-        var names = await users.GetNamesAsync(comments.Select(comment => comment.AuthorId).Distinct().ToList(), ct);
+        var authorIds = comments.Select(comment => comment.AuthorId).Distinct().ToList();
+        var names = await users.GetNamesAsync(authorIds, ct);
+        var avatars = await users.GetAvatarUrlsAsync(authorIds, ct);
         return comments
-            .Select(comment => CommentDto.From(comment, names.GetValueOrDefault(comment.AuthorId, "")))
+            .Select(comment => CommentDto.From(
+                comment, names.GetValueOrDefault(comment.AuthorId, ""), avatars.GetValueOrDefault(comment.AuthorId)))
             .ToList();
     }
 
@@ -43,6 +47,7 @@ public class ContentCommentService(
         contents.AddComment(comment);
         await unitOfWork.SaveChangesAsync(ct);
         var author = await users.GetAsync(currentUser.UserId, ct);
-        return ServiceResult<CommentDto>.Ok(CommentDto.From(comment, author?.Name ?? ""));
+        return ServiceResult<CommentDto>.Ok(CommentDto.From(
+            comment, author?.Name ?? "", AvatarPolicy.UrlFor(currentUser.UserId, author?.AvatarKey)));
     }
 }

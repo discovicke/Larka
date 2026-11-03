@@ -1327,7 +1327,15 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     private async Task<HttpResponseMessage> PostSubmissionAsync(Guid linkId, string bodyMd)
     {
         var form = new MultipartFormDataContent { { new StringContent(bodyMd), "bodyMd" } };
-        return await _client.PostAsync($"/api/links/{linkId}/submissions", form);
+        var request = new HttpRequestMessage(HttpMethod.Post, $"/api/links/{linkId}/submissions") { Content = form };
+        request.Headers.Add(TestAuthHandler.Header, (await SubmitterAsync(linkId)).ToString());
+        return await _client.SendAsync(request);
+    }
+
+    private async Task<Guid> SubmitterAsync(Guid linkId)
+    {
+        using var scope = factory.Services.CreateScope();
+        return await TestData.SubmitterAsync(scope.ServiceProvider.GetRequiredService<AppDb>(), linkId);
     }
 
     private async Task<List<SubmissionResponse>> ListAsync(Guid linkId) =>
@@ -1347,7 +1355,9 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     private async Task<ServiceResult<SubmissionDto>> SubmitFilesAsync(
         Guid linkId, List<Guid>? keepFileIds, params string[] fileNames)
     {
+        var submitter = await SubmitterAsync(linkId);
         using var scope = factory.Services.CreateScope();
+        TestData.ActAs(scope.ServiceProvider, submitter);
         var service = scope.ServiceProvider.GetRequiredService<SubmissionService>();
         var uploads = fileNames
             .Select(name => new FileUpload(name, 3, new MemoryStream([1, 2, 3])))

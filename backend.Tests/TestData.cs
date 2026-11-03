@@ -1,8 +1,11 @@
+using System.Security.Claims;
 using Backend.Domain.Entities;
 using Backend.Domain.Enums;
 using Backend.Infrastructure.Persistence;
 using Backend.Infrastructure.Persistence.Configurations;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace backend.Tests;
 
@@ -32,6 +35,49 @@ public static class TestData
         await db.SaveChangesAsync();
         return user;
     }
+
+    /// <summary>
+    /// Eleven som lämnar in på utdelningen i testerna: en egen elev ("Inlämnare") i gruppen som länken når, så att
+    /// gruppens övriga elever inte rörs. Samma elev varje gång, så att en ny inlämning ersätter den förra.
+    /// </summary>
+    public static async Task<Guid> SubmitterAsync(AppDb db, Guid linkId)
+    {
+        var link = await db.ContentLinks.SingleAsync(link => link.Id == linkId);
+        var groupId = link.GroupId
+            ?? await db.GroupCourses
+                .Where(groupCourse => groupCourse.CourseId == link.CourseId)
+                .OrderBy(groupCourse => groupCourse.GroupId)
+                .Select(groupCourse => groupCourse.GroupId)
+                .FirstAsync();
+        var existing = await (from enrollment in db.Enrollments
+                              join user in db.Users on enrollment.UserId equals user.Id
+                              where enrollment.GroupId == groupId
+                                  && enrollment.Role == GroupRole.Student
+                                  && user.Name == _submitterName
+                              select (Guid?)user.Id).FirstOrDefaultAsync();
+        if (existing is not null)
+        {
+            return existing.Value;
+        }
+
+        var group = await db.Groups.SingleAsync(group => group.Id == groupId);
+        var submitter = await AddMemberAsync(db, group);
+        submitter.Name = _submitterName;
+        await db.SaveChangesAsync();
+        return submitter.Id;
+    }
+
+    private const string _submitterName = "Inlämnare";
+
+    /// <summary>
+    /// Låter en service i scopet köras som användaren, när testet anropar den direkt utan HTTP-förfrågan
+    /// (TestCurrentUser läser användaren ur HttpContext).
+    /// </summary>
+    public static void ActAs(IServiceProvider services, Guid userId) =>
+        services.GetRequiredService<IHttpContextAccessor>().HttpContext = new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", userId.ToString())], "Test"))
+        };
 
     /// <summary>
     /// Skapar en grupp. Med placeholderTeaches är placeholder-admin lärare i gruppen, vilket krävs för att

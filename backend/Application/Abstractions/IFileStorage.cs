@@ -13,8 +13,19 @@ public interface IFileStorage
     /// <summary>En länk som går att läsa filen från tills den löper ut. Skapas först när filen läses.</summary>
     Task<string> GetSignedUrlAsync(string key, TimeSpan expiresIn, CancellationToken ct);
 
+    /// <summary>
+    /// Länkar till flera filer i ett anrop, per nyckel. Webbläsaren laddar ner varje fil under dess eget namn
+    /// (FileName), inte under nyckeln. Används för listor med bilagor och inlämnade filer.
+    /// </summary>
+    Task<IReadOnlyDictionary<string, string>> GetDownloadUrlsAsync(
+        IReadOnlyCollection<StoredFile> files, TimeSpan expiresIn, CancellationToken ct);
+
     /// <summary>Kopierar filen till en ny nyckel under folder, så att kopian lever kvar när originalet tas bort.</summary>
     Task<string> CopyAsync(string sourceKey, string folder, CancellationToken ct);
 
+    /// <summary>Tar bort filen. En fil som redan är borta är inget fel.</summary>
     Task DeleteAsync(string key, CancellationToken ct);
 }
+
+/// <summary>En sparad fil: nyckeln i lagringen och namnet den laddas ner som.</summary>
+public record StoredFile(string Key, string FileName);

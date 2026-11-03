@@ -153,17 +153,19 @@ public class SubmissionService(
                 .ToList();
         }
 
-        var names = await users.GetNamesAsync(linkSubmissions.Select(submission => submission.StudentId).ToList(), ct);
+        var studentIds = linkSubmissions.Select(submission => submission.StudentId).ToList();
+        var names = await users.GetNamesAsync(studentIds, ct);
+        var avatars = await users.GetAvatarUrlsAsync(studentIds, ct);
         var support = await supportStatus.BuildAsync(linkSubmissions, ct);
-        var dtos = new List<SubmissionDto>();
-        foreach (var submission in linkSubmissions)
-        {
-            dtos.Add(await ToDtoAsync(
+        var urls = await DownloadUrlsAsync(linkSubmissions, ct);
+        var dtos = linkSubmissions
+            .Select(submission => ToDto(
                 submission,
                 names.GetValueOrDefault(submission.StudentId, ""),
                 support.GetValueOrDefault(submission.Id),
-                ct));
-        }
+                urls,
+                avatars.GetValueOrDefault(submission.StudentId)))
+            .ToList();
 
         return ServiceResult<List<SubmissionDto>>.Ok(dtos);
     }
@@ -174,26 +176,34 @@ public class SubmissionService(
 
     private async Task<SubmissionDto> ToDtoAsync(Submission submission, CancellationToken ct)
     {
-        var name = (await users.GetAsync(submission.StudentId, ct))?.Name ?? "";
+        var student = await users.GetAsync(submission.StudentId, ct);
         var support = await supportStatus.BuildAsync([submission], ct);
-        return await ToDtoAsync(submission, name, support.GetValueOrDefault(submission.Id), ct);
+        return ToDto(
+            submission, student?.Name ?? "", support.GetValueOrDefault(submission.Id),
+            await DownloadUrlsAsync([submission], ct),
+            AvatarPolicy.UrlFor(submission.StudentId, student?.AvatarKey));
     }
 
-    // Filernas länkar skapas här, när inlämningen läses, så de går inte att dela vidare och gälla för alltid.
-    private async Task<SubmissionDto> ToDtoAsync(
+    // Filernas länkar skapas här, när inlämningen läses, så de går inte att dela vidare och gälla för alltid. Alla
+    // inlämningarnas filer signeras i ett anrop, och de laddas ner under sina riktiga namn.
+    private Task<IReadOnlyDictionary<string, string>> DownloadUrlsAsync(
+        IEnumerable<Submission> list, CancellationToken ct) =>
+        storage.GetDownloadUrlsAsync(
+            list.SelectMany(submission => submission.Files)
+                .Select(file => new StoredFile(file.StorageKey, file.FileName))
+                .ToList(),
+            IFileStorage.SignedUrlLifetime,
+            ct);
+
+    private static SubmissionDto ToDto(
         Submission submission,
         string studentName,
         StudentSupportDto? support,
-        CancellationToken ct)
+        IReadOnlyDictionary<string, string> urls,
+        string? studentAvatarUrl)
     {
-        var files = new List<SubmissionFileDto>();
-        foreach (var file in submission.Files)
-        {
-            var url = await storage.GetSignedUrlAsync(file.StorageKey, IFileStorage.SignedUrlLifetime, ct);
-            files.Add(SubmissionFileDto.From(file, url));
-        }
-
-        return SubmissionDto.From(submission, studentName, files, support);
+        var files = submission.Files.Select(file => SubmissionFileDto.From(file, urls[file.StorageKey])).ToList();
+        return SubmissionDto.From(submission, studentName, files, support, studentAvatarUrl);
     }
 
     /// <summary>
@@ -207,6 +217,13 @@ public class SubmissionService(
         if (linked is null)
         {
             return ServiceResult<SubmissionDto>.NotFound("link not found");
+        }
+
+        // Bara elever som uppgiften delats ut till får lämna in, och bara när den är publicerad. Lärare, admin och
+        // elever i andra grupper får 403 innan något sparas.
+        if (!await contents.IsVisibleToMemberOfLinkAsync(linkId, currentUser.UserId, time.GetUtcNow(), ct))
+        {
+            return ServiceResult<SubmissionDto>.Forbidden();
         }
 
         var spec = linked.Content.Assignment;

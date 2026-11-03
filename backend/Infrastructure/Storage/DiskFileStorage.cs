@@ -46,6 +46,20 @@ public partial class DiskFileStorage(
         return Task.FromResult($"{RoutePrefix}/{key}?expires={expires}&sig={Sign(key, expires)}");
     }
 
+    // Namnet signeras inte: det styr bara vad webbläsaren kallar filen när den sparas (se FileEndpoints).
+    public async Task<IReadOnlyDictionary<string, string>> GetDownloadUrlsAsync(
+        IReadOnlyCollection<StoredFile> files, TimeSpan expiresIn, CancellationToken ct)
+    {
+        var urls = new Dictionary<string, string>();
+        foreach (var file in files)
+        {
+            urls[file.Key] = await GetSignedUrlAsync(file.Key, expiresIn, ct)
+                + $"&name={Uri.EscapeDataString(file.FileName)}";
+        }
+
+        return urls;
+    }
+
     public async Task<string> CopyAsync(string sourceKey, string folder, CancellationToken ct)
     {
         var source = PathOf(sourceKey);

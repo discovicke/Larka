@@ -13,6 +13,7 @@ public static class FileEndpoints
                 string key,
                 long? expires,
                 string? sig,
+                string? name,
                 IServiceProvider services,
                 CancellationToken ct) =>
             {
@@ -20,9 +21,14 @@ public static class FileEndpoints
                 var file = storage is null || expires is null || sig is null
                     ? null
                     : await storage.OpenAsync(key, expires.Value, sig, ct);
+                // Med name sparas filen under sitt riktiga namn (Content-Disposition), inte under nyckelns guid.
+                var downloadName = string.IsNullOrWhiteSpace(name)
+                    ? null
+                    : Path.GetFileName(name);
                 return file is null
                     ? Results.NotFound()
-                    : Results.File(file.Value.Path, file.Value.ContentType, enableRangeProcessing: true);
+                    : Results.File(
+                        file.Value.Path, file.Value.ContentType, downloadName, enableRangeProcessing: true);
             })
             .AllowAnonymous()
             .ExcludeFromDescription();

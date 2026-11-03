@@ -13,7 +13,8 @@ public record MeDto(
     List<GroupRefDto> Groups,
     string? GitHubLogin = null,
     bool GitHubEnabled = false,
-    bool GitHubInUse = false);
+    bool GitHubInUse = false,
+    string? AvatarUrl = null);
 
 public record SchoolRefDto(Guid Id, string Name);
 

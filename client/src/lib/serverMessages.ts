@@ -55,6 +55,11 @@ const exact: Record<string, string> = {
   'a submission that needs work gets feedback, not a grade': 'Ber du om komplettering får eleven återkoppling, inte betyg.',
   'a fail grade requires a comment': 'Icke godkänd kräver en kommentar.',
   'news cannot be completed': 'Nyheter kan inte klarmarkeras.',
+
+  // Filer och profilbild
+  'every file needs a name': 'Varje fil måste ha ett namn.',
+  'a profile picture must be a png, jpg, gif or webp image': 'Välj en bild i formatet PNG, JPG, GIF eller WebP.',
+  'the image is empty': 'Bilden är tom.',
   'this part is completed by handing in the assignment': 'Delen klarmarkeras när uppgiften lämnas in.',
 
   // Veckor och delar
@@ -88,6 +93,12 @@ const patterns: [RegExp, (...groups: string[]) => string][] = [
   [/^lines must contain between 1 and (\d+) students$/, (count) => `Klistra in mellan 1 och ${count} elever.`],
   [/^the part is locked by: (.+)$/, (parts) => `Delen är låst tills du har klarat: ${parts}.`],
   [/^cycle: (.+)$/, (path) => `Ordningen blir en ring: ${path}.`],
+  [/^at most (\d+) files can be uploaded at once$/, (count) => `Högst ${count} filer kan laddas upp åt gången.`],
+  [/^the files together can be at most (\d+) MB$/, (size) => `Filerna får vara högst ${size} MB tillsammans.`],
+  [/^(.+) has a file type that is not allowed$/, (name) => `${name} har en filtyp som inte är tillåten.`],
+  [/^(.+) is larger than (\d+) MB$/, (name, size) => `${name} är större än ${size} MB.`],
+  [/^(.+) is empty$/, (name) => `${name} är tom.`],
+  [/^a profile picture can be at most (\d+) MB$/, (size) => `Bilden får vara högst ${size} MB.`],
   [/^the week contains student activity in "(.+)" and cannot be deleted$/,
     (title) => `Veckan har elevaktivitet i "${title}" och kan inte tas bort.`],
   [/^the course has student work in "(.+)" and cannot be deleted$/,
@@ -118,6 +129,9 @@ export function isSwedish(message: string): boolean {
 export function fallbackForStatus(status: number): string {
   if (status === 404) {
     return 'Det du söker finns inte längre.'
+  }
+  if (status === 413) {
+    return 'Filerna är för stora att skicka. Högst 50 MB åt gången.'
   }
   if (status === 409) {
     return 'Det går inte att göra just nu, eftersom det krockar med något som redan finns.'

@@ -54,6 +54,28 @@ public class DiskFileStorageTests(DiskStorageWebApplicationFactory factory)
         Assert.Equal("hej", await response.Content.ReadAsStringAsync());
     }
 
+    [Fact]
+    public async Task DownloadUrl_SendsTheFileUnderItsRealName()
+    {
+        var key = await Storage.UploadAsync("content/abc", new MemoryStream("hej"u8.ToArray()), "text/plain", default);
+
+        var urls = await Storage.GetDownloadUrlsAsync(
+            [new StoredFile(key, "Rapport v2 åäö.txt")], IFileStorage.SignedUrlLifetime, default);
+        var response = await _client.GetAsync(urls[key]);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("Rapport v2 åäö.txt", response.Content.Headers.ContentDisposition?.FileNameStar);
+    }
+
+    [Fact]
+    public async Task Delete_OfAFileThatIsAlreadyGone_IsNotAnError()
+    {
+        var key = await Storage.UploadAsync("content/abc", new MemoryStream("hej"u8.ToArray()), "text/plain", default);
+        await Storage.DeleteAsync(key, default);
+
+        await Storage.DeleteAsync(key, default);
+    }
+
     [Theory]
     [InlineData("tampered")]
     [InlineData("expired")]

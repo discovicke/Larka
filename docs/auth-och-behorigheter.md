@@ -169,7 +169,7 @@ Bara en användare vars skolroll är Lärare kan vara lärare i en klass: `POST 
 
 Lärare i en kurs som gruppen läser får också medlemslistan, utan att vara medlemmar i gruppen. Övriga i skolan får `403`.
 
-Medlemslistan (`GroupMemberDto`) har bara id, namn och personens roll i just den gruppen, aldrig e-post eller global roll. En elev ser alltså klasskamraterna med namn och grupproll. Det finns ingen profilbild i datamodellen. Lärare och admin får samma lista.
+Medlemslistan (`GroupMemberDto`) har bara id, namn, profilbild (`avatarUrl`, se [fillagring.md](fillagring.md#profilbilder)) och personens roll i just den gruppen, aldrig e-post eller global roll. En elev ser alltså klasskamraterna med namn, bild och grupproll. Lärare och admin får samma lista.
 
 Lärarnas kontaktuppgifter (namn, e-post och vilka grupper de undervisar) visas via kursens egen lärarlista, `GET /api/courses/{id}/staff`, och inte via `/api/users`. Listan är bara för dem som hör till kursen: kursens lärare, eleverna i klasserna som läser den, och admin i kursens skola. Alla andra, också lärare och elever i andra kurser och admin i en annan skola, får `404`.
 

@@ -66,13 +66,7 @@ public class ContentAttachmentService(
         }
 
         var attachments = await contents.GetAttachmentsAsync(contentId, ct);
-        var dtos = new List<AttachmentDto>();
-        foreach (var attachment in attachments)
-        {
-            dtos.Add(await ToDtoAsync(attachment, ct));
-        }
-
-        return ServiceResult<List<AttachmentDto>>.Ok(dtos);
+        return ServiceResult<List<AttachmentDto>>.Ok(await ToDtosAsync(attachments, ct));
     }
 
     /// <summary>NotFound om bilagan inte finns, 403 om användaren inte får ändra innehållet.</summary>
@@ -103,7 +97,15 @@ public class ContentAttachmentService(
     }
 
     private async Task<AttachmentDto> ToDtoAsync(Attachment attachment, CancellationToken ct) =>
-        AttachmentDto.From(
-            attachment,
-            await storage.GetSignedUrlAsync(attachment.StorageKey, IFileStorage.SignedUrlLifetime, ct));
+        (await ToDtosAsync([attachment], ct))[0];
+
+    // Alla länkar i ett anrop till lagringen, och filerna laddas ner under sina riktiga namn.
+    private async Task<List<AttachmentDto>> ToDtosAsync(List<Attachment> attachments, CancellationToken ct)
+    {
+        var urls = await storage.GetDownloadUrlsAsync(
+            attachments.Select(attachment => new StoredFile(attachment.StorageKey, attachment.FileName)).ToList(),
+            IFileStorage.SignedUrlLifetime,
+            ct);
+        return attachments.Select(attachment => AttachmentDto.From(attachment, urls[attachment.StorageKey])).ToList();
+    }
 }

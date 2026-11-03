@@ -213,6 +213,45 @@ public class FileUploadTests(TestWebApplicationFactory factory) : IClassFixture<
     }
 
     // Skapar en uppgift med filinlämning, delad till en ny grupp med elever och lärare.
+    public enum Outsider
+    {
+        StudentWithoutGroup,
+        StudentInAnotherGroup,
+        TeacherOfTheGroup,
+        Admin
+    }
+
+    [Theory]
+    [InlineData(Outsider.StudentWithoutGroup)]
+    [InlineData(Outsider.StudentInAnotherGroup)]
+    [InlineData(Outsider.TeacherOfTheGroup)]
+    [InlineData(Outsider.Admin)]
+    public async Task Submit_BySomeoneTheAssignmentIsNotHandedOutTo_IsForbidden_AndStoresNothing(Outsider who)
+    {
+        var assignment = await CreateFileAssignmentAsync(studentCount: 1, teacherCount: 1);
+        Guid userId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            userId = who switch
+            {
+                Outsider.StudentWithoutGroup => (await TestData.AddUserAsync(db)).Id,
+                Outsider.StudentInAnotherGroup =>
+                    (await TestData.AddMemberAsync(db, await TestData.AddGroupAsync(db))).Id,
+                Outsider.TeacherOfTheGroup => assignment.Teachers[0],
+                _ => (await TestData.AddUserAsync(db, role: UserRole.Admin)).Id,
+            };
+        }
+
+        var before = Storage.Keys.Count;
+
+        var response = await SendAsync(HttpMethod.Post, $"/api/links/{assignment.LinkId}/submissions", userId,
+            FileForm("rapport.pdf", bodyMd: "svar"));
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(before, Storage.Keys.Count);
+    }
+
     private async Task<FileAssignment> CreateFileAssignmentAsync(int studentCount, int teacherCount = 0)
     {
         var students = new List<Guid>();

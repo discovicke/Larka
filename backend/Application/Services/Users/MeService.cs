@@ -1,5 +1,6 @@
 using Backend.Application.Abstractions;
 using Backend.Application.Dtos;
+using Backend.Application.Files;
 using Backend.Application.Results;
 
 namespace Backend.Application.Services;
@@ -56,7 +57,8 @@ public class MeService(
             memberGroups.Select(group => new GroupRefDto(group.Id, group.Name)).ToList(),
             user.GitHubLogin,
             githubEnabled,
-            githubInUse);
+            githubInUse,
+            AvatarPolicy.UrlFor(user.Id, user.AvatarKey));
     }
 
     /// <summary>Slagen av notiser användaren stängt av. Null om användaren inte finns.</summary>

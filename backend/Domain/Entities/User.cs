@@ -23,6 +23,10 @@ public class User
     // GitHub-användarnamn, satt via OAuth. Null tills eleven har kopplat sitt GitHub-konto.
     public string? GitHubLogin { get; set; }
 
+    // Nyckeln till profilbilden i fillagringen (avatars/{userId}/{guid}), eller null när användaren inte har någon.
+    // En ny bild får alltid en ny nyckel, så att länken till den gamla slutar fungera.
+    public string? AvatarKey { get; set; }
+
     // Notiser av dessa slag vill användaren inte ha i appen.
     public List<NotificationKind> MutedNotificationKinds { get; set; } = [];
 }

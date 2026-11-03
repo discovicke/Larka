@@ -10,7 +10,7 @@ import ChangeRoleDialog from '@/components/groups/ChangeRoleDialog.vue'
 import LinkCourseDialog from '@/components/groups/LinkCourseDialog.vue'
 import RemoveMemberDialog from '@/components/groups/RemoveMemberDialog.vue'
 import UnlinkCourseDialog from '@/components/groups/UnlinkCourseDialog.vue'
-import {Avatar, AvatarFallback} from '@/components/ui/avatar'
+import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar'
 import CourseStatusBadge from '@/components/course/CourseStatusBadge.vue'
 import CourseTeachersDialog from '@/components/groups/CourseTeachersDialog.vue'
 import ImportStudentsDialog from '@/components/groups/ImportStudentsDialog.vue'
@@ -474,6 +474,12 @@ watch(isAdmin, (admin) => {
             data-test="member-row"
           >
             <Avatar class="size-10">
+              <AvatarImage
+                v-if="member.avatarUrl"
+                :src="member.avatarUrl"
+                alt=""
+                data-test="member-avatar-image"
+              />
               <AvatarFallback class="text-[13px] font-semibold">{{ initials(member.name) }}</AvatarFallback>
             </Avatar>
             <span class="font-medium" data-test="member-name">{{ member.name }}</span>

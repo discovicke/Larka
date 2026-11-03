@@ -43,6 +43,9 @@ public interface IContentRepository
     /// </summary>
     Task<bool> IsVisibleToMemberOfContentAsync(
         Guid contentId, Guid userId, DateTimeOffset now, CancellationToken ct);
+
+    /// <summary>Samma regel för en enda utdelning: den är publicerad och når en grupp där användaren är elev.</summary>
+    Task<bool> IsVisibleToMemberOfLinkAsync(Guid linkId, Guid userId, DateTimeOffset now, CancellationToken ct);
     void Add(Content content);
     void AddLink(ContentLink link);
     Task<LinkedContent?> GetLinkWithContentAsync(Guid linkId, CancellationToken ct);

@@ -18,7 +18,7 @@ import {type Component, computed, ref, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 
 import AppLogo from '@/components/layout/AppLogo.vue'
-import {Avatar, AvatarFallback} from '@/components/ui/avatar'
+import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar'
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '@/components/ui/collapsible'
 import {
   DropdownMenu,
@@ -302,6 +302,12 @@ function courseLabel(course: SidebarCourse): string {
               <!-- Samma vänsterkant öppen och ihopfälld, så att avataren inte hoppar när menyn animeras. -->
               <SidebarMenuButton size="lg" data-test="user-menu" class="pl-0">
                 <Avatar class="size-8">
+                  <AvatarImage
+                    v-if="me?.avatarUrl"
+                    :src="me?.avatarUrl"
+                    alt=""
+                    data-test="user-avatar-image"
+                  />
                   <AvatarFallback class="text-xs font-semibold">{{ userInitials }}</AvatarFallback>
                 </Avatar>
                 <span class="flex min-w-0 flex-1 flex-col leading-tight group-data-[collapsible=icon]:hidden">

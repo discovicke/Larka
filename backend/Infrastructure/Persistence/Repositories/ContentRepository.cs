@@ -1,5 +1,6 @@
 using Backend.Application.Abstractions;
 using Backend.Application.Dtos;
+using Backend.Application.Files;
 using Backend.Domain.Entities;
 using Backend.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -38,28 +39,35 @@ public class ContentRepository(AppDb db) : IContentRepository
     }
 
     public Task<bool> IsVisibleToMemberOfContentAsync(
-        Guid contentId, Guid userId, DateTimeOffset now, CancellationToken ct)
+        Guid contentId, Guid userId, DateTimeOffset now, CancellationToken ct) =>
+        VisibleToMember(db.ContentLinks.Where(link => link.ContentId == contentId), userId, now).AnyAsync(ct);
+
+    public Task<bool> IsVisibleToMemberOfLinkAsync(
+        Guid linkId, Guid userId, DateTimeOffset now, CancellationToken ct) =>
+        VisibleToMember(db.ContentLinks.Where(link => link.Id == linkId), userId, now).AnyAsync(ct);
+
+    // Länkarna som är publicerade och når en grupp där användaren är elev.
+    private IQueryable<ContentLink> VisibleToMember(IQueryable<ContentLink> links, Guid userId, DateTimeOffset now)
     {
         // Elev i gruppen. Lärarrollen i en grupp ger ingen läsrätt här, den prövas som undervisning.
         var myGroupIds = db.Enrollments
             .Where(enrollment => enrollment.UserId == userId && enrollment.Role != GroupRole.Teacher)
             .Select(enrollment => enrollment.GroupId);
 
-        return db.ContentLinks
-            .Where(link => link.ContentId == contentId && link.PublishAt <= now)
+        return links
+            .Where(link => link.PublishAt <= now)
             .Where(link => db.Content.Any(content =>
                 content.Id == link.ContentId && content.Status == ContentStatus.Published))
             .Where(link => link.ModuleId == null
                 || !db.Modules.Any(module => module.Id == link.ModuleId
                     && module.PublishAt != null
                     && module.PublishAt > now))
-            .AnyAsync(link =>
+            .Where(link =>
                 (link.CourseId == null && link.GroupId != null && myGroupIds.Contains(link.GroupId.Value))
                 || (link.CourseId != null && db.GroupCourses.Any(groupCourse =>
                     groupCourse.CourseId == link.CourseId
                     && myGroupIds.Contains(groupCourse.GroupId)
-                    && (link.GroupId == null || link.GroupId == groupCourse.GroupId))),
-                ct);
+                    && (link.GroupId == null || link.GroupId == groupCourse.GroupId))));
     }
 
     public void Add(Content content) => db.Content.Add(content);
@@ -443,7 +451,7 @@ public class ContentRepository(AppDb db) : IContentRepository
                         || !db.Modules.Any(module => module.Id == link.ModuleId
                             && module.PublishAt != null
                             && module.PublishAt > now)
-                    select new { Link = link, Content = content, AuthorName = author.Name };
+                    select new { Link = link, Content = content, AuthorName = author.Name, author.AvatarKey };
         if (type is not null)
         {
             var contentType = type.Value;
@@ -456,7 +464,8 @@ public class ContentRepository(AppDb db) : IContentRepository
             .Select(row => new ContentFeedItem(
                 row.Link.Id, row.Content.Id, row.Content.Type, row.Content.Title, row.Content.BodyMd,
                 row.Content.AuthorId, row.AuthorName, row.Link.GroupId, row.Link.CourseId, row.Link.ModuleId,
-                row.Link.PublishAt, row.Link.DueAt, row.Link.IsPinned))
+                row.Link.PublishAt, row.Link.DueAt, row.Link.IsPinned,
+                AvatarPolicy.UrlFor(row.Content.AuthorId, row.AvatarKey)))
             .ToListAsync(ct);
     }
 }

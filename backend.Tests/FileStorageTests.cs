@@ -126,7 +126,7 @@ public class FileStorageTests(TestWebApplicationFactory factory) : IClassFixture
         var linkId = await CreateFileAssignmentLinkAsync(modes: ["text"]);
         var before = Storage.Keys.Count;
 
-        var result = await WithServiceAsync<SubmissionService, ServiceResult<SubmissionDto>>(service =>
+        var result = await AsSubmitterAsync(linkId, service =>
             service.SubmitAsync(linkId, new SubmitDto("svar"), [Upload("x.pdf")], CancellationToken.None));
 
         Assert.Equal(ResultStatus.Invalid, result.Status);
@@ -148,10 +148,20 @@ public class FileStorageTests(TestWebApplicationFactory factory) : IClassFixture
 
     private async Task<SubmissionDto> SubmitAsync(Guid linkId, string fileName)
     {
-        var result = await WithServiceAsync<SubmissionService, ServiceResult<SubmissionDto>>(service =>
+        var result = await AsSubmitterAsync(linkId, service =>
             service.SubmitAsync(linkId, new SubmitDto(), [Upload(fileName)], CancellationToken.None));
         Assert.Equal(ResultStatus.Ok, result.Status);
         return result.Value!;
+    }
+
+    // Bara elever som uppgiften delats ut till får lämna in, så servicen körs som gruppens inlämnare.
+    private async Task<ServiceResult<SubmissionDto>> AsSubmitterAsync(
+        Guid linkId, Func<SubmissionService, Task<ServiceResult<SubmissionDto>>> action)
+    {
+        using var scope = factory.Services.CreateScope();
+        var submitter = await TestData.SubmitterAsync(scope.ServiceProvider.GetRequiredService<AppDb>(), linkId);
+        TestData.ActAs(scope.ServiceProvider, submitter);
+        return await action(scope.ServiceProvider.GetRequiredService<SubmissionService>());
     }
 
     private async Task<TResult> WithServiceAsync<TService, TResult>(Func<TService, Task<TResult>> action)

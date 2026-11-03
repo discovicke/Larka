@@ -1,4 +1,5 @@
 using Backend.Application.Abstractions;
+using Backend.Application.Files;
 using Backend.Domain.Entities;
 using Backend.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -15,6 +16,14 @@ public class UserRepository(AppDb db) : IUserRepository
 
     public Task<Dictionary<Guid, string>> GetNamesAsync(IReadOnlyCollection<Guid> userIds, CancellationToken ct) =>
         db.Users.Where(user => userIds.Contains(user.Id)).ToDictionaryAsync(user => user.Id, user => user.Name, ct);
+
+    public async Task<Dictionary<Guid, string>> GetAvatarUrlsAsync(
+        IReadOnlyCollection<Guid> userIds, CancellationToken ct) =>
+        (await db.Users
+            .Where(user => userIds.Contains(user.Id) && user.AvatarKey != null)
+            .Select(user => new { user.Id, user.AvatarKey })
+            .ToListAsync(ct))
+        .ToDictionary(user => user.Id, user => AvatarPolicy.UrlFor(user.Id, user.AvatarKey)!);
 
     public Task<User?> GetAsync(Guid id, CancellationToken ct) =>
         db.Users.FirstOrDefaultAsync(user => user.Id == id, ct);

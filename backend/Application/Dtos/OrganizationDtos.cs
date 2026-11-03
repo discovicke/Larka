@@ -32,7 +32,7 @@ public record MemberDto(Guid UserId, Guid GroupId, GroupRole Role)
 }
 
 /// <summary>En medlem i en grupp, med namn och rollen i just den gruppen.</summary>
-public record GroupMemberDto(Guid UserId, string Name, GroupRole Role);
+public record GroupMemberDto(Guid UserId, string Name, GroupRole Role, string? AvatarUrl = null);
 
 public record CreateSchoolDto(string Name);
 

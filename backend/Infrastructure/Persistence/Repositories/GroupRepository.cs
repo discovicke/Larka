@@ -1,5 +1,6 @@
 using Backend.Application.Abstractions;
 using Backend.Application.Dtos;
+using Backend.Application.Files;
 using Backend.Domain.Entities;
 using Backend.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -209,9 +210,10 @@ public class GroupRepository(AppDb db) : IGroupRepository
                 db.Users.Where(user => user.DeactivatedAt == null),
                 enrollment => enrollment.UserId,
                 user => user.Id,
-                (enrollment, user) => new { UserId = user.Id, user.Name, enrollment.Role })
+                (enrollment, user) => new { UserId = user.Id, user.Name, enrollment.Role, user.AvatarKey })
             .OrderBy(row => row.Name)
-            .Select(row => new GroupMemberDto(row.UserId, row.Name, row.Role))
+            .Select(row => new GroupMemberDto(
+                row.UserId, row.Name, row.Role, AvatarPolicy.UrlFor(row.UserId, row.AvatarKey)))
             .ToListAsync(ct);
 
     // Lärare går före elev.

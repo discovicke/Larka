@@ -3,7 +3,7 @@ using Backend.Domain.Entities;
 namespace Backend.Application.Abstractions;
 
 /// <summary>En lärare i en kurs.</summary>
-public record CourseTeacherInfo(Guid UserId, string Name, string Email);
+public record CourseTeacherInfo(Guid UserId, string Name, string Email, string? AvatarKey = null);
 
 public interface ICourseRepository
 {

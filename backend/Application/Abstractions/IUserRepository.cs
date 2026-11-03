@@ -10,6 +10,9 @@ public interface IUserRepository
 
     /// <summary>Namnen på användarna, per id. Id:n som inte finns saknas i resultatet.</summary>
     Task<Dictionary<Guid, string>> GetNamesAsync(IReadOnlyCollection<Guid> userIds, CancellationToken ct);
+    /// <summary>Profilbildernas adresser, per id. Användare utan bild saknas i resultatet.</summary>
+    Task<Dictionary<Guid, string>> GetAvatarUrlsAsync(IReadOnlyCollection<Guid> userIds, CancellationToken ct);
+
     Task<User?> GetAsync(Guid id, CancellationToken ct);
     Task<User?> GetByEmailAsync(string email, CancellationToken ct);
 

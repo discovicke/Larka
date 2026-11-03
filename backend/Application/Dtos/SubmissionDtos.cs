@@ -38,13 +38,15 @@ public record SubmissionDto(
     StudentRepoDto? Repo,
     GradeDto? Grade,
     StudentSupportDto? Support,
-    AssignmentGroupDto? Group = null)
+    AssignmentGroupDto? Group = null,
+    string? StudentAvatarUrl = null)
 {
     public static SubmissionDto From(
         Submission submission,
         string studentName,
         List<SubmissionFileDto> files,
-        StudentSupportDto? support = null)
+        StudentSupportDto? support = null,
+        string? studentAvatarUrl = null)
     {
         var repo = submission.Repo ?? submission.Group?.Repo;
         var grade = submission.Grade is null
@@ -59,7 +61,7 @@ public record SubmissionDto(
             repo is null
                 ? null
                 : StudentRepoDto.From(repo),
-            grade, support, group);
+            grade, support, group, studentAvatarUrl);
     }
 }
 

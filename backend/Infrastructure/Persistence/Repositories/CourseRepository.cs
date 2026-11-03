@@ -51,7 +51,7 @@ public class CourseRepository(AppDb db) : ICourseRepository
                 (_, user) => user)
             .OrderBy(user => user.Name)
             .ThenBy(user => user.Email)
-            .Select(user => new CourseTeacherInfo(user.Id, user.Name, user.Email))
+            .Select(user => new CourseTeacherInfo(user.Id, user.Name, user.Email, user.AvatarKey))
             .ToListAsync(ct);
 
     public async Task<Dictionary<Guid, List<CourseTeacherInfo>>> GetTeachersForCoursesAsync(

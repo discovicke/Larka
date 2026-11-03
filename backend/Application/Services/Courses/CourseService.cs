@@ -238,7 +238,9 @@ public class CourseService(
 
         var groupNames = await groups.GetGroupNamesReadingCourseAsync(id, ct);
         return (await courses.GetTeachersAsync(id, ct))
-            .Select(teacher => new CourseStaffDto(teacher.UserId, teacher.Name, teacher.Email, groupNames))
+            .Select(teacher => new CourseStaffDto(
+                teacher.UserId, teacher.Name, teacher.Email, groupNames,
+                AvatarPolicy.UrlFor(teacher.UserId, teacher.AvatarKey)))
             .ToList();
     }
 

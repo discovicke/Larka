@@ -1257,6 +1257,120 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/avatar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": {
+                        file: components["schemas"]["IFormFile"];
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MeDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MeDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/calendar": {
         parameters: {
             query?: never;
@@ -6433,6 +6547,7 @@ export interface components {
             bodyMd: string;
             /** Format: date-time */
             createdAt: string;
+            authorAvatarUrl?: null | string;
         };
         /** @enum {unknown} */
         CompletionRule: "Submitted" | "Approved";
@@ -6472,6 +6587,7 @@ export interface components {
             /** Format: date-time */
             dueAt: null | string;
             isPinned: boolean;
+            authorAvatarUrl?: null | string;
         };
         ContentLinkDto: {
             /** Format: uuid */
@@ -6547,6 +6663,7 @@ export interface components {
             name: string;
             email: string;
             groups: string[];
+            avatarUrl?: null | string;
         };
         /** @description Elev i kursen, för gruppindelning och översikter. */
         CourseStudentDto: {
@@ -6779,6 +6896,7 @@ export interface components {
             userId: string;
             name: string;
             role: components["schemas"]["GroupRole"];
+            avatarUrl?: null | string;
         };
         /** @description En grupp användaren är medlem i, med vilken roll som helst. */
         GroupRefDto: {
@@ -6850,6 +6968,7 @@ export interface components {
             gitHubEnabled: boolean;
             /** @default false */
             gitHubInUse: boolean;
+            avatarUrl?: null | string;
         };
         MemberDto: {
             /** Format: uuid */
@@ -7273,6 +7392,7 @@ export interface components {
             grade: null | components["schemas"]["GradeDto"];
             support: null | components["schemas"]["StudentSupportDto"];
             group?: null | components["schemas"]["AssignmentGroupDto"];
+            studentAvatarUrl?: null | string;
         };
         /** @description Url är en tidsbegränsad länk som skapas när filen läses, inte något som sparas. */
         SubmissionFileDto: {

@@ -16,6 +16,7 @@ import {useAsync} from '@/composables/useAsync'
 import {api, multipart, type Schema} from '@/lib/api'
 import {fetchAttachments} from '@/lib/contentApi'
 import {fileIcon, formatSize} from '@/lib/material'
+import {UPLOAD_ACCEPT, uploadProblem} from '@/lib/uploads'
 
 const props = defineProps<{
   contentId: string
@@ -51,18 +52,23 @@ const {run: upload, loading: uploading, error: uploadError} = useAsync(async (fi
   if (data) {
     attachments.value = [...attachments.value, data]
   }
-}, 'Kunde inte ladda upp filen.')
-const uploadFailed = computed(() => uploadError.value !== '')
+})
+// Fel som syns innan något skickas (fel filtyp, för stor fil) visas i samma ruta som fel från servern.
+const pickError = ref('')
+const shownUploadError = computed(() => pickError.value || uploadError.value)
 
 async function onFileChanged(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
+  input.value = ''
   if (!file) {
     return
   }
 
-  await upload(file)
-  input.value = ''
+  pickError.value = uploadProblem([file]) ?? ''
+  if (pickError.value === '') {
+    await upload(file)
+  }
 }
 
 function askDelete(attachment: Schema<'AttachmentDto'>) {
@@ -92,8 +98,8 @@ watch(() => props.contentId, load, {immediate: true})
   <section class="bg-card flex flex-col gap-4 rounded-[11px] border p-5" data-test="attachments">
     <h2 class="text-base">Bifogade filer</h2>
 
-    <Alert v-if="uploadFailed" variant="destructive">
-      <AlertDescription>Kunde inte ladda upp filen.</AlertDescription>
+    <Alert v-if="shownUploadError" variant="destructive" data-test="attachment-error">
+      <AlertDescription>{{ shownUploadError }}</AlertDescription>
     </Alert>
 
     <div v-if="attachments.length > 0" class="flex flex-col gap-2">
@@ -144,6 +150,7 @@ watch(() => props.contentId, load, {immediate: true})
       <input
         ref="fileInput"
         type="file"
+        :accept="UPLOAD_ACCEPT"
         class="hidden"
         data-test="attachment-file"
         @change="onFileChanged"

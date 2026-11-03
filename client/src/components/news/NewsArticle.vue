@@ -12,7 +12,7 @@ import {computed, ref, watch} from 'vue'
 import MarkdownView from '@/components/editor/MarkdownView.vue'
 import EditNewsDialog from '@/components/news/EditNewsDialog.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
-import {Avatar, AvatarFallback} from '@/components/ui/avatar'
+import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar'
 import {Button} from '@/components/ui/button'
 import {
   Dialog,
@@ -170,6 +170,12 @@ watch(() => props.post.linkId, () => {
       <h2 v-else class="font-heading text-[28px] leading-tight font-semibold">{{ post.title }}</h2>
       <div class="flex items-center gap-3">
         <Avatar class="size-8">
+          <AvatarImage
+            v-if="post.authorAvatarUrl"
+            :src="post.authorAvatarUrl"
+            alt=""
+            data-test="author-avatar-image"
+          />
           <AvatarFallback class="text-xs font-semibold">{{ initials(post.authorName) }}</AvatarFallback>
         </Avatar>
         <div class="flex flex-col">
@@ -223,6 +229,12 @@ watch(() => props.post.linkId, () => {
           data-test="comment"
         >
           <Avatar class="size-8">
+            <AvatarImage
+              v-if="comment.authorAvatarUrl"
+              :src="comment.authorAvatarUrl"
+              alt=""
+              data-test="comment-avatar-image"
+            />
             <AvatarFallback class="text-xs font-semibold">{{ initials(comment.authorName) }}</AvatarFallback>
           </Avatar>
           <div class="flex min-w-0 flex-col gap-1">

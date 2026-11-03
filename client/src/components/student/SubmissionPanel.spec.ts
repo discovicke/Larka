@@ -243,6 +243,18 @@ describe('SubmissionPanel', () => {
     append.mockRestore()
   })
 
+  it('säger direkt när en vald fil inte går att lämna in, och lägger inte till den', async () => {
+    backend()
+    const wrapper = await show({submissionModes: ['File']})
+
+    const input = wrapper.find('[data-test="submission-file-input"]')
+    Object.defineProperty(input.element, 'files', {value: [new File(['x'], 'program.exe')], configurable: true})
+    await input.trigger('change')
+
+    expect(wrapper.findAll('[data-test="submission-file"]')).toHaveLength(0)
+    expect(wrapper.text()).toContain('program.exe har en filtyp som inte är tillåten.')
+  })
+
   it('visar text och fil för en uppgift med båda sätten', async () => {
     backend()
     const wrapper = await show({submissionModes: ['Text', 'File']})
