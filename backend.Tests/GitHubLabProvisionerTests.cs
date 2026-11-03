@@ -588,6 +588,10 @@ public class GitHubLabProvisionerTests
             Guid studentId, IReadOnlyCollection<Guid> linkIds, CancellationToken ct) =>
             throw new NotSupportedException();
 
+        public Task<List<Submission>> GetForStudentsAsync(
+            IReadOnlyCollection<Guid> studentIds, IReadOnlyCollection<Guid> linkIds, CancellationToken ct) =>
+            throw new NotSupportedException();
+
         public Task<List<Submission>> GetRecentForStudentAsync(
             Guid studentId, int take, CancellationToken ct) =>
             throw new NotSupportedException();

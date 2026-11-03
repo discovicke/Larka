@@ -57,15 +57,36 @@ public class AdminSeparationTests(TestWebApplicationFactory factory) : IClassFix
         string? StartsOn);
 
     private record OverviewResponse(
-        CourseCounts Courses,
+        List<ClassTimeline> ClassTimelines,
         List<CourseWithoutTeacher> CoursesWithoutTeacher,
         List<UserWithoutPassword> UsersWithoutPassword);
 
-    private record CourseCounts(int Upcoming, int Running, int Finished, int Undated);
+    private record ClassTimeline(Guid GroupId, string Name, List<ClassCourse> CurrentCourses);
+
+    private record ClassCourse(Guid CourseId, string Title, string Code, string? StartsOn, string? EndsOn);
 
     private record CourseWithoutTeacher(Guid CourseId, string Code, Guid? GroupId);
 
     private record UserWithoutPassword(Guid UserId, string Name, Guid? GroupId);
+
+    private record AnalyticsResponse(
+        Guid GroupId,
+        string GroupName,
+        List<AnalyticsCourse> Courses,
+        List<AnalyticsStudent> Students);
+
+    private record AnalyticsCourse(
+        Guid CourseId,
+        int StudentCount,
+        int AssignmentCount,
+        int GradedCount,
+        int PassCount,
+        int NeedsWorkCount,
+        int AtRiskStudentCount);
+
+    private record AnalyticsStudent(Guid StudentId, bool NeedsSupport, List<AnalyticsStudentCourse> Courses);
+
+    private record AnalyticsStudentCourse(Guid CourseId, int PassCount, int NeedsWorkCount, bool NeedsSupport);
 
     // --- Admin undervisar inte ---
 
@@ -423,9 +444,6 @@ public class AdminSeparationTests(TestWebApplicationFactory factory) : IClassFix
         Assert.DoesNotContain(overview.CoursesWithoutTeacher, course => course.CourseId == scenario.CourseId);
         Assert.Contains(overview.CoursesWithoutTeacher, course => course.CourseId == scenario.OtherCourseId
             && course.GroupId == scenario.ClassB);
-        Assert.Equal(
-            overview.Courses.Upcoming + overview.Courses.Running + overview.Courses.Finished + overview.Courses.Undated,
-            await CountCoursesAsync(scenario.SchoolId));
         Assert.Equal(HttpStatusCode.Forbidden, teacher.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, student2.StatusCode);
     }
@@ -456,10 +474,92 @@ public class AdminSeparationTests(TestWebApplicationFactory factory) : IClassFix
         Assert.Contains(overview.CoursesWithoutTeacher, course => course.CourseId == undatedCourse);
     }
 
-    private async Task<int> CountCoursesAsync(Guid schoolId)
+    [Fact]
+    public async Task AdminOverview_ReturnsCurrentCourseTimelineForClasses()
     {
-        await using var db = OpenDb();
-        return await db.Courses.CountAsync(course => course.SchoolId == schoolId);
+        var scenario = await AddScenarioAsync();
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        await using (var db = OpenDb())
+        {
+            var course = await db.Courses.SingleAsync(row => row.Id == scenario.CourseId);
+            course.StartsOn = today.AddDays(-10);
+            course.EndsOn = today.AddDays(10);
+            var other = await db.Courses.SingleAsync(row => row.Id == scenario.OtherCourseId);
+            other.StartsOn = today.AddDays(20);
+            other.EndsOn = today.AddDays(50);
+            await db.SaveChangesAsync();
+        }
+
+        var overview = await GetAsync<OverviewResponse>("/api/me/admin-overview", scenario.AdminId);
+
+        var classA = overview.ClassTimelines.Single(group => group.GroupId == scenario.ClassA);
+        var current = classA.CurrentCourses.Single();
+        Assert.Equal(scenario.CourseId, current.CourseId);
+        Assert.Equal(today.AddDays(-10).ToString("yyyy-MM-dd"), current.StartsOn);
+        Assert.Equal(today.AddDays(10).ToString("yyyy-MM-dd"), current.EndsOn);
+
+        var classB = overview.ClassTimelines.Single(group => group.GroupId == scenario.ClassB);
+        Assert.Contains(classB.CurrentCourses, course => course.CourseId == scenario.CourseId);
+        Assert.DoesNotContain(classB.CurrentCourses, course => course.CourseId == scenario.OtherCourseId);
+    }
+
+    [Fact]
+    public async Task GroupAnalytics_ShowsGradesAndSupportPerStudent_ForAdminOnly()
+    {
+        var scenario = await AddScenarioAsync();
+        Guid supportingStudent;
+        await using (var db = OpenDb())
+        {
+            var submission = await db.Submissions.SingleAsync(row => row.Id == scenario.SubmissionA);
+            submission.Status = SubmissionStatus.Graded;
+            db.Grades.Add(new Grade
+            {
+                SubmissionId = submission.Id,
+                GradedById = scenario.TeacherId,
+                Level = GradeLevel.Pass,
+                Feedback = "Bra"
+            });
+            var group = await db.Groups.SingleAsync(candidate => candidate.Id == scenario.ClassA);
+            var extra = await TestData.AddMemberAsync(db, group);
+            supportingStudent = extra.Id;
+            db.Submissions.Add(new Submission
+            {
+                ContentLinkId = scenario.AssignmentLinkId,
+                StudentId = extra.Id,
+                Status = SubmissionStatus.NeedsWork
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var analytics = await GetAsync<AnalyticsResponse>(
+            $"/api/groups/{scenario.ClassA}/analytics", scenario.AdminId);
+
+        Assert.Equal(scenario.ClassA, analytics.GroupId);
+        var course = analytics.Courses.Single(item => item.CourseId == scenario.CourseId);
+        Assert.Equal(2, course.StudentCount);
+        Assert.Equal(1, course.AssignmentCount);
+        Assert.Equal(1, course.GradedCount);
+        Assert.Equal(1, course.PassCount);
+        Assert.Equal(1, course.NeedsWorkCount);
+        Assert.Equal(1, course.AtRiskStudentCount);
+
+        var passStudent = analytics.Students.Single(student => student.StudentId == scenario.StudentA);
+        Assert.False(passStudent.NeedsSupport);
+        Assert.Equal(1, passStudent.Courses.Single().PassCount);
+        var needsWorkStudent = analytics.Students.Single(student => student.StudentId == supportingStudent);
+        Assert.True(needsWorkStudent.NeedsSupport);
+        Assert.Equal(1, needsWorkStudent.Courses.Single().NeedsWorkCount);
+
+        var path = $"/api/groups/{scenario.ClassA}/analytics";
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await SendAsync(HttpMethod.Get, path, scenario.TeacherId)).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await SendAsync(HttpMethod.Get, path, scenario.StudentA)).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.NotFound,
+            (await SendAsync(HttpMethod.Get, path, scenario.OtherSchoolAdminId)).StatusCode);
     }
 
     // --- Hjälpmetoder ---

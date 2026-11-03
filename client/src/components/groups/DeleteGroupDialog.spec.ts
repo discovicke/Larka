@@ -9,7 +9,7 @@ import {mockApi, requests} from '@/test/mockApi'
 enableAutoUnmount(afterEach)
 
 const group: Schema<'GroupDto'> = {
-  id: 'g1', schoolId: 's1', type: 'Class', name: 'NET25', term: 'HT25', memberCount: 4, lastCourseEndsOn: null,
+  id: 'g1', schoolId: 's1', type: 'Class', name: 'NET25', memberCount: 4, lastCourseEndsOn: null,
 }
 
 async function confirm() {

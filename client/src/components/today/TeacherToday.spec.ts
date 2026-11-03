@@ -106,7 +106,8 @@ describe('TeacherToday', () => {
 
     const dashboard = wrapper.find('[data-test="teacher-dashboard"]')
     expect(dashboard.find('h1').text()).toBe('God morgon, Anna')
-    expect(dashboard.text()).toContain('Onsdag 21 oktober · vecka 43 · 11 att bedöma')
+    expect(dashboard.text()).toContain('Onsdag 21 oktober, vecka 43')
+    expect(dashboard.text()).toContain('11 att bedöma')
   })
 
   it('listar inlämningar att bedöma med länk till bedömningen', async () => {

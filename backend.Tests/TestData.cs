@@ -88,8 +88,7 @@ public static class TestData
         var group = new Group
         {
             SchoolId = schoolId ?? (await AddSchoolAsync(db)).Id,
-            Name = $"NET{Guid.NewGuid():N}"[..10],
-            Term = "HT26"
+            Name = $"NET{Guid.NewGuid():N}"[..10]
         };
         db.Groups.Add(group);
         if (placeholderTeaches)

@@ -1,19 +1,25 @@
 namespace Backend.Application.Dtos;
 
 /// <summary>
-/// Adminens Idag-sida: skolans kurser per läge och det som saknar något. Varje rad pekar på klassen eller kursen
-/// där admin ordnar det.
+/// Adminens Idag-sida: klassernas pågående kurser och det som saknar något. Varje rad pekar på klassen
+/// eller kursen där admin ordnar det.
 /// </summary>
 public record AdminOverviewDto(
-    AdminCourseCountsDto Courses,
+    List<AdminClassTimelineDto> ClassTimelines,
     List<AdminCourseWithoutTeacherDto> CoursesWithoutTeacher,
     List<AdminUserWithoutPasswordDto> UsersWithoutPassword,
     List<AdminUserRefDto> StudentsWithoutClass);
 
-/// <summary>
-/// Antal kurser per läge, räknat på datumen som i klienten. Kurser utan datum ingår i Undated.
-/// </summary>
-public record AdminCourseCountsDto(int Upcoming, int Running, int Finished, int Undated);
+/// <summary>En klass med kurserna som pågår just nu.</summary>
+public record AdminClassTimelineDto(Guid GroupId, string Name, List<AdminClassCourseTimelineDto> CurrentCourses);
+
+/// <summary>En pågående kurs med datumen som tidslinjen ritar. Datumen kan saknas på gamla kurser.</summary>
+public record AdminClassCourseTimelineDto(
+    Guid CourseId,
+    string Title,
+    string Code,
+    DateOnly? StartsOn,
+    DateOnly? EndsOn);
 
 /// <summary>En kurs utan lärare. GroupId är en klass som läser kursen, där admin lägger till läraren.</summary>
 public record AdminCourseWithoutTeacherDto(Guid CourseId, string Code, string Title, Guid? GroupId);

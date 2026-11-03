@@ -1,4 +1,4 @@
-import {api, type Schema} from './api'
+import {api, type Schema, unwrap} from './api'
 
 type GroupRole = Schema<'GroupRole'>
 
@@ -58,4 +58,9 @@ export async function fetchStudentOverview(groupId: string, studentId: string) {
     params: {path: {id: groupId, studentId}},
   })
   return data ?? null
+}
+
+/** Utbildningsledarens klassöversikt med betyg och status per kurs och elev. Bara admin. */
+export async function fetchGroupAnalytics(groupId: string) {
+  return unwrap(await api.GET('/api/groups/{id}/analytics', {params: {path: {id: groupId}}}))
 }

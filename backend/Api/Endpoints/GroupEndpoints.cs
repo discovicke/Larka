@@ -41,6 +41,10 @@ public static class GroupEndpoints
         groups.MapGet("/{id:guid}/course-teachers", async (Guid id, GroupService service, CancellationToken ct) =>
             (await service.GetCourseTeachersAsync(id, ct)).ToHttp(teachers => TypedResults.Ok(teachers)));
 
+        // Utbildningsledarens översikt: betyg och status per kurs och elev. Bara admin.
+        groups.MapGet("/{id:guid}/analytics", async (Guid id, GroupAnalyticsService service, CancellationToken ct) =>
+            (await service.GetAsync(id, ct)).ToHttp(analytics => TypedResults.Ok(analytics)));
+
         groups.MapPost("/{id:guid}/courses/{courseId:guid}",
             async Task<Results<Created, Conflict, NotFound<string>, ProblemHttpResult>> (
                 Guid id, Guid courseId, GroupService service, CancellationToken ct) =>

@@ -100,7 +100,8 @@ describe('TodayView', () => {
 
     const desktop = wrapper.find('[data-test="today-desktop"]')
     expect(desktop.find('h1').text()).toBe('God morgon, Christian')
-    expect(desktop.text()).toContain('Onsdag 21 oktober · vecka 43 · 2 saker förfaller den här veckan')
+    expect(desktop.text()).toContain('Onsdag 21 oktober, vecka 43')
+    expect(desktop.text()).toContain('2 saker förfaller den här veckan')
   })
 
   it('delar Att göra i den här veckan och senare', async () => {

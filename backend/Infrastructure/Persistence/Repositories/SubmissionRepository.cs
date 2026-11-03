@@ -20,6 +20,11 @@ public class SubmissionRepository(AppDb db) : ISubmissionRepository
         WithDetails().Where(submission =>
             submission.StudentId == studentId && linkIds.Contains(submission.ContentLinkId)).ToListAsync(ct);
 
+    public Task<List<Submission>> GetForStudentsAsync(
+        IReadOnlyCollection<Guid> studentIds, IReadOnlyCollection<Guid> linkIds, CancellationToken ct) =>
+        WithDetails().Where(submission =>
+            studentIds.Contains(submission.StudentId) && linkIds.Contains(submission.ContentLinkId)).ToListAsync(ct);
+
     public Task<List<Submission>> GetRecentForStudentAsync(Guid studentId, int take, CancellationToken ct) =>
         WithDetails()
             .Where(submission => submission.StudentId == studentId

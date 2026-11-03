@@ -56,7 +56,7 @@ public class DemoSeedTests(DemoSeedTests.DemoFixture fixture) : IClassFixture<De
 
     private record TeachingCourseResponse(string Code, int Students, int ToGrade);
 
-    private record GroupResponse(string Name, string Type, string Term, int MemberCount);
+    private record GroupResponse(string Name, string Type, int MemberCount);
 
     private record NotificationListResponse(List<NotificationResponse> Items, int UnreadCount);
 

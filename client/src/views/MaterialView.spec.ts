@@ -12,7 +12,7 @@ afterEach(() => {
 
 const devops = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps'}
 const databases = {id: 'c2', schoolId: 's1', code: 'DB', title: 'Databaser'}
-const group = {id: 'g1', schoolId: 's1', type: 'Class', name: 'Lag 1', term: 'HT26'}
+const group = {id: 'g1', schoolId: 's1', type: 'Class', name: 'Lag 1'}
 
 function part(
   linkId: string,

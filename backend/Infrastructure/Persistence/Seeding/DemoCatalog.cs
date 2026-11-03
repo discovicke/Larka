@@ -72,7 +72,6 @@ internal sealed record CourseSpec(
 
 internal sealed record ClassSpec(
     string Name,
-    string Term,
     GroupType Type,
     string[] Teachers,
     int FirstStudent,

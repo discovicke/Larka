@@ -211,7 +211,7 @@ internal sealed class DemoBuilder(
 
     private void BuildClass(ClassSpec spec)
     {
-        var group = new Group { SchoolId = schoolId, Type = spec.Type, Name = spec.Name, Term = spec.Term };
+        var group = new Group { SchoolId = schoolId, Type = spec.Type, Name = spec.Name };
         db.Groups.Add(group);
 
         foreach (var key in spec.Teachers)

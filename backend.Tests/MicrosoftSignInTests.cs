@@ -380,7 +380,7 @@ public class MicrosoftSignInTests(MicrosoftTestWebApplicationFactory factory)
         Guid? classId = null;
         if (className is not null)
         {
-            var group = new Group { SchoolId = school.Id, Type = GroupType.Class, Name = className, Term = "HT25" };
+            var group = new Group { SchoolId = school.Id, Type = GroupType.Class, Name = className };
             db.Groups.Add(group);
             classId = group.Id;
         }

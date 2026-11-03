@@ -13,12 +13,11 @@ public record GroupDto(
     Guid SchoolId,
     GroupType Type,
     string Name,
-    string Term,
     int MemberCount,
     DateOnly? LastCourseEndsOn)
 {
     public static GroupDto From(Group group, int memberCount, DateOnly? lastCourseEndsOn) =>
-        new(group.Id, group.SchoolId, group.Type, group.Name, group.Term, memberCount, lastCourseEndsOn);
+        new(group.Id, group.SchoolId, group.Type, group.Name, memberCount, lastCourseEndsOn);
 }
 
 public record CourseDto(

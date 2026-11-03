@@ -20,7 +20,7 @@ export function greeting(now: Date): string {
 /** "Onsdag 21 oktober · vecka 43" */
 export function dateLine(now: Date): string {
   const text = now.toLocaleDateString('sv-SE', {weekday: 'long', day: 'numeric', month: 'long'})
-  return `${text.charAt(0).toUpperCase()}${text.slice(1)} · vecka ${weekNumber(now)}`
+  return `${text.charAt(0).toUpperCase()}${text.slice(1)}, vecka ${weekNumber(now)}`
 }
 
 /** Förnamnet i ett fullständigt namn, eller tomt när namnet saknas. */

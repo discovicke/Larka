@@ -8,5 +8,4 @@ public class Group
     public Guid SchoolId { get; set; }
     public GroupType Type { get; set; } = GroupType.Class;
     public string Name { get; set; } = "";
-    public string Term { get; set; } = "";
 }

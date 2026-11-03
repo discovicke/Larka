@@ -24,7 +24,7 @@ public class GroupConfiguration : IEntityTypeConfiguration<Group>
     public void Configure(EntityTypeBuilder<Group> builder)
     {
         builder.HasOne<School>().WithMany().HasForeignKey(group => group.SchoolId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasIndex(group => new { group.SchoolId, group.Name, group.Term }).IsUnique();
+        builder.HasIndex(group => new { group.SchoolId, group.Name }).IsUnique();
     }
 }
 

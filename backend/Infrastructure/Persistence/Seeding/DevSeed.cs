@@ -51,10 +51,10 @@ public static class DevSeed
         var schoolId = PlaceholderIds.SchoolId;
         var teacherId = PlaceholderIds.UserId;
 
-        var group = new Group { SchoolId = schoolId, Name = "NET25", Term = "HT25" };
+        var group = new Group { SchoolId = schoolId, Name = "NET25" };
 
         // Klassen som en ny kursomgång kan skapas för (Ny kursomgång). Den läser inga kurser än.
-        var nextGroup = new Group { SchoolId = schoolId, Name = "NET26", Term = "HT26" };
+        var nextGroup = new Group { SchoolId = schoolId, Name = "NET26" };
         var devOps = new Course
         {
             SchoolId = schoolId,

@@ -14,7 +14,7 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
     private readonly HttpClient _client = factory.CreateClient();
 
     private record GroupResponse(
-        Guid Id, Guid SchoolId, string Type, string Name, string Term, int MemberCount, DateOnly? LastCourseEndsOn);
+        Guid Id, Guid SchoolId, string Type, string Name, int MemberCount, DateOnly? LastCourseEndsOn);
 
     private record CourseResponse(Guid Id, string Code);
 
@@ -32,7 +32,7 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
         var schoolId = PlaceholderIds.SchoolId;
 
         var response = await _client.PostAsJsonAsync(
-            "/api/groups", new { schoolId, type = "class", name = $" NET{Guid.NewGuid():N} "[..14], term = "HT25" });
+            "/api/groups", new { schoolId, type = "class", name = $" NET{Guid.NewGuid():N} "[..14] });
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var group = await response.Content.ReadFromJsonAsync<GroupResponse>();
@@ -41,27 +41,14 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
         Assert.Equal("Class", group.Type);
 
         var found = await _client.GetFromJsonAsync<GroupResponse>($"/api/groups/{group.Id}");
-        Assert.Equal("HT25", found!.Term);
+        Assert.Equal(group.Name, found!.Name);
     }
 
     [Fact]
-    public async Task CreateGroup_WithoutTerm_StoresEmptyTerm()
+    public async Task CreateGroup_WithSameName_ReturnsBadRequest()
     {
         var schoolId = PlaceholderIds.SchoolId;
-
-        var response = await _client.PostAsJsonAsync(
-            "/api/groups", new { schoolId, type = "committee", name = $"Elevråd {Guid.NewGuid():N}"[..16] });
-
-        var group = await response.Content.ReadFromJsonAsync<GroupResponse>();
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        Assert.Equal("", group!.Term);
-    }
-
-    [Fact]
-    public async Task CreateGroup_WithSameNameAndTerm_ReturnsBadRequest()
-    {
-        var schoolId = PlaceholderIds.SchoolId;
-        var body = new { schoolId, type = "class", name = $"NET{Guid.NewGuid():N}"[..14], term = "HT26" };
+        var body = new { schoolId, type = "class", name = $"NET{Guid.NewGuid():N}"[..14] };
         await _client.PostAsJsonAsync("/api/groups", body);
 
         var response = await _client.PostAsJsonAsync("/api/groups", body);
@@ -362,7 +349,7 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
         var schoolId = (await db.Groups.FindAsync(other.GroupId))!.SchoolId;
 
         var response = await _client.PostAsJsonAsync(
-            "/api/groups", new { schoolId, type = "class", name = "NET25", term = "HT25" });
+            "/api/groups", new { schoolId, type = "class", name = "NET25" });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Contains("school does not exist", await response.Content.ReadAsStringAsync());
@@ -411,16 +398,16 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
     }
 
     [Fact]
-    public async Task UpdateGroup_ChangesNameTypeAndTerm()
+    public async Task UpdateGroup_ChangesNameAndType()
     {
         var group = await CreateGroupAsync();
 
         var response = await _client.PutAsJsonAsync(
-            $"/api/groups/{group.Id}", new { type = "other", name = " Nytt namn ", term = "VT27" });
+            $"/api/groups/{group.Id}", new { type = "other", name = " Nytt namn " });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var found = await _client.GetFromJsonAsync<GroupResponse>($"/api/groups/{group.Id}");
-        Assert.Equal(("Other", "Nytt namn", "VT27"), (found!.Type, found.Name, found.Term));
+        Assert.Equal(("Other", "Nytt namn"), (found!.Type, found.Name));
     }
 
     [Fact]
@@ -430,9 +417,9 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
         var second = await CreateGroupAsync();
 
         var taken = await _client.PutAsJsonAsync(
-            $"/api/groups/{second.Id}", new { type = "class", name = first.Name, term = first.Term });
+            $"/api/groups/{second.Id}", new { type = "class", name = first.Name });
         var unchanged = await _client.PutAsJsonAsync(
-            $"/api/groups/{second.Id}", new { type = "class", name = second.Name, term = second.Term });
+            $"/api/groups/{second.Id}", new { type = "class", name = second.Name });
         var empty = await _client.PutAsJsonAsync($"/api/groups/{second.Id}", new { type = "class", name = " " });
 
         Assert.Equal(HttpStatusCode.BadRequest, taken.StatusCode);

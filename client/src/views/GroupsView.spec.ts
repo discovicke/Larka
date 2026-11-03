@@ -5,8 +5,8 @@ import {mockApi, requests, sent} from '@/test/mockApi'
 import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
-const classGroup = {id: 'g1', schoolId: 's1', type: 'Class', name: 'TE22A', term: 'HT25'}
-const committee = {id: 'g2', schoolId: 's1', type: 'Committee', name: 'Elevrådet', term: ''}
+const classGroup = {id: 'g1', schoolId: 's1', type: 'Class', name: 'TE22A'}
+const committee = {id: 'g2', schoolId: 's1', type: 'Committee', name: 'Elevrådet'}
 
 const devops = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps'}
 const java = {id: 'c2', schoolId: 's1', code: 'JAVA', title: 'Java'}
@@ -31,7 +31,7 @@ function rowNames(wrapper: Awaited<ReturnType<typeof renderApp>>['wrapper']) {
 }
 
 describe('GroupsView', () => {
-  it('visar skolan, grupperna och kurserna med typ, termin och kod', async () => {
+  it('visar skolan, grupperna och kurserna med typ och kod', async () => {
     backend()
 
     const {wrapper} = await renderApp('/groups')
@@ -45,7 +45,7 @@ describe('GroupsView', () => {
     expect(rows[0].text()).toContain('Skola')
     const classRow = rows.find((row) => row.text().includes('TE22A'))
     expect(classRow?.text()).toContain('Klass')
-    expect(classRow?.text()).toContain('Startade HT25')
+    expect(classRow?.text()).not.toContain('HT25')
     const courseRow = rows.find((row) => row.text().includes('DEVOPS'))
     expect(courseRow?.text()).toContain('Kurs')
   })
@@ -264,7 +264,7 @@ describe('GroupsView', () => {
 })
 
 // Admin skapar, ändrar och tar bort direkt i listan.
-const net25 = {id: 'g1', schoolId: 's1', type: 'Class', name: 'NET25', term: 'HT25', memberCount: 24}
+const net25 = {id: 'g1', schoolId: 's1', type: 'Class', name: 'NET25', memberCount: 24}
 const full = {description: '', points: null, startsOn: null, endsOn: null}
 
 interface AdminOptions {
@@ -409,7 +409,7 @@ describe('GroupsView som admin', () => {
     await type('[data-test="group-name"]', 'NET25B')
     await click(dialog().querySelector('[data-test="save-group"]'))
 
-    expect(sent('PUT', '/api/groups/g1')).toEqual({type: 'Class', name: 'NET25B', term: 'HT25'})
+    expect(sent('PUT', '/api/groups/g1')).toEqual({type: 'Class', name: 'NET25B'})
     expect(rowNames(wrapper)).toEqual(['Edugrade', 'Elevrådet', 'NET25B', 'DevOps', 'Java'])
   })
 

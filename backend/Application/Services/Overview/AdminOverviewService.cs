@@ -33,17 +33,26 @@ public class AdminOverviewService(
         var groupCourses = await groups.GetGroupCoursesForSchoolAsync(schoolId.Value, ct);
         var teachedCourseIds = await courses.GetCourseIdsWithTeachersAsync(schoolId.Value, ct);
         var groupsById = schoolGroups.ToDictionary(group => group.Id);
+        var coursesById = schoolCourses.ToDictionary(course => course.Id);
 
         // Avslutade kurser och klasser behöver ingen lärare längre, så de hamnar inte i Att ordna.
         var courseStates = schoolCourses.ToDictionary(
             course => course.Id, course => StateOf(course.StartsOn, course.EndsOn, today));
-        var finishedGroupIds = groupCourses
-            .GroupBy(groupCourse => groupCourse.GroupId)
-            .Where(grouped => grouped.All(groupCourse =>
-                courseStates.GetValueOrDefault(groupCourse.CourseId) == CourseState.Finished))
-            .Select(grouped => grouped.Key)
-            .ToHashSet();
-
+        var classTimelines = schoolGroups
+            .Where(group => group.Type == GroupType.Class)
+            .Select(group => new AdminClassTimelineDto(
+                group.Id,
+                group.Name,
+                groupCourses
+                    .Where(groupCourse => groupCourse.GroupId == group.Id
+                        && courseStates.GetValueOrDefault(groupCourse.CourseId) == CourseState.Running)
+                    .Select(groupCourse => coursesById[groupCourse.CourseId])
+                    .OrderBy(course => course.EndsOn ?? DateOnly.MaxValue)
+                    .ThenBy(course => course.Title)
+                    .Select(course => new AdminClassCourseTimelineDto(
+                        course.Id, course.Title, course.Code, course.StartsOn, course.EndsOn))
+                    .ToList()))
+            .ToList();
         var withoutTeacher = schoolCourses
             .Where(course => courseStates[course.Id] != CourseState.Finished
                 && !teachedCourseIds.Contains(course.Id))
@@ -81,11 +90,7 @@ public class AdminOverviewService(
             .ToList();
 
         return ServiceResult<AdminOverviewDto>.Ok(new AdminOverviewDto(
-            new AdminCourseCountsDto(
-                schoolCourses.Count(course => StateOf(course.StartsOn, course.EndsOn, today) == CourseState.Upcoming),
-                schoolCourses.Count(course => StateOf(course.StartsOn, course.EndsOn, today) == CourseState.Running),
-                schoolCourses.Count(course => StateOf(course.StartsOn, course.EndsOn, today) == CourseState.Finished),
-                schoolCourses.Count(course => StateOf(course.StartsOn, course.EndsOn, today) == CourseState.Undated)),
+            classTimelines,
             withoutTeacher,
             withoutPassword,
             schoolUsers

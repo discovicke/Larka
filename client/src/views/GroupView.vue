@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {computed, ref, watch} from 'vue'
-import {useRoute} from 'vue-router'
+import {useRoute, useRouter} from 'vue-router'
 
 import {PhCaretDown, PhCheckCircle, PhCircle, PhDotsThree} from '@phosphor-icons/vue'
 
@@ -40,6 +40,7 @@ import {initials} from '@/lib/person'
 import NotFoundView from '@/views/NotFoundView.vue'
 
 const route = useRoute()
+const router = useRouter()
 const {can} = useCurrentUser()
 const {setCrumbLabel} = useCrumbLabels()
 const {loadCourses} = useCourses()
@@ -70,18 +71,21 @@ const memberToChange = ref<Schema<'GroupMemberDto'> | null>(null)
 const studentToOverview = ref<Schema<'GroupMemberDto'> | null>(null)
 const overviewOpen = ref(false)
 
-const subtitle = computed(() => {
-  if (!group.value) {
-    return ''
+// Snabbåtgärden Skapa kurs går hit med ?newCourse=1. När gruppen är hämtad öppnas kursdialogen och
+// parametern tas bort, så att bakåtknappen inte öppnar den igen.
+watch([() => route.query.newCourse, group, isAdmin], ([newCourse, loadedGroup, admin]) => {
+  if (newCourse !== '1' || !loadedGroup || !admin) {
+    return
   }
-  // En klass är en årskull: terminen är när den startade, inte en period.
-  const term = group.value.term && group.value.type === 'Class'
-    ? `startade ${group.value.term}`
-    : group.value.term
-  return [groupTypeLabels[group.value.type], term]
-    .filter((part) => part !== '')
-    .join(' · ')
-})
+  creatingCourse.value = true
+  const query = {...route.query}
+  delete query.newCourse
+  void router.replace({query})
+}, {immediate: true})
+
+const subtitle = computed(() => group.value
+  ? groupTypeLabels[group.value.type]
+  : '')
 
 const groupNoun = computed(() => group.value?.type === 'Class'
   ? 'Klassen'
@@ -300,9 +304,22 @@ watch(isAdmin, (admin) => {
   <NotFoundView v-else-if="notFound || !group"/>
 
   <div v-else class="mx-auto flex w-full max-w-[1120px] flex-col gap-6">
-    <div class="flex flex-col gap-1">
-      <h1 class="font-heading text-[30px] leading-tight font-semibold">{{ group.name }}</h1>
-      <p v-if="subtitle" class="text-muted-foreground" data-test="group-subtitle">{{ subtitle }}</p>
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div class="flex flex-col gap-1">
+        <h1 class="font-heading text-[30px] leading-tight font-semibold">{{ group.name }}</h1>
+        <p v-if="subtitle" class="text-muted-foreground" data-test="group-subtitle">{{ subtitle }}</p>
+      </div>
+      <Button
+        v-if="isAdmin"
+        as-child
+        variant="outline"
+        class="h-8"
+        data-test="group-analytics"
+      >
+        <RouterLink :to="{name: 'today', query: {group: group.id}}">
+          Följ upp klassen
+        </RouterLink>
+      </Button>
     </div>
 
     <Alert v-if="notice" data-test="group-notice">

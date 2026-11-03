@@ -2,6 +2,9 @@
 import {computed, ref} from 'vue'
 import {RouterLink, type RouteLocationRaw} from 'vue-router'
 
+import ClassAnalytics from '@/components/analytics/ClassAnalytics.vue'
+import AdminQuickActions from '@/components/today/AdminQuickActions.vue'
+import ClassTimelines from '@/components/today/ClassTimelines.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Skeleton} from '@/components/ui/skeleton'
 import {useAsync} from '@/composables/useAsync'
@@ -11,12 +14,6 @@ import {countLabel} from '@/lib/content'
 import {dateLine, firstName, greeting} from '@/lib/today'
 
 type Overview = Schema<'AdminOverviewDto'>
-
-interface ClassCount {
-  groupId: string | null
-  name: string
-  count: number
-}
 
 const now = new Date()
 const {me} = useCurrentUser()
@@ -28,25 +25,8 @@ const mobileGreeting = computed(() => name.value
   ? `Hej ${name.value}`
   : 'Hej')
 
-// Användare utan lösenord samlas per klass, så att listan blir kort och länken leder dit lösenordet ordnas.
-const withoutPassword = computed<ClassCount[]>(() => {
-  const byClass = new Map<string, ClassCount>()
-  for (const user of overview.value?.usersWithoutPassword ?? []) {
-    const key = user.groupId ?? ''
-    const existing = byClass.get(key)
-    if (existing) {
-      existing.count += 1
-    } else {
-      byClass.set(key, {groupId: user.groupId ?? null, name: user.groupName ?? 'Utan klass', count: 1})
-    }
-  }
-  return [...byClass.values()]
-})
-
-// Räknas per kurs och per klass, inte per användare: en klass där tolv saknar lösenord är en sak att ordna.
-// Elever utan klass är en sak, eftersom de ordnas på samma ställe.
+// Bara det som fortfarande hör till undervisningen räknas. Mentor och lösenord hanteras inte här.
 const attentionCount = computed(() => (overview.value?.coursesWithoutTeacher.length ?? 0)
-  + withoutPassword.value.length
   + ((overview.value?.studentsWithoutClass.length ?? 0) > 0
     ? 1
     : 0))
@@ -54,22 +34,6 @@ const attentionCount = computed(() => (overview.value?.coursesWithoutTeacher.len
 const summary = computed(() => attentionCount.value === 0
   ? 'Inget behöver ordnas'
   : `${countLabel(attentionCount.value, 'sak', 'saker')} att ordna`)
-
-const courseCounts = computed(() => {
-  const courses = overview.value?.courses
-  if (!courses) {
-    return ''
-  }
-  const parts = [
-    `${courses.running} pågår`,
-    `${courses.upcoming} kommande`,
-    `${courses.finished} avslutade`,
-  ]
-  if (courses.undated > 0) {
-    parts.push(`${courses.undated} utan datum`)
-  }
-  return parts.join(' · ')
-})
 
 function classLink(groupId: string): RouteLocationRaw {
   return {name: 'group', params: {groupId}}
@@ -112,16 +76,21 @@ load()
         {{ greeting(now) }}<template v-if="name">, {{ name }}</template>
       </h1>
       <h1 class="text-2xl leading-[1.2] md:hidden">{{ mobileGreeting }}</h1>
-      <p class="text-muted-foreground text-sm md:text-base">{{ dateLine(now) }} · {{ summary }}</p>
+      <p class="text-muted-foreground flex flex-wrap items-center gap-2 text-sm md:text-base">
+        <span>{{ dateLine(now) }}</span>
+        <span class="bg-border h-3 w-px" aria-hidden="true"/>
+        <span>{{ summary }}</span>
+      </p>
     </div>
 
-    <section aria-labelledby="a-courses-heading" class="flex flex-col gap-1.5">
-      <h2 id="a-courses-heading" class="text-base">Kurser</h2>
-      <p class="text-muted-foreground text-sm" data-test="course-counts">{{ courseCounts }}</p>
-      <RouterLink :to="{name: 'groups', query: {filter: 'courses'}}" :class="linkClass">
-        Visa alla kurser
-      </RouterLink>
-    </section>
+    <AdminQuickActions
+      :courses-without-teacher="overview.coursesWithoutTeacher"
+      @changed="load"
+    />
+
+    <ClassTimelines :classes="overview.classTimelines"/>
+
+    <ClassAnalytics/>
 
     <section
       v-if="overview.coursesWithoutTeacher.length"
@@ -136,33 +105,6 @@ load()
           <RouterLink :to="courseLink(course)" :class="linkClass">
             {{ course.title }}
             <span class="text-muted-foreground font-mono text-xs font-normal">{{ course.code }}</span>
-          </RouterLink>
-        </li>
-      </ul>
-    </section>
-
-    <section
-      v-if="withoutPassword.length"
-      aria-labelledby="a-no-password-heading"
-      class="flex flex-col gap-1.5"
-      data-test="no-password"
-    >
-      <h2 id="a-no-password-heading" class="text-base">Kan inte logga in</h2>
-      <p class="text-muted-foreground text-sm">De här användarna har inget lösenord än.</p>
-      <ul class="flex flex-col">
-        <li v-for="item in withoutPassword" :key="item.groupId ?? 'none'" data-test="no-password-item">
-          <RouterLink v-if="item.groupId" :to="classLink(item.groupId)" :class="linkClass">
-            {{ item.name }}
-            <span class="text-muted-foreground text-xs font-normal">{{ item.count }} användare</span>
-          </RouterLink>
-          <RouterLink
-            v-else
-            :to="{name: 'users'}"
-            :class="linkClass"
-            data-test="no-password-unplaced"
-          >
-            {{ item.name }}
-            <span class="text-muted-foreground text-xs font-normal">{{ item.count }} användare</span>
           </RouterLink>
         </li>
       </ul>
@@ -191,7 +133,7 @@ load()
     </section>
 
     <p v-if="attentionCount === 0" class="text-muted-foreground text-sm" data-test="admin-all-good">
-      Alla kurser har lärare, alla elever har en klass och alla användare kan logga in.
+      Alla kurser har lärare och alla elever har en klass.
     </p>
   </div>
 </template>

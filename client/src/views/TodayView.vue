@@ -97,7 +97,7 @@ const recent = computed(() => {
   const feedback = (today.value?.feedback ?? []).map((item) => ({
     key: `feedback-${item.linkId}`,
     title: item.title,
-    meta: `${feedbackLabel(item)} · ${timeLabel(item.gradedAt)}`,
+    meta: `${feedbackLabel(item)}, ${timeLabel(item.gradedAt)}`,
     at: item.gradedAt,
     feedback: item,
     news: null,
@@ -105,7 +105,7 @@ const recent = computed(() => {
   const news = (today.value?.news ?? []).map((item) => ({
     key: `news-${item.contentId}`,
     title: item.title,
-    meta: [item.source, timeLabel(item.publishAt)].filter(Boolean).join(' · '),
+    meta: [item.source, timeLabel(item.publishAt)].filter(Boolean).join(', '),
     at: item.publishAt,
     feedback: null,
     news: item,
@@ -236,7 +236,11 @@ load()
     <div class="hidden flex-col gap-6 md:flex" data-test="today-desktop">
       <div class="flex flex-col gap-1">
         <h1 class="text-[30px] leading-[1.15]">{{ greeting(now) }}<template v-if="name">, {{ name }}</template></h1>
-        <p class="text-muted-foreground">{{ dateLine(now) }} · {{ dueThisWeekText(dueThisWeek) }}</p>
+        <p class="text-muted-foreground flex flex-wrap items-center gap-2">
+          <span>{{ dateLine(now) }}</span>
+          <span class="bg-border h-3 w-px" aria-hidden="true"/>
+          <span>{{ dueThisWeekText(dueThisWeek) }}</span>
+        </p>
       </div>
 
       <div class="grid grid-cols-[repeat(auto-fit,minmax(min(340px,100%),1fr))] gap-4">
@@ -408,7 +412,7 @@ load()
             >
               <span class="font-medium">{{ item.title }}</span>
               <span class="text-muted-foreground text-[13px]">
-                <template v-if="item.source">{{ item.source }} · </template>{{ timeLabel(item.publishAt) }}
+                <template v-if="item.source">{{ item.source }}, </template>{{ timeLabel(item.publishAt) }}
               </span>
             </RouterLink>
           </section>

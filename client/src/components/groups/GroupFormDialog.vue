@@ -30,7 +30,7 @@ const open = defineModel<boolean>('open', {required: true})
 const emit = defineEmits<{saved: [group: Schema<'GroupDto'>]}>()
 
 const submitted = ref(false)
-const form = reactive({name: '', type: 'Class' as Schema<'GroupType'>, term: ''})
+const form = reactive({name: '', type: 'Class' as Schema<'GroupType'>})
 
 const isEdit = computed(() => props.group !== undefined)
 const isClass = computed(() => form.type === 'Class')
@@ -44,14 +44,14 @@ const nameError = computed(() => submitted.value && !form.name.trim()
 const classCode = computed(() => classCodeFromName(form.name))
 const showCodeHint = computed(() => isClass.value && form.name.trim().length > 0)
 
-const {run: send, loading: saving, error} = useAsync(async (name: string, term: string | null) => {
+const {run: send, loading: saving, error} = useAsync(async (name: string) => {
   const saved = props.group
     ? unwrap(await api.PUT('/api/groups/{id}', {
         params: {path: {id: props.group.id}},
-        body: {type: form.type, name, term},
+        body: {type: form.type, name},
       }))
     : unwrap(await api.POST('/api/groups', {
-        body: {schoolId: props.schoolId, type: form.type, name, term},
+        body: {schoolId: props.schoolId, type: form.type, name},
       }))
   emit('saved', saved)
   open.value = false
@@ -63,7 +63,6 @@ watch(open, (isOpen) => {
     form.type = props.group?.type ?? (props.kind === 'class'
       ? 'Class'
       : 'Committee')
-    form.term = props.group?.term ?? ''
     error.value = ''
     submitted.value = false
   }
@@ -76,7 +75,7 @@ async function save() {
     return
   }
 
-  await send(name, form.term.trim() || null)
+  await send(name)
 }
 </script>
 
@@ -93,7 +92,7 @@ async function save() {
               : 'grupp'}` }}
           </DialogTitle>
           <DialogDescription>
-            <template v-if="isEdit">Ändra namn, typ eller termin. Medlemmarna påverkas inte.</template>
+            <template v-if="isEdit">Ändra namn eller typ. Medlemmarna påverkas inte.</template>
             <template v-else-if="isClass">
               En klass är en årskull. Kurser och elever lägger du till på klassens sida.
             </template>
@@ -139,20 +138,6 @@ async function save() {
                 {{ label }}
               </NativeSelectOption>
             </NativeSelect>
-          </Field>
-          <Field>
-            <FieldLabel for="group-term">
-              {{ isClass
-                ? 'Startade (termin)'
-                : 'Period/termin' }}
-            </FieldLabel>
-            <Input
-              id="group-term"
-              v-model="form.term"
-              placeholder="HT25"
-              autocomplete="off"
-              data-test="group-term"
-            />
           </Field>
         </FieldGroup>
 

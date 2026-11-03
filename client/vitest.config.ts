@@ -6,6 +6,7 @@ export default mergeConfig(
   defineConfig({
     test: {
       environment: 'jsdom',
+      setupFiles: ['src/test/setup.ts'],
       unstubGlobals: true,
       include: ['src/**/*.{test,spec}.{ts,tsx}'],
       coverage: {

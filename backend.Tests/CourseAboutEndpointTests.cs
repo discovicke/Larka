@@ -218,9 +218,9 @@ public class CourseAboutEndpointTests(TestWebApplicationFactory factory) : IClas
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
         var school = await TestData.AddSchoolAsync(db);
-        var firstGroup = new Group { SchoolId = school.Id, Name = "Klass A", Term = "HT26" };
-        var secondGroup = new Group { SchoolId = school.Id, Name = "Klass B", Term = "HT26" };
-        var otherGroup = new Group { SchoolId = school.Id, Name = "Klass C", Term = "HT26" };
+        var firstGroup = new Group { SchoolId = school.Id, Name = "Klass A" };
+        var secondGroup = new Group { SchoolId = school.Id, Name = "Klass B" };
+        var otherGroup = new Group { SchoolId = school.Id, Name = "Klass C" };
         db.Groups.AddRange(firstGroup, secondGroup, otherGroup);
 
         var course = await TestData.AddCourseAsync(db, school.Id, firstGroup.Id, placeholderTeaches: false);

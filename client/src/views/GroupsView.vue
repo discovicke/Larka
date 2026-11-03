@@ -86,11 +86,7 @@ const rows = computed<GroupRow[]>(() => {
       name: group.name,
       code: '–',
       type: groupTypeLabels[group.type],
-      period: group.term
-        ? group.type === 'Class'
-          ? `Startade ${group.term}`
-          : group.term
-        : '–',
+      period: '–',
       status: null,
       // Bara en klass kan vara avslutad. Servern räknar ut den sista slutdagen bland kurserna.
       finished: group.type === 'Class' && isGroupFinished(group),

@@ -32,7 +32,7 @@ describe('today', () => {
   })
 
   it('skriver datum och veckonummer', () => {
-    expect(dateLine(wednesday)).toBe('Onsdag 21 oktober · vecka 43')
+    expect(dateLine(wednesday)).toBe('Onsdag 21 oktober, vecka 43')
   })
 
   it('tar förnamnet', () => {

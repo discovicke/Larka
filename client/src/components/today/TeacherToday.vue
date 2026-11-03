@@ -146,7 +146,11 @@ load()
         {{ greeting(now) }}<template v-if="name">, {{ name }}</template>
       </h1>
       <h1 class="text-2xl leading-[1.2] md:hidden">{{ mobileGreeting }}</h1>
-      <p class="text-muted-foreground text-sm md:text-base">{{ dateLine(now) }} · {{ toGradeLine }}</p>
+      <p class="text-muted-foreground flex flex-wrap items-center gap-2 text-sm md:text-base">
+        <span>{{ dateLine(now) }}</span>
+        <span class="bg-border h-3 w-px" aria-hidden="true"/>
+        <span>{{ toGradeLine }}</span>
+      </p>
     </div>
 
     <section
@@ -204,7 +208,7 @@ load()
           <span class="flex min-w-0 flex-1 flex-col">
             <span class="truncate font-medium">{{ item.studentName }}</span>
             <span class="text-muted-foreground truncate text-[13px]">
-              {{ item.title }} · {{ item.courseTitle }}
+              {{ item.title }} ({{ item.courseTitle }})
             </span>
           </span>
           <span class="text-muted-foreground shrink-0 text-[13px]">{{ submittedText(item.submittedAt) }}</span>
@@ -275,8 +279,12 @@ load()
             class="flex flex-col"
           >
             <span class="font-medium">{{ item.title }}</span>
-            <span class="text-muted-foreground text-[13px]">
-              {{ item.courseTitle }} · {{ scheduledKind(item) }} · {{ weekdayAndTime(item.publishAt) }}
+            <span class="text-muted-foreground flex flex-wrap items-center gap-2 text-[13px]">
+              <span>{{ item.courseTitle }}</span>
+              <span class="bg-border h-3 w-px" aria-hidden="true"/>
+              <span>{{ scheduledKind(item) }}</span>
+              <span class="bg-border h-3 w-px" aria-hidden="true"/>
+              <span>{{ weekdayAndTime(item.publishAt) }}</span>
             </span>
           </RouterLink>
         </section>

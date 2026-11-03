@@ -26,7 +26,7 @@ public interface IGroupRepository
     Task<List<Group>> GetForMemberAsync(Guid schoolId, Guid userId, CancellationToken ct);
     Task<Group?> GetAsync(Guid groupId, CancellationToken ct);
     Task<bool> ExistsAsync(Guid groupId, CancellationToken ct);
-    Task<bool> NameExistsAsync(Guid schoolId, string name, string term, CancellationToken ct);
+    Task<bool> NameExistsAsync(Guid schoolId, string name, CancellationToken ct);
     Task<bool> CourseExistsAsync(Guid courseId, CancellationToken ct);
     Task<List<Course>> GetCoursesAsync(Guid groupId, CancellationToken ct);
     Task<List<Guid>> GetGroupIdsReadingCourseAsync(Guid courseId, CancellationToken ct);

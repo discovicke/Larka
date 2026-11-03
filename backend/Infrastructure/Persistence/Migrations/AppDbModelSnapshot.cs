@@ -475,17 +475,13 @@ namespace Backend.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("SchoolId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Term")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("SchoolId", "Name", "Term")
+                    b.HasIndex("SchoolId", "Name")
                         .IsUnique();
 
                     b.ToTable("Groups");

@@ -111,7 +111,7 @@ describe('api', () => {
 
 describe('errorMessage på svenska', () => {
   it('översätter backendens engelska meddelanden', () => {
-    expect(errorMessage(new ApiError(400, 'the school already has a group with this name and term')))
+    expect(errorMessage(new ApiError(400, 'the school already has a group with this name')))
       .toBe('Det finns redan en klass med det namnet.')
     expect(errorMessage(new ApiError(400, 'password must be at least 8 characters')))
       .toBe('Lösenordet måste vara minst 8 tecken.')

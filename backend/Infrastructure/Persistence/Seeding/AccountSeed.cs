@@ -135,8 +135,7 @@ public sealed class AccountSeed(
             return group;
         }
 
-        var yearShort = time.GetUtcNow().Year % 100;
-        group = new Group { SchoolId = school.Id, Name = ClassName, Term = $"HT{yearShort:00}" };
+        group = new Group { SchoolId = school.Id, Name = ClassName };
         db.Groups.Add(group);
         created.Add($"klassen {ClassName}");
         return group;

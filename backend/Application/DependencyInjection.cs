@@ -37,6 +37,7 @@ public static class DependencyInjection
         services.AddScoped<CalendarService>();
         services.AddScoped<StudyPlanService>();
         services.AddScoped<StudentOverviewService>();
+        services.AddScoped<GroupAnalyticsService>();
         services.AddScoped<TodayService>();
         services.AddScoped<TeachingService>();
         services.AddScoped<AdminOverviewService>();

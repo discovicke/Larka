@@ -24,8 +24,12 @@ export default defineConfig({
           if (id.includes('vite/preload-helper')) {
             return 'vendor'
           }
-          if (/node_modules\/(@tiptap|prosemirror|linkifyjs|markdown-it|marked)/.test(id)) {
+          if (/node_modules\/(@tiptap|prosemirror|linkifyjs|markdown-it|marked|highlight\.js|lowlight)/.test(id)) {
             return 'editor'
+          }
+          // Chart-biblioteket är stort och behövs bara på uppföljningsvyn.
+          if (id.includes('node_modules/@unovis/')) {
+            return 'charts'
           }
           // MSAL laddas bara när någon loggar in med Microsoft, så den får en egen chunk i stället för vendor.
           if (id.includes('node_modules/@azure/msal-')) {

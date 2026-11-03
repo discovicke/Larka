@@ -19,7 +19,7 @@ const exact: Record<string, string> = {
   'the range can be at most 62 days': 'Perioden får vara högst 62 dagar.',
 
   // Dubbletter
-  'the school already has a group with this name and term': 'Det finns redan en klass med det namnet.',
+  'the school already has a group with this name': 'Det finns redan en klass med det namnet.',
   'the school already has a course with this code': 'Det finns redan en kurs med den koden.',
   'user is already in the group': 'Personen är redan med i gruppen.',
 

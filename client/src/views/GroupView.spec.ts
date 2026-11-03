@@ -6,8 +6,8 @@ import {mockApi, requests, sent} from '@/test/mockApi'
 import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
-const classGroup = {id: 'g1', schoolId: 's1', type: 'Class', name: 'TE22A', term: 'HT25'}
-const committee = {id: 'g2', schoolId: 's1', type: 'Committee', name: 'Elevrådet', term: ''}
+const classGroup = {id: 'g1', schoolId: 's1', type: 'Class', name: 'TE22A'}
+const committee = {id: 'g2', schoolId: 's1', type: 'Committee', name: 'Elevrådet'}
 
 const devops = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps'}
 
@@ -162,13 +162,13 @@ describe('GroupView', () => {
     expect(teacher.wrapper.find('[data-test="member-overview"]').exists()).toBe(false)
   })
 
-  it('visar namn, typ och starttermin i rubriken', async () => {
+  it('visar namn och typ i rubriken, utan klassens starttermin', async () => {
     backend()
 
     const {wrapper} = await renderApp('/groups/g1')
 
     expect(wrapper.find('h1').text()).toBe('TE22A')
-    expect(wrapper.find('[data-test="group-subtitle"]').text()).toBe('Klass · startade HT25')
+    expect(wrapper.find('[data-test="group-subtitle"]').text()).toBe('Klass')
   })
 
   it('grupperar medlemmarna efter roll med lärare först', async () => {
@@ -320,6 +320,16 @@ describe('GroupView', () => {
       expect(wrapper.find('[data-test="add-member"]').text()).toBe('Lägg till medlem')
       expect(wrapper.text()).toContain('Klassen har inga kurser ännu.')
       expect(wrapper.find('[data-test="link-course-button"]').text()).toBe('Koppla kurs')
+      expect(wrapper.find('[data-test="group-analytics"]').attributes('href')).toBe('/?group=g1')
+    })
+
+    it('öppnar kursdialogen från snabbåtgärden och tar bort queryn', async () => {
+      backend({role: 'Admin', courses: []})
+
+      const {router} = await renderApp('/groups/g1?newCourse=1')
+
+      expect(modal().textContent).toContain('Ny kurs i TE22A')
+      expect(router.currentRoute.value.query.newCourse).toBeUndefined()
     })
 
     it('lägger till en medlem som hamnar under sin roll utan att ladda om', async () => {

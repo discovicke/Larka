@@ -2521,6 +2521,66 @@
         }
       }
     },
+    "/api/groups/{id}/analytics": {
+      "get": {
+        "tags": [
+          "Groups"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupAnalyticsDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/groups/{id}/courses/{courseId}": {
       "post": {
         "tags": [
@@ -6282,33 +6342,66 @@
           }
         }
       },
-      "AdminCourseCountsDto": {
+      "AdminClassCourseTimelineDto": {
         "required": [
-          "upcoming",
-          "running",
-          "finished",
-          "undated"
+          "courseId",
+          "title",
+          "code",
+          "startsOn",
+          "endsOn"
         ],
         "type": "object",
         "properties": {
-          "upcoming": {
-            "type": "integer",
-            "format": "int32"
+          "courseId": {
+            "type": "string",
+            "format": "uuid"
           },
-          "running": {
-            "type": "integer",
-            "format": "int32"
+          "title": {
+            "type": "string"
           },
-          "finished": {
-            "type": "integer",
-            "format": "int32"
+          "code": {
+            "type": "string"
           },
-          "undated": {
-            "type": "integer",
-            "format": "int32"
+          "startsOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "endsOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
           }
         },
-        "description": "Antal kurser per läge, räknat på datumen som i klienten. Kurser utan datum ingår i Undated."
+        "description": "En pågående kurs med datumen som tidslinjen ritar. Datumen kan saknas på gamla kurser."
+      },
+      "AdminClassTimelineDto": {
+        "required": [
+          "groupId",
+          "name",
+          "currentCourses"
+        ],
+        "type": "object",
+        "properties": {
+          "groupId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "currentCourses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminClassCourseTimelineDto"
+            }
+          }
+        },
+        "description": "En klass med kurserna som pågår just nu."
       },
       "AdminCourseWithoutTeacherDto": {
         "required": [
@@ -6341,15 +6434,18 @@
       },
       "AdminOverviewDto": {
         "required": [
-          "courses",
+          "classTimelines",
           "coursesWithoutTeacher",
           "usersWithoutPassword",
           "studentsWithoutClass"
         ],
         "type": "object",
         "properties": {
-          "courses": {
-            "$ref": "#/components/schemas/AdminCourseCountsDto"
+          "classTimelines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminClassTimelineDto"
+            }
           },
           "coursesWithoutTeacher": {
             "type": "array",
@@ -6370,7 +6466,7 @@
             }
           }
         },
-        "description": "Adminens Idag-sida: skolans kurser per läge och det som saknar något. Varje rad pekar på klassen eller kursen\ndär admin ordnar det."
+        "description": "Adminens Idag-sida: klassernas pågående kurser och det som saknar något. Varje rad pekar på klassen\neller kursen där admin ordnar det."
       },
       "AdminUserRefDto": {
         "required": [
@@ -7568,12 +7664,6 @@
           },
           "name": {
             "type": "string"
-          },
-          "term": {
-            "type": [
-              "null",
-              "string"
-            ]
           }
         }
       },
@@ -7959,6 +8049,219 @@
           }
         }
       },
+      "GroupAnalyticsCourseDto": {
+        "required": [
+          "courseId",
+          "title",
+          "code",
+          "startsOn",
+          "endsOn",
+          "studentCount",
+          "assignmentCount",
+          "gradedCount",
+          "failCount",
+          "passCount",
+          "distinctionCount",
+          "needsWorkCount",
+          "submittedCount",
+          "overdueCount",
+          "notSubmittedCount",
+          "atRiskStudentCount"
+        ],
+        "type": "object",
+        "properties": {
+          "courseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "startsOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "endsOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "studentCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "assignmentCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "gradedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "failCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "passCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "distinctionCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "needsWorkCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "submittedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "overdueCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "notSubmittedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "atRiskStudentCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "description": "En kurs i klassen, med antal uppgifter och hur bedömningarna faller ut."
+      },
+      "GroupAnalyticsDto": {
+        "required": [
+          "groupId",
+          "groupName",
+          "courses",
+          "students"
+        ],
+        "type": "object",
+        "properties": {
+          "groupId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "groupName": {
+            "type": "string"
+          },
+          "courses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupAnalyticsCourseDto"
+            }
+          },
+          "students": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupAnalyticsStudentDto"
+            }
+          }
+        },
+        "description": "Läget i en klass för utbildningsledaren: klassens kurser och varje elevs bedömda uppgifter.\nBara uppgifter som eleven kan lämna in räknas, och bara publicerat innehåll i publicerade veckor."
+      },
+      "GroupAnalyticsStudentCourseDto": {
+        "required": [
+          "courseId",
+          "assignmentCount",
+          "gradedCount",
+          "failCount",
+          "passCount",
+          "distinctionCount",
+          "needsWorkCount",
+          "submittedCount",
+          "overdueCount",
+          "notSubmittedCount",
+          "needsSupport"
+        ],
+        "type": "object",
+        "properties": {
+          "courseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "assignmentCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "gradedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "failCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "passCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "distinctionCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "needsWorkCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "submittedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "overdueCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "notSubmittedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "needsSupport": {
+            "type": "boolean"
+          }
+        },
+        "description": "En elevs räknare i en kurs. Overdue är uppgifter som passerat deadline utan inlämning."
+      },
+      "GroupAnalyticsStudentDto": {
+        "required": [
+          "studentId",
+          "name",
+          "needsSupport",
+          "courses"
+        ],
+        "type": "object",
+        "properties": {
+          "studentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "needsSupport": {
+            "type": "boolean"
+          },
+          "courses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupAnalyticsStudentCourseDto"
+            }
+          }
+        },
+        "description": "En elev och elevens läge i varje kurs. NeedsSupport är sant när något behöver följas upp."
+      },
       "GroupCourseTeachersDto": {
         "required": [
           "courseId",
@@ -7992,7 +8295,6 @@
           "schoolId",
           "type",
           "name",
-          "term",
           "memberCount",
           "lastCourseEndsOn"
         ],
@@ -8010,9 +8312,6 @@
             "$ref": "#/components/schemas/GroupType"
           },
           "name": {
-            "type": "string"
-          },
-          "term": {
             "type": "string"
           },
           "memberCount": {
@@ -10713,15 +11012,9 @@
           },
           "name": {
             "type": "string"
-          },
-          "term": {
-            "type": [
-              "null",
-              "string"
-            ]
           }
         },
-        "description": "Ändrar gruppens namn, typ och termin. Skolan går inte att byta."
+        "description": "Ändrar gruppens namn och typ. Skolan går inte att byta."
       },
       "UpdateMemberDto": {
         "required": [

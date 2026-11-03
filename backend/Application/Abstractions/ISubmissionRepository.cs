@@ -37,6 +37,10 @@ public interface ISubmissionRepository
     Task<List<Submission>> GetForStudentAsync(
         Guid studentId, IReadOnlyCollection<Guid> linkIds, CancellationToken ct);
 
+    /// <summary>Flera elevers inlämningar på länkarna, med betyg. Används av klassöversikten.</summary>
+    Task<List<Submission>> GetForStudentsAsync(
+        IReadOnlyCollection<Guid> studentIds, IReadOnlyCollection<Guid> linkIds, CancellationToken ct);
+
     /// <summary>
     /// Elevens senaste inlämningar (inte de som bara är utdelade), med betyg, de senaste först.
     /// </summary>

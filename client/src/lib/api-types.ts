@@ -2792,6 +2792,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/groups/{id}/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GroupAnalyticsDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/groups/{id}/courses/{courseId}": {
         parameters: {
             query?: never;
@@ -6400,16 +6464,23 @@ export interface components {
             userId: string;
             role?: components["schemas"]["GroupRole"];
         };
-        /** @description Antal kurser per läge, räknat på datumen som i klienten. Kurser utan datum ingår i Undated. */
-        AdminCourseCountsDto: {
-            /** Format: int32 */
-            upcoming: number;
-            /** Format: int32 */
-            running: number;
-            /** Format: int32 */
-            finished: number;
-            /** Format: int32 */
-            undated: number;
+        /** @description En pågående kurs med datumen som tidslinjen ritar. Datumen kan saknas på gamla kurser. */
+        AdminClassCourseTimelineDto: {
+            /** Format: uuid */
+            courseId: string;
+            title: string;
+            code: string;
+            /** Format: date */
+            startsOn: null | string;
+            /** Format: date */
+            endsOn: null | string;
+        };
+        /** @description En klass med kurserna som pågår just nu. */
+        AdminClassTimelineDto: {
+            /** Format: uuid */
+            groupId: string;
+            name: string;
+            currentCourses: components["schemas"]["AdminClassCourseTimelineDto"][];
         };
         /** @description En kurs utan lärare. GroupId är en klass som läser kursen, där admin lägger till läraren. */
         AdminCourseWithoutTeacherDto: {
@@ -6421,11 +6492,11 @@ export interface components {
             groupId: null | string;
         };
         /**
-         * @description Adminens Idag-sida: skolans kurser per läge och det som saknar något. Varje rad pekar på klassen eller kursen
-         *     där admin ordnar det.
+         * @description Adminens Idag-sida: klassernas pågående kurser och det som saknar något. Varje rad pekar på klassen
+         *     eller kursen där admin ordnar det.
          */
         AdminOverviewDto: {
-            courses: components["schemas"]["AdminCourseCountsDto"];
+            classTimelines: components["schemas"]["AdminClassTimelineDto"][];
             coursesWithoutTeacher: components["schemas"]["AdminCourseWithoutTeacherDto"][];
             usersWithoutPassword: components["schemas"]["AdminUserWithoutPasswordDto"][];
             studentsWithoutClass: components["schemas"]["AdminUserRefDto"][];
@@ -6756,7 +6827,6 @@ export interface components {
             schoolId: string;
             type: components["schemas"]["GroupType"];
             name: string;
-            term?: null | string;
         };
         CreateModuleDto: {
             title: string;
@@ -6865,6 +6935,82 @@ export interface components {
             level?: null | components["schemas"]["GradeLevel"];
             outcome?: components["schemas"]["GradeOutcome"];
         };
+        /** @description En kurs i klassen, med antal uppgifter och hur bedömningarna faller ut. */
+        GroupAnalyticsCourseDto: {
+            /** Format: uuid */
+            courseId: string;
+            title: string;
+            code: string;
+            /** Format: date */
+            startsOn: null | string;
+            /** Format: date */
+            endsOn: null | string;
+            /** Format: int32 */
+            studentCount: number;
+            /** Format: int32 */
+            assignmentCount: number;
+            /** Format: int32 */
+            gradedCount: number;
+            /** Format: int32 */
+            failCount: number;
+            /** Format: int32 */
+            passCount: number;
+            /** Format: int32 */
+            distinctionCount: number;
+            /** Format: int32 */
+            needsWorkCount: number;
+            /** Format: int32 */
+            submittedCount: number;
+            /** Format: int32 */
+            overdueCount: number;
+            /** Format: int32 */
+            notSubmittedCount: number;
+            /** Format: int32 */
+            atRiskStudentCount: number;
+        };
+        /**
+         * @description Läget i en klass för utbildningsledaren: klassens kurser och varje elevs bedömda uppgifter.
+         *     Bara uppgifter som eleven kan lämna in räknas, och bara publicerat innehåll i publicerade veckor.
+         */
+        GroupAnalyticsDto: {
+            /** Format: uuid */
+            groupId: string;
+            groupName: string;
+            courses: components["schemas"]["GroupAnalyticsCourseDto"][];
+            students: components["schemas"]["GroupAnalyticsStudentDto"][];
+        };
+        /** @description En elevs räknare i en kurs. Overdue är uppgifter som passerat deadline utan inlämning. */
+        GroupAnalyticsStudentCourseDto: {
+            /** Format: uuid */
+            courseId: string;
+            /** Format: int32 */
+            assignmentCount: number;
+            /** Format: int32 */
+            gradedCount: number;
+            /** Format: int32 */
+            failCount: number;
+            /** Format: int32 */
+            passCount: number;
+            /** Format: int32 */
+            distinctionCount: number;
+            /** Format: int32 */
+            needsWorkCount: number;
+            /** Format: int32 */
+            submittedCount: number;
+            /** Format: int32 */
+            overdueCount: number;
+            /** Format: int32 */
+            notSubmittedCount: number;
+            needsSupport: boolean;
+        };
+        /** @description En elev och elevens läge i varje kurs. NeedsSupport är sant när något behöver följas upp. */
+        GroupAnalyticsStudentDto: {
+            /** Format: uuid */
+            studentId: string;
+            name: string;
+            needsSupport: boolean;
+            courses: components["schemas"]["GroupAnalyticsStudentCourseDto"][];
+        };
         /** @description Lärarna i en kurs som en klass läser, och namnen på de andra grupperna som läser samma kurs. */
         GroupCourseTeachersDto: {
             /** Format: uuid */
@@ -6884,7 +7030,6 @@ export interface components {
             schoolId: string;
             type: components["schemas"]["GroupType"];
             name: string;
-            term: string;
             /** Format: int32 */
             memberCount: number;
             /** Format: date */
@@ -7614,11 +7759,10 @@ export interface components {
             /** Format: date */
             endsOn: null | string;
         };
-        /** @description Ändrar gruppens namn, typ och termin. Skolan går inte att byta. */
+        /** @description Ändrar gruppens namn och typ. Skolan går inte att byta. */
         UpdateGroupDto: {
             type: components["schemas"]["GroupType"];
             name: string;
-            term?: null | string;
         };
         UpdateMemberDto: {
             role: components["schemas"]["GroupRole"];

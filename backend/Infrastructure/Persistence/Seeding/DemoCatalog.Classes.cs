@@ -7,7 +7,6 @@ internal static partial class DemoCatalog
 {
     private static ClassSpec Net25() => new(
         ".NET25",
-        "HT25",
         GroupType.Class,
         ["larare", "karin", "anders", "jenny"],
         0,
@@ -185,7 +184,6 @@ internal static partial class DemoCatalog
 
     private static ClassSpec Net24() => new(
         ".NET24",
-        "HT24",
         GroupType.Class,
         ["karin", "patrik", "jenny"],
         22,
@@ -300,7 +298,6 @@ internal static partial class DemoCatalog
 
     private static ClassSpec Fiber25() => new(
         "FIB25",
-        "HT25",
         GroupType.Class,
         ["mikael", "camilla", "roger"],
         41,
@@ -414,7 +411,6 @@ internal static partial class DemoCatalog
 
     private static ClassSpec Committee() => new(
         "Klassråd .NET25",
-        "HT26",
         GroupType.Committee,
         ["larare"],
         3,

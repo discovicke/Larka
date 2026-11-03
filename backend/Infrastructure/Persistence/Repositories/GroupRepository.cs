@@ -50,9 +50,8 @@ public class GroupRepository(AppDb db) : IGroupRepository
     public Task<bool> ExistsAsync(Guid groupId, CancellationToken ct) =>
         db.Groups.AnyAsync(group => group.Id == groupId, ct);
 
-    public Task<bool> NameExistsAsync(Guid schoolId, string name, string term, CancellationToken ct) =>
-        db.Groups.AnyAsync(
-            group => group.SchoolId == schoolId && group.Name == name && group.Term == term, ct);
+    public Task<bool> NameExistsAsync(Guid schoolId, string name, CancellationToken ct) =>
+        db.Groups.AnyAsync(group => group.SchoolId == schoolId && group.Name == name, ct);
 
     public Task<bool> CourseExistsAsync(Guid courseId, CancellationToken ct) =>
         db.Courses.AnyAsync(course => course.Id == courseId, ct);

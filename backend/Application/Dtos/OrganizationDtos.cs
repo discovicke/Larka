@@ -47,10 +47,10 @@ public record CreateUserDto(Guid SchoolId, string Name, string Email, UserRole R
 
 public record UpdateUserRoleDto(UserRole Role);
 
-public record CreateGroupDto(Guid SchoolId, GroupType Type, string Name, string? Term = null);
+public record CreateGroupDto(Guid SchoolId, GroupType Type, string Name);
 
-/// <summary>Ändrar gruppens namn, typ och termin. Skolan går inte att byta.</summary>
-public record UpdateGroupDto(GroupType Type, string Name, string? Term = null);
+/// <summary>Ändrar gruppens namn och typ. Skolan går inte att byta.</summary>
+public record UpdateGroupDto(GroupType Type, string Name);
 
 /// <summary>Poäng och datum är valfria och kan ändras senare med PUT.</summary>
 public record CreateCourseDto(

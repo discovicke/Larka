@@ -67,13 +67,12 @@ public class GroupService(
         }
 
         var name = dto.Name.Trim();
-        var term = dto.Term?.Trim() ?? "";
-        if (await groups.NameExistsAsync(dto.SchoolId, name, term, ct))
+        if (await groups.NameExistsAsync(dto.SchoolId, name, ct))
         {
-            return ServiceResult<GroupDto>.Invalid("the school already has a group with this name and term");
+            return ServiceResult<GroupDto>.Invalid("the school already has a group with this name");
         }
 
-        var group = new Group { SchoolId = dto.SchoolId, Type = dto.Type, Name = name, Term = term };
+        var group = new Group { SchoolId = dto.SchoolId, Type = dto.Type, Name = name };
         groups.Add(group);
         await unitOfWork.SaveChangesAsync(ct);
         return ServiceResult<GroupDto>.Ok(GroupDto.From(group, 0, null));
@@ -98,11 +97,10 @@ public class GroupService(
         }
 
         var name = dto.Name.Trim();
-        var term = dto.Term?.Trim() ?? "";
-        var renamed = name != group.Name || term != group.Term;
-        if (renamed && await groups.NameExistsAsync(group.SchoolId, name, term, ct))
+        var renamed = name != group.Name;
+        if (renamed && await groups.NameExistsAsync(group.SchoolId, name, ct))
         {
-            return ServiceResult<GroupDto>.Invalid("the school already has a group with this name and term");
+            return ServiceResult<GroupDto>.Invalid("the school already has a group with this name");
         }
 
         // En committee läser inga kurser, så kopplingarna måste tas bort först.
@@ -113,7 +111,6 @@ public class GroupService(
 
         group.Type = dto.Type;
         group.Name = name;
-        group.Term = term;
         await unitOfWork.SaveChangesAsync(ct);
         return ServiceResult<GroupDto>.Ok(GroupDto.From(group, await groups.CountMembersAsync(id, ct), null));
     }

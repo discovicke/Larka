@@ -1,3 +1,4 @@
+import {flushPromises} from '@vue/test-utils'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 import {mockApi} from '@/test/mockApi'
@@ -5,7 +6,20 @@ import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
 const overview = {
-  courses: {upcoming: 2, running: 4, finished: 7, undated: 1},
+  classTimelines: [
+    {
+      groupId: 'g3',
+      name: 'JAVA25',
+      currentCourses: [{
+        courseId: 'c5',
+        title: 'Java med databaser',
+        code: 'JAVA-DB',
+        startsOn: '2026-09-01',
+        endsOn: '2026-11-01',
+      }],
+    },
+    {groupId: 'g4', name: 'FIBER25', currentCourses: []},
+  ],
   coursesWithoutTeacher: [
     {courseId: 'c1', code: 'MOLN26', title: 'Molnsäkerhet', groupId: 'g1'},
     {courseId: 'c2', code: 'FRI', title: 'Fristående', groupId: null},
@@ -18,20 +32,91 @@ const overview = {
   studentsWithoutClass: [],
 }
 
+const classGroup = {id: 'g1', schoolId: 's1', type: 'Class', name: 'NET26', memberCount: 2}
+
+const classAnalytics = {
+  groupId: 'g1',
+  groupName: 'NET26',
+  courses: [{
+    courseId: 'c1',
+    title: 'DevOps',
+    code: 'DEVOPS',
+    startsOn: '2026-08-01',
+    endsOn: '2026-12-01',
+    studentCount: 2,
+    assignmentCount: 2,
+    gradedCount: 2,
+    failCount: 1,
+    passCount: 1,
+    distinctionCount: 0,
+    needsWorkCount: 0,
+    submittedCount: 0,
+    overdueCount: 1,
+    notSubmittedCount: 0,
+    atRiskStudentCount: 1,
+  }],
+  students: [
+    {
+      studentId: 'u1',
+      name: 'Anna Elev',
+      needsSupport: true,
+      courses: [{
+        courseId: 'c1',
+        assignmentCount: 2,
+        gradedCount: 1,
+        failCount: 1,
+        passCount: 0,
+        distinctionCount: 0,
+        needsWorkCount: 0,
+        submittedCount: 0,
+        overdueCount: 1,
+        notSubmittedCount: 0,
+        needsSupport: true,
+      }],
+    },
+    {
+      studentId: 'u2',
+      name: 'Bo Elev',
+      needsSupport: false,
+      courses: [{
+        courseId: 'c1',
+        assignmentCount: 2,
+        gradedCount: 1,
+        failCount: 0,
+        passCount: 1,
+        distinctionCount: 0,
+        needsWorkCount: 0,
+        submittedCount: 0,
+        overdueCount: 0,
+        notSubmittedCount: 0,
+        needsSupport: false,
+      }],
+    },
+  ],
+}
+
 const nothingToDo = {
-  courses: {upcoming: 0, running: 1, finished: 0, undated: 0},
+  classTimelines: [],
   coursesWithoutTeacher: [],
   usersWithoutPassword: [],
   studentsWithoutClass: [],
 }
 
-function backend(options: {me?: ReturnType<typeof meAs>, overview?: unknown, fail?: boolean} = {}) {
+function backend(options: {me?: ReturnType<typeof meAs>, overview?: unknown, groups?: unknown[], analytics?: unknown, fail?: boolean} = {}) {
   mockApi((_method, path) => {
     if (path === '/api/me') {
       return {status: 200, body: options.me ?? meAs('Admin', [], 'Ada Admin')}
     }
-    if (path === '/api/courses' || path === '/api/groups') {
+    if (path === '/api/courses') {
       return {status: 200, body: []}
+    }
+    if (path === '/api/groups') {
+      return {status: 200, body: options.groups ?? []}
+    }
+    if (path === '/api/groups/g1/analytics') {
+      return options.analytics
+        ? {status: 200, body: options.analytics}
+        : {status: 404}
     }
     if (path === '/api/me/admin-overview') {
       return options.fail
@@ -62,20 +147,62 @@ describe('AdminToday', () => {
 
     const dashboard = wrapper.find('[data-test="admin-dashboard"]')
     expect(dashboard.find('h1').text()).toBe('God morgon, Ada')
-    expect(dashboard.text()).toContain('Onsdag 21 oktober · vecka 43 · 4 saker att ordna')
+    expect(dashboard.text()).toContain('Onsdag 21 oktober, vecka 43')
+    expect(dashboard.text()).toContain('2 saker att ordna')
     expect(wrapper.find('[data-test="teacher-dashboard"]').exists()).toBe(false)
   })
 
-  it('räknar per klass och inte per användare', async () => {
-    backend({overview: {...nothingToDo, usersWithoutPassword: [
-      {userId: 'u1', name: 'Anna', groupId: 'g1', groupName: 'NET26'},
-      {userId: 'u2', name: 'Bo', groupId: 'g1', groupName: 'NET26'},
-      {userId: 'u3', name: 'Cia', groupId: 'g1', groupName: 'NET26'},
-    ]}})
+  it('visar klasstidslinjer med pågående kurs', async () => {
+    backend()
 
     const {wrapper} = await renderApp('/')
 
-    expect(wrapper.text()).toContain('1 sak att ordna')
+    expect(wrapper.find('[data-test="class-timelines"]').text()).toContain('JAVA25')
+    expect(wrapper.find('[data-test="class-timelines"]').text()).toContain('Java med databaser')
+    expect(wrapper.find('[data-test="class-timelines"]').text()).toContain('FIBER25')
+    expect(wrapper.find('[data-test="class-timelines"]').text()).toContain('Ingen pågående kurs')
+    expect(wrapper.find('[data-test="timeline-warning"]').text()).toContain('dagar kvar')
+    expect(wrapper.find('[data-test="admin-stat"]').exists()).toBe(false)
+  })
+
+  it('visar snabbåtgärder och öppnar klassformuläret', async () => {
+    backend()
+
+    const {wrapper} = await renderApp('/')
+
+    const actions = wrapper.find('[data-test="admin-quick-actions"]')
+    expect(actions.text()).toContain('Ny klass')
+    expect(actions.text()).toContain('Ny grupp')
+    expect(actions.text()).toContain('Skapa kurs')
+    expect(actions.text()).toContain('Användare')
+    expect(actions.text()).toContain('Tilldela lärare')
+
+    await wrapper.find('[data-test="quick-new-class"]').trigger('click')
+    await flushPromises()
+
+    expect(document.body.textContent).toContain('Ny klass')
+    expect(document.body.textContent).toContain('En klass är en årskull')
+  })
+
+  it('visar klassöversikt med betyg och riskfilter', async () => {
+    backend({groups: [classGroup], analytics: classAnalytics})
+
+    const {wrapper} = await renderApp('/')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="class-analytics"]').text()).toContain('Följ upp klass')
+    expect(wrapper.find('[data-test="analytics-stat-pass"]').text()).toContain('50 %')
+    expect(wrapper.find('[data-test="analytics-stat-risk"]').text()).toContain('1')
+    expect(wrapper.find('[data-test="analytics-stat-missing"]').text()).toContain('1')
+    expect(wrapper.find('[data-test="analytics-students"]').text()).toContain('Anna Elev')
+    expect(wrapper.find('[data-test="analytics-students"]').text()).toContain('Behöver stöttning')
+
+    await wrapper.find('[data-test="risk-filter"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findAll('[data-test="analytics-student"]')).toHaveLength(1)
+    expect(wrapper.find('[data-test="analytics-students"]').text()).toContain('Anna Elev')
+    expect(wrapper.find('[data-test="analytics-students"]').text()).not.toContain('Bo Elev')
   })
 
   it('samlar elever utan klass i en rad som länkar till användarna', async () => {
@@ -93,15 +220,6 @@ describe('AdminToday', () => {
     expect(wrapper.find('[data-test="admin-all-good"]').exists()).toBe(false)
   })
 
-  it('visar kurserna per läge', async () => {
-    backend()
-
-    const {wrapper} = await renderApp('/')
-
-    expect(wrapper.find('[data-test="course-counts"]').text())
-      .toBe('4 pågår · 2 kommande · 7 avslutade · 1 utan datum')
-  })
-
   it('kurser utan lärare länkar till klassen där läraren läggs till, eller till kursen', async () => {
     backend()
 
@@ -116,18 +234,13 @@ describe('AdminToday', () => {
     expect(items[1].find('a').attributes('href')).toBe('/courses/c2/content')
   })
 
-  it('användare utan lösenord samlas per klass', async () => {
+  it('visar inte mentor- eller lösenordslistor', async () => {
     backend()
 
     const {wrapper} = await renderApp('/')
 
-    const items = wrapper.findAll('[data-test="no-password-item"]')
-    expect(items).toHaveLength(2)
-    expect(items[0].text()).toContain('NET26')
-    expect(items[0].text()).toContain('2 användare')
-    expect(items[0].find('a').attributes('href')).toBe('/groups/g1')
-    expect(items[1].text()).toContain('Utan klass')
-    expect(items[1].find('a').attributes('href')).toBe('/users')
+    expect(wrapper.find('[data-test="no-mentor"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="no-password"]').exists()).toBe(false)
   })
 
   it('säger det när inget behöver ordnas', async () => {
@@ -136,7 +249,6 @@ describe('AdminToday', () => {
     const {wrapper} = await renderApp('/')
 
     expect(wrapper.find('[data-test="no-teacher"]').exists()).toBe(false)
-    expect(wrapper.find('[data-test="no-password"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="admin-all-good"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="admin-dashboard"]').text()).toContain('Inget behöver ordnas')
   })
