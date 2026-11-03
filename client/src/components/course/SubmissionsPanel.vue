@@ -87,14 +87,14 @@ const cloneOpen = ref(false)
 const expanded = ref<string[]>([])
 
 function aggregateStatus(submissions: Submission[]): Schema<'SubmissionStatus'> {
-  if (submissions.some((submission) => submission.status === 'Submitted')) {
-    return 'Submitted'
+  if (submissions.length > 0 && submissions.every((submission) => submission.status === 'Graded')) {
+    return 'Graded'
   }
   if (submissions.some((submission) => submission.status === 'NeedsWork')) {
     return 'NeedsWork'
   }
-  if (submissions.length > 0 && submissions.every((submission) => submission.status === 'Graded')) {
-    return 'Graded'
+  if (submissions.some((submission) => submission.status === 'Submitted' || submission.status === 'Graded')) {
+    return 'Submitted'
   }
   return submissions.length > 0 && submissions.every((submission) => submission.status === 'NotSubmitted')
     ? 'NotSubmitted'
@@ -412,12 +412,29 @@ async function lockRepos() {
   }
 }
 
+function hasOwnCommit(row: TrackingRow): boolean {
+  const repo = row.repo
+  if (!repo) {
+    return false
+  }
+  return repo.initialSha
+    ? repo.lastSha !== repo.initialSha
+    : repo.commitCount > 1
+}
+
 function pushLabel(row: TrackingRow): string {
-  return row.repo?.lastCommitAt
+  return hasOwnCommit(row) && row.repo?.lastCommitAt
     ? formatDate(row.repo.lastCommitAt, true)
-    : row.repo
-      ? 'Ingen push'
-      : '–'
+    : 'Ingen push från deltagarna'
+}
+
+function commitLabel(row: TrackingRow): number | string {
+  if (!row.repo) {
+    return '–'
+  }
+  return Math.max(0, row.repo.commitCount - (row.repo.initialSha
+    ? 1
+    : 0))
 }
 
 function repoChecksLabel(row: TrackingRow): string {
@@ -563,7 +580,7 @@ function rowBorder(index: number) {
               <th scope="col" class="border-b px-4 py-2.5 font-medium">Elev / grupp</th>
               <template v-if="hasRepos">
                 <th scope="col" class="border-b px-3 py-2.5 font-medium">Senaste push</th>
-                <th scope="col" class="border-b px-3 py-2.5 font-medium">Commits</th>
+                <th scope="col" class="border-b px-3 py-2.5 font-medium">Egna commits</th>
                 <th scope="col" class="border-b px-3 py-2.5 font-medium">Tester</th>
               </template>
               <th v-else scope="col" class="border-b px-3 py-2.5 font-medium">Filer</th>
@@ -668,13 +685,13 @@ function rowBorder(index: number) {
               <template v-if="hasRepos">
                 <td class="px-3 py-3 max-md:border-b-0 max-md:p-0" :class="rowBorder(index)">
                   {{ row.isMember
-                    ? '–'
+                    ? ''
                     : pushLabel(row) }}
                 </td>
                 <td class="px-3 py-3 max-md:border-b-0 max-md:p-0" :class="rowBorder(index)">
                   {{ row.isMember
-                    ? '–'
-                    : row.repo?.commitCount ?? '–' }}
+                    ? ''
+                    : commitLabel(row) }}
                 </td>
                 <td class="px-3 py-3 max-md:border-b-0 max-md:p-0" :class="rowBorder(index)">
                   <span
@@ -682,7 +699,7 @@ function rowBorder(index: number) {
                     :class="checkClass(row.repo.checkStatus)"
                     :title="checkLabel(row.repo.checkStatus)"
                   >{{ repoChecksLabel(row) }}</span>
-                  <span v-else class="text-muted-foreground">–</span>
+                  <span v-else-if="!row.isMember" class="text-muted-foreground">–</span>
                 </td>
               </template>
               <td v-else class="px-3 py-3 max-md:hidden" :class="rowBorder(index)">
@@ -691,9 +708,11 @@ function rowBorder(index: number) {
                   : '–' }}
               </td>
               <td class="px-3 py-3 max-md:border-b-0 max-md:p-0 max-md:text-muted-foreground" :class="rowBorder(index)">
-                {{ row.submittedAt
-                  ? formatDate(row.submittedAt, true)
-                  : '–' }}
+                {{ row.isMember
+                  ? ''
+                  : row.submittedAt
+                    ? formatDate(row.submittedAt, true)
+                    : '–' }}
               </td>
               <td class="px-3 py-3 max-md:border-b-0 max-md:p-0" :class="rowBorder(index)">
                 <StatusBadge

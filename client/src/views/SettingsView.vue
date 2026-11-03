@@ -9,12 +9,12 @@ import UserGitHubSection from '@/components/settings/UserGitHubSection.vue'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 
 const {me, loadMe, can} = useCurrentUser()
-const githubInUse = computed(() => me.value?.gitHubInUse === true)
+const githubEnabled = computed(() => me.value?.gitHubEnabled === true)
 const isAdmin = computed(() => can('admin'))
 
 const navItems = computed(() => [
   {id: 'profil', label: 'Profil'},
-  ...(githubInUse.value
+  ...(githubEnabled.value
     ? [{id: 'konton', label: 'Anslutna konton'}]
     : []),
   {id: 'aviseringar', label: 'Aviseringar'},
@@ -60,7 +60,7 @@ onMounted(loadMe)
       <div class="flex min-w-0 flex-[999_1_560px] flex-col gap-6">
         <ProfileSection/>
 
-        <section v-if="githubInUse" id="konton" class="flex scroll-mt-6 flex-col gap-6">
+        <section v-if="githubEnabled" id="konton" class="flex scroll-mt-6 flex-col gap-6">
           <UserGitHubSection/>
         </section>
 

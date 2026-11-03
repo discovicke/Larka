@@ -415,6 +415,31 @@ describe('PartView', () => {
     expect(wrapper.findAll('[data-test="member-row"]').map(text).join(' ')).toContain('Anna Andersson')
   })
 
+  it('visar gruppen som inlämnad när en medlem är bedömd och en inte har lämnat in', async () => {
+    const groupOne = {
+      id: 'g1',
+      name: 'Grupp 1',
+      members: [{id: 'u1', name: names.u1}, {id: 'u2', name: names.u2}],
+    }
+    backend({
+      submissions: [
+        makeSubmission('gs1', 'u1', 'Graded', {
+          repo,
+          group: groupOne,
+          submittedAt: '2026-10-21T10:00:00Z',
+          grade: {gradedById: 'u0', level: 'Pass', feedback: 'Bra', gradedAt: '2026-10-24T09:00:00Z'},
+        }),
+        makeSubmission('gs2', 'u2', 'NotStarted', {repo, group: groupOne}),
+      ],
+    })
+
+    const {wrapper} = await renderApp('/courses/c1/assignments/l1')
+
+    const groupRow = wrapper.find('[data-test="group-row"]')
+    expect(groupRow.text()).toContain('Inlämnad')
+    expect(groupRow.text()).not.toContain('Inte inlämnad')
+  })
+
   it('filtrerar grupper på aggregerad status', async () => {
     const groupOne = {
       id: 'g1',

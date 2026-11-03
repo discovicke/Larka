@@ -263,8 +263,30 @@ public class SubmissionService(
             submissions.Add(submission);
         }
 
-        submission.Status = SubmissionStatus.Submitted;
-        submission.SubmittedAt = time.GetUtcNow();
+        var submittedAt = time.GetUtcNow();
+        // En gruppinlämning är gemensam: när en medlem lämnar in räknas hela gruppen som inlämnad.
+        // Individuella betyg rörs inte, eftersom gruppen inte har något gemensamt betyg.
+        var groupSubmissions = submission.AssignmentGroupId is not null
+            ? await submissions.GetSubmissionsForGroupAsync(submission.AssignmentGroupId.Value, ct)
+            : [];
+        if (submission.AssignmentGroupId is not null && !groupSubmissions.Contains(submission))
+        {
+            groupSubmissions.Add(submission);
+        }
+
+        foreach (var memberSubmission in groupSubmissions.Count > 0
+                     ? groupSubmissions
+                     : [submission])
+        {
+            if (memberSubmission.Status == SubmissionStatus.Graded)
+            {
+                continue;
+            }
+
+            memberSubmission.Status = SubmissionStatus.Submitted;
+            memberSubmission.SubmittedAt = submittedAt;
+        }
+
         submission.BodyMd = dto.BodyMd;
         var repo = submission.Repo ?? submission.Group?.Repo;
         if (StudentWorkPolicy.UsesRepo(modes) && repo is not null)

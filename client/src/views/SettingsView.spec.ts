@@ -29,7 +29,7 @@ const connectedGitHub: GitHubConnection = {
 }
 
 function settingsBackend(
-  role: 'Admin' | 'Student',
+  role: 'Admin' | 'Teacher' | 'Student',
   github: GitHubConnection = connectedGitHub,
   gitHubLogin: string | null = null,
   options: {
@@ -347,13 +347,24 @@ describe('SettingsView', () => {
     expect(wrapper.find('nav[aria-label="Inställningar"]').text()).not.toContain('Anslutna konton')
   })
 
-  it('döljer GitHub-kontot när skolan är ansluten men elevens kurser inte använder GitHub', async () => {
+  it('visar GitHub-kontot även innan elevens kurser har en repo-uppgift', async () => {
     settingsBackend('Student', connectedGitHub, null, {gitHubEnabled: true, gitHubInUse: false})
 
     const {wrapper} = await mountSettings()
     await flushPromises()
 
-    expect(wrapper.find('[data-test="user-github"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="user-github"]').exists()).toBe(true)
+    expect(wrapper.find('nav[aria-label="Inställningar"]').text()).toContain('Anslutna konton')
+  })
+
+  it('visar GitHub-kontot för lärare även innan en repo-uppgift finns', async () => {
+    settingsBackend('Teacher', connectedGitHub, null, {gitHubEnabled: true, gitHubInUse: false})
+
+    const {wrapper} = await mountSettings()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="user-github"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="integrations"]').exists()).toBe(false)
   })
 
   it('visar användarens GitHub-konto som inte kopplad för elev', async () => {

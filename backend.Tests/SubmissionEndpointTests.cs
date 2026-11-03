@@ -16,6 +16,10 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
 
     private record IdResponse(Guid Id);
 
+    private record CreatedWithLink(LinkResponse Link);
+
+    private record LinkResponse(Guid Id);
+
     private record AssignmentResponse(string GradeScale, List<string> SubmissionModes);
 
     private record ContentResponse(Guid Id, AssignmentResponse? Assignment);
@@ -1209,6 +1213,76 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.All(await ListAsync(linkId), row => Assert.Equal("NotStarted", row.Status));
+    }
+
+    [Fact]
+    public async Task Submit_GroupRepoAssignment_MarksEveryGroupMemberAsSubmitted()
+    {
+        var (groupId, schoolId) = await AddGroupAsync(students: 3);
+        Guid courseId;
+        Guid firstStudentId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            courseId = (await TestData.AddCourseAsync(db, schoolId, groupId)).Id;
+            firstStudentId = (await db.Enrollments
+                .Where(enrollment => enrollment.GroupId == groupId && enrollment.Role == GroupRole.Student)
+                .OrderBy(enrollment => enrollment.UserId)
+                .FirstAsync()).UserId;
+        }
+
+        var created = await _client.PostAsJsonAsync("/api/content/with-link", new
+        {
+            content = new
+            {
+                type = "assignment",
+                title = "Grupplabb",
+                bodyMd = "",
+                status = "published",
+                gradeScale = "passFail",
+                submissionModes = new[] { "repo" },
+                templateRepo = "org/template",
+                workMode = "group",
+                repoNamePattern = "labb-{groupSlug}"
+            },
+            link = new
+            {
+                courseId,
+                groups = new[]
+                {
+                    new
+                    {
+                        name = "Grupp ett",
+                        studentIds = (await StudentsAsync(groupId)).ToArray()
+                    }
+                }
+            }
+        });
+        created.EnsureSuccessStatusCode();
+        var linkId = (await created.Content.ReadFromJsonAsync<CreatedWithLink>())!.Link.Id;
+
+        using (var submitScope = factory.Services.CreateScope())
+        {
+            TestData.ActAs(submitScope.ServiceProvider, firstStudentId);
+            var service = submitScope.ServiceProvider.GetRequiredService<SubmissionService>();
+            var result = await service.SubmitAsync(linkId, new SubmitDto(), [], CancellationToken.None);
+            Assert.Equal(ResultStatus.Ok, result.Status);
+        }
+
+        var rows = await ListAsync(linkId);
+        Assert.Equal(3, rows.Count);
+        Assert.All(rows, row => Assert.Equal("Submitted", row.Status));
+        Assert.All(rows, row => Assert.NotNull(row.Repo));
+    }
+
+    private async Task<List<Guid>> StudentsAsync(Guid groupId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        return await db.Enrollments
+            .Where(enrollment => enrollment.GroupId == groupId && enrollment.Role == GroupRole.Student)
+            .Select(enrollment => enrollment.UserId)
+            .ToListAsync();
     }
 
     [Fact]
