@@ -1,5 +1,5 @@
 import {flushPromises, mount} from '@vue/test-utils'
-import {describe, expect, it, vi} from 'vitest'
+import {afterEach, describe, expect, it, vi} from 'vitest'
 
 import type {Schema} from '@/lib/api'
 import {mockApi, requests} from '@/test/mockApi'
@@ -99,6 +99,10 @@ async function writeAnswer(wrapper: Awaited<ReturnType<typeof show>>, text: stri
 }
 
 describe('SubmissionPanel', () => {
+  afterEach(() => {
+    localStorage.clear()
+  })
+
   it('visar ett textformulär med Lämna in för en uppgift som inte är påbörjad', async () => {
     backend()
     const wrapper = await show({})
@@ -438,5 +442,80 @@ describe('SubmissionPanel', () => {
 
     expect(wrapper.find('[role="alert"]').exists()).toBe(true)
     expect(wrapper.emitted('submitted')).toBeUndefined()
+  })
+
+  describe('utkast', () => {
+    it('sparar texten medan eleven skriver och tar fram den igen när panelen öppnas på nytt', async () => {
+      backend()
+      const first = await show({})
+      await writeAnswer(first, 'Halvfärdigt svar')
+      await flushPromises()
+      expect(first.find('[data-test="submission-draft-hint"]').exists()).toBe(true)
+      first.unmount()
+
+      const again = await show({})
+      expect(again.find('[data-test="submission-draft-restored"]').exists()).toBe(true)
+      const markdownTab = again.findAll('button').find((button) => button.text() === 'Markdown')!
+      await markdownTab.trigger('click')
+      expect((again.find('textarea').element as HTMLTextAreaElement).value).toBe('Halvfärdigt svar')
+      expect(again.find('[data-test="submission-submit"]').attributes('disabled')).toBeUndefined()
+    })
+
+    it('tar bort utkastet när inlämningen har gått igenom', async () => {
+      backend()
+      const wrapper = await show({})
+      await writeAnswer(wrapper, 'Mitt svar')
+      await flushPromises()
+      await wrapper.find('[data-test="submission-form"]').trigger('submit')
+      await flushPromises()
+
+      expect(Object.keys(localStorage).filter((key) => key.startsWith('larka:submission-draft'))).toHaveLength(0)
+    })
+
+    it('behåller utkastet när inlämningen misslyckas', async () => {
+      mockApi((method) => method === 'POST'
+        ? {status: 500, body: {error: 'nätet'}}
+        : {status: 200, body: []})
+      const wrapper = await show({})
+      await writeAnswer(wrapper, 'Viktigt svar')
+      await flushPromises()
+      await wrapper.find('[data-test="submission-form"]').trigger('submit')
+      await flushPromises()
+      wrapper.unmount()
+
+      backend()
+      const again = await show({})
+      expect(again.find('[data-test="submission-draft-restored"]').exists()).toBe(true)
+    })
+
+    it('låter eleven slänga utkastet och gå tillbaka till det inlämnade svaret', async () => {
+      backend([submissionOf('Submitted')])
+      const wrapper = await show({submissionStatus: 'Submitted'})
+      await wrapper.find('[data-test="submission-edit"]').trigger('click')
+      await writeAnswer(wrapper, 'Ändrat svar')
+      await flushPromises()
+      wrapper.unmount()
+
+      const again = await show({submissionStatus: 'Submitted'})
+      // Läsvyn visar det inlämnade svaret, utkastet syns först när eleven väljer att ändra.
+      expect(again.find('[data-test="submission-view"]').text()).toContain('Mitt svar')
+      await again.find('[data-test="submission-edit"]').trigger('click')
+      expect(again.find('[data-test="submission-draft-restored"]').exists()).toBe(true)
+
+      await again.find('[data-test="submission-draft-discard"]').trigger('click')
+      expect(again.find('[data-test="submission-draft-restored"]').exists()).toBe(false)
+      const markdownTab = again.findAll('button').find((button) => button.text() === 'Markdown')!
+      await markdownTab.trigger('click')
+      expect((again.find('textarea').element as HTMLTextAreaElement).value).toBe('Mitt svar')
+    })
+
+    it('visar inget utkast för en bedömd inlämning', async () => {
+      localStorage.setItem('larka:submission-draft:okand:l1', 'Gammalt utkast')
+      backend([submissionOf('Graded')])
+      const wrapper = await show({submissionStatus: 'Graded'})
+
+      expect(wrapper.find('[data-test="submission-draft-restored"]').exists()).toBe(false)
+      expect(wrapper.text()).not.toContain('Gammalt utkast')
+    })
   })
 })

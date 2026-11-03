@@ -831,14 +831,16 @@ describe('StudentCourseContentView', () => {
       expect(crumbs).toContain('Teori D')
     })
 
-    it('har inlämningsformuläret i sidopanelen under Din status', async () => {
+    it('har inlämningsformuläret i huvudspalten under uppgiftstexten, inte i sidopanelen', async () => {
       const open = {...submitted, linkId: 'l8', isCompleted: false, submissionStatus: null}
       backend([open])
       const {wrapper} = await renderApp('/courses/c1/content?del=l8')
 
-      const aside = wrapper.find('[data-test="student-detail"] aside')
-      expect(aside.find('[data-test="submission-form"]').exists()).toBe(true)
-      expect(aside.text().indexOf('Din status')).toBeLessThan(aside.text().indexOf('Din inlämning'))
+      const detail = wrapper.find('[data-test="student-detail"]')
+      expect(detail.find('aside [data-test="submission-panel"]').exists()).toBe(false)
+      const main = detail.find('aside').element.previousElementSibling as HTMLElement
+      expect(main.querySelector('[data-test="submission-form"]')).not.toBeNull()
+      expect(main.textContent!.indexOf('Uppgiften')).toBeLessThan(main.textContent!.indexOf('Din inlämning'))
     })
   })
 })

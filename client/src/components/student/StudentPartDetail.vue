@@ -285,6 +285,13 @@ function handInOf(item: Schema<'StudentContentItem'>): string {
           :redirect-to="route.fullPath"
         />
 
+        <!-- Inlämningen står under uppgiften i huvudspalten, så att eleven skriver med uppgiften ovanför och har plats. -->
+        <SubmissionPanel
+          v-if="part.type === 'Assignment' && !part.isLocked"
+          :item="part"
+          @submitted="emit('submitted')"
+        />
+
         <section
           v-if="part.type !== 'News' && !part.isLocked"
           class="bg-card overflow-hidden rounded-xl border"
@@ -399,13 +406,6 @@ function handInOf(item: Schema<'StudentContentItem'>): string {
             </Button>
           </template>
         </section>
-
-        <!-- Formuläret hör till statusen: det står direkt under den, och på mobil före uppgiftstexten. -->
-        <SubmissionPanel
-          v-if="part.type === 'Assignment' && !part.isLocked"
-          :item="part"
-          @submitted="emit('submitted')"
-        />
 
         <StudentHelpButton
           v-if="canAskForHelp"

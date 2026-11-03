@@ -12,7 +12,11 @@ import {Textarea} from '@/components/ui/textarea'
 
 // Läraren skriver formaterat (Tiptap) eller i markdown (textarea). Värdet är alltid markdown, så backend
 // sparar samma format oavsett läge.
-const props = defineProps<{id: string, label: string}>()
+// tall ger mer skrivyta, till exempel för elevens svar på en uppgift.
+const props = defineProps<{id: string, label: string, tall?: boolean}>()
+const minHeight = props.tall
+  ? 'min-h-60'
+  : 'min-h-28'
 const model = defineModel<string>({required: true})
 
 const mode = ref<'rich' | 'markdown'>('rich')
@@ -24,7 +28,7 @@ const editor = useEditor({
   editorProps: {
     attributes: {
       'aria-label': props.label,
-      'class': 'min-h-28 px-3 py-2 outline-none [&>*+*]:mt-2 [&>*+h1]:mt-4 [&>*+h2]:mt-4 [&>*+h3]:mt-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal '
+      'class': minHeight + ' px-3 py-2 outline-none [&>*+*]:mt-2 [&>*+h1]:mt-4 [&>*+h2]:mt-4 [&>*+h3]:mt-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal '
         + '[&_ol]:pl-5 [&_:not(pre)>code]:rounded [&_:not(pre)>code]:bg-muted [&_:not(pre)>code]:px-1 [&_:not(pre)>code]:font-mono '
         + '[&_pre]:rounded-lg [&_pre]:border [&_pre]:bg-muted/50 [&_pre]:p-3 [&_pre]:overflow-x-auto [&_pre]:font-mono [&_pre]:text-[13px] [&_pre]:leading-6 '
         + '[&_mark]:bg-transparent [&_mark]:text-inherit [&_mark]:font-[inherit] [&_mark]:underline [&_mark]:decoration-primary [&_mark]:decoration-[3px] [&_mark]:underline-offset-[3px]',
@@ -109,7 +113,8 @@ function showRich() {
       :id="id"
       v-model="model"
       :aria-label="label"
-      class="min-h-28 rounded-none border-0 font-mono text-[13px] shadow-none focus-visible:ring-0"
+      :class="minHeight"
+      class="rounded-none border-0 font-mono text-[13px] shadow-none focus-visible:ring-0"
     />
   </div>
 </template>

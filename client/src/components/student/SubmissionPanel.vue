@@ -8,12 +8,14 @@ import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Button} from '@/components/ui/button'
 import {Input} from '@/components/ui/input'
 import {useAsync} from '@/composables/useAsync'
+import {useCurrentUser} from '@/composables/useCurrentUser'
 import {useToast} from '@/composables/useToast'
 import {api, errorMessage, multipart, type Schema} from '@/lib/api'
 import {UPLOAD_ACCEPT, uploadProblem} from '@/lib/uploads'
 import {formatDate} from '@/lib/content'
 import {handInWindow} from '@/lib/gradingWindow'
 import {formatSize} from '@/lib/material'
+import {clearDraft, loadDraft, saveDraft} from '@/lib/submissionDraft'
 import {fetchLinkSubmissions} from '@/lib/submissionsApi'
 
 // Elevens inlämning av en uppgift. Formuläret följer uppgiftens inlämningssätt: text och/eller filer.
@@ -22,6 +24,7 @@ const props = defineProps<{item: Schema<'StudentContentItem'>}>()
 const emit = defineEmits<{submitted: []}>()
 
 const {showToast} = useToast()
+const {me} = useCurrentUser()
 const submission = ref<Schema<'SubmissionDto'> | null>(null)
 const bodyMd = ref('')
 const keptFiles = ref<Schema<'SubmissionFileDto'>[]>([])
@@ -31,6 +34,8 @@ const editing = ref(false)
 const editorKey = ref(0)
 // Formuläret visas först när inlämningen har hämtats. Annars nollställer fillForm det eleven hunnit skriva.
 const loaded = ref(false)
+// Sant när texten i formuläret är ett utkast från webbläsaren och inte det som lämnats in.
+const draftRestored = ref(false)
 
 const hasText = computed(() => props.item.submissionModes.includes('Text'))
 const hasFiles = computed(() => props.item.submissionModes.includes('File'))
@@ -103,6 +108,7 @@ const {run: submit, loading: saving, error} = useAsync(async () => {
   if (data) {
     submission.value = data
   }
+  clearDraft(me.value?.id, props.item.linkId)
   editing.value = false
   fillForm()
   emit('submitted')
@@ -110,6 +116,18 @@ const {run: submit, loading: saving, error} = useAsync(async () => {
 })
 
 watch(() => props.item.linkId, load, {immediate: true})
+
+// Texten sparas som utkast medan formuläret är öppet. Samma text som den inlämnade behöver inget utkast.
+watch(bodyMd, (body) => {
+  if (!formOpen.value || !hasText.value) {
+    return
+  }
+  if (body === (submission.value?.bodyMd ?? '')) {
+    clearDraft(me.value?.id, props.item.linkId)
+  } else {
+    saveDraft(me.value?.id, props.item.linkId, body)
+  }
+})
 
 async function load() {
   const linkId = props.item.linkId
@@ -135,19 +153,39 @@ async function load() {
 }
 
 function fillForm() {
-  bodyMd.value = submission.value?.bodyMd ?? ''
+  const saved = submission.value?.bodyMd ?? ''
+  // Ett utkast tas bara fram när eleven kan skriva, så att en låst eller bedömd inlämning visas som den är.
+  const canWrite = hasText.value
+    && windowState.value.open
+    && (editing.value || status.value === 'NotStarted' || status.value === 'NotSubmitted' || status.value === 'NeedsWork')
+  const draft = canWrite
+    ? loadDraft(me.value?.id, props.item.linkId)
+    : null
+  draftRestored.value = draft !== null && draft !== saved
+  bodyMd.value = draftRestored.value
+    ? draft!
+    : saved
   keptFiles.value = [...submission.value?.files ?? []]
   addedFiles.value = []
   editorKey.value++
 }
 
 function startEditing() {
-  fillForm()
   editing.value = true
+  fillForm()
 }
 
 function cancelEditing() {
+  clearDraft(me.value?.id, props.item.linkId)
+  draftRestored.value = false
   editing.value = false
+}
+
+function discardDraft() {
+  clearDraft(me.value?.id, props.item.linkId)
+  draftRestored.value = false
+  bodyMd.value = submission.value?.bodyMd ?? ''
+  editorKey.value++
 }
 
 function onFilesChosen(event: Event) {
@@ -234,7 +272,28 @@ function onFilesChosen(event: Event) {
           id="submission-body"
           v-model="bodyMd"
           label="Ditt svar"
+          tall
         />
+        <div
+          v-if="draftRestored"
+          class="flex flex-wrap items-center gap-x-2 text-sm"
+          data-test="submission-draft-restored"
+        >
+          <span>Texten du skrev senast är återställd. Den är inte inlämnad än.</span>
+          <Button
+            type="button"
+            variant="link"
+            size="sm"
+            class="h-auto px-0"
+            data-test="submission-draft-discard"
+            @click="discardDraft"
+          >
+            Släng utkastet
+          </Button>
+        </div>
+        <p v-else class="text-muted-foreground text-xs" data-test="submission-draft-hint">
+          Texten sparas som utkast i den här webbläsaren medan du skriver.
+        </p>
       </div>
 
       <div v-if="hasFiles" class="flex flex-col gap-2">
