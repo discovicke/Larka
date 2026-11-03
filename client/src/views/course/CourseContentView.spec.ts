@@ -461,7 +461,8 @@ describe('CourseContentView', () => {
   })
 
   it('visar veckans publiceringsdatum i veckomärket', async () => {
-    backend([week('m1', 'Vecka 1', [submission], '2026-11-03T08:00:00Z')])
+    // En vecka fram, så att veckan alltid är schemalagd när testet körs.
+    backend([week('m1', 'Vecka 1', [submission], new Date(Date.now() + 7 * 86_400_000).toISOString())])
 
     const {wrapper} = await renderApp('/courses/c1/content')
 

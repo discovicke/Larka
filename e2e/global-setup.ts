@@ -1,16 +1,16 @@
 import type {FullConfig} from '@playwright/test'
 
-import {credentialsFor, roles, saveToken, type Role} from './auth'
+import {saveAdminToken} from './auth'
 
 const HEALTH_TIMEOUT_MS = 3 * 60 * 1000
-const RETRY_DELAY_MS = 5_000
+const RETRY_DELAY_MS = 2_000
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-// Render free tier somnar efter 15 minuter utan trafik och första anropet kan ta en minut.
-// Vänta tills appen svarar på /health innan testerna börjar, annars faller de på kallstarten.
+// Vänta tills stacken svarar på /health, och logga sedan in som demokontot admin. Det är det enda konto testerna
+// behöver från start: admin skapar lärare och elever med unika namn i varje test.
 export default async function globalSetup(config: FullConfig) {
   const baseURL = config.projects[0]?.use.baseURL
   if (!baseURL) {
@@ -18,9 +18,7 @@ export default async function globalSetup(config: FullConfig) {
   }
 
   await waitForHealth(baseURL)
-  for (const role of roles) {
-    await signIn(baseURL, role)
-  }
+  await signInAsAdmin(baseURL)
 }
 
 async function waitForHealth(baseURL: string) {
@@ -43,22 +41,19 @@ async function waitForHealth(baseURL: string) {
     await sleep(RETRY_DELAY_MS)
   }
 
-  throw new Error(`Appen svarade inte på /health inom 3 minuter (${healthUrl}, senast: ${lastError})`)
+  throw new Error(`Appen svarade inte på /health inom 3 minuter (${healthUrl}, senast: ${lastError}). Är stacken startad?`)
 }
 
-// Loggar in som varje roll med samma endpoint som klienten, och sparar tokenen för testerna. Lösenordet loggas aldrig.
-// Kontona är demokontona elev, larare och admin, eller E2E_<ROLL>_USERNAME och E2E_<ROLL>_PASSWORD.
-async function signIn(baseURL: string, role: Role) {
-  const {username, password} = credentialsFor(role)
+async function signInAsAdmin(baseURL: string) {
   const response = await fetch(`${baseURL}/api/auth/login`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({username, password}),
+    body: JSON.stringify({username: 'admin', password: 'admin'}),
   })
   if (!response.ok) {
-    throw new Error(`Inloggningen som ${role} misslyckades (HTTP ${response.status}). Kontrollera E2E_${role.toUpperCase()}_USERNAME och E2E_${role.toUpperCase()}_PASSWORD.`)
+    throw new Error(`Inloggningen som admin misslyckades (HTTP ${response.status}). Startades stacken med demodata?`)
   }
 
   const result = await response.json() as {accessToken: string, expiresAt: string}
-  await saveToken(role, {accessToken: result.accessToken, expiresAt: result.expiresAt})
+  await saveAdminToken({accessToken: result.accessToken, expiresAt: result.expiresAt})
 }

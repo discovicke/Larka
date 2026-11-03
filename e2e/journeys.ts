@@ -2,7 +2,7 @@ import {type APIRequestContext, expect, type Page} from '@playwright/test'
 
 import type {StoredToken} from './auth'
 
-// Hjälpmedel för journeys. Varje test bygger sin egen värld med unika namn via API:et (en klass, en lärare, elever
+// Hjälpmedel för E2E-testerna. Varje test bygger sin egen värld med unika namn via API:et (en klass, en lärare, elever
 // och en kurs), så att testen inte beror på demodatan eller på varandra. Själva flödet som testet handlar om går
 // alltid genom gränssnittet.
 
@@ -31,7 +31,6 @@ export interface Person {
 }
 
 export interface World {
-  mentor?: Person
   tag: string
   group: {id: string, name: string}
   course: {id: string, title: string}
@@ -61,10 +60,6 @@ export async function login(request: APIRequestContext, username: string, secret
 
 export interface WorldOptions {
   students?: number
-  // En mentor för klassen. Mentor är en roll i klassen, så kontot är ett lärarkonto.
-  mentor?: boolean
-  // Så många dagar från idag börjar kursen. Standard: två veckor sedan.
-  courseStartsInDays?: number
 }
 
 // En klass med elever, en lärare och en kurs som är kopplad till klassen och undervisas av läraren.
@@ -86,18 +81,13 @@ export async function createWorld(admin: APIRequestContext, options: WorldOption
       title: `Kurs ${tag}`,
       code: `E2E-${tag}`.toUpperCase(),
       points: 25,
-      startsOn: isoDay(options.courseStartsInDays ?? -14),
+      startsOn: isoDay(-14),
       endsOn: isoDay(60),
     },
   }))
   await json(await admin.post(`/api/groups/${group.id}/courses/${course.id}`))
   await json(await admin.post(`/api/courses/${course.id}/teachers`, {data: {userId: teacher.id}}))
-  let mentor: Person | undefined
-  if (options.mentor) {
-    mentor = await createUser(admin, `Mentor ${tag}`, 'Teacher')
-    await json(await admin.post(`/api/groups/${group.id}/members`, {data: {userId: mentor.id, role: 'Mentor'}}))
-  }
-  return {tag, group, course, teacher, students, mentor}
+  return {tag, group, course, teacher, students}
 }
 
 // Datum som ÅÅÅÅ-MM-DD, så många dagar från idag.
@@ -171,15 +161,6 @@ export async function submitAs(student: APIRequestContext, linkId: string, text:
   return await json<{id: string}>(await student.post(`/api/links/${linkId}/submissions`, {multipart: {bodyMd: text}}))
 }
 
-export async function grade(
-  teacher: APIRequestContext,
-  submissionId: string,
-  feedback: string,
-  level: 'Pass' | 'Distinction' | 'Fail' | null,
-  needsWork = false,
-) {
-  return await json(await teacher.post(`/api/submissions/${submissionId}/grade`, {data: {feedback, level, outcome: needsWork ? 'NeedsWork' : 'Graded'}}))
-}
 
 // Skriver i redigeraren (TipTap) som ett id eller en etikett pekar ut.
 export async function typeInEditor(page: Page, text: string, scope = page.locator('.tiptap, [contenteditable="true"]').first()) {
@@ -194,13 +175,4 @@ export async function pickDay(page: Page, buttonId: string, day: number) {
   const cell = page.locator('[data-reka-calendar-cell-trigger]:not([data-outside-view])').getByText(String(day), {exact: true})
   await cell.click()
   await page.keyboard.press('Escape')
-}
-
-// En kurs utan klass och med en lärare, för flöden där admin kopplar den själv.
-export async function createLooseCourse(admin: APIRequestContext, tag: string, teacher: Person) {
-  const course = await json<{id: string, title: string}>(await admin.post('/api/courses', {
-    data: {schoolId: demoSchoolId, title: `Lös kurs ${tag}`, code: `LOS-${tag}`.toUpperCase(), points: 10, startsOn: isoDay(-5), endsOn: isoDay(30)},
-  }))
-  await json(await admin.post(`/api/courses/${course.id}/teachers`, {data: {userId: teacher.id}}))
-  return course
 }

@@ -110,6 +110,20 @@ describe('SubmissionPanel', () => {
     expect(submit.attributes('disabled')).toBeDefined()
   })
 
+  it('visar formuläret först när inlämningen har hämtats, så att inget skrivet nollställs', async () => {
+    let answer: (response: Response) => void = () => {}
+    vi.stubGlobal('fetch', () => new Promise<Response>((resolve) => {
+      answer = resolve
+    }))
+    const wrapper = mount(SubmissionPanel, {props: {item: base}, attachTo: document.body})
+    await flushPromises()
+    expect(wrapper.find('[data-test="submission-form"]').exists()).toBe(false)
+
+    answer(new Response('[]', {status: 200, headers: {'Content-Type': 'application/json'}}))
+    await flushPromises()
+    expect(wrapper.find('[data-test="submission-form"]').exists()).toBe(true)
+  })
+
   it('skickar texten som multipart och meddelar att den lämnats in', async () => {
     backend()
     const append = vi.spyOn(FormData.prototype, 'append')

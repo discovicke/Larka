@@ -28,6 +28,8 @@ const addedFiles = ref<File[]>([])
 const editing = ref(false)
 // Editorn läser bara sitt startvärde, så den monteras om när formuläret fylls i på nytt.
 const editorKey = ref(0)
+// Formuläret visas först när inlämningen har hämtats. Annars nollställer fillForm det eleven hunnit skriva.
+const loaded = ref(false)
 
 const hasText = computed(() => props.item.submissionModes.includes('Text'))
 const hasFiles = computed(() => props.item.submissionModes.includes('File'))
@@ -40,6 +42,7 @@ const onSite = computed(() => props.item.submissionModes.includes('OnSite'))
 const status = computed(() => props.item.submissionStatus ?? 'NotStarted')
 // Den som inte lämnat in, eller ska komplettera, ser formuläret direkt. En inlämnad kan välja att ändra.
 const formOpen = computed(() => hasForm.value
+  && loaded.value
   && (status.value === 'NotStarted' || status.value === 'NotSubmitted' || status.value === 'NeedsWork' || editing.value))
 const isLate = computed(() => !!props.item.dueAt
   && status.value !== 'Graded'
@@ -95,19 +98,26 @@ const {run: submit, loading: saving, error} = useAsync(async () => {
 watch(() => props.item.linkId, load, {immediate: true})
 
 async function load() {
+  const linkId = props.item.linkId
   submission.value = null
   editing.value = false
   error.value = ''
+  loaded.value = false
   if (!hasForm.value && !hasRepo.value) {
+    loaded.value = true
     return
   }
   try {
-    const submissions = await fetchLinkSubmissions(props.item.linkId)
+    const submissions = await fetchLinkSubmissions(linkId)
+    if (linkId !== props.item.linkId) {
+      return
+    }
     submission.value = submissions[0] ?? null
   } catch (exception) {
     error.value = errorMessage(exception)
   }
   fillForm()
+  loaded.value = true
 }
 
 function fillForm() {

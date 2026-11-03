@@ -58,78 +58,38 @@ I CI samlar backend- och frontendjobben varsin täckning och skriver sitt tal i 
 | Backend              | `backend.Tests/` (xUnit)                  | `dotnet test Larka.sln`, på varje PR        | Docker              |
 | Egna analyzer-regler | `backend.Analyzers.Tests/`                | samma                                       |                     |
 | Frontend             | `client/src/**/*.spec.ts` (Vitest, jsdom) | `npm --prefix client run test`, på varje PR |                     |
-| E2E smoke            | `e2e/tests/smoke.spec.ts` (Playwright)    | varje dag 05:17 UTC och manuellt            | den deployade appen |
-| E2E journeys         | `e2e/tests/journeys/` (Playwright)        | varje natt 02:23 UTC och manuellt           | Docker (egen stack) |
+| E2E                  | `e2e/tests/` (Playwright)                 | varje natt 02:23 UTC och manuellt           | Docker (egen stack) |
 
 ### Backend mot Postgres
 
 Testerna startar en tillfällig Postgres med Testcontainers (en container per körning, en databas per testklass) och kör migrationerna, så `dotnet test` kräver att Docker körs.
 
-### E2E: två sviter
+### E2E: tre användarflöden
 
-[`e2e/`](../e2e) har två sviter i samma Playwright-uppsättning. Ingen av dem körs på PR:er. Där körs bara bygge, formatering, lint och enhetstester, så att en PR inte väntar på en hel E2E-stack. E2E körs på schema mot det som redan finns på `main`, och manuellt via _Actions_ före en riskabel merge.
+[`e2e/`](../e2e) har tre Playwright-tester som tillsammans följer kärnan i Lärka: admin förbereder en kurs, läraren publicerar en uppgift, eleven lämnar in, läraren bedömer och eleven ser betyget.
 
-|          | smoke                              | journeys                                             |
-| -------- | ---------------------------------- | ---------------------------------------------------- |
-| Vad      | att appen lever och sidorna laddar | användarflödena från början till slut                |
-| Skriver  | **nej**, bara läsning              | **ja**, skapar klasser, kurser, inlämningar och mer  |
-| Mot vad  | den deployade appen (prod)         | en färsk lokal stack, **aldrig prod**                |
-| Workflow | `e2e.yml`, dagligen 05:17 UTC      | `e2e-journeys.yml`, nattligen 02:23 UTC              |
-| Projekt  | `chromium` och `mobile`            | `journeys` (desktop) och `journeys-mobile` (bara E1) |
+| #   | Flöde                                                                   | Fil                                             |
+| --- | ----------------------------------------------------------------------- | ----------------------------------------------- |
+| 1   | Admin skapar en klass, klistrar in elever och skapar en kurs med lärare | `1-admin-forbereder-kursen.spec.ts`             |
+| 2   | Läraren publicerar en uppgift i en ny vecka, eleven lämnar in           | `2-lararen-publicerar-eleven-lamnar-in.spec.ts` |
+| 3   | Läraren bedömer från Att bedöma, eleven ser betyget och kommentaren     | `3-lararen-bedomer-eleven-ser-betyget.spec.ts`  |
 
-Journeys är avstängda om inte `E2E_JOURNEYS=1` är satt, och konfigurationen vägrar starta om basadressen är `onrender.com`. Samma kontroll finns som en automatisk fixture som fäller varje journey som körs mot produktion.
+Testerna går igenom det riktiga gränssnittet och byter roll mitt i testet där flödet har en överlämning. Data som ett test bara behöver förbereda (lärare, elever, en inlämning att bedöma) skapas via API:et med unika namn, så varje test är oberoende av de andra och av demodatan. Testerna körs i tur och ordning (`workers: 1`).
 
-#### Smoke mot den deployade appen
+**Testerna skriver data och körs aldrig mot produktion.** De körs mot en färsk stack: Postgres och appen byggd av `Dockerfile`, med `Database__SeedDemoData=true` och engångsvärden för hemligheterna. Standardadressen är `http://localhost:8080`, och `playwright.config.ts` vägrar starta om `E2E_BASE_URL` pekar på `onrender.com`. Att den deployade appen fungerar kontrolleras i stället av CD, som väntar tills produktionens `/version` visar den nya versionen.
 
-Testerna kontrollerar att `/health` och `/version` svarar, att startsidan och sidomenyn laddar, att en kurs går att öppna med nyhetsfliken, att `Alla grupper` visar tabellen utan sidledes scroll, att en okänd sökväg visar 404 och att utloggad skickas från `/groups` till inloggningen. Dessutom loggar de in som lärare (Idag och Att bedöma) och som admin (Idag och Användare). Varje test körs både som desktop och som mobil. Starta manuellt via _Actions › E2E › Run workflow_.
+E2E körs inte på PR:er. Där körs bara bygge, formatering, lint och enhetstester, så att en PR inte väntar på en hel stack. Workflowet `e2e.yml` körs varje natt 02:23 UTC mot det som finns på `main`, och manuellt via _Actions › E2E › Run workflow_ före en riskabel merge.
 
-Testerna **läser bara** appen: de skapar, ändrar eller tar aldrig bort något i produktion. Global setup loggar in som varje demokonto (`elev`, `larare`, `admin`) och sparar en token per roll i `e2e/.auth/token-<roll>.json` (checkas inte in). Ett test väljer roll med `test.use({role: 'larare'})`. Konton byts med `E2E_<ROLL>_USERNAME` och `E2E_<ROLL>_PASSWORD` (till exempel `E2E_LARARE_USERNAME`). För eleven gäller också de gamla `E2E_USERNAME` och `E2E_PASSWORD`.
-
-```bash
-cd e2e
-npm ci
-npx playwright install chromium
-
-npx playwright test                                        # smoke mot den deployade appen
-E2E_BASE_URL=http://localhost:5173 npx playwright test     # mot den lokala dev-instansen
-E2E_ELEV_USERNAME=elev2 E2E_ELEV_PASSWORD=hemligt npx playwright test # som ett annat elevkonto
-```
-
-Render-instansen somnar efter 15 minuter utan trafik, så `global-setup.ts` väntar tills `/health` svarar innan testerna börjar (upp till 3 minuter).
-
-#### Journeys mot en färsk stack
-
-Varje journey har en egen fil under `e2e/tests/journeys/`, och testets titel börjar med flödets ID. Testet går igenom det riktiga gränssnittet och byter roll mitt i testet där flödet har en överlämning (läraren bedömer, eleven ser resultatet). Data som ett test bara behöver förbereda skapas via API:et med unika namn, så varje test är oberoende av de andra och av demodatan. Journeys körs i tur och ordning (`workers: 1`).
-
-Lokalt, mot en stack byggd av `Dockerfile`:
+Lokalt:
 
 ```bash
 docker compose -f e2e/docker-compose.e2e.yml up -d --build --wait   # E2E_APP_PORT=5303 om 8080 är upptagen
 cd e2e
-E2E_BASE_URL=http://localhost:8080 E2E_JOURNEYS=1 npx playwright test --project=journeys --project=journeys-mobile
+npm ci
+npx playwright install chromium
+npx playwright test                                                 # E2E_BASE_URL=http://localhost:5303 vid annan port
 cd ..
 docker compose -f e2e/docker-compose.e2e.yml down -v               # ta alltid bort databasen
 ```
 
-Stacken är Postgres och appen med `Database__SeedDemoData=true` och engångsvärden för hemligheterna (JWT-nyckel, fillagring). Det går också att köra mot en app som startats på annat sätt, till exempel `dotnet publish` med en egen databas, så länge den har demodata.
-
-**Journeys skriver data och körs aldrig mot produktion.** Använd aldrig `E2E_BASE_URL` med Render-adressen tillsammans med `E2E_JOURNEYS=1`.
-
-| ID  | Flöde                                                           | Fil                              |
-| --- | --------------------------------------------------------------- | -------------------------------- |
-| F1  | Första inloggningen med Microsoft, välkomststeg, klass eller ej | `f1-forsta-inloggningen.spec.ts` |
-| E1  | Idag, Kalender och mobil visar vad som ska göras (även mobil)   | `e1-se-vad-jag-ska-gora.spec.ts` |
-| E2  | Läsa veckan och klarmarkera en del                              | `e2-lasa-veckan.spec.ts`         |
-| E3  | Lämna in, komplettera och lämna in igen                         | `e3-lamna-in.spec.ts`            |
-| E4  | Se återkoppling och betyg                                       | `e4-se-betyg.spec.ts`            |
-| L1  | Förbereda kursen: beskrivning, vecka, del, publicera            | `l1-forbered-kursen.spec.ts`     |
-| L2  | Köra veckan: ändra en del, skriva en nyhet                      | `l2-kor-veckan.spec.ts`          |
-| L3  | Bedöma: Spara och nästa, IG kräver kommentar                    | `l3-bedom.spec.ts`               |
-| M1  | Mentorn läser klassen utan att kunna ändra                      | `m1-folj-klassen.spec.ts`        |
-| A1  | Skapa klass och klistra in elever                               | `a1-skapa-klass.spec.ts`         |
-| A2  | Ny kurs från klassen och Koppla kurs                            | `a2-planera-terminen.spec.ts`    |
-| A3  | Ersätta lärare, bekräfta innan den sista tas bort               | `a3-byt-larare.spec.ts`          |
-| A4  | Avsluta en kurs, den hamnar under Avslutade                     | `a4-avsluta-terminen.spec.ts`    |
-| A5  | Idag, Att ordna per klass med länkar                            | `a5-att-ordna.spec.ts`           |
-
-F1 kan inte köra riktiga Microsoft. Testet ersätter MSAL-biblioteket (som är en egen chunk i bygget) med en stub som skickar tillbaka till `/login` med en kod, och svaret från `POST /api/auth/microsoft` med en token från vanlig inloggning och `firstSignIn: true`. Inloggningssidan, välkomststeget, profilen och sidorna efter är de riktiga. Kontrollen av ID-tokenet på servern täcks inte av testet, den ligger i backendtesterna.
+Global setup väntar tills `/health` svarar och loggar in som demokontot `admin`. Tokenet sparas i `e2e/.auth/token-admin.json` (checkas inte in).

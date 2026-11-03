@@ -1,14 +1,15 @@
 name: E2E
 
-# Rökprovning mot den deployade appen. Testerna läser bara: de skapar, ändrar och tar aldrig
-# bort något i produktion. Dagligen och på begäran, aldrig på PR:er.
+# Tre användarflöden (e2e/tests) mot en färsk stack: Postgres och appen byggd av Dockerfilen, med demodata.
+# Testerna skriver data, så de körs aldrig mot produktion. Att deployen fungerar kontrolleras redan av CD (/version).
+# Nattligen och på begäran, aldrig på PR:er. En körning bygger hela stacken och tar några minuter.
 on:
   schedule:
-    # Varje dag 05:17 UTC.
-    - cron: '17 5 * * *'
+    # Varje natt 02:23 UTC.
+    - cron: '23 2 * * *'
   workflow_dispatch:
 
-# En körning i taget. Två samtidiga kallstarter mot Render hjälper ingen.
+# En körning i taget.
 concurrency:
   group: e2e
   cancel-in-progress: false
@@ -18,15 +19,12 @@ permissions:
 
 jobs:
   e2e:
-    name: 'Smoke tests against prod'
+    name: 'User journeys against a fresh stack'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    defaults:
-      run:
-        working-directory: e2e
+    timeout-minutes: 30
     env:
-      # Render-adressen som standard, men går att byta med repository-variabeln E2E_BASE_URL.
-      E2E_BASE_URL: ${{ vars.E2E_BASE_URL || 'https://net25-devops-grupp-4.onrender.com' }}
+      E2E_APP_PORT: 8080
+      E2E_BASE_URL: http://localhost:8080
     steps:
       - uses: actions/checkout@v5
 
@@ -36,16 +34,40 @@ jobs:
           cache: npm
           cache-dependency-path: e2e/package-lock.json
 
+      # Bygger image från Dockerfilen (klienten byggs med) och startar Postgres och appen med demodata.
+      - name: Start stack
+        run: docker compose -f e2e/docker-compose.e2e.yml up -d --build --wait
+
       - name: Install
+        working-directory: e2e
         run: npm ci
 
       - name: Install browser
+        working-directory: e2e
         run: npx playwright install --with-deps chromium
 
+      # global-setup väntar också på /health, men ett tydligt fel här är lättare att läsa än en timeout i Playwright.
+      - name: Wait for health
+        run: |
+          for i in $(seq 1 60); do
+            curl -fsS "$E2E_BASE_URL/health" && exit 0
+            sleep 2
+          done
+          docker compose -f e2e/docker-compose.e2e.yml logs app
+          exit 1
+
       - name: Test
+        working-directory: e2e
         run: npx playwright test
 
-      # Rapporten och spåren, så att det går att se vad som gick fel i en körning.
+      - name: App logs
+        if: ${{ failure() }}
+        run: docker compose -f e2e/docker-compose.e2e.yml logs app
+
+      - name: Stop stack
+        if: ${{ always() }}
+        run: docker compose -f e2e/docker-compose.e2e.yml down -v
+
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:

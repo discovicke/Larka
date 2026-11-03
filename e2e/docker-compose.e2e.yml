@@ -1,8 +1,8 @@
-# En färsk stack för journeys (e2e/tests/journeys): Postgres och appen byggd av Dockerfilen, med demodata.
+# En färsk stack för E2E (e2e/tests): Postgres och appen byggd av Dockerfilen, med demodata.
 # Allt är engångsvärden. Hemligheterna här finns bara i den här stacken och skyddar ingenting.
 #
 #   docker compose -f e2e/docker-compose.e2e.yml up -d --build --wait
-#   E2E_BASE_URL=http://localhost:8080 E2E_JOURNEYS=1 npx playwright test --project=journeys --project=journeys-mobile
+#   cd e2e && npx playwright test
 #   docker compose -f e2e/docker-compose.e2e.yml down -v
 #
 # Värdporten byts med E2E_APP_PORT om 8080 är upptagen. Ta alltid ner stacken med -v så att databasen försvinner.
@@ -37,7 +37,7 @@ services:
       Auth__Jwt__Key: e2e-only-signing-key-not-a-secret-0123456789abcdef
       # Demokontona admin, larare och elev, med klasser, kurser och inlämningar.
       Database__SeedDemoData: 'true'
-      # Fillagringen kräver adress och nyckel utanför Development. Journeys laddar inte upp filer, så värdena
+      # Fillagringen kräver adress och nyckel utanför Development. E2E-testerna laddar inte upp filer, så värdena
       # pekar ingenstans och ingen Supabase-tjänst behövs.
       Storage__Supabase__Url: http://storage.invalid
       Storage__Supabase__ServiceRoleKey: e2e-only-not-a-secret
