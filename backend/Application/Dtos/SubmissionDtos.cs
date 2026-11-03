@@ -43,14 +43,16 @@ public record SubmissionDto(
     StudentSupportDto? Support,
     AssignmentGroupDto? Group = null,
     string? StudentAvatarUrl = null,
-    DateTimeOffset? PersonalDueAt = null)
+    DateTimeOffset? PersonalDueAt = null,
+    DeadlineStateDto? Deadline = null)
 {
     public static SubmissionDto From(
         Submission submission,
         string studentName,
         List<SubmissionFileDto> files,
         StudentSupportDto? support = null,
-        string? studentAvatarUrl = null)
+        string? studentAvatarUrl = null,
+        DeadlineStateDto? deadline = null)
     {
         var repo = submission.Repo ?? submission.Group?.Repo;
         var grade = submission.Grade is null
@@ -65,7 +67,7 @@ public record SubmissionDto(
             repo is null
                 ? null
                 : StudentRepoDto.From(repo),
-            grade, support, group, studentAvatarUrl, submission.PersonalDueAt);
+            grade, support, group, studentAvatarUrl, submission.PersonalDueAt, deadline);
     }
 }
 

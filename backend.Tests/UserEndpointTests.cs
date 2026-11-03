@@ -118,7 +118,7 @@ public class UserEndpointTests(TestWebApplicationFactory factory) : IClassFixtur
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Contains("password must be at least 8 characters", await response.Content.ReadAsStringAsync());
-        Assert.Null((await _client.GetFromJsonAsync<List<UserResponse>>("/api/users"))!
+        Assert.Null((await _client.GetJsonAsync<List<UserResponse>>("/api/users"))
             .FirstOrDefault(user => user.Email == email));
     }
 
@@ -313,7 +313,7 @@ public class UserEndpointTests(TestWebApplicationFactory factory) : IClassFixtur
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         }
 
-        Assert.Equal("Student", (await _client.GetFromJsonAsync<UserResponse>($"/api/users/{target.Id}"))!.Role);
+        Assert.Equal("Student", (await _client.GetJsonAsync<UserResponse>($"/api/users/{target.Id}")).Role);
     }
 
     [Fact]
@@ -394,7 +394,7 @@ public class UserEndpointTests(TestWebApplicationFactory factory) : IClassFixtur
 
         Assert.Equal(HttpStatusCode.NotFound, foreign.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
-        Assert.Null((await _client.GetFromJsonAsync<UserResponse>($"/api/users/{target.Id}"))!.DeactivatedAt);
+        Assert.Null((await _client.GetJsonAsync<UserResponse>($"/api/users/{target.Id}")).DeactivatedAt);
     }
 
     // En användare i skolan (eller en ny skola om schoolId saknas). Med groupRole läggs hen också i en grupp.

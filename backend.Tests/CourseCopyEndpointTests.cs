@@ -16,8 +16,6 @@ public class CourseCopyEndpointTests(TestWebApplicationFactory factory) : IClass
 
     private InMemoryFileStorage Storage => (InMemoryFileStorage)factory.Services.GetRequiredService<IFileStorage>();
 
-    private record ModuleResponse(Guid Id, Guid CourseId, string Title, int Position, DateTimeOffset? PublishAt);
-
     private record CopyResponse(List<ModuleResponse> Modules, int PartCount);
 
     // Källkursen: vecka 1 med teori (bilaga), inlämning (låst av teorin) och vecka 2 med en övning.

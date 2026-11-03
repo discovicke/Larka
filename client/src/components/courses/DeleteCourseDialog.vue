@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import ConfirmDeleteDialog from '@/components/ui/ConfirmDeleteDialog.vue'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import {api, type Schema} from '@/lib/api'
 
 const props = defineProps<{course: Schema<'CourseDto'>}>()
@@ -12,7 +12,7 @@ function remove() {
 </script>
 
 <template>
-  <ConfirmDeleteDialog
+  <ConfirmDialog
     v-model:open="open"
     :title="`Ta bort ${course.title}?`"
     description="Kursens veckor, innehåll och kopplingar till grupper tas bort. Grupperna och användarna finns kvar. Det går inte att ångra."

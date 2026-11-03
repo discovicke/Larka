@@ -7754,6 +7754,65 @@
         },
         "description": "Password är valfritt. Utan lösenord kan användaren inte logga in med e-post och lösenord."
       },
+      "DeadlineStateDto": {
+        "required": [
+          "nextDeadline",
+          "lastClassDeadline",
+          "autoFail",
+          "canHandIn",
+          "handInUntil",
+          "handInClosed",
+          "allowsFail",
+          "allowsNeedsWork"
+        ],
+        "type": "object",
+        "properties": {
+          "nextDeadline": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "lastClassDeadline": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "autoFail": {
+            "type": "boolean"
+          },
+          "canHandIn": {
+            "type": "boolean"
+          },
+          "handInUntil": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "handInClosed": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/HandInClosedReason"
+              }
+            ]
+          },
+          "allowsFail": {
+            "type": "boolean"
+          },
+          "allowsNeedsWork": {
+            "type": "boolean"
+          }
+        },
+        "description": "Vad deadlinerna tillåter för en elevs inlämning just nu, uträknat av GradingWindow. Klienten visar\ndet och räknar inget själv, så att reglerna bara finns på ett ställe."
+      },
       "GitHubAuthorizeDto": {
         "required": [
           "url"
@@ -8410,6 +8469,12 @@
           "Class",
           "Committee",
           "Other"
+        ]
+      },
+      "HandInClosedReason": {
+        "enum": [
+          "Locked",
+          "Closed"
         ]
       },
       "IFormFile": {
@@ -9610,6 +9675,16 @@
             "items": {
               "$ref": "#/components/schemas/RelatedLinkDto"
             }
+          },
+          "deadline": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DeadlineStateDto"
+              }
+            ]
           }
         },
         "description": "En del i veckan. BodyMd är null när delen är låst, så att texten inte går att läsa i förväg.\nCanMarkDone är true för teori och uppgifter utan inlämningssätt; uppgifter med inlämning\nblir klara genom Submission och har Submitted/Grade i stället."
@@ -10030,6 +10105,16 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "deadline": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DeadlineStateDto"
+              }
+            ]
           }
         },
         "description": "En uppgift eleven kan lämna in i kursen, med elevens egen inlämning och betyg."
@@ -10253,6 +10338,16 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "deadline": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DeadlineStateDto"
+              }
+            ]
           }
         }
       },

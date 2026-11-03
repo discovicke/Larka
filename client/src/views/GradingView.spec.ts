@@ -1,6 +1,8 @@
 import {flushPromises} from '@vue/test-utils'
 import {describe, expect, it} from 'vitest'
 
+import type {Schema} from '@/lib/api'
+import {deadlineState} from '@/test/deadline'
 import {mockApi, requests} from '@/test/mockApi'
 import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
@@ -45,6 +47,7 @@ function submission(
   status: string,
   submittedAt: string | null = null,
   grade: unknown = null,
+  deadline: Partial<Schema<'DeadlineStateDto'>> | null = null,
 ) {
   return {
     id,
@@ -57,6 +60,9 @@ function submission(
     files: [],
     repo: null,
     grade,
+    ...deadline
+      ? {deadline: deadlineState(deadline)}
+      : {},
   }
 }
 
@@ -206,13 +212,13 @@ describe('GradingView', () => {
           status: 200,
           body: [
             submission('s1', 'u1', 'Submitted', '2026-10-10T10:00:00Z'),
-            submission('s2', 'u2', 'NotStarted'),
-            submission('s3', 'u3', 'NeedsWork', '2026-10-09T10:00:00Z'),
+            submission('s2', 'u2', 'NotStarted', null, null, {nextDeadline: '2099-01-01T10:00:00Z'}),
+            submission('s3', 'u3', 'NeedsWork', '2026-10-09T10:00:00Z', null, {nextDeadline: '2099-01-01T10:00:00Z'}),
           ],
         }
       }
       if (path === '/api/links/l3/submissions') {
-        return {status: 200, body: [submission('s4', 'u2', 'NotStarted')]}
+        return {status: 200, body: [submission('s4', 'u2', 'NotStarted', null, null, {autoFail: true})]}
       }
       return {status: 404}
     })

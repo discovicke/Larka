@@ -15,12 +15,6 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
 
     private record Setup(Guid CourseId, Guid GroupId, List<Guid> StudentIds);
 
-    private record ModuleResponse(Guid Id);
-
-    private record ContentResponse(Guid Id);
-
-    private record LinkResponse(Guid Id);
-
     private record SubmissionResponse(Guid Id, Guid StudentId, string Status);
 
     private record BlockerResponse(Guid LinkId, string? Title, bool IsSatisfied);
@@ -71,7 +65,7 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     public async Task StudentModules_ShowAvailableAndLockedParts_AndHideUnpublished()
     {
         var setup = await AddCourseWithGroupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         var theory = await LinkTheoryAsync(setup.CourseId, week.Id, "Teori A", "Hemlig text");
         var exercise = await LinkExerciseAsync(setup.CourseId, week.Id, "Övning B");
         await SaveRoadmapAsync(setup.CourseId, week.Id, (theory, []), (exercise, [theory]));
@@ -104,9 +98,9 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     public async Task StudentModules_IncludeRelatedTheoryLinks()
     {
         var setup = await AddCourseWithGroupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         var theoryLink = await LinkTheoryAsync(setup.CourseId, week.Id, "Teori A", "Läs det här");
-        var assignment = await CreateContentAsync(new
+        var assignment = await _client.CreateContentAsync(new
         {
             type = "assignment",
             title = "Uppgift",
@@ -114,16 +108,14 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
             gradeScale = "passFail",
             submissionModes = new[] { "text" }
         });
-        var linked = await _client.PostAsJsonAsync(
+        var assignmentLink = (await _client.PostJsonAsync<LinkResponse>(
             $"/api/content/{assignment.Id}/links",
             new
             {
                 courseId = setup.CourseId,
                 moduleId = week.Id,
                 relatedLinkIds = new[] { theoryLink }
-            });
-        linked.EnsureSuccessStatusCode();
-        var assignmentLink = (await linked.Content.ReadFromJsonAsync<LinkResponse>())!.Id;
+            })).Id;
 
         var modules = await GetStudentModulesAsync(setup, setup.StudentIds[0]);
 
@@ -138,7 +130,7 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     public async Task LockedPart_KeepsItsTitle_ButTheBodyTextIsNotInTheResponse()
     {
         var setup = await AddCourseWithGroupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         var theory = await LinkTheoryAsync(setup.CourseId, week.Id, "Teori A");
         var locked = await LinkTheoryAsync(setup.CourseId, week.Id, "Teori B", "Texten som är låst");
         await SaveRoadmapAsync(setup.CourseId, week.Id, (theory, []), (locked, [theory]));
@@ -155,7 +147,7 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     {
         var setup = await AddCourseWithGroupAsync();
         var publishAt = "2099-01-05T08:00:00Z";
-        var week = await CreateModuleAsync(setup.CourseId, publishAt);
+        var week = await _client.CreateModuleAsync(setup.CourseId, publishAt: publishAt);
         var theory = await LinkTheoryAsync(setup.CourseId, week.Id, "Hemlig teori");
 
         var module = Assert.Single(await GetStudentModulesAsync(setup, setup.StudentIds[0]));
@@ -172,7 +164,7 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     public async Task Student_CannotCompleteALockedPart()
     {
         var setup = await AddCourseWithGroupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         var theory = await LinkTheoryAsync(setup.CourseId, week.Id, "Teori A");
         var lockedTheory = await LinkTheoryAsync(setup.CourseId, week.Id, "Teori B");
         await SaveRoadmapAsync(setup.CourseId, week.Id, (theory, []), (lockedTheory, [theory]));
@@ -187,7 +179,7 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     public async Task CompletingATheory_UnlocksTheNextPartInTheSameResponse()
     {
         var setup = await AddCourseWithGroupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         var theory = await LinkTheoryAsync(setup.CourseId, week.Id, "Teori A");
         var exercise = await LinkExerciseAsync(setup.CourseId, week.Id, "Övning B");
         await SaveRoadmapAsync(setup.CourseId, week.Id, (theory, []), (exercise, [theory]));
@@ -206,7 +198,7 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     public async Task UnmarkingATheory_LocksTheDependentPartAgain()
     {
         var setup = await AddCourseWithGroupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         var theory = await LinkTheoryAsync(setup.CourseId, week.Id, "Teori A");
         var exercise = await LinkExerciseAsync(setup.CourseId, week.Id, "Övning B");
         await SaveRoadmapAsync(setup.CourseId, week.Id, (theory, []), (exercise, [theory]));
@@ -223,7 +215,7 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     public async Task SubmittedAssignment_UnlocksWithTheDefaultRule()
     {
         var setup = await AddCourseWithGroupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         var assignment = await LinkAssignmentAsync(setup.CourseId, week.Id, "Inlämning");
         var exercise = await LinkExerciseAsync(setup.CourseId, week.Id, "Övning B");
         await SaveRoadmapAsync(setup.CourseId, week.Id, (assignment, []), (exercise, [assignment]));
@@ -240,7 +232,7 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     public async Task AutomaticFail_CountsAsFinished_AndUnlocksTheNextPart()
     {
         var setup = await AddCourseWithGroupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         var assignment = await LinkAssignmentAsync(setup.CourseId, week.Id, "Inlämning");
         var exercise = await LinkExerciseAsync(setup.CourseId, week.Id, "Övning B");
         await SaveRoadmapAsync(setup.CourseId, week.Id, (assignment, []), (exercise, [assignment]));
@@ -267,7 +259,7 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     public async Task AssignmentItem_ListsItsSubmissionModes()
     {
         var setup = await AddCourseWithGroupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         var assignment = await LinkAssignmentAsync(setup.CourseId, week.Id, "Inlämning");
 
         var item = (await GetStudentModulesAsync(setup, setup.StudentIds[0]))
@@ -280,7 +272,7 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     public async Task ApprovedAssignment_UnlocksFirstAfterAGrade()
     {
         var setup = await AddCourseWithGroupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         var assignment = await LinkAssignmentAsync(setup.CourseId, week.Id, "Inlämning");
         var exercise = await LinkExerciseAsync(setup.CourseId, week.Id, "Övning B");
         await SaveRulesAsync(setup.CourseId, week.Id, (assignment, [], "Approved"), (exercise, [assignment], null));
@@ -305,7 +297,7 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     public async Task ApprovedAssignment_ThatNeedsWork_DoesNotUnlock()
     {
         var setup = await AddCourseWithGroupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         var assignment = await LinkAssignmentAsync(setup.CourseId, week.Id, "Inlämning");
         var exercise = await LinkExerciseAsync(setup.CourseId, week.Id, "Övning B");
         await SaveRulesAsync(setup.CourseId, week.Id, (assignment, [], "Approved"), (exercise, [assignment], null));
@@ -323,7 +315,7 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     public async Task Student_CannotManuallyCompleteAnAssignmentWithSubmissionModes()
     {
         var setup = await AddCourseWithGroupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         var assignment = await LinkAssignmentAsync(setup.CourseId, week.Id, "Inlämning");
 
         var response = await SetCompletionAsync(setup, setup.StudentIds[0], assignment, true);
@@ -336,7 +328,7 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     public async Task AClassmatesCompletion_DoesNotUnlockForOtherStudents()
     {
         var setup = await AddCourseWithGroupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         var theory = await LinkTheoryAsync(setup.CourseId, week.Id, "Teori A");
         var exercise = await LinkExerciseAsync(setup.CourseId, week.Id, "Övning B");
         await SaveRoadmapAsync(setup.CourseId, week.Id, (theory, []), (exercise, [theory]));
@@ -420,12 +412,12 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
             await db.SaveChangesAsync();
         }
 
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         await LinkTheoryAsync(setup.CourseId, week.Id, "Gemensam");
-        var content = await CreateContentAsync(new { type = "theory", title = "Bara andra gruppen", bodyMd = "" });
-        var link = await _client.PostAsJsonAsync($"/api/content/{content.Id}/links",
+        var content = await _client.CreateContentAsync(
+            new { type = "theory", title = "Bara andra gruppen", bodyMd = "" });
+        await _client.PostJsonAsync($"/api/content/{content.Id}/links",
             new { groupId = otherGroup, courseId = setup.CourseId, moduleId = week.Id });
-        link.EnsureSuccessStatusCode();
 
         var modules = await GetStudentModulesAsync(setup, studentId);
 
@@ -438,7 +430,7 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     public async Task ScheduledBlocker_KeepsThePartLockedWithoutRevealingItsTitle()
     {
         var setup = await AddCourseWithGroupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         var scheduled = await LinkTheoryAsync(setup.CourseId, week.Id, "Publiceras senare", null,
             "2099-01-01T08:00:00Z");
         var exercise = await LinkExerciseAsync(setup.CourseId, week.Id, "Övning B");
@@ -465,8 +457,8 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
             await db.SaveChangesAsync();
         }
 
-        var week = await CreateModuleAsync(setup.CourseId);
-        var content = await CreateContentAsync(new { type = "theory", title = "Bara för andra", bodyMd = "" });
+        var week = await _client.CreateModuleAsync(setup.CourseId);
+        var content = await _client.CreateContentAsync(new { type = "theory", title = "Bara för andra", bodyMd = "" });
         var link = await _client.PostAsJsonAsync($"/api/content/{content.Id}/links",
             new { groupId = otherGroup, courseId = setup.CourseId, moduleId = week.Id });
         var linkId = (await link.Content.ReadFromJsonAsync<LinkResponse>())!.Id;
@@ -480,7 +472,7 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     public async Task Student_CannotCompleteANewsPart()
     {
         var setup = await AddCourseWithGroupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         var news = await LinkContentAsync(setup.CourseId, week.Id, new
         {
             type = "news",
@@ -498,7 +490,7 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     public async Task DeletingAPart_RemovesItsDependencies()
     {
         var setup = await AddCourseWithGroupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         var first = await LinkTheoryAsync(setup.CourseId, week.Id, "Teori A");
         var second = await LinkTheoryAsync(setup.CourseId, week.Id, "Teori B");
         await SaveRoadmapAsync(setup.CourseId, week.Id, (first, []), (second, [first]));
@@ -524,7 +516,7 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     public async Task DeletingAPart_WithACompletion_ReturnsConflict()
     {
         var setup = await AddCourseWithGroupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         var first = await LinkTheoryAsync(setup.CourseId, week.Id, "Teori A");
         await SetCompletionAsync(setup, setup.StudentIds[0], first, true);
 
@@ -545,7 +537,7 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     public async Task RepoAssignment_IncludesRepoAndRepoModeForStudent()
     {
         var setup = await AddCourseWithGroupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         await LinkContentAsync(setup.CourseId, week.Id, new
         {
             type = "assignment",
@@ -599,7 +591,7 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     public async Task Checklist_RoundTripsPerStudent_AndOtherStudentsDoNotSeeIt()
     {
         var setup = await AddCourseWithGroupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         var link = await LinkAssignmentAsync(setup.CourseId, week.Id, "Uppgift");
 
         Assert.Empty((await GetChecklistAsync(setup, setup.StudentIds[0], link)).CheckedIndexes);
@@ -620,7 +612,7 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     public async Task StudentHelpFlag_CanBeRequestedAndResolved()
     {
         var setup = await AddCourseWithGroupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         var link = await LinkAssignmentAsync(setup.CourseId, week.Id, "Uppgift");
         var studentId = setup.StudentIds[0];
         Guid teacherId;
@@ -666,7 +658,7 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     public async Task Checklist_WithNegativeOrHugeIndex_ReturnsBadRequest()
     {
         var setup = await AddCourseWithGroupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         var link = await LinkAssignmentAsync(setup.CourseId, week.Id, "Uppgift");
 
         var negative = await SetChecklistAsync(setup, setup.StudentIds[0], link, -1, true);
@@ -680,7 +672,7 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     public async Task Checklist_ForAStudentInAnotherGroup_ReturnsForbidden()
     {
         var setup = await AddCourseWithGroupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         var link = await LinkAssignmentAsync(setup.CourseId, week.Id, "Uppgift");
         Guid outsider;
         using (var scope = factory.Services.CreateScope())
@@ -711,8 +703,8 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     private async Task<ChecklistResponse> GetChecklistAsync(Setup setup, Guid studentId, Guid linkId)
     {
         using var student = StudentClient(studentId);
-        return (await student.GetFromJsonAsync<ChecklistResponse>(
-            $"/api/courses/{setup.CourseId}/links/{linkId}/checklist"))!;
+        return await student.GetJsonAsync<ChecklistResponse>(
+            $"/api/courses/{setup.CourseId}/links/{linkId}/checklist");
     }
 
     private async Task<HttpResponseMessage> SetChecklistAsync(
@@ -727,8 +719,8 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     private async Task<List<ModuleWithContent>> GetStudentModulesAsync(Setup setup, Guid studentId)
     {
         using var student = StudentClient(studentId);
-        return (await student.GetFromJsonAsync<List<ModuleWithContent>>(
-            $"/api/courses/{setup.CourseId}/student-modules"))!;
+        return await student.GetJsonAsync<List<ModuleWithContent>>(
+            $"/api/courses/{setup.CourseId}/student-modules");
     }
 
     private async Task<HttpResponseMessage> SetCompletionAsync(
@@ -797,14 +789,6 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
         return new Setup(course.Id, group.Id, studentIds);
     }
 
-    private async Task<ModuleResponse> CreateModuleAsync(Guid courseId, string? publishAt = null)
-    {
-        var response = await _client.PostAsJsonAsync(
-            $"/api/courses/{courseId}/modules", new { title = "Vecka 1", publishAt });
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<ModuleResponse>())!;
-    }
-
     private Task<Guid> LinkTheoryAsync(
         Guid courseId, Guid moduleId, string title, string? bodyMd = null, string? publishAt = null) =>
         LinkContentAsync(courseId, moduleId, new
@@ -836,17 +820,9 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
     private async Task<Guid> LinkContentAsync(
         Guid courseId, Guid moduleId, object content, string? publishAt = null)
     {
-        var created = await CreateContentAsync(content);
-        var link = await _client.PostAsJsonAsync(
-            $"/api/content/{created.Id}/links", new { courseId, moduleId, publishAt });
-        link.EnsureSuccessStatusCode();
-        return (await link.Content.ReadFromJsonAsync<LinkResponse>())!.Id;
+        var created = await _client.CreateContentAsync(content);
+        return (await _client.PostJsonAsync<LinkResponse>(
+            $"/api/content/{created.Id}/links", new { courseId, moduleId, publishAt })).Id;
     }
 
-    private async Task<ContentResponse> CreateContentAsync(object content)
-    {
-        var response = await _client.PostAsJsonAsync("/api/content", content);
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<ContentResponse>())!;
-    }
 }

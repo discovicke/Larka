@@ -1,5 +1,4 @@
 import {type Schema} from '@/lib/api'
-import {isAutoFail, nextDeadline} from '@/lib/gradingWindow'
 import {gradeLabel, levelsFor} from '@/lib/submissions'
 import {fetchCourseModules} from '@/lib/modulesApi'
 import {fetchLinkSubmissions} from '@/lib/submissionsApi'
@@ -14,8 +13,6 @@ export interface GradingRow {
   /** Uppgiftens deadlines. Utan dueAt gäller ingen deadlinelogik. */
   dueAt: string | null
   resubmitDueAt: string[]
-  /** Elevens egen extra deadline, om läraren har gett en. */
-  personalDueAt: string | null
   gradeScale: Schema<'GradeScale'> | null
   /** Sant när en tidigare bedömning finns: läraren har begärt komplettering förut. */
   previousGrade: boolean
@@ -63,10 +60,16 @@ export async function fetchAssignmentRows(courses: Schema<'CourseDto'>[]): Promi
       name: submission.studentName,
       dueAt: item.dueAt ?? null,
       resubmitDueAt: item.resubmitDueAt ?? [],
-      personalDueAt: submission.personalDueAt ?? null,
       gradeScale: item.gradeScale ?? null,
       previousGrade: submission.grade != null,
     })))
+}
+
+// Klassens nästa deadline (huvuddeadline eller komplettering) för rubriken. Elevens läge kommer från backend.
+function nextClassDeadline(group: Pick<GradingGroup, 'dueAt' | 'resubmitDueAt'>, now: Date): string | null {
+  return [group.dueAt, ...group.resubmitDueAt]
+    .filter((value): value is string => Boolean(value) && new Date(value as string) > now)
+    .sort((first, second) => new Date(first).getTime() - new Date(second).getTime())[0] ?? null
 }
 
 /** Vilken flik en rad hör till, eller null när läraren inget har att göra eller se. */
@@ -76,7 +79,7 @@ export function gradingTabOf(row: GradingRow, now = new Date()): GradingTab | nu
     return 'submitted'
   }
   // Automatiskt IG kräver ingen åtgärd av läraren och visas inte här. Det syns i uppgiftens inlämningslista.
-  if (isAutoFail(row, status, now)) {
+  if (row.submission.deadline?.autoFail) {
     return null
   }
   if (status === 'NeedsWork') {
@@ -142,7 +145,7 @@ export function deadlineLine(
   if (!group.dueAt) {
     return {text: 'Ingen deadline', last: false}
   }
-  const upcoming = nextDeadline(group, now)
+  const upcoming = nextClassDeadline(group, now)
   if (new Date(group.dueAt) > now) {
     return {text: `Deadline ${shortDate(group.dueAt)}`, last: false}
   }

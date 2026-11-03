@@ -44,7 +44,7 @@ Sidorna byggs efter arbetet, inte efter databasens objekt.
 
 ## Inlämning och bedömning
 
-Deadlinerna bestämmer när eleven får lämna in och vad läraren får sätta. Reglerna bor på ett ställe i backend (`GradingWindow`) och är speglade i ett ställe i klienten (`lib/gradingWindow.ts`). Beslutade i #403.
+Deadlinerna bestämmer när eleven får lämna in och vad läraren får sätta. Reglerna bor på ett ställe i backend (`GradingWindow`) och klienten räknar inget själv: backend skickar `DeadlineStateDto` (`deadline`) på inlämningen och klienten visar det. Beslutade i #403.
 
 **Deadlines.** Uppgiften har en huvuddeadline och högst fem kompletteringsdeadlines (`ResubmitDueAt`). Nästa deadline är den första av dem som ligger efter nu, jämförd i UTC.
 
@@ -53,7 +53,7 @@ Deadlinerna bestämmer när eleven får lämna in och vad läraren får sätta. 
 - **En Inlämnad inlämning låses** när huvuddeadlinen har gått, tills läraren har bedömt den.
 - **Efter sista deadline** går inget att lämna in.
 
-**Automatiskt IG.** När uppgiften har en deadline och ingen deadline återstår för eleven får den som inte lämnat in (Inte inlämnad) eller inte kompletterat (Komplettera) IG automatiskt. Det härleds alltid och sparas aldrig. Regeln bor i `GradingWindow.IsAutoFail` (backend) och `isAutoFail` i `lib/gradingWindow.ts` (klient), och elevens personliga deadline räknas med där (se nedan). Beslutade i #446.
+**Automatiskt IG.** När uppgiften har en deadline och ingen deadline återstår för eleven får den som inte lämnat in (Inte inlämnad) eller inte kompletterat (Komplettera) IG automatiskt. Det härleds alltid och sparas aldrig. Regeln bor i `GradingWindow.IsAutoFail` (backend), klienten läser `deadline.autoFail`, och elevens personliga deadline räknas med där (se nedan). Beslutade i #446.
 
 - Inte inlämnad visas som _IG · Ingen inlämning_.
 - Komplettera visas som _IG · Kompletteringen lämnades inte in_.
@@ -75,7 +75,7 @@ Deadlinerna bestämmer när eleven får lämna in och vad läraren får sätta. 
 
 Läraren kan ge en enskild elev en extra deadline (`Submission.PersonalDueAt`), till exempel efter sjukdom. Beslutade i #448.
 
-- Den räknas som en deadline till bredvid huvuddeadlinen och kompletteringsdeadlinerna. `GradingWindow.Of(länk, inlämning, nu)` bygger elevens fönster, och klientens `lib/gradingWindow.ts` speglar det.
+- Den räknas som en deadline till bredvid huvuddeadlinen och kompletteringsdeadlinerna. `GradingWindow.Of(länk, inlämning, nu)` bygger elevens fönster, och `DeadlineStateDto.From` ger klienten resultatet.
 - Den syns i elevens kalender (_Din deadline_), liksom kompletteringsdeadlinerna (_Kompletteringsdeadline_), och i Att göra.
 - Så länge den återstår får eleven lämna in (Inte inlämnad, Komplettera), läraren kan begära Komplettera men inte sätta IG, och det automatiska IG:t uteblir. När den passerat kommer det automatiska IG:t tillbaka.
 - En Inlämnad inlämning låses som vanligt när huvuddeadlinen gått. Den personliga deadlinen ändrar inte det.

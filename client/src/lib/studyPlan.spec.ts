@@ -1,6 +1,7 @@
 import {describe, expect, it} from 'vitest'
 
 import {assignmentStatus, coursePeriod, courseStatusLabel, gradeText, shortDate} from '@/lib/studyPlan'
+import {deadlineState} from '@/test/deadline'
 
 const now = new Date('2026-10-27T12:00:00Z')
 
@@ -8,6 +9,7 @@ function assignment(
   status: 'NotStarted' | 'Submitted' | 'NeedsWork' | 'Graded',
   dueAt: string | null = null,
   resubmitDueAt: string[] = [],
+  autoFail = false,
 ) {
   return {
     linkId: 'l1',
@@ -15,6 +17,7 @@ function assignment(
     dueAt,
     resubmitDueAt,
     personalDueAt: null,
+    deadline: deadlineState({autoFail}),
     status,
     grade: status === 'Graded'
       ? 'Pass' as const
@@ -78,8 +81,8 @@ describe('assignmentStatus', () => {
     expect(assignmentStatus(assignment('Submitted'), now)).toBe('Inlämnad')
     expect(assignmentStatus(assignment('NeedsWork'), now)).toBe('Komplettera')
     expect(assignmentStatus(assignment('Graded'), now)).toBe('Godkänd')
-    expect(assignmentStatus(assignment('NotStarted', '2020-01-01T10:00:00Z'), now)).toBe('IG · Ingen inlämning')
-    expect(assignmentStatus(assignment('NeedsWork', '2020-01-01T10:00:00Z'), now))
+    expect(assignmentStatus(assignment('NotStarted', '2020-01-01T10:00:00Z', [], true), now)).toBe('IG · Ingen inlämning')
+    expect(assignmentStatus(assignment('NeedsWork', '2020-01-01T10:00:00Z', [], true), now))
       .toBe('IG · Kompletteringen lämnades inte in')
   })
 })

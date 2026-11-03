@@ -338,7 +338,12 @@ public class StudentContentService(
                 ? null
                 : StudentRepoDto.From(repo),
             group,
-            relatedByLinkId.GetValueOrDefault(link.Link.Id) ?? []);
+            relatedByLinkId.GetValueOrDefault(link.Link.Id) ?? [],
+            link.Content.Assignment is null
+                ? null
+                : DeadlineStateDto.From(
+                    GradingWindow.Of(link.Link, submission, now),
+                    submission?.Status ?? SubmissionStatus.NotStarted));
     }
 
     // Titeln visas bara om förutsättningen är publicerad och har passerat PublishAt.

@@ -9,7 +9,6 @@ import {
   stageHint,
   stageLabel,
   stagesOf,
-  unlockCount,
   unlocksOf,
   type RoadmapNode,
 } from '@/lib/roadmap'
@@ -46,14 +45,6 @@ describe('roadmap', () => {
     }
 
     expect(nodeOf(part).blockedBy).toEqual([])
-  })
-
-  it('räknar hur många delar en del låser upp', () => {
-    const nodes = [node('a'), node('b', ['a']), node('c', ['a', 'b'])]
-
-    expect(unlockCount(nodes, 'a')).toBe(2)
-    expect(unlockCount(nodes, 'b')).toBe(1)
-    expect(unlockCount(nodes, 'c')).toBe(0)
   })
 
   it('ger delarna som en del låser upp', () => {

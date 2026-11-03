@@ -25,8 +25,6 @@ public class CourseTeacherEndpointTests(TestWebApplicationFactory factory) : ICl
 
     private readonly HttpClient _client = factory.CreateClient();
 
-    private record IdResponse(Guid Id);
-
     private record TeacherResponse(Guid UserId, string Name, string Email);
 
     private record GroupResponse(Guid Id);
@@ -370,29 +368,23 @@ public class CourseTeacherEndpointTests(TestWebApplicationFactory factory) : ICl
     // En uppgift som bedöms på plats, delad ut till kursen. Utdelningen ger en inlämningsrad per elev i klassen.
     private async Task<Guid> LinkOnSiteAssignmentAsync(Guid courseId, DateTimeOffset? dueAt = null)
     {
-        var created = await _client.PostAsJsonAsync("/api/content", new
+        var contentId = (await _client.PostJsonAsync<IdResponse>("/api/content", new
         {
             type = "assignment",
             title = "Redovisning",
             bodyMd = "",
             gradeScale = "passFail",
             submissionModes = new[] { "onSite" }
-        });
-        created.EnsureSuccessStatusCode();
-        var contentId = (await created.Content.ReadFromJsonAsync<IdResponse>())!.Id;
-        var link = await _client.PostAsJsonAsync($"/api/content/{contentId}/links", new { courseId, dueAt });
-        link.EnsureSuccessStatusCode();
-        return (await link.Content.ReadFromJsonAsync<IdResponse>())!.Id;
+        })).Id;
+        return (await _client.PostJsonAsync<IdResponse>($"/api/content/{contentId}/links", new { courseId, dueAt })).Id;
     }
 
     private record LinkedNews(Guid Content, Guid Link);
 
     private async Task<LinkedNews> LinkNewsAsync(object link)
     {
-        var created = await _client.PostAsJsonAsync(
-            "/api/content", new { type = "news", title = "Nyhet", bodyMd = "Text" });
-        created.EnsureSuccessStatusCode();
-        var contentId = (await created.Content.ReadFromJsonAsync<IdResponse>())!.Id;
+        var contentId = (await _client.PostJsonAsync<IdResponse>(
+            "/api/content", new { type = "news", title = "Nyhet", bodyMd = "Text" })).Id;
         var response = await _client.PostAsJsonAsync($"/api/content/{contentId}/links", link);
         response.EnsureSuccessStatusCode();
         return new LinkedNews(contentId, (await response.Content.ReadFromJsonAsync<IdResponse>())!.Id);

@@ -60,12 +60,6 @@ public class TeachingEndpointTests(TestWebApplicationFactory factory) : IClassFi
         Guid CourseId, string Code, string Title, int Students, int ToGrade, bool NeedsPreparation,
         DateOnly? StartsOn, DateOnly? EndsOn);
 
-    private record ContentResponse(Guid Id);
-
-    private record LinkResponse(Guid Id);
-
-    private record ModuleResponse(Guid Id);
-
     [Fact]
     public async Task NeedsPreparation_IsTrue_WhenTheDescriptionIsEmpty()
     {
@@ -110,10 +104,10 @@ public class TeachingEndpointTests(TestWebApplicationFactory factory) : IClassFi
     {
         var setup = await AddSetupAsync();
         await SetCourseAsync(setup.CourseId, "Beskrivning", DateOnly.FromDateTime(DateTime.UtcNow).AddDays(14));
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
 
         var before = await GetTeachingAsync(setup.TeacherId);
-        await CreateTheoryLinkAsync("Del 1", new { courseId = setup.CourseId, moduleId = week.Id });
+        await _client.CreateTheoryLinkAsync("Del 1", new { courseId = setup.CourseId, moduleId = week.Id });
         var after = await GetTeachingAsync(setup.TeacherId);
 
         Assert.True(before.Courses.Single().NeedsPreparation);
@@ -125,9 +119,9 @@ public class TeachingEndpointTests(TestWebApplicationFactory factory) : IClassFi
     {
         var setup = await AddSetupAsync();
         var now = DateTimeOffset.UtcNow;
-        var older = await CreateAssignmentLinkAsync(
+        var older = await _client.CreateAssignmentLinkAsync(
             "Äldre", new { courseId = setup.CourseId, dueAt = now.AddDays(2) });
-        var newer = await CreateAssignmentLinkAsync(
+        var newer = await _client.CreateAssignmentLinkAsync(
             "Nyare", new { courseId = setup.CourseId, dueAt = now.AddDays(1) });
         var olderSubmission = await SetSubmissionAsync(
             older, setup.StudentId, SubmissionStatus.Submitted, now.AddHours(-2));
@@ -151,17 +145,17 @@ public class TeachingEndpointTests(TestWebApplicationFactory factory) : IClassFi
     {
         var setup = await AddSetupAsync();
         var now = DateTimeOffset.UtcNow;
-        var graded = await CreateAssignmentLinkAsync("Bedömd", new { courseId = setup.CourseId });
-        var needsWork = await CreateAssignmentLinkAsync("Komplettering", new { courseId = setup.CourseId });
-        var waiting = await CreateAssignmentLinkAsync("Väntar", new { courseId = setup.CourseId });
-        var otherCourse = await CreateAssignmentLinkAsync(
+        var graded = await _client.CreateAssignmentLinkAsync("Bedömd", new { courseId = setup.CourseId });
+        var needsWork = await _client.CreateAssignmentLinkAsync("Komplettering", new { courseId = setup.CourseId });
+        var waiting = await _client.CreateAssignmentLinkAsync("Väntar", new { courseId = setup.CourseId });
+        var otherCourse = await _client.CreateAssignmentLinkAsync(
             "Annan kurs", new { courseId = setup.OtherCourseId, dueAt = now.AddDays(2) });
         await SetSubmissionAsync(graded, setup.StudentId, SubmissionStatus.Graded, now.AddHours(-3));
         await SetSubmissionAsync(needsWork, setup.StudentId, SubmissionStatus.NeedsWork, now.AddHours(-2));
         await SetSubmissionAsync(waiting, setup.StudentId, SubmissionStatus.Submitted, now.AddHours(-1));
         await SetSubmissionAsync(
             otherCourse, setup.OtherGroupStudentId, SubmissionStatus.Submitted, now.AddHours(-1));
-        await CreateModuleAsync(setup.OtherCourseId, now.AddDays(2));
+        await _client.CreateModuleAsync(setup.OtherCourseId, publishAt: now.AddDays(2));
 
         var teaching = await GetTeachingAsync(setup.TeacherId);
 
@@ -180,11 +174,11 @@ public class TeachingEndpointTests(TestWebApplicationFactory factory) : IClassFi
     {
         var setup = await AddSetupAsync();
         var now = DateTimeOffset.UtcNow;
-        var soon = await CreateAssignmentLinkAsync(
+        var soon = await _client.CreateAssignmentLinkAsync(
             "Snart", new { courseId = setup.CourseId, dueAt = now.AddDays(3) });
-        await CreateAssignmentLinkAsync(
+        await _client.CreateAssignmentLinkAsync(
             "Om en månad", new { courseId = setup.CourseId, dueAt = now.AddDays(30) });
-        var draft = await CreateContentAsync(new
+        var draft = await _client.CreateContentAsync(new
         {
             type = "assignment",
             title = "Utkast",
@@ -192,7 +186,7 @@ public class TeachingEndpointTests(TestWebApplicationFactory factory) : IClassFi
             status = "draft",
             submissionModes = new[] { "text" }
         });
-        await CreateLinkAsync(draft.Id, new { courseId = setup.CourseId, dueAt = now.AddDays(4) });
+        await _client.CreateLinkAsync(draft.Id, new { courseId = setup.CourseId, dueAt = now.AddDays(4) });
         await SetSubmissionAsync(soon, setup.StudentId, SubmissionStatus.Submitted, now.AddHours(-1));
 
         var teaching = await GetTeachingAsync(setup.TeacherId);
@@ -211,9 +205,9 @@ public class TeachingEndpointTests(TestWebApplicationFactory factory) : IClassFi
     {
         var setup = await AddSetupAsync();
         var now = DateTimeOffset.UtcNow;
-        var soonWeek = await CreateModuleAsync(setup.CourseId, now.AddDays(2));
-        await CreateModuleAsync(setup.CourseId, now.AddDays(10));
-        var part = await CreateTheoryLinkAsync(
+        var soonWeek = await _client.CreateModuleAsync(setup.CourseId, publishAt: now.AddDays(2));
+        await _client.CreateModuleAsync(setup.CourseId, publishAt: now.AddDays(10));
+        var part = await _client.CreateTheoryLinkAsync(
             "Ny del", new { courseId = setup.CourseId, moduleId = soonWeek.Id, publishAt = now.AddDays(3) });
 
         var teaching = await GetTeachingAsync(setup.TeacherId);
@@ -233,10 +227,10 @@ public class TeachingEndpointTests(TestWebApplicationFactory factory) : IClassFi
     {
         var setup = await AddSetupAsync();
         var now = DateTimeOffset.UtcNow;
-        var link = await CreateAssignmentLinkAsync(
+        var link = await _client.CreateAssignmentLinkAsync(
             "Uppgift", new { courseId = setup.CourseId, dueAt = now.AddDays(2) });
         await SetSubmissionAsync(link, setup.StudentId, SubmissionStatus.Submitted, now.AddHours(-1));
-        await CreateModuleAsync(setup.CourseId, now.AddDays(2));
+        await _client.CreateModuleAsync(setup.CourseId, publishAt: now.AddDays(2));
 
         var teaching = await GetTeachingAsync(setup.StudentId);
 
@@ -304,40 +298,6 @@ public class TeachingEndpointTests(TestWebApplicationFactory factory) : IClassFi
         return (await response.Content.ReadFromJsonAsync<TeachingResponse>())!;
     }
 
-    private async Task<ModuleResponse> CreateModuleAsync(Guid courseId, DateTimeOffset? publishAt = null)
-    {
-        var response = await _client.PostAsJsonAsync(
-            $"/api/courses/{courseId}/modules", new { title = "Vecka 1", publishAt });
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<ModuleResponse>())!;
-    }
-
-    private async Task<Guid> CreateAssignmentLinkAsync(string title, object link)
-    {
-        var content = await CreateContentAsync(
-            new { type = "assignment", title, bodyMd = "", submissionModes = new[] { "text" } });
-        return await CreateLinkAsync(content.Id, link);
-    }
-
-    private async Task<Guid> CreateTheoryLinkAsync(string title, object link)
-    {
-        var content = await CreateContentAsync(new { type = "theory", title, bodyMd = "" });
-        return await CreateLinkAsync(content.Id, link);
-    }
-
-    private async Task<ContentResponse> CreateContentAsync(object content)
-    {
-        var response = await _client.PostAsJsonAsync("/api/content", content);
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<ContentResponse>())!;
-    }
-
-    private async Task<Guid> CreateLinkAsync(Guid contentId, object link)
-    {
-        var response = await _client.PostAsJsonAsync($"/api/content/{contentId}/links", link);
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<LinkResponse>())!.Id;
-    }
 }
 
 public class TeachingAuthenticationTests(JwtTestWebApplicationFactory factory)

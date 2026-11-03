@@ -29,7 +29,6 @@ import {Input} from '@/components/ui/input'
 import {Textarea} from '@/components/ui/textarea'
 import {type Schema} from '@/lib/api'
 import {formatDate} from '@/lib/content'
-import {isAutoFail} from '@/lib/gradingWindow'
 import {lockGitHubRepos, refreshGitHubRepos} from '@/lib/integrations'
 import {submissionStatusKey} from '@/lib/status'
 import {resolveStudentHelp} from '@/lib/support'
@@ -73,9 +72,6 @@ const props = defineProps<{
   courseId: string
   linkId: string
   submissions: Submission[]
-  /** Uppgiftens deadlines. Utan huvuddeadline finns inget automatiskt IG. */
-  dueAt?: string | null
-  resubmitDueAt?: string[]
   /** Bedöms på plats: läraren kan sätta betyg utan inlämning. */
   onSite?: boolean
 }>()
@@ -103,16 +99,9 @@ function aggregateStatus(submissions: Submission[]): Schema<'SubmissionStatus'> 
   return 'NotStarted'
 }
 
-function autoFailOf(status: Schema<'SubmissionStatus'>, personalDueAt: string | null = null): boolean {
-  return isAutoFail({dueAt: props.dueAt ?? null, resubmitDueAt: props.resubmitDueAt ?? [], personalDueAt}, status)
-}
-
-function latestPersonalDueAt(submissions: Submission[]): string | null {
-  return submissions
-    .map((submission) => submission.personalDueAt)
-    .filter((value): value is string => Boolean(value))
-    .sort()
-    .at(-1) ?? null
+// Backend räknar automatiskt IG per elev. En grupp har det först när alla medlemmar har det.
+function groupAutoFail(submissions: Submission[]): boolean {
+  return submissions.length > 0 && submissions.every((submission) => submission.deadline?.autoFail === true)
 }
 
 function reasonsFor(submissions: Submission[]): string[] {
@@ -170,7 +159,7 @@ function toStudentRow(submission: Submission, isMember = false): TrackingRow {
     submissions: [submission],
     primary: submission,
     status: submission.status,
-    autoFail: autoFailOf(submission.status, submission.personalDueAt ?? null),
+    autoFail: submission.deadline?.autoFail === true,
     personalDueAt: submission.personalDueAt ?? null,
     repo: submission.repo,
     submittedAt: submission.submittedAt,
@@ -193,7 +182,7 @@ function toGroupRow(group: Group, submissions: Submission[]): TrackingRow {
     primary: preferredSubmission(submissions),
     status: aggregateStatus(submissions),
     // Gruppens medlemmar kan ha olika personliga deadlines, så gruppen räknar med den senaste.
-    autoFail: autoFailOf(aggregateStatus(submissions), latestPersonalDueAt(submissions)),
+    autoFail: groupAutoFail(submissions),
     personalDueAt: null,
     repo: submissions.find((submission) => submission.repo)?.repo ?? null,
     submittedAt: submittedAtOf(submissions),

@@ -2,6 +2,7 @@ import {describe, expect, it} from 'vitest'
 
 import type {Schema} from './api'
 import {
+  autoFailLabel,
   checkClass,
   checkLabel,
   gradeBadgeVariant,
@@ -109,5 +110,12 @@ describe('checkClass', () => {
     expect(checkClass('Green')).toBe('text-success')
     expect(checkClass('Red')).toBe('text-destructive')
     expect(checkClass('Pending')).toBe('text-muted-foreground')
+  })
+})
+
+describe('autoFailLabel', () => {
+  it('förklarar vad som saknades', () => {
+    expect(autoFailLabel('NotStarted')).toBe('IG · Ingen inlämning')
+    expect(autoFailLabel('NeedsWork')).toBe('IG · Kompletteringen lämnades inte in')
   })
 })

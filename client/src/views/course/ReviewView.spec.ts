@@ -2,6 +2,8 @@ import {flushPromises} from '@vue/test-utils'
 import {describe, expect, it, vi} from 'vitest'
 
 import DateTimePicker from '@/components/DateTimePicker.vue'
+import type {Schema} from '@/lib/api'
+import {deadlineState} from '@/test/deadline'
 import {mockApi, requests, sent} from '@/test/mockApi'
 import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
@@ -51,7 +53,7 @@ const gradedSubmission = {
   },
 }
 
-function week(scale: string, dueAt: string | null = null, resubmitDueAt: string[] = []) {
+function week(scale: string) {
   return {
     id: 'm1',
     courseId: 'c1',
@@ -68,8 +70,8 @@ function week(scale: string, dueAt: string | null = null, resubmitDueAt: string[
       status: 'Published',
       groupId: null,
       publishAt: '2026-10-01T08:00:00Z',
-      dueAt,
-      resubmitDueAt,
+      dueAt: null,
+      resubmitDueAt: [],
       isPinned: false,
       blockedBy: [],
     }],
@@ -98,8 +100,8 @@ function backend(options: {
   queue?: unknown[]
   otherAssignment?: unknown[]
   modes?: string[]
-  dueAt?: string
-  resubmitDueAt?: string[]
+  /** Backendens deadlinetillstånd för inlämningen. Utan det gäller inga deadlines. */
+  deadline?: Partial<Schema<'DeadlineStateDto'>>
 } = {}) {
   mockApi((method, path) => {
     if (path === '/api/me') {
@@ -109,7 +111,7 @@ function backend(options: {
       return {status: 200, body: [course]}
     }
     if (path === '/api/courses/c1/modules') {
-      const first = week(options.scale ?? 'PassFail', options.dueAt ?? null, options.resubmitDueAt ?? [])
+      const first = week(options.scale ?? 'PassFail')
       return {
         status: 200,
         body: [options.otherAssignment
@@ -126,7 +128,10 @@ function backend(options: {
       }
     }
     if (path === '/api/submissions/s1' && method === 'GET') {
-      return {status: 200, body: options.submission ?? baseSubmission}
+      const found = (options.submission ?? baseSubmission) as Record<string, unknown>
+      return {status: 200, body: options.deadline
+        ? {...found, deadline: deadlineState(options.deadline)}
+        : found}
     }
     const other = /^\/api\/submissions\/(s\d+)$/.exec(path)
     if (other && method === 'GET') {
@@ -213,11 +218,10 @@ describe('ReviewView', () => {
   })
 
   describe('deadlines styr IG och Komplettera', () => {
-    const past = '2020-01-01T10:00:00Z'
     const future = '2999-01-01T10:00:00Z'
 
     it('döljer IG och förklarar varför medan en deadline återstår, men erbjuder Komplettera', async () => {
-      backend({scale: 'PassFailDistinction', dueAt: past, resubmitDueAt: [future]})
+      backend({scale: 'PassFailDistinction', deadline: {nextDeadline: future, allowsFail: false}})
 
       const {wrapper} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
 
@@ -228,7 +232,7 @@ describe('ReviewView', () => {
     })
 
     it('erbjuder IG när sista deadline har passerat, och Komplettera med en ny deadline för eleven', async () => {
-      backend({scale: 'PassFail', dueAt: past, resubmitDueAt: ['2020-02-01T10:00:00Z']})
+      backend({scale: 'PassFail', deadline: {lastClassDeadline: '2020-02-01T10:00:00Z', allowsNeedsWork: false}})
 
       const {wrapper} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
 
@@ -263,7 +267,7 @@ describe('ReviewView', () => {
     it('kräver nytt val om ett tidigare IG inte längre är tillåtet', async () => {
       backend({
         scale: 'PassFail',
-        dueAt: future,
+        deadline: {nextDeadline: future, allowsFail: false},
         submission: {...gradedSubmission, grade: {...gradedSubmission.grade, level: 'Fail'}},
       })
 
@@ -278,7 +282,7 @@ describe('ReviewView', () => {
     it('håller Spara och nästa igång med bara G kvar', async () => {
       backend({
         scale: 'PassFail',
-        dueAt: future,
+        deadline: {nextDeadline: future, allowsFail: false},
         queue: [queued('s1', 'Anna'), queued('s2', 'Bo')],
       })
 
@@ -596,7 +600,7 @@ describe('ReviewView', () => {
 
   it('efter sista deadline förklarar sidan det automatiska IG:t', async () => {
     backend({
-      dueAt: '2020-01-01T10:00:00Z',
+      deadline: {autoFail: true, canHandIn: false, handInClosed: 'Closed', allowsNeedsWork: false},
       submission: {...baseSubmission, status: 'NotStarted', files: [], repo: null, bodyMd: null},
     })
 
@@ -608,7 +612,7 @@ describe('ReviewView', () => {
 
   it('visar läget överst: komplettering begärd och till när eleven kan lämna in', async () => {
     backend({
-      dueAt: '2020-01-01T10:00:00Z',
+      deadline: {nextDeadline: '2999-01-15T22:59:00Z', handInUntil: '2999-01-15T22:59:00Z', allowsFail: false},
       submission: {...baseSubmission, status: 'NeedsWork', personalDueAt: '2999-01-15T22:59:00Z'},
     })
 

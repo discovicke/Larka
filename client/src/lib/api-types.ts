@@ -6851,6 +6851,23 @@ export interface components {
             role: components["schemas"]["UserRole"];
             password?: null | string;
         };
+        /**
+         * @description Vad deadlinerna tillåter för en elevs inlämning just nu, uträknat av GradingWindow. Klienten visar
+         *     det och räknar inget själv, så att reglerna bara finns på ett ställe.
+         */
+        DeadlineStateDto: {
+            /** Format: date-time */
+            nextDeadline: null | string;
+            /** Format: date-time */
+            lastClassDeadline: null | string;
+            autoFail: boolean;
+            canHandIn: boolean;
+            /** Format: date-time */
+            handInUntil: null | string;
+            handInClosed: null | components["schemas"]["HandInClosedReason"];
+            allowsFail: boolean;
+            allowsNeedsWork: boolean;
+        };
         GitHubAuthorizeDto: {
             url: string;
         };
@@ -7063,6 +7080,8 @@ export interface components {
         GroupRole: "Student" | "Teacher";
         /** @enum {unknown} */
         GroupType: "Class" | "Committee" | "Other";
+        /** @enum {unknown} */
+        HandInClosedReason: "Locked" | "Closed";
         /** Format: binary */
         IFormFile: string;
         IFormFileCollection: null | components["schemas"]["IFormFile"][];
@@ -7386,6 +7405,7 @@ export interface components {
             repo: null | components["schemas"]["StudentRepoDto"];
             group?: null | components["schemas"]["AssignmentGroupDto"];
             relatedLinks?: null | components["schemas"]["RelatedLinkDto"][];
+            deadline?: null | components["schemas"]["DeadlineStateDto"];
         };
         StudentHelpStatusDto: {
             requested: boolean;
@@ -7503,6 +7523,7 @@ export interface components {
             feedback: null | string;
             /** Format: date-time */
             gradedAt: null | string;
+            deadline?: null | components["schemas"]["DeadlineStateDto"];
         };
         /** @description En kurs i studieplanen. Grade är alltid null än, eftersom modellen inte har något slutbetyg på kursen. */
         StudyPlanCourseDto: {
@@ -7556,6 +7577,7 @@ export interface components {
             studentAvatarUrl?: null | string;
             /** Format: date-time */
             personalDueAt?: null | string;
+            deadline?: null | components["schemas"]["DeadlineStateDto"];
         };
         /** @description Url är en tidsbegränsad länk som skapas när filen läses, inte något som sparas. */
         SubmissionFileDto: {
@@ -7846,6 +7868,7 @@ export const gradeOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>
 export const gradeScaleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GradeScale"]> = ["None", "PassFail", "PassFailDistinction"];
 export const groupRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GroupRole"]> = ["Student", "Teacher"];
 export const groupTypeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GroupType"]> = ["Class", "Committee", "Other"];
+export const handInClosedReasonValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["HandInClosedReason"]> = ["Locked", "Closed"];
 export const importStudentOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["ImportStudentOutcome"]> = ["Created", "Added", "AlreadyMember", "NotStudent", "Duplicate", "Invalid"];
 export const notificationKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationKind"]> = ["NewsPublished", "AssignmentPublished", "DeadlineSoon", "SubmissionNeedsWork", "SubmissionGraded", "StudentHelpRequested", "PersonalDeadlineSet"];
 export const repoProvisioningStateValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RepoProvisioningState"]> = ["Pending", "Creating", "Ready", "Failed"];

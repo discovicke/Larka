@@ -18,9 +18,6 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     private InMemoryFileStorage Storage =>
         (InMemoryFileStorage)factory.Services.GetRequiredService<IFileStorage>();
 
-    private record ContentResponse(
-        Guid Id, string Type, string Title, Guid AuthorId, string BodyMd, string Status);
-
     private record ContentDetail(
         Guid Id, string Type, string Title, string BodyMd, string Status, AssignmentDetail? Assignment);
 
@@ -49,13 +46,9 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     private record FeedItem(
         Guid ContentId, string Type, string Title, string AuthorName, Guid? GroupId, Guid? CourseId, bool IsPinned);
 
-    private record LinkResponse(Guid Id, Guid ContentId, Guid? CourseId, Guid? ModuleId);
-
     private record CreatedWithLink(ContentResponse Content, LinkResponse Link);
 
     private record MoveResult(Guid LinkId, Guid ModuleId, int Position, List<Guid> AffectedLinkIds);
-
-    private record ModuleResponse(Guid Id);
 
     private record ModuleWithContent(Guid Id, List<ModuleItem> Content);
 
@@ -122,7 +115,7 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task CreateContentWithLink_CreatesContentAndLinkInOneRequest()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var week = await _client.CreateModuleAsync(courseId, "Vecka 1");
 
         var response = await _client.PostAsJsonAsync("/api/content/with-link", new
         {
@@ -436,7 +429,7 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task CreateRepoAssignment_WithGroupMode_RequiresGroups()
     {
         var (courseId, _, _) = await AddCourseWithTwoStudentsAsync();
-        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var week = await _client.CreateModuleAsync(courseId, "Vecka 1");
 
         var response = await _client.PostAsJsonAsync("/api/content/with-link", new
         {
@@ -461,7 +454,7 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task CreateGroupRepoAssignment_CreatesGroupsSubmissionsAndSharedRepo()
     {
         var (courseId, firstId, secondId) = await AddCourseWithTwoStudentsAsync();
-        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var week = await _client.CreateModuleAsync(courseId, "Vecka 1");
 
         var response = await _client.PostAsJsonAsync("/api/content/with-link", new
         {
@@ -526,7 +519,7 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task LockGroupRepos_MarksEveryGroupMemberAsSubmitted_OnlyWithAnOwnCommit(bool ownCommit)
     {
         var (courseId, firstId, secondId) = await AddCourseWithTwoStudentsAsync();
-        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var week = await _client.CreateModuleAsync(courseId, "Vecka 1");
         var created = await _client.PostAsJsonAsync("/api/content/with-link", new
         {
             content = new
@@ -626,7 +619,7 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
             .SingleAsync();
         var third = await TestData.AddMemberAsync(
             seedDb, await seedDb.Groups.SingleAsync(group => group.Id == courseGroupId));
-        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var week = await _client.CreateModuleAsync(courseId, "Vecka 1");
         var created = await CreateGroupAssignmentAsync(courseId, week.Id,
         [
             new { name = "Grupp ett", studentIds = new[] { firstId, third.Id } },
@@ -672,7 +665,7 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task UpdateAssignmentGroups_RejectsMovingStudentWhoAlreadySubmitted()
     {
         var (courseId, firstId, secondId) = await AddCourseWithTwoStudentsAsync();
-        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var week = await _client.CreateModuleAsync(courseId, "Vecka 1");
         var created = await CreateGroupAssignmentAsync(courseId, week.Id,
         [
             new { name = "Grupp ett", studentIds = new[] { firstId } },
@@ -706,7 +699,7 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task RelatedLinks_AreStoredOnTheDeliveryAndCanBeReadBack()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var week = await _client.CreateModuleAsync(courseId, "Vecka 1");
         var theory = await CreateTheoryAsync("Teori om pipelines");
         var theoryLink = await LinkToModuleAsync(theory.Id, courseId, week.Id);
         var assignment = await CreateAssignmentAsync(
@@ -735,8 +728,8 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     {
         var courseId = await AddCourseAsync();
         var otherCourseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId, "Vecka 1");
-        var otherWeek = await CreateModuleAsync(otherCourseId, "Annan vecka");
+        var week = await _client.CreateModuleAsync(courseId, "Vecka 1");
+        var otherWeek = await _client.CreateModuleAsync(otherCourseId, "Annan vecka");
         var theory = await CreateTheoryAsync("Annan teori");
         var theoryLink = await LinkToModuleAsync(theory.Id, otherCourseId, otherWeek.Id);
         var assignment = await CreateAssignmentAsync("Labb", submissionModes: ["text"]);
@@ -780,7 +773,7 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task UpdateContentLink_ChangesPublishAtDeadlineAndPin()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var week = await _client.CreateModuleAsync(courseId, "Vecka 1");
         var content = await CreateAssignmentAsync("Labb", submissionModes: ["file"]);
         var link = await LinkToModuleAsync(content.Id, courseId, week.Id);
         var publishAt = new DateTimeOffset(2027, 1, 2, 8, 0, 0, TimeSpan.Zero);
@@ -799,7 +792,7 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task UpdateContentLink_SavesResubmitDeadlinesSortedAscending()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var week = await _client.CreateModuleAsync(courseId, "Vecka 1");
         var content = await CreateAssignmentAsync("Labb", submissionModes: ["file"]);
         var link = await LinkToModuleAsync(content.Id, courseId, week.Id);
         var dueAt = new DateTimeOffset(2027, 1, 9, 17, 0, 0, TimeSpan.Zero);
@@ -819,7 +812,7 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task UpdateContentLink_WithoutResubmitDeadlines_KeepsTheSavedOnes()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var week = await _client.CreateModuleAsync(courseId, "Vecka 1");
         var content = await CreateAssignmentAsync("Labb", submissionModes: ["file"]);
         var link = await LinkToModuleAsync(content.Id, courseId, week.Id);
         var dueAt = new DateTimeOffset(2027, 1, 9, 17, 0, 0, TimeSpan.Zero);
@@ -840,7 +833,7 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task UpdateContentLink_WithInvalidResubmitDeadlines_ReturnsBadRequest()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var week = await _client.CreateModuleAsync(courseId, "Vecka 1");
         var content = await CreateAssignmentAsync("Labb", submissionModes: ["file"]);
         var link = await LinkToModuleAsync(content.Id, courseId, week.Id);
         var dueAt = new DateTimeOffset(2027, 1, 9, 17, 0, 0, TimeSpan.Zero);
@@ -866,7 +859,7 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task UpdateTheoryLink_WithDueAt_ReturnsBadRequest()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var week = await _client.CreateModuleAsync(courseId, "Vecka 1");
         var content = await CreateTheoryAsync("Teori");
         var link = await LinkToModuleAsync(content.Id, courseId, week.Id);
 
@@ -881,7 +874,7 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task UpdateLink_ForAnotherContent_ReturnsNotFound()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var week = await _client.CreateModuleAsync(courseId, "Vecka 1");
         var first = await CreateTheoryAsync("Första");
         var second = await CreateTheoryAsync("Andra");
         var link = await LinkToModuleAsync(first.Id, courseId, week.Id);
@@ -896,8 +889,8 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task MoveLink_KeepsLinkAndDeadline_AndRemovesDependencies()
     {
         var courseId = await AddCourseAsync();
-        var source = await CreateModuleAsync(courseId, "Vecka 1");
-        var target = await CreateModuleAsync(courseId, "Vecka 2");
+        var source = await _client.CreateModuleAsync(courseId, "Vecka 1");
+        var target = await _client.CreateModuleAsync(courseId, "Vecka 2");
         var first = await CreateTheoryAsync("Första");
         var moved = await CreateAssignmentAsync("Flyttad", submissionModes: ["text"]);
         var last = await CreateTheoryAsync("Sista");
@@ -941,8 +934,8 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task MoveLink_WithStudentActivity_ReturnsConflict()
     {
         var courseId = await AddCourseAsync();
-        var source = await CreateModuleAsync(courseId, "Vecka 1");
-        var target = await CreateModuleAsync(courseId, "Vecka 2");
+        var source = await _client.CreateModuleAsync(courseId, "Vecka 1");
+        var target = await _client.CreateModuleAsync(courseId, "Vecka 2");
         var content = await CreateTheoryAsync("Teori");
         var link = await LinkToModuleAsync(content.Id, courseId, source.Id);
         var (_, studentId) = await AddGroupWithStudentAsync();
@@ -970,8 +963,8 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task MoveLink_ToModuleOfAnotherCourse_ReturnsBadRequest()
     {
         var courseId = await AddCourseAsync();
-        var source = await CreateModuleAsync(courseId, "Vecka 1");
-        var otherWeek = await CreateModuleAsync(await AddCourseAsync(), "Annan kurs");
+        var source = await _client.CreateModuleAsync(courseId, "Vecka 1");
+        var otherWeek = await _client.CreateModuleAsync(await AddCourseAsync(), "Annan kurs");
         var content = await CreateTheoryAsync("Teori");
         var link = await LinkToModuleAsync(content.Id, courseId, source.Id);
 
@@ -985,7 +978,7 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task DeleteLink_WhenLastLink_DeletesContentAndCompactsPositions()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var week = await _client.CreateModuleAsync(courseId, "Vecka 1");
         var first = await CreateTheoryAsync("Första");
         var second = await CreateTheoryAsync("Andra");
         var third = await CreateTheoryAsync("Tredje");
@@ -1013,8 +1006,8 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task DeleteLink_WhenContentHasAnotherLink_KeepsContent()
     {
         var courseId = await AddCourseAsync();
-        var firstWeek = await CreateModuleAsync(courseId, "Vecka 1");
-        var secondWeek = await CreateModuleAsync(courseId, "Vecka 2");
+        var firstWeek = await _client.CreateModuleAsync(courseId, "Vecka 1");
+        var secondWeek = await _client.CreateModuleAsync(courseId, "Vecka 2");
         var content = await CreateTheoryAsync("Delad");
         var firstLink = await LinkToModuleAsync(content.Id, courseId, firstWeek.Id);
         await LinkToModuleAsync(content.Id, courseId, secondWeek.Id);
@@ -1107,7 +1100,7 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task DeletePublishedGradedAssignment_ReturnsConflict_UntilUnpublished()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var week = await _client.CreateModuleAsync(courseId, "Vecka 1");
         var content = await CreateAssignmentAsync("Inlämning", gradeScale: "passFail");
         var link = await LinkToModuleAsync(content.Id, courseId, week.Id);
 
@@ -1219,17 +1212,13 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
 
     private async Task<ContentResponse> CreateAsync(string type, string title)
     {
-        var response = await _client.PostAsJsonAsync("/api/content", new { type, title, bodyMd = "Text" });
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<ContentResponse>())!;
+        return await _client.PostJsonAsync<ContentResponse>("/api/content", new { type, title, bodyMd = "Text" });
     }
 
     private async Task<ContentResponse> CreateTheoryAsync(string title, string status = "published")
     {
-        var response = await _client.PostAsJsonAsync(
+        return await _client.PostJsonAsync<ContentResponse>(
             "/api/content", new { type = "theory", title, bodyMd = "", status });
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<ContentResponse>())!;
     }
 
     private async Task<ContentResponse> CreateAssignmentAsync(
@@ -1241,7 +1230,7 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
         string? repoNamePattern = null,
         object[]? requirements = null)
     {
-        var response = await _client.PostAsJsonAsync("/api/content", new
+        return await _client.PostJsonAsync<ContentResponse>("/api/content", new
         {
             type = "assignment",
             title,
@@ -1253,34 +1242,21 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
             repoNamePattern,
             requirements
         });
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<ContentResponse>())!;
-    }
-
-    private async Task<ModuleResponse> CreateModuleAsync(Guid courseId, string title)
-    {
-        var response = await _client.PostAsJsonAsync($"/api/courses/{courseId}/modules", new { title });
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<ModuleResponse>())!;
     }
 
     private async Task<LinkResponse> LinkToModuleAsync(Guid contentId, Guid courseId, Guid moduleId)
     {
-        var response = await _client.PostAsJsonAsync(
+        return await _client.PostJsonAsync<LinkResponse>(
             $"/api/content/{contentId}/links", new { courseId, moduleId });
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<LinkResponse>())!;
     }
 
     private async Task<LinkResponse> LinkToGroupAsync(Guid contentId, Guid groupId)
     {
-        var response = await _client.PostAsJsonAsync($"/api/content/{contentId}/links", new { groupId });
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<LinkResponse>())!;
+        return await _client.PostJsonAsync<LinkResponse>($"/api/content/{contentId}/links", new { groupId });
     }
 
     private async Task<List<ModuleWithContent>> GetModulesAsync(Guid courseId) =>
-        (await _client.GetFromJsonAsync<List<ModuleWithContent>>($"/api/courses/{courseId}/modules"))!;
+        await _client.GetJsonAsync<List<ModuleWithContent>>($"/api/courses/{courseId}/modules");
 
     private async Task<Guid> AddCourseAsync()
     {
@@ -1292,7 +1268,7 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     private async Task<CreatedWithLink> CreateGroupAssignmentAsync(
         Guid courseId, Guid moduleId, object[] groups)
     {
-        var response = await _client.PostAsJsonAsync("/api/content/with-link", new
+        return await _client.PostJsonAsync<CreatedWithLink>("/api/content/with-link", new
         {
             content = new
             {
@@ -1308,8 +1284,6 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
             },
             link = new { courseId, moduleId, groups }
         });
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<CreatedWithLink>())!;
     }
 
     private async Task<(Guid CourseId, Guid FirstStudentId, Guid SecondStudentId)>
@@ -1359,7 +1333,7 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
     private async Task SaveRoadmapAsync(
         Guid courseId, Guid moduleId, params (Guid LinkId, Guid[] BlockedBy)[] links)
     {
-        var response = await _client.PutAsJsonAsync(
+        await _client.PutJsonAsync(
             $"/api/courses/{courseId}/modules/{moduleId}/roadmap",
             new
             {
@@ -1370,7 +1344,6 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
                     completionRule = (string?)null
                 })
             });
-        response.EnsureSuccessStatusCode();
     }
 
     private async Task UploadAttachmentAsync(Guid contentId)
@@ -1380,8 +1353,6 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
         var response = await _client.PostAsync($"/api/content/{contentId}/attachments", form);
         response.EnsureSuccessStatusCode();
     }
-
-    private record CreatedResponse(Guid Id);
 
     // Skola, grupp och kurs skapas via API:et, och gruppen får läsa kursen.
     private async Task<(Guid GroupId, Guid CourseId)> AddGroupWithCourseAsync()
@@ -1408,10 +1379,8 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
         return (group.Id, course.Id);
     }
 
-    private async Task<CreatedResponse> PostAsync(string path, object body)
+    private async Task<IdResponse> PostAsync(string path, object body)
     {
-        var response = await _client.PostAsJsonAsync(path, body);
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<CreatedResponse>())!;
+        return await _client.PostJsonAsync<IdResponse>(path, body);
     }
 }

@@ -7,31 +7,29 @@ import {Button} from '@/components/ui/button'
 import {useAsync} from '@/composables/useAsync'
 import type {Schema} from '@/lib/api'
 import {formatDate} from '@/lib/content'
-import {isoOrNull} from '@/lib/form'
-import {earliestPersonalDate, lastClassDeadline} from '@/lib/gradingWindow'
+import {earliestPersonalDate, isoOrNull} from '@/lib/form'
 import {setPersonalDueAt} from '@/lib/submissionsApi'
 
-// Läraren ger en enskild elev en extra deadline. Den räknas med bland uppgiftens egna deadlines (se
-// gradingWindow). Visas bara när uppgiften har en deadline och eleven kan lämna in igen: inte när inlämningen
+// Läraren ger en enskild elev en extra deadline. Den räknas med bland uppgiftens egna deadlines (GradingWindow i
+// backend). Visas bara när uppgiften har en deadline och eleven kan lämna in igen: inte när inlämningen
 // är bedömd, och inte när den väntar på bedömning (då begär läraren komplettering i stället).
 const props = defineProps<{
   linkId: string
   studentId: string
   /** Elevens nuvarande personliga deadline. */
   personalDueAt: string | null
-  /** Uppgiftens huvuddeadline. Utan den finns ingen deadlinelogik, så åtgärden döljs. */
-  dueAt: string | null
-  resubmitDueAt: string[]
+  /** Klassens sista deadline från inlämningens läge. Utan deadline finns ingen deadlinelogik, så åtgärden döljs. */
+  lastClassDeadline: string | null
   status: Schema<'SubmissionStatus'>
 }>()
 
 const emit = defineEmits<{saved: []}>()
 
 const picked = ref('')
-const available = computed(() => Boolean(props.dueAt) && (props.status === 'NotStarted' || props.status === 'NeedsWork'))
+const available = computed(() => Boolean(props.lastClassDeadline)
+  && (props.status === 'NotStarted' || props.status === 'NeedsWork'))
 // Datumet gör bara skillnad efter klassens sista deadline, så tidigare dagar går inte att välja.
-const lastDeadline = computed(() => lastClassDeadline({dueAt: props.dueAt, resubmitDueAt: props.resubmitDueAt}))
-const minDate = computed(() => earliestPersonalDate(lastDeadline.value))
+const minDate = computed(() => earliestPersonalDate(props.lastClassDeadline))
 
 const {run: save, loading: saving, error} = useAsync(async (value: string | null) => {
   await setPersonalDueAt(props.linkId, props.studentId, value)
@@ -77,7 +75,7 @@ const {run: save, loading: saving, error} = useAsync(async (value: string | null
     </div>
     <p v-if="!personalDueAt" class="text-muted-foreground text-[13px]">
       Eleven får en egen extra deadline och ett meddelande om den.
-      <template v-if="lastDeadline">Den ska ligga efter uppgiftens sista deadline, {{ formatDate(lastDeadline, true) }}.</template>
+      <template v-if="lastClassDeadline">Den ska ligga efter uppgiftens sista deadline, {{ formatDate(lastClassDeadline, true) }}.</template>
     </p>
     <Alert v-if="error" variant="destructive" data-test="personal-due-at-error">
       <AlertDescription>{{ error }}</AlertDescription>

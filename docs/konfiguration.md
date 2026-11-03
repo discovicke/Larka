@@ -40,6 +40,9 @@ Var miljövariablerna kommer ifrån:
 | `Auth:Entra:TenantId`      | nej    | tom                      | Skolans tenant. Bara konton därifrån kan logga in med Microsoft.                         |
 | `Auth:Entra:AdminObjectId` | nej    | tom                      | Den som körde `entra-setup.sh`. Hens första inloggning kopplar skolan och gör hen admin. |
 | `Auth:Entra:SchoolName`    | nej    | tom                      | Organisationens namn. Skolan får det när den kopplas på det sättet.                      |
+| `Auth:FirstAdmin:Email`    | nej    | tom                      | Första admin för en skola utan Microsoft. Skapas vid start om skolan saknar admin.       |
+| `Auth:FirstAdmin:Password` | ja     | tom                      | Minst 8 tecken. Ett fel värde stoppar starten.                                           |
+| `Auth:FirstAdmin:Name`     | nej    | tom                      | Namnet som visas. Tomt betyder att det byggs ur e-postadressen.                          |
 
 Ingen av Entra-nycklarna är hemlig. [`infra/entra-setup.sh`](../infra/entra-setup.sh) skapar appen och sparar värdena, se [deploy.md](deploy.md#microsoft-inloggning).
 

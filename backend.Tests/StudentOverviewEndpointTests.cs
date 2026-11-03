@@ -11,8 +11,6 @@ public class StudentOverviewEndpointTests(TestWebApplicationFactory factory) : I
 {
     private readonly HttpClient _client = factory.CreateClient();
 
-    private record IdResponse(Guid Id);
-
     private record OverviewResponse(Guid StudentId, string Name, Guid GroupId, List<CourseResponse> Courses);
 
     private record CourseResponse(
@@ -41,7 +39,7 @@ public class StudentOverviewEndpointTests(TestWebApplicationFactory factory) : I
     public async Task Overview_AsAdmin_CountsTheStudentsStatusPerCourse()
     {
         var scenario = await AddScenarioAsync();
-        var moduleId = await CreateModuleAsync(scenario.CourseId);
+        var moduleId = (await _client.CreateModuleAsync(scenario.CourseId)).Id;
         var graded = await LinkAsync(scenario.CourseId, moduleId, "Godkänd");
         var distinction = await LinkAsync(scenario.CourseId, moduleId, "Väl godkänd", scale: "passFailDistinction");
         var needsWork = await LinkAsync(scenario.CourseId, moduleId, "Komplettera");
@@ -52,12 +50,16 @@ public class StudentOverviewEndpointTests(TestWebApplicationFactory factory) : I
             resubmitDueAt: ["2099-03-01T00:00:00Z"]);
         await LinkAsync(scenario.CourseId, moduleId, "Automatiskt IG", dueAt: "2026-02-01T00:00:00Z");
         await LinkAsync(scenario.CourseId, moduleId, "Framtida", dueAt: "2099-02-01T00:00:00Z");
-        await GradeAsync(await SubmitAsync(scenario.StudentId, graded), new { level = "pass", feedback = "Bra" });
-        await GradeAsync(
-            await SubmitAsync(scenario.StudentId, distinction), new { level = "distinction", feedback = "Utmärkt" });
-        await GradeAsync(
-            await SubmitAsync(scenario.StudentId, needsWork), new { feedback = "Mer", outcome = "needsWork" });
-        await SubmitAsync(scenario.StudentId, submitted);
+        await _client.GradeAsync(
+            await _client.SubmitAsync(scenario.StudentId, graded),
+            new { level = "pass", feedback = "Bra" });
+        await _client.GradeAsync(
+            await _client.SubmitAsync(
+                scenario.StudentId,
+                distinction), new { level = "distinction", feedback = "Utmärkt" });
+        await _client.GradeAsync(
+            await _client.SubmitAsync(scenario.StudentId, needsWork), new { feedback = "Mer", outcome = "needsWork" });
+        await _client.SubmitAsync(scenario.StudentId, submitted);
 
         var response = await GetAsync(scenario, null);
 
@@ -160,60 +162,20 @@ public class StudentOverviewEndpointTests(TestWebApplicationFactory factory) : I
             otherSchoolAdmin.Id);
     }
 
-    private async Task<Guid> CreateModuleAsync(Guid courseId)
-    {
-        var response = await _client.PostAsJsonAsync($"/api/courses/{courseId}/modules", new { title = "Vecka 1" });
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<IdResponse>())!.Id;
-    }
-
-    private async Task<Guid> LinkAsync(
+    // Länkar en uppgift som redan är publicerad, med en tom lista omlämningsdeadlines som standard.
+    private Task<Guid> LinkAsync(
         Guid courseId,
         Guid moduleId,
         string title,
         string? dueAt = null,
         string scale = "passFail",
-        string[]? resubmitDueAt = null)
-    {
-        var content = await _client.PostAsJsonAsync("/api/content", new
-        {
-            type = "assignment",
-            title,
-            bodyMd = "",
-            status = "published",
-            gradeScale = scale,
-            submissionModes = new[] { "text" }
-        });
-        content.EnsureSuccessStatusCode();
-        var contentId = (await content.Content.ReadFromJsonAsync<IdResponse>())!.Id;
-
-        var link = await _client.PostAsJsonAsync($"/api/content/{contentId}/links", new
-        {
+        string[]? resubmitDueAt = null) =>
+        _client.LinkAssignmentAsync(
             courseId,
             moduleId,
-            publishAt = "2026-01-01T00:00:00Z",
-            dueAt,
-            resubmitDueAt = resubmitDueAt ?? []
-        });
-        link.EnsureSuccessStatusCode();
-        return (await link.Content.ReadFromJsonAsync<IdResponse>())!.Id;
-    }
-
-    private async Task<Guid> SubmitAsync(Guid studentId, Guid linkId)
-    {
-        var request = new HttpRequestMessage(HttpMethod.Post, $"/api/links/{linkId}/submissions")
-        {
-            Content = new MultipartFormDataContent { { new StringContent("Mitt svar"), "bodyMd" } }
-        };
-        request.Headers.Add(TestAuthHandler.Header, studentId.ToString());
-        var response = await _client.SendAsync(request);
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<IdResponse>())!.Id;
-    }
-
-    private async Task GradeAsync(Guid submissionId, object body)
-    {
-        var response = await _client.PostAsJsonAsync($"/api/submissions/{submissionId}/grade", body);
-        Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
-    }
+            title,
+            publishAt: "2026-01-01T00:00:00Z",
+            dueAt: dueAt,
+            gradeScale: scale,
+            resubmitDueAt: resubmitDueAt ?? []);
 }

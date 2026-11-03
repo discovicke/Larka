@@ -52,6 +52,16 @@ public static class DependencyInjection
     }
 
     /// <summary>
+    /// Skapar skolans första admin från Auth:FirstAdmin när skolan saknar en admin som kan logga in. Se
+    /// <see cref="FirstAdminSeed"/>.
+    /// </summary>
+    public static async Task SeedFirstAdminAsync(this IServiceProvider services)
+    {
+        using var scope = services.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<FirstAdminSeed>().SeedAsync(CancellationToken.None);
+    }
+
+    /// <summary>
     /// Lägger in demokontona (admin, larare, elev) vid varje start, men bara i Development och när demodatan är på
     /// (Database:SeedDemoData). En riktig skola får inga konton med kända lösenord: första admin loggar in med
     /// Microsoft (Auth:Entra:AdminObjectId). Idempotent.
@@ -112,6 +122,16 @@ public static class DependencyInjection
         services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
         services.AddScoped<AccountSeed>();
         services.AddScoped<DemoSeed>();
+        // Fel värden stoppar starten med ett tydligt fel, när FirstAdminSeed läser dem.
+        services.AddOptions<FirstAdminOptions>()
+            .Bind(config.GetSection(FirstAdminOptions.SectionName))
+            .Validate(
+                options => !options.IsConfigured || EmailRule.IsValid(options.Email.Trim()),
+                "Auth:FirstAdmin:Email saknas eller är ingen giltig e-postadress.")
+            .Validate(
+                options => !options.IsConfigured || options.Password.Length >= FirstAdminOptions.MinPasswordLength,
+                $"Auth:FirstAdmin:Password måste vara minst {FirstAdminOptions.MinPasswordLength} tecken.");
+        services.AddScoped<FirstAdminSeed>();
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUser, ClaimsCurrentUser>();
 

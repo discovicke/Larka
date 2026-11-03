@@ -42,7 +42,7 @@ docker compose up -d
 docker compose logs -f app
 ```
 
-Sedan Microsoft-inloggningen (se [nedan](#microsoft-inloggning)). Lägg raderna från skriptet i `.env` och starta om appen med `docker compose up -d`.
+Sedan inloggningen: Microsoft (se [nedan](#microsoft-inloggning)), eller en första admin med lösenord (se [Utan Microsoft](#utan-microsoft)). Lägg raderna i `.env` och starta om appen med `docker compose up -d`.
 
 `.env` innehåller hemligheter. Den checkas aldrig in, och bara den som driftar servern ska kunna läsa den (`chmod 600 .env`).
 
@@ -96,6 +96,17 @@ APP_URL=https://larka.skolan.se infra/entra-setup.sh
 ```
 
 Lägg de fyra raderna `Auth__Entra__…` i `.env` eller i molntjänstens inställningar och starta om appen. Första gången du som körde skriptet loggar in med Microsoft kopplas skolan till tenanten och du blir admin. Alla andra blir elever. Mer i [deploy.md](deploy.md#microsoft-inloggning).
+
+## Utan Microsoft
+
+En skola som inte har Microsoft Entra ID loggar in med lösenord. Den första admin kommer från två inställningar:
+
+```bash
+Auth__FirstAdmin__Email=rektor@skolan.se
+Auth__FirstAdmin__Password=<minst 8 tecken, till exempel openssl rand -base64 18>
+```
+
+När appen startar och skolan inte har någon admin som kan logga in skapas en admin med adressen och lösenordet (eller så blir en användare med adressen admin). Logga in med dem. Sedan skapar admin klasser och användare och ger dem tillfälliga lösenord under _Lägg till medlem_. Raderna kan ligga kvar, eftersom de inte gör något när skolan redan har en admin, men ta gärna bort lösenordet. En ogiltig adress eller ett för kort lösenord stoppar starten med ett tydligt fel.
 
 ## Gör inte
 

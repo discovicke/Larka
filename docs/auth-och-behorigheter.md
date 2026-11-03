@@ -87,7 +87,7 @@ Börja om från en tom databas: `docker compose down -v && npm run db`.
 
 ### Produktion
 
-Prod seedar inga lösenord utöver demokontona och demodatans elever (`larka-demo`). Admin kan ge en ny användare ett tillfälligt lösenord (minst 8 tecken) när hen skapas från _Lägg till medlem_ på en grupp, eller med `password` i `POST /api/users`. När Microsoft-inloggning är inställd visar _Lägg till medlem_ inget lösenordsfält, eftersom användaren loggar in med skolans konto. Utan lösenord kan användaren inte logga in. För äldre användare utan lösenord: hasha det med ASP.NET Core `PasswordHasher<User>` och skriv hashen i `Users.PasswordHash`.
+Prod seedar inga lösenord utöver demokontona och demodatans elever (`larka-demo`), och en skola utan Microsoft får sin första admin från `Auth:FirstAdmin` ([drift.md](drift.md#utan-microsoft)). Admin kan ge en ny användare ett tillfälligt lösenord (minst 8 tecken) när hen skapas från _Lägg till medlem_ på en grupp, eller med `password` i `POST /api/users`. När Microsoft-inloggning är inställd visar _Lägg till medlem_ inget lösenordsfält, eftersom användaren loggar in med skolans konto. Utan lösenord kan användaren inte logga in. För äldre användare utan lösenord: hasha det med ASP.NET Core `PasswordHasher<User>` och skriv hashen i `Users.PasswordHash`.
 
 ## Roller och behörigheter
 

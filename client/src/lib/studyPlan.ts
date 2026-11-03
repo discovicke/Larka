@@ -1,5 +1,5 @@
 import type {Schema} from '@/lib/api'
-import {autoFailLabel, isAutoFail} from '@/lib/gradingWindow'
+import {autoFailLabel} from '@/lib/submissions'
 import {gradeName} from '@/lib/submissions'
 
 /** Svaret från GET /api/me/study-plan: poängsummor och kurserna eleven läser. */
@@ -64,7 +64,7 @@ export function shortDate(value: string): string {
 
 /** Inlämningens status i listan, t.ex. "Pågår · deadline 23 okt", "IG · Ingen inlämning" eller "Godkänd". */
 export function assignmentStatus(assignment: StudyPlanAssignment, now = new Date()): string {
-  if (isAutoFail(assignment, assignment.status, now)) {
+  if (assignment.deadline?.autoFail) {
     return autoFailLabel(assignment.status)
   }
   switch (assignment.status) {

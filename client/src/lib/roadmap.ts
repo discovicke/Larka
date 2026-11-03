@@ -30,11 +30,6 @@ export function unlocksOf(nodes: RoadmapNode[], linkId: string): RoadmapNode[] {
   return nodes.filter((node) => node.blockedBy.includes(linkId))
 }
 
-/** Antal delar i veckan som den här delen låser upp. */
-export function unlockCount(nodes: RoadmapNode[], linkId: string): number {
-  return unlocksOf(nodes, linkId).length
-}
-
 /**
  * Veckans delar grupperade i steg. Steg 0 är delar utan förutsättningar, nästa steg är delar
  * som bara kräver delar i tidigare steg, och så vidare. En cykel läggs i ett sista steg så att

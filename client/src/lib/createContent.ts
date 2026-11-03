@@ -156,6 +156,37 @@ export function validate(
   return errors
 }
 
+// Uppgiftens inställningar, samma när den skapas och när den ändras.
+function assignmentFields(form: ContentForm) {
+  return {
+    gradeScale: isGraded(form)
+      ? form.gradeScale
+      : null,
+    submissionModes: form.submissionModes,
+    templateRepo: usesRepo(form)
+      ? form.templateRepo.trim()
+      : null,
+    repoNamePattern: usesRepo(form)
+      ? form.repoNamePattern.trim() || null
+      : null,
+    workMode: usesRepo(form)
+      ? form.workMode
+      : 'Individual',
+    lockAtDeadline: true,
+    feedbackPullRequest: false,
+    allowLate: false,
+    requirements: usesRepo(form)
+      ? form.requirements.map((requirement) => ({
+          title: requirement.title.trim(),
+          testPattern: requirement.isManual
+            ? null
+            : requirement.testPattern.trim(),
+          isManual: requirement.isManual,
+        }))
+      : [],
+  }
+}
+
 /** Innehållet och länken skickas tillsammans till POST /api/content/with-link. */
 export function toRequests(
   form: ContentForm,
@@ -173,31 +204,7 @@ export function toRequests(
       title: form.title.trim(),
       bodyMd: form.bodyMd,
       status,
-      gradeScale: isGraded(form)
-        ? form.gradeScale
-        : null,
-      submissionModes: form.submissionModes,
-      templateRepo: usesRepo(form)
-        ? form.templateRepo.trim()
-        : null,
-      repoNamePattern: usesRepo(form)
-        ? form.repoNamePattern.trim() || null
-        : null,
-      workMode: usesRepo(form)
-        ? form.workMode
-        : 'Individual',
-      lockAtDeadline: true,
-      feedbackPullRequest: false,
-      allowLate: false,
-      requirements: usesRepo(form)
-        ? form.requirements.map((requirement) => ({
-            title: requirement.title.trim(),
-            testPattern: requirement.isManual
-              ? null
-              : requirement.testPattern.trim(),
-            isManual: requirement.isManual,
-          }))
-        : [],
+      ...assignmentFields(form),
     },
     link: {
       ...link,
@@ -253,31 +260,7 @@ export function toUpdateRequests(
     content: {
       title: form.title.trim(),
       bodyMd: form.bodyMd,
-      gradeScale: isGraded(form)
-        ? form.gradeScale
-        : null,
-      submissionModes: form.submissionModes,
-      templateRepo: usesRepo(form)
-        ? form.templateRepo.trim()
-        : null,
-      repoNamePattern: usesRepo(form)
-        ? form.repoNamePattern.trim() || null
-        : null,
-      workMode: usesRepo(form)
-        ? form.workMode
-        : 'Individual',
-      lockAtDeadline: true,
-      feedbackPullRequest: false,
-      allowLate: false,
-      requirements: usesRepo(form)
-        ? form.requirements.map((requirement) => ({
-            title: requirement.title.trim(),
-            testPattern: requirement.isManual
-              ? null
-              : requirement.testPattern.trim(),
-            isManual: requirement.isManual,
-          }))
-        : [],
+      ...assignmentFields(form),
     },
     link,
   }

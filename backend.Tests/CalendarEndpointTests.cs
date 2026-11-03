@@ -25,38 +25,32 @@ public class CalendarEndpointTests(TestWebApplicationFactory factory) : IClassFi
         string Kind,
         DateTimeOffset At);
 
-    private record ContentResponse(Guid Id);
-
-    private record LinkResponse(Guid Id);
-
-    private record ModuleResponse(Guid Id);
-
     [Fact]
     public async Task Student_SeesDeadlinesOfOwnGroupsAndCoursesLinksInRange_Only()
     {
         var setup = await AddSetupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         var from = StartOfToday();
         var to = from.AddDays(7);
         var courseDeadline = from.AddDays(1).AddHours(12);
         var groupDeadline = from.AddDays(2).AddHours(8);
-        await CreateAssignmentLinkAsync(
+        await _client.CreateAssignmentLinkAsync(
             "Kursuppgift",
-            new { courseId = setup.CourseId, moduleId = week.Id, dueAt = courseDeadline });
-        await CreateAssignmentLinkAsync(
+            new { courseId = setup.CourseId, moduleId = week.Id, dueAt = courseDeadline }, "onSite");
+        await _client.CreateAssignmentLinkAsync(
             "Gruppuppgift",
-            new { groupId = setup.GroupId, dueAt = groupDeadline });
-        await CreateAssignmentLinkAsync(
+            new { groupId = setup.GroupId, dueAt = groupDeadline }, "onSite");
+        await _client.CreateAssignmentLinkAsync(
             "Annan grupp",
             new
             {
                 groupId = setup.OtherGroupId,
                 courseId = setup.OtherCourseId,
                 dueAt = from.AddDays(2)
-            });
-        await CreateAssignmentLinkAsync(
+            }, "onSite");
+        await _client.CreateAssignmentLinkAsync(
             "Utanför",
-            new { courseId = setup.CourseId, moduleId = week.Id, dueAt = to.AddDays(2) });
+            new { courseId = setup.CourseId, moduleId = week.Id, dueAt = to.AddDays(2) }, "onSite");
 
         var items = await GetCalendarAsync(setup.StudentId, from, to);
 
@@ -80,9 +74,9 @@ public class CalendarEndpointTests(TestWebApplicationFactory factory) : IClassFi
         var resubmit = from.AddDays(3).AddHours(12);
         var personal = from.AddDays(9).AddHours(10);
         // Huvuddeadlinen ligger före intervallet. Bara kompletteringen och den egna deadlinen hamnar i det.
-        var linkId = await CreateAssignmentLinkAsync(
+        var linkId = await _client.CreateAssignmentLinkAsync(
             "Uppgift",
-            new { groupId = setup.GroupId, dueAt = from.AddDays(-5), resubmitDueAt = new[] { resubmit } });
+            new { groupId = setup.GroupId, dueAt = from.AddDays(-5), resubmitDueAt = new[] { resubmit } }, "onSite");
         Guid classmateId;
         using (var scope = factory.Services.CreateScope())
         {
@@ -130,13 +124,13 @@ public class CalendarEndpointTests(TestWebApplicationFactory factory) : IClassFi
             await db.SaveChangesAsync();
         }
 
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         var from = StartOfToday();
         var to = from.AddDays(7);
-        await CreateAssignmentLinkAsync(
+        await _client.CreateAssignmentLinkAsync(
             "Hela kursen",
-            new { courseId = setup.CourseId, moduleId = week.Id, dueAt = from.AddDays(1) });
-        await CreateAssignmentLinkAsync(
+            new { courseId = setup.CourseId, moduleId = week.Id, dueAt = from.AddDays(1) }, "onSite");
+        await _client.CreateAssignmentLinkAsync(
             "Bara andra gruppen",
             new
             {
@@ -144,7 +138,7 @@ public class CalendarEndpointTests(TestWebApplicationFactory factory) : IClassFi
                 courseId = setup.CourseId,
                 moduleId = week.Id,
                 dueAt = from.AddDays(2)
-            });
+            }, "onSite");
 
         var items = await GetCalendarAsync(setup.StudentId, from, to);
 
@@ -155,13 +149,13 @@ public class CalendarEndpointTests(TestWebApplicationFactory factory) : IClassFi
     public async Task ItemsOutsideTheRange_AreExcluded()
     {
         var setup = await AddSetupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         var from = StartOfToday();
         var to = from.AddDays(7);
-        await CreateAssignmentLinkAsync(
-            "Före", new { courseId = setup.CourseId, moduleId = week.Id, dueAt = from.AddDays(-1) });
-        await CreateAssignmentLinkAsync(
-            "Efter", new { courseId = setup.CourseId, moduleId = week.Id, dueAt = to.AddDays(1) });
+        await _client.CreateAssignmentLinkAsync(
+            "Före", new { courseId = setup.CourseId, moduleId = week.Id, dueAt = from.AddDays(-1) }, "onSite");
+        await _client.CreateAssignmentLinkAsync(
+            "Efter", new { courseId = setup.CourseId, moduleId = week.Id, dueAt = to.AddDays(1) }, "onSite");
 
         var items = await GetCalendarAsync(setup.StudentId, from, to);
 
@@ -172,11 +166,11 @@ public class CalendarEndpointTests(TestWebApplicationFactory factory) : IClassFi
     public async Task Student_GetsNoPublishItems_AndNoDeadlinesForUnpublishedContent()
     {
         var setup = await AddSetupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
-        var futureWeek = await CreateModuleAsync(setup.CourseId, StartOfToday().AddDays(2));
+        var week = await _client.CreateModuleAsync(setup.CourseId);
+        var futureWeek = await _client.CreateModuleAsync(setup.CourseId, publishAt: StartOfToday().AddDays(2));
         var from = StartOfToday();
         var to = from.AddDays(7);
-        await CreateAssignmentLinkAsync(
+        await _client.CreateAssignmentLinkAsync(
             "Synlig",
             new
             {
@@ -184,8 +178,8 @@ public class CalendarEndpointTests(TestWebApplicationFactory factory) : IClassFi
                 moduleId = week.Id,
                 publishAt = from.AddDays(-1),
                 dueAt = from.AddDays(1)
-            });
-        await CreateAssignmentLinkAsync(
+            }, "onSite");
+        await _client.CreateAssignmentLinkAsync(
             "Publiceras senare",
             new
             {
@@ -193,10 +187,10 @@ public class CalendarEndpointTests(TestWebApplicationFactory factory) : IClassFi
                 moduleId = week.Id,
                 publishAt = from.AddDays(2),
                 dueAt = from.AddDays(3)
-            });
-        var draft = await CreateContentAsync(
+            }, "onSite");
+        var draft = await _client.CreateContentAsync(
             new { type = "assignment", title = "Utkast", bodyMd = "", status = "draft" });
-        await CreateLinkAsync(
+        await _client.CreateLinkAsync(
             draft.Id,
             new
             {
@@ -205,7 +199,7 @@ public class CalendarEndpointTests(TestWebApplicationFactory factory) : IClassFi
                 publishAt = from.AddDays(-1),
                 dueAt = from.AddDays(3)
             });
-        await CreateAssignmentLinkAsync(
+        await _client.CreateAssignmentLinkAsync(
             "Framtida vecka",
             new
             {
@@ -213,7 +207,7 @@ public class CalendarEndpointTests(TestWebApplicationFactory factory) : IClassFi
                 moduleId = futureWeek.Id,
                 publishAt = from.AddDays(-1),
                 dueAt = from.AddDays(4)
-            });
+            }, "onSite");
 
         var items = await GetCalendarAsync(setup.StudentId, from, to);
 
@@ -225,15 +219,15 @@ public class CalendarEndpointTests(TestWebApplicationFactory factory) : IClassFi
     public async Task Teacher_GetsPublishItems_ForOwnGroupsAndCourses()
     {
         var setup = await AddSetupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         var from = StartOfToday();
         var to = from.AddDays(7);
         var coursePublish = from.AddDays(2);
         var groupPublish = from.AddDays(3);
-        await CreateTheoryLinkAsync(
+        await _client.CreateTheoryLinkAsync(
             "Kurspublicering",
             new { courseId = setup.CourseId, moduleId = week.Id, publishAt = coursePublish });
-        await CreateTheoryLinkAsync(
+        await _client.CreateTheoryLinkAsync(
             "Grupppublicering",
             new
             {
@@ -260,9 +254,9 @@ public class CalendarEndpointTests(TestWebApplicationFactory factory) : IClassFi
     public async Task Calendar_ShowsTheCourseToItsTeacherOutsideTheClass_AndNotToTheTeacherOfTheClass()
     {
         var setup = await AddSetupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         var from = StartOfToday();
-        await CreateTheoryLinkAsync(
+        await _client.CreateTheoryLinkAsync(
             "Kurspublicering",
             new { courseId = setup.CourseId, moduleId = week.Id, publishAt = from.AddDays(2) });
         Guid outsideTeacher;
@@ -353,40 +347,6 @@ public class CalendarEndpointTests(TestWebApplicationFactory factory) : IClassFi
         return new DateTimeOffset(now.Year, now.Month, now.Day, 0, 0, 0, TimeSpan.Zero);
     }
 
-    private async Task<ModuleResponse> CreateModuleAsync(Guid courseId, DateTimeOffset? publishAt = null)
-    {
-        var response = await _client.PostAsJsonAsync(
-            $"/api/courses/{courseId}/modules", new { title = "Vecka 1", publishAt });
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<ModuleResponse>())!;
-    }
-
-    private async Task<Guid> CreateAssignmentLinkAsync(string title, object link)
-    {
-        var content = await CreateContentAsync(
-            new { type = "assignment", title, bodyMd = "", submissionModes = new[] { "onSite" } });
-        return await CreateLinkAsync(content.Id, link);
-    }
-
-    private async Task<Guid> CreateTheoryLinkAsync(string title, object link)
-    {
-        var content = await CreateContentAsync(new { type = "theory", title, bodyMd = "" });
-        return await CreateLinkAsync(content.Id, link);
-    }
-
-    private async Task<ContentResponse> CreateContentAsync(object content)
-    {
-        var response = await _client.PostAsJsonAsync("/api/content", content);
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<ContentResponse>())!;
-    }
-
-    private async Task<Guid> CreateLinkAsync(Guid contentId, object link)
-    {
-        var response = await _client.PostAsJsonAsync($"/api/content/{contentId}/links", link);
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<LinkResponse>())!.Id;
-    }
 }
 
 public class CalendarAuthenticationTests(JwtTestWebApplicationFactory factory)

@@ -236,9 +236,15 @@ describe('CreateContentView', () => {
     await flushPromises()
     await wrapper.find('#part-Exercise').trigger('click')
     await openPicker('#due-at')
-    await clickDay('2027-10-15')
+    // Dagen ligger nästa månad, så kalenderbläddringen är kort och datumet hinner aldrig passeras.
+    const day = new Date()
+    day.setDate(1)
+    day.setMonth(day.getMonth() + 1)
+    const month = String(day.getMonth() + 1).padStart(2, '0')
+    await clickDay(`${day.getFullYear()}-${month}-15`)
     await closePicker()
-    expect(wrapper.find('#due-at').text()).toBe('15 okt 2027 23:59')
+    const months = ['jan', 'feb', 'mar', 'apr', 'maj', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec']
+    expect(wrapper.find('#due-at').text()).toBe(`15 ${months[day.getMonth()]} ${day.getFullYear()} 23:59`)
   })
 
   it('frågar inte när inget är ändrat', async () => {

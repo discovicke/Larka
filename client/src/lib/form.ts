@@ -23,3 +23,17 @@ export function toDateTimeLocal(value: string | null | undefined): string {
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
   return local.toISOString().slice(0, 16)
 }
+
+/**
+ * Första dagen (yyyy-mm-dd, lokal tid) som går att välja som elevens egen deadline: dagen för klassens sista
+ * deadline eller idag, det som kommer sist. Ett tidigare datum gör ingen skillnad och nekas av backend.
+ */
+export function earliestPersonalDate(lastClassDeadline: string | null | undefined, now = new Date()): string {
+  const today = toDateTimeLocal(now.toISOString()).slice(0, 10)
+  const last = lastClassDeadline
+    ? toDateTimeLocal(lastClassDeadline).slice(0, 10)
+    : today
+  return last > today
+    ? last
+    : today
+}

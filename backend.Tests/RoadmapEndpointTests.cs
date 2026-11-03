@@ -9,12 +9,6 @@ public class RoadmapEndpointTests(TestWebApplicationFactory factory) : IClassFix
 {
     private readonly HttpClient _client = factory.CreateClient();
 
-    private record ModuleResponse(Guid Id);
-
-    private record ContentResponse(Guid Id);
-
-    private record LinkResponse(Guid Id);
-
     private record ModuleItem(
         Guid LinkId,
         string Title,
@@ -28,7 +22,7 @@ public class RoadmapEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task SaveRoadmap_ReturnsTheBlockersInTheModule()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId);
+        var week = await _client.CreateModuleAsync(courseId);
         var theoryA = await LinkTheoryAsync(courseId, week.Id, "Teori A");
         var theoryB = await LinkTheoryAsync(courseId, week.Id, "Teori B");
         var exercise = await LinkTheoryAsync(courseId, week.Id, "Övning");
@@ -52,7 +46,7 @@ public class RoadmapEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task SaveRoadmap_OrdersTheWeekByDependencies()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId);
+        var week = await _client.CreateModuleAsync(courseId);
         // Skapas i "fel" ordning: övningen ligger först och teorin som låser upp den sist.
         var exercise = await LinkTheoryAsync(courseId, week.Id, "Övning");
         var theory = await LinkTheoryAsync(courseId, week.Id, "Teori");
@@ -72,7 +66,7 @@ public class RoadmapEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task SaveRoadmap_KeepsNewsInTheWeekWithoutDependencies()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId);
+        var week = await _client.CreateModuleAsync(courseId);
         var news = await LinkContentAsync(
             courseId, week.Id, new { type = "news", title = "Nyhet", bodyMd = "Text" });
         var theory = await LinkTheoryAsync(courseId, week.Id, "Teori");
@@ -89,7 +83,7 @@ public class RoadmapEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task SaveRoadmap_ReplacesTheDependenciesOfTheWeek()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId);
+        var week = await _client.CreateModuleAsync(courseId);
         var first = await LinkTheoryAsync(courseId, week.Id, "Första");
         var second = await LinkTheoryAsync(courseId, week.Id, "Andra");
 
@@ -105,8 +99,8 @@ public class RoadmapEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task SaveRoadmap_WithPartInAnotherWeek_ReturnsBadRequest()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId, "Vecka 1");
-        var otherWeek = await CreateModuleAsync(courseId, "Vecka 2");
+        var week = await _client.CreateModuleAsync(courseId, "Vecka 1");
+        var otherWeek = await _client.CreateModuleAsync(courseId, "Vecka 2");
         var part = await LinkTheoryAsync(courseId, week.Id, "Vecka 1-del");
         var other = await LinkTheoryAsync(courseId, otherWeek.Id, "Vecka 2-del");
 
@@ -120,7 +114,7 @@ public class RoadmapEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task SaveRoadmap_WithSelfDependency_ReturnsBadRequest()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId);
+        var week = await _client.CreateModuleAsync(courseId);
         var part = await LinkTheoryAsync(courseId, week.Id, "Själv");
 
         var response = await SaveAsync(courseId, week.Id, (part, [part]));
@@ -133,7 +127,7 @@ public class RoadmapEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task SaveRoadmap_WithDuplicateBlocker_ReturnsBadRequest()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId);
+        var week = await _client.CreateModuleAsync(courseId);
         var first = await LinkTheoryAsync(courseId, week.Id, "Första");
         var second = await LinkTheoryAsync(courseId, week.Id, "Andra");
 
@@ -147,7 +141,7 @@ public class RoadmapEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task SaveRoadmap_WithUnknownLink_ReturnsBadRequest()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId);
+        var week = await _client.CreateModuleAsync(courseId);
         await LinkTheoryAsync(courseId, week.Id, "Första");
 
         var response = await SaveAsync(courseId, week.Id, (Guid.NewGuid(), []));
@@ -160,7 +154,7 @@ public class RoadmapEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task SaveRoadmap_WithoutEveryPartOnce_ReturnsBadRequest()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId);
+        var week = await _client.CreateModuleAsync(courseId);
         var first = await LinkTheoryAsync(courseId, week.Id, "Första");
         await LinkTheoryAsync(courseId, week.Id, "Andra");
 
@@ -173,7 +167,7 @@ public class RoadmapEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task SaveRoadmap_WithCycle_ReturnsTheMembers()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId);
+        var week = await _client.CreateModuleAsync(courseId);
         var first = await LinkTheoryAsync(courseId, week.Id, "Teori A");
         var second = await LinkTheoryAsync(courseId, week.Id, "Övning B");
 
@@ -190,7 +184,7 @@ public class RoadmapEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task SaveRoadmap_WithNewsAsBlocker_ReturnsBadRequest()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId);
+        var week = await _client.CreateModuleAsync(courseId);
         var news = await LinkContentAsync(courseId, week.Id, new { type = "news", title = "Nyhet", bodyMd = "Text" });
         var theory = await LinkTheoryAsync(courseId, week.Id, "Teori");
 
@@ -204,7 +198,7 @@ public class RoadmapEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task SaveRoadmap_SetsTheCompletionRuleOnAnAssignment()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId);
+        var week = await _client.CreateModuleAsync(courseId);
         var assignment = await LinkContentAsync(courseId, week.Id, new
         {
             type = "assignment",
@@ -225,7 +219,7 @@ public class RoadmapEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task SaveRoadmap_PublishesDraftsInTheWeek()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId);
+        var week = await _client.CreateModuleAsync(courseId);
         var published = await LinkTheoryAsync(courseId, week.Id, "Publicerad");
         var draft = await LinkContentAsync(courseId, week.Id, new
         {
@@ -246,7 +240,7 @@ public class RoadmapEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task SaveRoadmap_WithApprovedOnAnExercise_ReturnsBadRequest()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId);
+        var week = await _client.CreateModuleAsync(courseId);
         var exercise = await LinkContentAsync(courseId, week.Id, new
         {
             type = "assignment",
@@ -265,7 +259,7 @@ public class RoadmapEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task SaveRoadmap_WithCompletionRuleOnTheory_ReturnsBadRequest()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId);
+        var week = await _client.CreateModuleAsync(courseId);
         var theory = await LinkTheoryAsync(courseId, week.Id, "Teori");
 
         var response = await SaveRulesAsync(courseId, week.Id, (theory, [], "Submitted"));
@@ -278,7 +272,7 @@ public class RoadmapEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task ChangingTheGradeScaleToNone_ResetsAnApprovedRule()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId);
+        var week = await _client.CreateModuleAsync(courseId);
         var assignment = await LinkContentAsync(courseId, week.Id, new
         {
             type = "assignment",
@@ -307,7 +301,7 @@ public class RoadmapEndpointTests(TestWebApplicationFactory factory) : IClassFix
     public async Task SaveRoadmap_ForModuleOfAnotherCourse_ReturnsNotFound()
     {
         var courseId = await AddCourseAsync();
-        var otherWeek = await CreateModuleAsync(await AddCourseAsync());
+        var otherWeek = await _client.CreateModuleAsync(await AddCourseAsync());
 
         var response = await SaveAsync(courseId, otherWeek.Id);
 
@@ -337,7 +331,7 @@ public class RoadmapEndpointTests(TestWebApplicationFactory factory) : IClassFix
     }
 
     private async Task<List<ModuleWithContent>> GetModulesAsync(Guid courseId) =>
-        (await _client.GetFromJsonAsync<List<ModuleWithContent>>($"/api/courses/{courseId}/modules"))!;
+        await _client.GetJsonAsync<List<ModuleWithContent>>($"/api/courses/{courseId}/modules");
 
     private async Task<Guid> ContentIdOfLinkAsync(Guid linkId)
     {
@@ -346,24 +340,15 @@ public class RoadmapEndpointTests(TestWebApplicationFactory factory) : IClassFix
         return (await db.ContentLinks.FindAsync(linkId))!.ContentId;
     }
 
-    private async Task<ModuleResponse> CreateModuleAsync(Guid courseId, string title = "Vecka 1")
-    {
-        var response = await _client.PostAsJsonAsync($"/api/courses/{courseId}/modules", new { title });
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<ModuleResponse>())!;
-    }
-
     private Task<Guid> LinkTheoryAsync(Guid courseId, Guid moduleId, string title) =>
         LinkContentAsync(courseId, moduleId, new { type = "theory", title, bodyMd = "Text" });
 
     private async Task<Guid> LinkContentAsync(Guid courseId, Guid moduleId, object content)
     {
-        var response = await _client.PostAsJsonAsync("/api/content", content);
-        response.EnsureSuccessStatusCode();
-        var contentId = (await response.Content.ReadFromJsonAsync<ContentResponse>())!.Id;
-        var link = await _client.PostAsJsonAsync($"/api/content/{contentId}/links", new { courseId, moduleId });
-        link.EnsureSuccessStatusCode();
-        return (await link.Content.ReadFromJsonAsync<LinkResponse>())!.Id;
+        var contentId = (await _client.PostJsonAsync<ContentResponse>("/api/content", content)).Id;
+        return (await _client.PostJsonAsync<LinkResponse>(
+            $"/api/content/{contentId}/links",
+            new { courseId, moduleId })).Id;
     }
 
     private async Task<Guid> AddCourseAsync()

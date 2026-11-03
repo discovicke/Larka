@@ -1,6 +1,7 @@
 import {flushPromises} from '@vue/test-utils'
 import {describe, expect, it, vi} from 'vitest'
 
+import {deadlineState} from '@/test/deadline'
 import {mockApi, requests, sent} from '@/test/mockApi'
 import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
@@ -497,7 +498,13 @@ describe('PartView', () => {
 
   describe('Automatiskt IG', () => {
     it('visar IG och ett eget filter efter sista deadline för den som inte lämnat in eller kompletterat', async () => {
-      backend({part: {...assignment, resubmitDueAt: []}})
+      const autoFail = deadlineState({autoFail: true, canHandIn: false, handInClosed: 'Closed', allowsNeedsWork: false})
+      backend({submissions: [
+        {...notStarted, deadline: autoFail},
+        graded,
+        {...needsWork, deadline: autoFail},
+        submitted,
+      ]})
 
       const {wrapper} = await renderApp('/courses/c1/assignments/l1')
       await flushPromises()
@@ -510,18 +517,15 @@ describe('PartView', () => {
       expect(wrapper.find('[data-test="mark-all-not-submitted"]').exists()).toBe(false)
     })
 
-    it('väntar tills sista deadline har passerat, och gäller aldrig utan deadline', async () => {
-      backend({part: {...assignment, dueAt: '2099-01-01T10:00:00Z'}})
+    it('visar inget automatiskt IG så länge backend inte har satt det, eller när uppgiften saknar deadline', async () => {
+      const open = deadlineState({nextDeadline: '2099-01-01T10:00:00Z', handInUntil: '2099-01-01T10:00:00Z'})
+      backend({submissions: [{...notStarted, deadline: open}, {...needsWork, deadline: open}]})
       const before = await renderApp('/courses/c1/assignments/l1')
       await flushPromises()
       expect(before.wrapper.text()).not.toContain('IG · Ingen inlämning')
+      expect(before.wrapper.text()).not.toContain('IG automatiskt')
 
-      backend({part: {...assignment, dueAt: '2020-01-01T10:00:00Z', resubmitDueAt: ['2099-01-01T10:00:00Z']}})
-      const between = await renderApp('/courses/c1/assignments/l1')
-      await flushPromises()
-      expect(between.wrapper.text()).not.toContain('IG · Ingen inlämning')
-
-      backend({part: {...assignment, dueAt: null}})
+      backend({part: {...assignment, dueAt: null}, submissions: [{...notStarted, deadline: deadlineState()}]})
       const without = await renderApp('/courses/c1/assignments/l1')
       await flushPromises()
       expect(without.wrapper.text()).not.toContain('IG · Ingen inlämning')

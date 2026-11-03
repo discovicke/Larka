@@ -13,7 +13,6 @@ import {useToast} from '@/composables/useToast'
 import {api, errorMessage, multipart, type Schema} from '@/lib/api'
 import {UPLOAD_ACCEPT, uploadProblem} from '@/lib/uploads'
 import {formatDate} from '@/lib/content'
-import {handInWindow, isAutoFail} from '@/lib/gradingWindow'
 import {formatSize} from '@/lib/material'
 import {clearDraft, loadDraft, saveDraft} from '@/lib/submissionDraft'
 import {fetchLinkSubmissions} from '@/lib/submissionsApi'
@@ -47,7 +46,15 @@ const hasForm = computed(() => hasText.value || hasFiles.value)
 const onSite = computed(() => props.item.submissionModes.includes('OnSite'))
 const status = computed(() => props.item.submissionStatus ?? 'NotStarted')
 // Den som inte lämnat in, eller ska komplettera, ser formuläret direkt. En inlämnad kan välja att ändra.
-const windowState = computed(() => handInWindow(props.item, status.value))
+// Backend räknar fönstret. Utan läge (inte en uppgift) är inlämningen öppen utan deadline.
+const windowState = computed(() => {
+  const deadline = props.item.deadline
+  return {
+    open: deadline?.canHandIn ?? true,
+    until: deadline?.handInUntil ?? null,
+    closed: deadline?.handInClosed ?? null,
+  }
+})
 const formOpen = computed(() => hasForm.value
   && loaded.value
   && windowState.value.open
@@ -63,13 +70,13 @@ const windowText = computed(() => {
       ? `Komplettera senast ${formatDate(state.until, true)}.`
       : `Du kan lämna in till ${formatDate(state.until, true)}.`
   }
-  if (state.closed === 'locked') {
+  if (state.closed === 'Locked') {
     return 'Deadlinen har gått ut. Din inlämning är låst tills läraren har bedömt den.'
   }
-  if (state.closed !== 'closed') {
+  if (state.closed !== 'Closed') {
     return ''
   }
-  if (isAutoFail(props.item, status.value)) {
+  if (props.item.deadline?.autoFail) {
     return status.value === 'NeedsWork'
       ? 'Sista deadline har passerat och du lämnade inte in någon komplettering, så du har fått IG automatiskt.'
       : 'Sista deadline har passerat och du lämnade inte in, så du har fått IG automatiskt.'
@@ -223,7 +230,11 @@ function onFilesChosen(event: Event) {
       class="border-warning/30 bg-warning/10 flex flex-col gap-1 rounded-lg border p-3"
       data-test="submission-needs-work"
     >
-      <p class="text-sm font-semibold">Läraren vill att du kompletterar</p>
+      <p class="text-sm font-semibold">
+        {{ item.deadline?.autoFail
+          ? 'Lärarens återkoppling'
+          : 'Läraren vill att du kompletterar' }}
+      </p>
       <p class="text-sm leading-relaxed whitespace-pre-wrap">{{ submission.grade.feedback }}</p>
       <p class="text-muted-foreground text-xs">{{ formatDate(submission.grade.gradedAt, true) }}</p>
     </div>

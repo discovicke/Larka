@@ -27,15 +27,7 @@ import {api, type Schema} from '@/lib/api'
 import {parseChecklist} from '@/lib/checklist'
 import {formatDate} from '@/lib/content'
 import {fetchContent} from '@/lib/contentApi'
-import {isoOrNull} from '@/lib/form'
-import {
-  allowsFail,
-  allowsNeedsWork,
-  earliestPersonalDate,
-  isAutoFail,
-  lastClassDeadline,
-  nextDeadline,
-} from '@/lib/gradingWindow'
+import {earliestPersonalDate, isoOrNull} from '@/lib/form'
 import {fetchGradingRows, type GradingRow, nextGradingRow} from '@/lib/gradingQueue'
 import {formatSize} from '@/lib/material'
 import {fetchCourseModules} from '@/lib/modulesApi'
@@ -70,17 +62,13 @@ const savedFeedback = ref('')
 const savedLevel = ref<Schema<'GradeLevel'> | null>(null)
 let leaving = false
 
-// IG och Komplettera följer deadlinerna: IG först när ingen deadline återstår, Komplettera bara så länge en gör det.
-// Utan uppgiften i listan finns inga deadlines att gå på, så då erbjuds allt och backend avgör.
-const deadlines = computed(() => ({
-  dueAt: assignment.value?.dueAt ?? null,
-  resubmitDueAt: assignment.value?.resubmitDueAt ?? [],
-  personalDueAt: submission.value?.personalDueAt ?? null,
-}))
-const failAllowed = computed(() => allowsFail(deadlines.value))
-const needsWorkAllowed = computed(() => allowsNeedsWork(deadlines.value))
+// IG och Komplettera följer deadlinerna. Backend räknar läget för just den här eleven (med elevens egen deadline).
+// Utan läge erbjuds allt, och backend avgör när läraren sparar.
+const deadline = computed(() => submission.value?.deadline ?? null)
+const failAllowed = computed(() => deadline.value?.allowsFail ?? true)
+const needsWorkAllowed = computed(() => deadline.value?.allowsNeedsWork ?? true)
 // Sista deadline har passerat utan inlämning eller komplettering: eleven har automatiskt IG.
-const autoFail = computed(() => submission.value !== null && isAutoFail(deadlines.value, submission.value.status))
+const autoFail = computed(() => deadline.value?.autoFail === true)
 const allLevels = computed(() => levelsFor(assignment.value?.gradeScale ?? null))
 const levels = computed(() => allLevels.value.filter((option) => option !== 'Fail' || failAllowed.value))
 const failHidden = computed(() => allLevels.value.length > levels.value.length)
@@ -134,7 +122,7 @@ const assessedOnSite = computed(() => task.value?.assignment?.submissionModes.in
 const nothingToGrade = computed(() => nothingHandedIn.value && !assessedOnSite.value)
 
 // Läget överst i panelen: vad som gäller för eleven just nu och vad läraren kan göra.
-const upcoming = computed(() => nextDeadline(deadlines.value))
+const upcoming = computed(() => deadline.value?.nextDeadline ?? null)
 const stateLabel = computed(() => {
   const current = submission.value
   if (!current || autoFail.value) {
@@ -178,7 +166,7 @@ const stateText = computed(() => {
 // Komplettera kräver en deadline som återstår. Finns ingen väljer läraren en ny deadline för eleven i samma steg.
 const workNeedsDate = computed(() => !needsWorkAllowed.value)
 const workDate = ref('')
-const workMinDate = computed(() => earliestPersonalDate(lastClassDeadline(deadlines.value)))
+const workMinDate = computed(() => earliestPersonalDate(deadline.value?.lastClassDeadline))
 // En begärd komplettering är redan begärd. Bedömd och inlämnad kan få en, liksom på plats utan inlämning.
 const canRequestWork = computed(() => !nothingToGrade.value && submission.value?.status !== 'NeedsWork')
 
@@ -633,8 +621,7 @@ watch([courseId, linkId, submissionId], () => {
               :link-id="linkId"
               :student-id="submission.studentId"
               :personal-due-at="submission.personalDueAt ?? null"
-              :due-at="assignment?.dueAt ?? null"
-              :resubmit-due-at="assignment?.resubmitDueAt ?? []"
+              :last-class-deadline="submission.deadline?.lastClassDeadline ?? null"
               :status="submission.status"
               @saved="reloadSubmission"
             />

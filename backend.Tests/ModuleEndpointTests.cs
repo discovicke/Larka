@@ -12,9 +12,6 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
 {
     private readonly HttpClient _client = factory.CreateClient();
 
-    private record ModuleResponse(
-        Guid Id, Guid CourseId, string Title, string Description, int Position, DateTimeOffset? PublishAt);
-
     private record ModuleItem(
         Guid LinkId,
         Guid ContentId,
@@ -29,10 +26,6 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
     private record ModuleWithContent(
         Guid Id, string Title, int Position, DateTimeOffset? PublishAt, List<ModuleItem> Content);
 
-    private record LinkResponse(Guid Id, Guid? CourseId, Guid? ModuleId);
-
-    private record ContentResponse(Guid Id);
-
     [Fact]
     public async Task CreateModules_AreListedInTheOrderTheyWereCreated()
     {
@@ -40,7 +33,7 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
 
         var response = await _client.PostAsJsonAsync(
             $"/api/courses/{courseId}/modules", new { title = " Vecka 1 ", description = " Intro " });
-        await CreateModuleAsync(courseId, "Vecka 2");
+        await _client.CreateModuleAsync(courseId, "Vecka 2");
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var created = await response.Content.ReadFromJsonAsync<ModuleResponse>();
@@ -79,9 +72,9 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
     public async Task Reorder_SetsPositionsInTheNewOrder()
     {
         var courseId = await AddCourseAsync();
-        var first = await CreateModuleAsync(courseId, "Första");
-        var second = await CreateModuleAsync(courseId, "Andra");
-        var third = await CreateModuleAsync(courseId, "Tredje");
+        var first = await _client.CreateModuleAsync(courseId, "Första");
+        var second = await _client.CreateModuleAsync(courseId, "Andra");
+        var third = await _client.CreateModuleAsync(courseId, "Tredje");
 
         var response = await _client.PutAsJsonAsync(
             $"/api/courses/{courseId}/modules/order", new { moduleIds = new[] { third.Id, first.Id, second.Id } });
@@ -97,9 +90,9 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
     public async Task Reorder_WithoutEveryModuleOnce_ReturnsBadRequest()
     {
         var courseId = await AddCourseAsync();
-        var first = await CreateModuleAsync(courseId, "Första");
-        var second = await CreateModuleAsync(courseId, "Andra");
-        var otherCourseModule = await CreateModuleAsync(await AddCourseAsync(), "Annan kurs");
+        var first = await _client.CreateModuleAsync(courseId, "Första");
+        var second = await _client.CreateModuleAsync(courseId, "Andra");
+        var otherCourseModule = await _client.CreateModuleAsync(await AddCourseAsync(), "Annan kurs");
 
         Guid[][] invalidOrders =
         [
@@ -123,8 +116,8 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
     public async Task ContentLinkedToModule_IsListedInTheModule_IncludingDraftsAndScheduled()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId, "Vecka 1");
-        var otherWeek = await CreateModuleAsync(courseId, "Vecka 2");
+        var week = await _client.CreateModuleAsync(courseId, "Vecka 1");
+        var otherWeek = await _client.CreateModuleAsync(courseId, "Vecka 2");
         var later = await CreateContentAsync("Senare", "published");
         var draft = await CreateContentAsync("Utkast", "draft");
         var courseWide = await CreateContentAsync("Hela kursen", "published");
@@ -148,7 +141,7 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
     public async Task ModuleContent_HasTheGradeScaleOfAssignments()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var week = await _client.CreateModuleAsync(courseId, "Vecka 1");
         var theory = await CreateContentAsync("Teori", "published");
         var exercise = await _client.PostAsJsonAsync(
             "/api/content", new { type = "assignment", title = "Övning", bodyMd = "" });
@@ -165,7 +158,7 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
     public async Task NewLink_IsLastInTheModule_EvenWhenItPublishesFirst()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var week = await _client.CreateModuleAsync(courseId, "Vecka 1");
         var later = await CreateContentAsync("Senare", "published");
         var earlier = await CreateContentAsync("Tidigare", "published");
 
@@ -180,7 +173,7 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
     public async Task ReorderContent_SetsTheNewOrder()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var week = await _client.CreateModuleAsync(courseId, "Vecka 1");
         var first = await CreateContentAsync("Första", "published");
         var second = await CreateContentAsync("Andra", "published");
         var third = await CreateContentAsync("Tredje", "published");
@@ -202,8 +195,8 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
     public async Task ReorderContent_WithoutEveryLinkOnce_ReturnsBadRequest()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId, "Vecka 1");
-        var otherWeek = await CreateModuleAsync(courseId, "Vecka 2");
+        var week = await _client.CreateModuleAsync(courseId, "Vecka 1");
+        var otherWeek = await _client.CreateModuleAsync(courseId, "Vecka 2");
         var first = await CreateContentAsync("Första", "published");
         var second = await CreateContentAsync("Andra", "published");
         var other = await CreateContentAsync("Annan vecka", "published");
@@ -236,7 +229,7 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
     public async Task ReorderContent_ForModuleOfAnotherCourse_ReturnsNotFound()
     {
         var courseId = await AddCourseAsync();
-        var otherCourseWeek = await CreateModuleAsync(await AddCourseAsync(), "Vecka 1");
+        var otherCourseWeek = await _client.CreateModuleAsync(await AddCourseAsync(), "Vecka 1");
         var content = await CreateContentAsync("Teori", "published");
         await LinkAsync(content.Id, new { courseId, moduleId = otherCourseWeek.Id });
 
@@ -251,7 +244,7 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
     public async Task LinkToModule_WithoutCourse_ReturnsBadRequest()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var week = await _client.CreateModuleAsync(courseId, "Vecka 1");
         var content = await CreateContentAsync("Teori", "published");
 
         var response = await LinkAsync(content.Id, new { moduleId = week.Id, groupId = await AddGroupAsync() });
@@ -264,7 +257,7 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
     public async Task LinkToModule_OfAnotherCourse_ReturnsBadRequest()
     {
         var courseId = await AddCourseAsync();
-        var otherCourseWeek = await CreateModuleAsync(await AddCourseAsync(), "Vecka 1");
+        var otherCourseWeek = await _client.CreateModuleAsync(await AddCourseAsync(), "Vecka 1");
         var content = await CreateContentAsync("Teori", "published");
 
         var response = await LinkAsync(content.Id, new { courseId, moduleId = otherCourseWeek.Id });
@@ -305,7 +298,7 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
     public async Task UpdateModule_RenamesAndChangesPublishAt()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var week = await _client.CreateModuleAsync(courseId, "Vecka 1");
         var publishAt = new DateTimeOffset(2027, 2, 1, 8, 0, 0, TimeSpan.Zero);
 
         var response = await _client.PutAsJsonAsync(
@@ -321,8 +314,8 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
     public async Task DeleteModule_RemovesContentOnlyInWeek_AndKeepsSharedContent()
     {
         var courseId = await AddCourseAsync();
-        var firstWeek = await CreateModuleAsync(courseId, "Vecka 1");
-        var secondWeek = await CreateModuleAsync(courseId, "Vecka 2");
+        var firstWeek = await _client.CreateModuleAsync(courseId, "Vecka 1");
+        var secondWeek = await _client.CreateModuleAsync(courseId, "Vecka 2");
         var shared = await CreateContentAsync("Delad", "published");
         var onlyFirst = await CreateContentAsync("Bara vecka 1", "published");
         await LinkAsync(shared.Id, new { courseId, moduleId = firstWeek.Id });
@@ -345,7 +338,7 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
     {
         var courseId = await AddCourseAsync();
         await AddStudentToCourseAsync(courseId);
-        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var week = await _client.CreateModuleAsync(courseId, "Vecka 1");
         var assignment = await _client.PostAsJsonAsync("/api/content", new
         {
             type = "assignment",
@@ -373,7 +366,7 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
     {
         var courseId = await AddCourseAsync();
         await AddStudentToCourseAsync(courseId);
-        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var week = await _client.CreateModuleAsync(courseId, "Vecka 1");
         var assignment = await _client.PostAsJsonAsync("/api/content", new
         {
             type = "assignment",
@@ -400,7 +393,7 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
     public async Task DeleteModule_WithStudentActivity_ReturnsConflict()
     {
         var courseId = await AddCourseAsync();
-        var week = await CreateModuleAsync(courseId, "Vecka 1");
+        var week = await _client.CreateModuleAsync(courseId, "Vecka 1");
         var content = await CreateContentAsync("Teori", "published");
         var link = await LinkAsync(content.Id, new { courseId, moduleId = week.Id });
         var linkId = (await link.Content.ReadFromJsonAsync<LinkResponse>())!.Id;
@@ -431,7 +424,7 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
     public async Task Modules_CountDistinctSubmittersOverStudentsInAllCourseGroups()
     {
         var setup = await AddCourseWithTwoGroupsAsync();
-        var week = await CreateModuleAsync(setup.CourseId, "Vecka 1");
+        var week = await _client.CreateModuleAsync(setup.CourseId, "Vecka 1");
         var assignment = await LinkAssignmentAsync(setup.CourseId, week.Id, new { });
         await AddSubmissionsAsync(
             assignment,
@@ -448,7 +441,7 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
     public async Task Modules_CountOnlyStudentsInTheGroupTheLinkIsFor()
     {
         var setup = await AddCourseWithTwoGroupsAsync();
-        var week = await CreateModuleAsync(setup.CourseId, "Vecka 1");
+        var week = await _client.CreateModuleAsync(setup.CourseId, "Vecka 1");
         var assignment = await LinkAssignmentAsync(setup.CourseId, week.Id, new { groupId = setup.SecondGroupId });
         await AddSubmissionsAsync(assignment, (setup.SecondStudents[0], SubmissionStatus.Submitted));
 
@@ -461,7 +454,7 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
     public async Task Modules_HaveNoCountsForTheoryOrExercisesWithoutSubmissionModes()
     {
         var setup = await AddCourseWithTwoGroupsAsync();
-        var week = await CreateModuleAsync(setup.CourseId, "Vecka 1");
+        var week = await _client.CreateModuleAsync(setup.CourseId, "Vecka 1");
         var theory = await CreateContentAsync("Teori", "published");
         await LinkAsync(theory.Id, new { courseId = setup.CourseId, moduleId = week.Id });
         await LinkAssignmentAsync(setup.CourseId, week.Id, new { }, submissionModes: []);
@@ -476,7 +469,7 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
     public async Task Modules_HideCountsFromStudents()
     {
         var setup = await AddCourseWithTwoGroupsAsync();
-        var week = await CreateModuleAsync(setup.CourseId, "Vecka 1");
+        var week = await _client.CreateModuleAsync(setup.CourseId, "Vecka 1");
         var assignment = await LinkAssignmentAsync(setup.CourseId, week.Id, new { });
         await AddSubmissionsAsync(assignment, (setup.FirstStudents[0], SubmissionStatus.Submitted));
         using var student = factory.CreateClient();
@@ -521,7 +514,7 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
     private async Task<Guid> LinkAssignmentAsync(
         Guid courseId, Guid moduleId, object extra, string[]? submissionModes = null)
     {
-        var response = await _client.PostAsJsonAsync("/api/content", new
+        var content = await _client.PostJsonAsync<ContentResponse>("/api/content", new
         {
             type = "assignment",
             title = "Uppgift",
@@ -530,8 +523,6 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
             gradeScale = "passFail",
             submissionModes = submissionModes ?? ["file"]
         });
-        response.EnsureSuccessStatusCode();
-        var content = (await response.Content.ReadFromJsonAsync<ContentResponse>())!;
         var body = System.Text.Json.JsonSerializer.SerializeToNode(new { courseId, moduleId })!.AsObject();
         foreach (var property in System.Text.Json.JsonSerializer.SerializeToNode(extra)!.AsObject())
         {
@@ -561,22 +552,13 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
         await db.SaveChangesAsync();
     }
 
-    private async Task<ModuleResponse> CreateModuleAsync(Guid courseId, string title)
-    {
-        var response = await _client.PostAsJsonAsync($"/api/courses/{courseId}/modules", new { title });
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<ModuleResponse>())!;
-    }
-
     private async Task<List<ModuleWithContent>> GetModulesAsync(Guid courseId) =>
-        (await _client.GetFromJsonAsync<List<ModuleWithContent>>($"/api/courses/{courseId}/modules"))!;
+        await _client.GetJsonAsync<List<ModuleWithContent>>($"/api/courses/{courseId}/modules");
 
     private async Task<ContentResponse> CreateContentAsync(string title, string status)
     {
-        var response = await _client.PostAsJsonAsync(
+        return await _client.PostJsonAsync<ContentResponse>(
             "/api/content", new { type = "theory", title, bodyMd = "", status });
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<ContentResponse>())!;
     }
 
     private Task<HttpResponseMessage> LinkAsync(Guid contentId, object link) =>

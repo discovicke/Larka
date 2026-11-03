@@ -12,7 +12,6 @@ import {Skeleton} from '@/components/ui/skeleton'
 import {useAsync} from '@/composables/useAsync'
 import {api} from '@/lib/api'
 import {type CourseStatus, courseStatus} from '@/lib/courseStatus'
-import {isAutoFail} from '@/lib/gradingWindow'
 import {submissionStatusKey} from '@/lib/status'
 import {gradeBadgeVariant} from '@/lib/submissions'
 import {
@@ -75,7 +74,7 @@ function assignmentStatusClass(assignment: StudyPlanAssignment): string {
 
 // Sista deadline har passerat utan inlämning eller komplettering: automatiskt IG.
 function hasAutoFail(assignment: StudyPlanAssignment): boolean {
-  return isAutoFail(assignment, assignment.status)
+  return assignment.deadline?.autoFail === true
 }
 
 function isFeedbackOpen(assignment: StudyPlanAssignment): boolean {

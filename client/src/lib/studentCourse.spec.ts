@@ -2,6 +2,7 @@ import {describe, expect, it} from 'vitest'
 
 import type {Schema} from '@/lib/api'
 import {dueStatus, isFinished, isModuleComplete, openableParts, resubmitLabel, sectionsFor} from '@/lib/studentCourse'
+import {deadlineState} from '@/test/deadline'
 
 type Item = Schema<'StudentContentItem'>
 type Module = Schema<'StudentModuleWithContentDto'>
@@ -100,6 +101,7 @@ describe('automatiskt IG', () => {
     gradeScale: 'PassFail',
     dueAt: '2020-01-01T10:00:00Z',
     resubmitDueAt: [],
+    deadline: deadlineState({autoFail: true, canHandIn: false, handInClosed: 'Closed', allowsNeedsWork: false}),
     // Backend sätter isCompleted för automatiskt IG, precis som för ett bedömt IG.
     isCompleted: true,
     submissionStatus: 'NeedsWork',
@@ -118,7 +120,11 @@ describe('automatiskt IG', () => {
   })
 
   it('är fortfarande en komplettering medan en deadline återstår', () => {
-    expect(isFinished({...missed, resubmitDueAt: ['2099-01-01T10:00:00Z']})).toBe(false)
+    expect(isFinished({
+      ...missed,
+      resubmitDueAt: ['2099-01-01T10:00:00Z'],
+      deadline: deadlineState({nextDeadline: '2099-01-01T10:00:00Z'}),
+    })).toBe(false)
   })
 })
 
@@ -147,8 +153,18 @@ describe('dueStatus', () => {
   const later = '2999-01-01T10:00:00Z'
 
   it('kallar inte delen försenad när eleven har en deadline kvar', () => {
-    const personal = item('p', {type: 'Assignment', dueAt: passed, personalDueAt: later})
-    const resubmit = item('r', {type: 'Assignment', dueAt: passed, resubmitDueAt: [later]})
+    const personal = item('p', {
+      type: 'Assignment',
+      dueAt: passed,
+      personalDueAt: later,
+      deadline: deadlineState({nextDeadline: later}),
+    })
+    const resubmit = item('r', {
+      type: 'Assignment',
+      dueAt: passed,
+      resubmitDueAt: [later],
+      deadline: deadlineState({nextDeadline: later}),
+    })
 
     expect(dueStatus(personal)).toBeNull()
     expect(dueStatus(resubmit)).toBeNull()

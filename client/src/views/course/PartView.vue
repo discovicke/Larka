@@ -284,8 +284,6 @@ watch([courseId, linkId], () => {
         :course-id="courseId"
         :link-id="linkId"
         :submissions="submissions"
-        :due-at="part?.dueAt ?? null"
-        :resubmit-due-at="part?.resubmitDueAt ?? []"
         :on-site="(content?.assignment?.submissionModes ?? []).includes('OnSite')"
         @reload="load(false)"
       />

@@ -20,7 +20,6 @@ import {
   groupByAssignment,
   groupRowsByTab,
 } from '@/lib/gradingQueue'
-import {nextDeadline} from '@/lib/gradingWindow'
 import {submissionStatusKey} from '@/lib/status'
 
 const {courses, status} = useCourses()
@@ -67,7 +66,7 @@ function line(group: GradingGroup) {
 }
 
 function chanceUntil(row: GradingRow): string {
-  const until = nextDeadline(row)
+  const until = row.submission.deadline?.nextDeadline
   return until
     ? `Chans till ${formatDate(until)}`
     : '–'

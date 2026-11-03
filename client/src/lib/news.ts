@@ -1,4 +1,5 @@
 import type {Schema} from '@/lib/api'
+import {linksByContent, linkTargets} from '@/lib/feedLinks'
 
 /** Fästa nyheter först, sedan nyast publicerad först. Returnerar en ny lista. */
 export function sortNews<T extends {isPinned: boolean, publishAt: string}>(posts: T[]): T[] {
@@ -21,51 +22,18 @@ export interface NewsEntry<T extends NewsLink> {
   targets: string[]
 }
 
-function targetNames<T extends NewsLink>(links: T[], key: 'courseId' | 'groupId', names: Map<string, string>): string[] {
-  const found: string[] = []
-  for (const link of links) {
-    const id = link[key]
-    const name = id
-      ? names.get(id)
-      : undefined
-    if (name && !found.includes(name)) {
-      found.push(name)
-    }
-  }
-  return found
-}
-
 /**
  * En post per innehåll, även om den är publicerad i flera kurser och grupper.
  * `names` översätter kurs- och grupp-id till namn. Kursnamnen kommer först bland målen.
  */
 export function mergeNews<T extends NewsLink>(items: T[], names: Map<string, string>): NewsEntry<T>[] {
-  const byContent = new Map<string, T[]>()
-  // En grupps flöde tar med kursernas länkar, så samma länk kan komma från både kursen och gruppen.
-  const seen = new Set<string>()
-  for (const item of items) {
-    if (seen.has(item.linkId)) {
-      continue
-    }
-    seen.add(item.linkId)
-    const links = byContent.get(item.contentId)
-    if (links) {
-      links.push(item)
-    } else {
-      byContent.set(item.contentId, [item])
-    }
-  }
-
-  const entries = [...byContent.values()].map((contentLinks): NewsEntry<T> => {
+  const entries = linksByContent(items).map((contentLinks): NewsEntry<T> => {
     const links = sortNews(contentLinks)
     return {
       // Fäst om någon av länkarna är fäst, så att listan kan sortera på posten.
       post: {...links[0], isPinned: contentLinks.some((link) => link.isPinned)},
       links,
-      targets: [
-        ...targetNames(contentLinks, 'courseId', names),
-        ...targetNames(contentLinks, 'groupId', names),
-      ],
+      targets: linkTargets(contentLinks, names),
     }
   })
 

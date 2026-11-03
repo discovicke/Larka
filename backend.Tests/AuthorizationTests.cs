@@ -15,8 +15,6 @@ public class AuthorizationTests(TestWebApplicationFactory factory) : IClassFixtu
 {
     private readonly HttpClient _client = factory.CreateClient();
 
-    private record CreatedResponse(Guid Id);
-
     private record Scenario(
         Guid SchoolId,
         Guid GroupId,
@@ -75,7 +73,7 @@ public class AuthorizationTests(TestWebApplicationFactory factory) : IClassFixtu
     {
         var scenario = await AddScenarioAsync();
         var contentId = await CreateTheoryAsync();
-        await LinkAsync(contentId, new { courseId = scenario.CourseId });
+        await _client.CreateLinkAsync(contentId, new { courseId = scenario.CourseId });
 
         var studentUpdate = await SendAsync(
             HttpMethod.Put, $"/api/content/{contentId}", scenario.StudentId,
@@ -102,7 +100,7 @@ public class AuthorizationTests(TestWebApplicationFactory factory) : IClassFixtu
     {
         var scenario = await AddScenarioAsync();
         var contentId = await CreateTheoryAsync();
-        var linkId = await LinkAsync(contentId, new { courseId = scenario.CourseId });
+        var linkId = (await _client.CreateLinkAsync(contentId, new { courseId = scenario.CourseId })).Id;
 
         var byStudent = await SendAsync(
             HttpMethod.Delete, $"/api/content/{contentId}/links/{linkId}", scenario.StudentId);
@@ -135,8 +133,8 @@ public class AuthorizationTests(TestWebApplicationFactory factory) : IClassFixtu
     public async Task ReorderModules_StudentIsForbidden_TeacherOfTheCourseSucceeds()
     {
         var scenario = await AddScenarioAsync();
-        var first = await CreateModuleAsync(scenario.CourseId, "Första");
-        var second = await CreateModuleAsync(scenario.CourseId, "Andra");
+        var first = (await _client.CreateModuleAsync(scenario.CourseId, "Första")).Id;
+        var second = (await _client.CreateModuleAsync(scenario.CourseId, "Andra")).Id;
         var order = new { moduleIds = new[] { second, first } };
 
         var byStudent = await SendAsync(
@@ -154,7 +152,7 @@ public class AuthorizationTests(TestWebApplicationFactory factory) : IClassFixtu
     public async Task UpdateAndDeleteModule_StudentIsForbidden_TeacherOfTheCourseSucceeds()
     {
         var scenario = await AddScenarioAsync();
-        var moduleId = await CreateModuleAsync(scenario.CourseId, "Vecka 1");
+        var moduleId = (await _client.CreateModuleAsync(scenario.CourseId, "Vecka 1")).Id;
         var update = JsonContent.Create(new { title = "Ändrad" });
 
         var studentUpdate = await SendAsync(
@@ -178,10 +176,12 @@ public class AuthorizationTests(TestWebApplicationFactory factory) : IClassFixtu
     public async Task MoveLinkToAnotherWeek_StudentIsForbidden_TeacherOfTheCourseSucceeds()
     {
         var scenario = await AddScenarioAsync();
-        var firstWeek = await CreateModuleAsync(scenario.CourseId, "Vecka 1");
-        var secondWeek = await CreateModuleAsync(scenario.CourseId, "Vecka 2");
+        var firstWeek = (await _client.CreateModuleAsync(scenario.CourseId, "Vecka 1")).Id;
+        var secondWeek = (await _client.CreateModuleAsync(scenario.CourseId, "Vecka 2")).Id;
         var contentId = await CreateTheoryAsync();
-        var linkId = await LinkAsync(contentId, new { courseId = scenario.CourseId, moduleId = firstWeek });
+        var linkId = (await _client.CreateLinkAsync(
+            contentId,
+            new { courseId = scenario.CourseId, moduleId = firstWeek })).Id;
 
         var byStudent = await SendAsync(
             HttpMethod.Put, $"/api/content/{contentId}/links/{linkId}/module", scenario.StudentId,
@@ -216,7 +216,7 @@ public class AuthorizationTests(TestWebApplicationFactory factory) : IClassFixtu
     {
         var scenario = await AddScenarioAsync();
         var contentId = await CreateTheoryAsync();
-        await LinkAsync(contentId, new { courseId = scenario.CourseId });
+        await _client.CreateLinkAsync(contentId, new { courseId = scenario.CourseId });
 
         var byStudent = await UploadAsync(contentId, scenario.StudentId);
         var byTeacher = await UploadAsync(contentId, scenario.TeacherId);
@@ -230,7 +230,7 @@ public class AuthorizationTests(TestWebApplicationFactory factory) : IClassFixtu
     {
         var scenario = await AddScenarioAsync();
         var assignmentId = await CreateOnSiteAssignmentAsync();
-        var linkId = await LinkAsync(assignmentId, new { courseId = scenario.CourseId });
+        var linkId = (await _client.CreateLinkAsync(assignmentId, new { courseId = scenario.CourseId })).Id;
         Guid submissionId;
         using (var scope = factory.Services.CreateScope())
         {
@@ -331,38 +331,20 @@ public class AuthorizationTests(TestWebApplicationFactory factory) : IClassFixtu
 
     private async Task<Guid> CreateTheoryAsync()
     {
-        var response = await _client.PostAsJsonAsync(
-            "/api/content", new { type = "theory", title = "Teori", bodyMd = "Text" });
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<CreatedResponse>())!.Id;
+        return (await _client.PostJsonAsync<IdResponse>(
+            "/api/content", new { type = "theory", title = "Teori", bodyMd = "Text" })).Id;
     }
 
     private async Task<Guid> CreateOnSiteAssignmentAsync()
     {
-        var response = await _client.PostAsJsonAsync("/api/content", new
+        return (await _client.PostJsonAsync<IdResponse>("/api/content", new
         {
             type = "assignment",
             title = "Redovisning",
             bodyMd = "",
             gradeScale = "passFail",
             submissionModes = new[] { "onSite" }
-        });
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<CreatedResponse>())!.Id;
-    }
-
-    private async Task<Guid> CreateModuleAsync(Guid courseId, string title)
-    {
-        var response = await _client.PostAsJsonAsync($"/api/courses/{courseId}/modules", new { title });
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<CreatedResponse>())!.Id;
-    }
-
-    private async Task<Guid> LinkAsync(Guid contentId, object link)
-    {
-        var response = await _client.PostAsJsonAsync($"/api/content/{contentId}/links", link);
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<CreatedResponse>())!.Id;
+        })).Id;
     }
 
     private async Task<Scenario> AddScenarioAsync()

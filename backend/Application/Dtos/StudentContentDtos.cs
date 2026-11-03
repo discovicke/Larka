@@ -52,7 +52,8 @@ public record StudentContentItem(
     List<AssignmentRequirementDto> Requirements,
     StudentRepoDto? Repo,
     AssignmentGroupDto? Group = null,
-    List<RelatedLinkDto>? RelatedLinks = null);
+    List<RelatedLinkDto>? RelatedLinks = null,
+    DeadlineStateDto? Deadline = null); // bara för uppgifter
 
 /// <summary>
 /// En förutsättning som eleven saknar. Title är null när förutsättningen inte är publicerad än,

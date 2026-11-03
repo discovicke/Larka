@@ -85,7 +85,7 @@ public class StudyPlanService(
         var studentSubmissions = await submissions.GetForStudentAsync(studentId, linkIds, ct);
         var submissionByLinkId = studentSubmissions.ToDictionary(submission => submission.ContentLinkId);
         var assignmentDtos = assignments
-            .Select(link => ToAssignmentDto(link, submissionByLinkId.GetValueOrDefault(link.Link.Id)))
+            .Select(link => ToAssignmentDto(link, submissionByLinkId.GetValueOrDefault(link.Link.Id), now))
             .ToList();
 
         return new StudyPlanCourseDto(
@@ -103,21 +103,24 @@ public class StudyPlanService(
             assignmentDtos);
     }
 
-    private static StudyPlanAssignmentDto ToAssignmentDto(LinkedContent link, Submission? submission)
+    private static StudyPlanAssignmentDto ToAssignmentDto(
+        LinkedContent link, Submission? submission, DateTimeOffset now)
     {
         var feedback = submission?.Grade?.Feedback;
+        var status = submission?.Status ?? SubmissionStatus.NotStarted;
         return new StudyPlanAssignmentDto(
             link.Link.Id,
             link.Content.Title,
             link.Link.DueAt,
             link.Link.ResubmitDueAt,
             submission?.PersonalDueAt,
-            submission?.Status ?? SubmissionStatus.NotStarted,
+            status,
             submission?.Grade?.Level,
             string.IsNullOrWhiteSpace(feedback)
                 ? null
                 : feedback,
-            submission?.Grade?.GradedAt);
+            submission?.Grade?.GradedAt,
+            DeadlineStateDto.From(GradingWindow.Of(link.Link, submission, now), status));
     }
 
     private static StudyPlanCourseStatus StatusOf(Course course, DateOnly today)

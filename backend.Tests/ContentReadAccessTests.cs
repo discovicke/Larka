@@ -14,8 +14,6 @@ public class ContentReadAccessTests(TestWebApplicationFactory factory)
 {
     private readonly HttpClient _placeholder = factory.CreateClient();
 
-    private record IdResponse(Guid Id);
-
     private record CreatedWithLink(IdResponse Content, IdResponse Link);
 
     private record Scene(Guid SchoolId, Guid GroupId, Guid CourseId, Guid ModuleId, Guid ContentId);
@@ -34,10 +32,8 @@ public class ContentReadAccessTests(TestWebApplicationFactory factory)
             (schoolId, groupId, courseId) = (school.Id, group.Id, course.Id);
         }
 
-        var module = await _placeholder.PostAsJsonAsync(
-            $"/api/courses/{courseId}/modules", new { title = "Vecka 1", publishAt = moduleOpensAt });
-        module.EnsureSuccessStatusCode();
-        var moduleId = (await module.Content.ReadFromJsonAsync<IdResponse>())!.Id;
+        var moduleId = (await _placeholder.PostJsonAsync<IdResponse>(
+            $"/api/courses/{courseId}/modules", new { title = "Vecka 1", publishAt = moduleOpensAt })).Id;
 
         var created = await _placeholder.PostAsJsonAsync("/api/content/with-link", new
         {
@@ -208,9 +204,9 @@ public class ContentReadAccessTests(TestWebApplicationFactory factory)
 
         using var teacherClient = factory.CreateClient();
         teacherClient.DefaultRequestHeaders.Add(TestAuthHandler.Header, teacherId.ToString());
-        var week = await teacherClient.PostAsJsonAsync($"/api/courses/{courseId}/modules", new { title = "Vecka 1" });
-        week.EnsureSuccessStatusCode();
-        var moduleId = (await week.Content.ReadFromJsonAsync<IdResponse>())!.Id;
+        var moduleId = (await teacherClient.PostJsonAsync<IdResponse>(
+            $"/api/courses/{courseId}/modules",
+            new { title = "Vecka 1" })).Id;
 
         var created = await teacherClient.PostAsJsonAsync("/api/content/with-link", new
         {

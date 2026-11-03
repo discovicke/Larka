@@ -17,8 +17,6 @@ public class FileStorageTests(TestWebApplicationFactory factory) : IClassFixture
 
     private InMemoryFileStorage Storage => (InMemoryFileStorage)factory.Services.GetRequiredService<IFileStorage>();
 
-    private record IdResponse(Guid Id);
-
     private record AttachmentResponse(Guid Id, string FileName, string Url, long SizeBytes);
 
     private record FileResponse(string FileName, string Url);
@@ -173,9 +171,9 @@ public class FileStorageTests(TestWebApplicationFactory factory) : IClassFixture
 
     private async Task<Guid> CreateContentAsync(string type)
     {
-        var response = await _client.PostAsJsonAsync("/api/content", new { type, title = "Material", bodyMd = "" });
-        response.EnsureSuccessStatusCode();
-        var id = (await response.Content.ReadFromJsonAsync<IdResponse>())!.Id;
+        var id = (await _client.PostJsonAsync<IdResponse>(
+            "/api/content",
+            new { type, title = "Material", bodyMd = "" })).Id;
         await LinkToTeachersGroupAsync(id);
         return id;
     }
@@ -190,8 +188,7 @@ public class FileStorageTests(TestWebApplicationFactory factory) : IClassFixture
                 scope.ServiceProvider.GetRequiredService<AppDb>(), placeholderTeaches: true)).Id;
         }
 
-        var link = await _client.PostAsJsonAsync($"/api/content/{contentId}/links", new { groupId });
-        link.EnsureSuccessStatusCode();
+        await _client.PostJsonAsync($"/api/content/{contentId}/links", new { groupId });
     }
 
     private async Task<Guid> CreateFileAssignmentLinkAsync(string[]? modes = null)
@@ -213,8 +210,6 @@ public class FileStorageTests(TestWebApplicationFactory factory) : IClassFixture
         content.EnsureSuccessStatusCode();
         var contentId = (await content.Content.ReadFromJsonAsync<IdResponse>())!.Id;
 
-        var link = await _client.PostAsJsonAsync($"/api/content/{contentId}/links", new { groupId });
-        link.EnsureSuccessStatusCode();
-        return (await link.Content.ReadFromJsonAsync<IdResponse>())!.Id;
+        return (await _client.PostJsonAsync<IdResponse>($"/api/content/{contentId}/links", new { groupId })).Id;
     }
 }

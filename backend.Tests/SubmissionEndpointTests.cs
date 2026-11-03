@@ -14,11 +14,7 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
 {
     private readonly HttpClient _client = factory.CreateClient();
 
-    private record IdResponse(Guid Id);
-
     private record CreatedWithLink(LinkResponse Link);
-
-    private record LinkResponse(Guid Id);
 
     private record AssignmentResponse(string GradeScale, List<string> SubmissionModes);
 
@@ -89,9 +85,9 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task LinkingFileAssignment_CreatesNotStartedSubmissionPerStudent()
     {
         var (groupId, _) = await AddGroupAsync(students: 2, teachers: 1);
-        var assignment = await CreateAssignmentAsync(_gradedFileSpec);
+        var assignment = await _client.CreateAssignmentAsync(_gradedFileSpec);
 
-        var linkId = await LinkAsync(assignment, new { groupId });
+        var linkId = (await _client.CreateLinkAsync(assignment, new { groupId })).Id;
 
         var submissions = await ListAsync(linkId);
         Assert.Equal(2, submissions.Count);
@@ -104,10 +100,10 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task LinkingRepoAssignment_ToCourse_GivesEveryStudentAPendingRepo()
     {
         var courseId = await AddCourseReadByTwoGroupsAsync();
-        var assignment = await CreateAssignmentAsync(
+        var assignment = await _client.CreateAssignmentAsync(
             new { submissionModes = new[] { "repo" }, templateRepo = "skol-org/labb-1-mall" });
 
-        var linkId = await LinkAsync(assignment, new { courseId });
+        var linkId = (await _client.CreateLinkAsync(assignment, new { courseId })).Id;
 
         var submissions = await ListAsync(linkId);
         Assert.Equal(2, submissions.Count);
@@ -119,9 +115,9 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task PendingRepo_IsProvisionedByBackgroundService()
     {
         var courseId = await AddCourseReadByTwoGroupsAsync();
-        var assignment = await CreateAssignmentAsync(
+        var assignment = await _client.CreateAssignmentAsync(
             new { submissionModes = new[] { "repo" }, templateRepo = "skol-org/labb-1-mall" });
-        var linkId = await LinkAsync(assignment, new { courseId });
+        var linkId = (await _client.CreateLinkAsync(assignment, new { courseId })).Id;
 
         using (var scope = factory.Services.CreateScope())
         {
@@ -138,9 +134,9 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task RepoActions_RefreshAndLockOnlyTheSelectedAssignment()
     {
         var courseId = await AddCourseReadByTwoGroupsAsync();
-        var assignment = await CreateAssignmentAsync(
+        var assignment = await _client.CreateAssignmentAsync(
             new { submissionModes = new[] { "repo" }, templateRepo = "skol-org/labb-1-mall" });
-        var linkId = await LinkAsync(assignment, new { courseId });
+        var linkId = (await _client.CreateLinkAsync(assignment, new { courseId })).Id;
 
         using (var scope = factory.Services.CreateScope())
         {
@@ -168,9 +164,9 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task SupportFlags_DetectNotStartedOldPushAndRedChecks()
     {
         var courseId = await AddCourseReadByTwoGroupsAsync();
-        var assignment = await CreateAssignmentAsync(
+        var assignment = await _client.CreateAssignmentAsync(
             new { submissionModes = new[] { "repo" }, templateRepo = "skol-org/labb-1-mall" });
-        var linkId = await LinkAsync(assignment, new { courseId });
+        var linkId = (await _client.CreateLinkAsync(assignment, new { courseId })).Id;
 
         using (var scope = factory.Services.CreateScope())
         {
@@ -227,9 +223,9 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task RequestingMoreWork_ReopensTheRepoForResubmission()
     {
         var courseId = await AddCourseReadByTwoGroupsAsync();
-        var assignment = await CreateAssignmentAsync(
+        var assignment = await _client.CreateAssignmentAsync(
             new { submissionModes = new[] { "repo" }, templateRepo = "skol-org/labb-1-mall" });
-        var linkId = await LinkAsync(assignment, new { courseId });
+        var linkId = (await _client.CreateLinkAsync(assignment, new { courseId })).Id;
 
         using (var scope = factory.Services.CreateScope())
         {
@@ -267,14 +263,14 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
         DateTimeOffset? dueAt, params DateTimeOffset[] resubmitDueAt)
     {
         var courseId = await AddCourseReadByTwoGroupsAsync();
-        var assignment = await CreateAssignmentAsync(
+        var assignment = await _client.CreateAssignmentAsync(
             new
             {
                 submissionModes = new[] { "repo" },
                 templateRepo = "skol-org/labb-1-mall",
                 lockAtDeadline = true
             });
-        var linkId = await LinkAsync(assignment, new { courseId });
+        var linkId = (await _client.CreateLinkAsync(assignment, new { courseId })).Id;
         using (var scope = factory.Services.CreateScope())
         {
             await scope.ServiceProvider
@@ -650,9 +646,9 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task LinkingAssignmentWithoutSubmission_CreatesNoSubmissions()
     {
         var (groupId, _) = await AddGroupAsync(students: 2);
-        var assignment = await CreateAssignmentAsync(new { });
+        var assignment = await _client.CreateAssignmentAsync(new { });
 
-        var linkId = await LinkAsync(assignment, new { groupId });
+        var linkId = (await _client.CreateLinkAsync(assignment, new { groupId })).Id;
 
         Assert.Empty(await ListAsync(linkId));
     }
@@ -661,7 +657,8 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task Submit_FileAssignment_WithFiles_IsSubmitted_AndResubmitKeepsOneRow()
     {
         var (groupId, _) = await AddGroupAsync(students: 0);
-        var linkId = await LinkAsync(await CreateAssignmentAsync(_fileSpec), new { groupId });
+        var linkId = (await _client.CreateLinkAsync(await _client.CreateAssignmentAsync(_fileSpec), new { groupId }))
+            .Id;
 
         var first = await SubmitFilesAsync(linkId, "rapport.pdf");
         var second = await SubmitFilesAsync(linkId, "rapport-v2.pdf");
@@ -678,7 +675,8 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task Resubmit_WithKeepFileIds_KeepsThoseFilesAndAddsNew()
     {
         var (groupId, _) = await AddGroupAsync(students: 0);
-        var linkId = await LinkAsync(await CreateAssignmentAsync(_fileSpec), new { groupId });
+        var linkId = (await _client.CreateLinkAsync(await _client.CreateAssignmentAsync(_fileSpec), new { groupId }))
+            .Id;
         var first = await SubmitFilesAsync(linkId, "a.pdf", "b.pdf");
         var keep = first.Value!.Files.Single(file => file.FileName == "a.pdf").Id;
 
@@ -693,7 +691,8 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task Resubmit_KeepingAllFiles_WithoutNewOnes_IsAllowed_ButKeepingNoneIsNot()
     {
         var (groupId, _) = await AddGroupAsync(students: 0);
-        var linkId = await LinkAsync(await CreateAssignmentAsync(_fileSpec), new { groupId });
+        var linkId = (await _client.CreateLinkAsync(await _client.CreateAssignmentAsync(_fileSpec), new { groupId }))
+            .Id;
         var first = await SubmitFilesAsync(linkId, "a.pdf");
         var keep = first.Value!.Files.Single().Id;
 
@@ -709,7 +708,8 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task Submit_FileAssignment_WithoutFiles_ReturnsBadRequest()
     {
         var (groupId, _) = await AddGroupAsync(students: 0);
-        var linkId = await LinkAsync(await CreateAssignmentAsync(_fileSpec), new { groupId });
+        var linkId = (await _client.CreateLinkAsync(await _client.CreateAssignmentAsync(_fileSpec), new { groupId }))
+            .Id;
 
         var response = await PostSubmissionAsync(linkId, "Glömde filen");
 
@@ -722,7 +722,9 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
         var (groupId, _) = await AddGroupAsync(students: 0);
         var news = await _client.PostAsJsonAsync(
             "/api/content", new { type = "news", title = "Nyhet", bodyMd = "Text" });
-        var linkId = await LinkAsync((await news.Content.ReadFromJsonAsync<IdResponse>())!.Id, new { groupId });
+        var linkId = (await _client.CreateLinkAsync(
+            (await news.Content.ReadFromJsonAsync<IdResponse>())!.Id,
+            new { groupId })).Id;
 
         var result = await SubmitFilesAsync(linkId, "rapport.pdf");
 
@@ -733,8 +735,8 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task NeedsWork_ThenResubmit_ThenGrade()
     {
         var (groupId, _) = await AddGroupAsync(students: 0);
-        var assignment = await CreateAssignmentAsync(_gradedFileSpec);
-        var linkId = await LinkAsync(assignment, new { groupId });
+        var assignment = await _client.CreateAssignmentAsync(_gradedFileSpec);
+        var linkId = (await _client.CreateLinkAsync(assignment, new { groupId })).Id;
         var submitted = await SubmitAsync(linkId);
 
         var needsWork = await _client.PostAsJsonAsync($"/api/submissions/{submitted.Id}/grade",
@@ -756,9 +758,9 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task Grade_PassFailScale_WithDistinction_ReturnsBadRequest()
     {
         var (groupId, _) = await AddGroupAsync(students: 0);
-        var assignment = await CreateAssignmentAsync(
+        var assignment = await _client.CreateAssignmentAsync(
             new { submissionModes = new[] { "file" }, gradeScale = "passFail" });
-        var linkId = await LinkAsync(assignment, new { groupId });
+        var linkId = (await _client.CreateLinkAsync(assignment, new { groupId })).Id;
         var submitted = await SubmitAsync(linkId);
 
         var response = await _client.PostAsJsonAsync($"/api/submissions/{submitted.Id}/grade",
@@ -771,8 +773,8 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task Grade_BeforeAnythingIsSubmitted_ReturnsBadRequest()
     {
         var (groupId, _) = await AddGroupAsync(students: 1);
-        var assignment = await CreateAssignmentAsync(_gradedFileSpec);
-        var linkId = await LinkAsync(assignment, new { groupId });
+        var assignment = await _client.CreateAssignmentAsync(_gradedFileSpec);
+        var linkId = (await _client.CreateLinkAsync(assignment, new { groupId })).Id;
         var notStarted = Assert.Single(await ListAsync(linkId));
 
         var response = await _client.PostAsJsonAsync($"/api/submissions/{notStarted.Id}/grade",
@@ -818,8 +820,8 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task Submit_TextAssignment_WithText_IsSubmitted()
     {
         var (groupId, _) = await AddGroupAsync(students: 0);
-        var assignment = await CreateAssignmentAsync(new { submissionModes = new[] { "text" } });
-        var linkId = await LinkAsync(assignment, new { groupId });
+        var assignment = await _client.CreateAssignmentAsync(new { submissionModes = new[] { "text" } });
+        var linkId = (await _client.CreateLinkAsync(assignment, new { groupId })).Id;
 
         var response = await PostSubmissionAsync(linkId, "Mitt svar");
 
@@ -830,8 +832,8 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task Submit_TextAssignment_WithFiles_ReturnsBadRequest()
     {
         var (groupId, _) = await AddGroupAsync(students: 0);
-        var assignment = await CreateAssignmentAsync(new { submissionModes = new[] { "text" } });
-        var linkId = await LinkAsync(assignment, new { groupId });
+        var assignment = await _client.CreateAssignmentAsync(new { submissionModes = new[] { "text" } });
+        var linkId = (await _client.CreateLinkAsync(assignment, new { groupId })).Id;
 
         var result = await SubmitFilesAsync(linkId, "rapport.pdf");
 
@@ -842,8 +844,8 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task Submit_TextOrFileAssignment_AcceptsEither()
     {
         var (groupId, _) = await AddGroupAsync(students: 0);
-        var assignment = await CreateAssignmentAsync(new { submissionModes = new[] { "text", "file" } });
-        var linkId = await LinkAsync(assignment, new { groupId });
+        var assignment = await _client.CreateAssignmentAsync(new { submissionModes = new[] { "text", "file" } });
+        var linkId = (await _client.CreateLinkAsync(assignment, new { groupId })).Id;
 
         var withText = await PostSubmissionAsync(linkId, "Svar");
         var withFiles = await SubmitFilesAsync(linkId, "rapport.pdf");
@@ -856,8 +858,8 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task Submit_OnSiteAssignment_ReturnsBadRequest()
     {
         var (groupId, _) = await AddGroupAsync(students: 0);
-        var assignment = await CreateAssignmentAsync(new { submissionModes = new[] { "onSite" } });
-        var linkId = await LinkAsync(assignment, new { groupId });
+        var assignment = await _client.CreateAssignmentAsync(new { submissionModes = new[] { "onSite" } });
+        var linkId = (await _client.CreateLinkAsync(assignment, new { groupId })).Id;
 
         var response = await PostSubmissionAsync(linkId, "Jag var där");
 
@@ -868,9 +870,9 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task Grade_OnSiteAssignment_WorksWithoutASubmission()
     {
         var (groupId, _) = await AddGroupAsync(students: 1);
-        var assignment = await CreateAssignmentAsync(
+        var assignment = await _client.CreateAssignmentAsync(
             new { submissionModes = new[] { "onSite" }, gradeScale = "passFail" });
-        var linkId = await LinkAsync(assignment, new { groupId });
+        var linkId = (await _client.CreateLinkAsync(assignment, new { groupId })).Id;
         var notStarted = Assert.Single(await ListAsync(linkId));
 
         var response = await _client.PostAsJsonAsync($"/api/submissions/{notStarted.Id}/grade",
@@ -886,9 +888,9 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task Grade_Fail_WithoutComment_ReturnsBadRequest()
     {
         var (groupId, _) = await AddGroupAsync(students: 0);
-        var assignment = await CreateAssignmentAsync(
+        var assignment = await _client.CreateAssignmentAsync(
             new { submissionModes = new[] { "file" }, gradeScale = "passFail" });
-        var submitted = await SubmitAsync(await LinkAsync(assignment, new { groupId }));
+        var submitted = await SubmitAsync((await _client.CreateLinkAsync(assignment, new { groupId })).Id);
 
         var response = await _client.PostAsJsonAsync($"/api/submissions/{submitted.Id}/grade",
             new { level = "fail", feedback = "   " });
@@ -900,9 +902,9 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task Grade_Fail_WithComment_IsGraded()
     {
         var (groupId, _) = await AddGroupAsync(students: 0);
-        var assignment = await CreateAssignmentAsync(
+        var assignment = await _client.CreateAssignmentAsync(
             new { submissionModes = new[] { "file" }, gradeScale = "passFail" });
-        var submitted = await SubmitAsync(await LinkAsync(assignment, new { groupId }));
+        var submitted = await SubmitAsync((await _client.CreateLinkAsync(assignment, new { groupId })).Id);
 
         var response = await _client.PostAsJsonAsync($"/api/submissions/{submitted.Id}/grade",
             new { level = "fail", feedback = "Testerna saknas." });
@@ -915,9 +917,9 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task Grade_WithoutLevel_OnAGradedScale_ReturnsBadRequest()
     {
         var (groupId, _) = await AddGroupAsync(students: 0);
-        var assignment = await CreateAssignmentAsync(
+        var assignment = await _client.CreateAssignmentAsync(
             new { submissionModes = new[] { "file" }, gradeScale = "passFail" });
-        var submitted = await SubmitAsync(await LinkAsync(assignment, new { groupId }));
+        var submitted = await SubmitAsync((await _client.CreateLinkAsync(assignment, new { groupId })).Id);
 
         var response = await _client.PostAsJsonAsync($"/api/submissions/{submitted.Id}/grade",
             new { feedback = "Saknar betyg" });
@@ -929,8 +931,8 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task Grade_WithLevel_OnAnUngradedAssignment_ReturnsBadRequest()
     {
         var (groupId, _) = await AddGroupAsync(students: 0);
-        var assignment = await CreateAssignmentAsync(_fileSpec);
-        var submitted = await SubmitAsync(await LinkAsync(assignment, new { groupId }));
+        var assignment = await _client.CreateAssignmentAsync(_fileSpec);
+        var submitted = await SubmitAsync((await _client.CreateLinkAsync(assignment, new { groupId })).Id);
 
         var response = await _client.PostAsJsonAsync($"/api/submissions/{submitted.Id}/grade",
             new { level = "pass", feedback = "Inget betyg här" });
@@ -942,8 +944,8 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task Grade_FeedbackOnly_OnAnUngradedAssignment_IsGraded()
     {
         var (groupId, _) = await AddGroupAsync(students: 0);
-        var assignment = await CreateAssignmentAsync(_fileSpec);
-        var submitted = await SubmitAsync(await LinkAsync(assignment, new { groupId }));
+        var assignment = await _client.CreateAssignmentAsync(_fileSpec);
+        var submitted = await SubmitAsync((await _client.CreateLinkAsync(assignment, new { groupId })).Id);
 
         var response = await _client.PostAsJsonAsync($"/api/submissions/{submitted.Id}/grade",
             new { feedback = "Bra jobbat" });
@@ -982,8 +984,8 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
         SubmissionStatus status, DateTimeOffset? dueAt, params DateTimeOffset[] resubmitDueAt)
     {
         var (groupId, _) = await AddGroupAsync(students: 0);
-        var assignment = await CreateAssignmentAsync(_gradedFileSpec);
-        var linkId = await LinkAsync(assignment, new { groupId });
+        var assignment = await _client.CreateAssignmentAsync(_gradedFileSpec);
+        var linkId = (await _client.CreateLinkAsync(assignment, new { groupId })).Id;
         var submitted = await SubmitAsync(linkId);
         await SetStatusAsync(submitted.Id, status);
         await SetDeadlinesAsync(linkId, dueAt, resubmitDueAt);
@@ -1072,8 +1074,8 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task Submit_WithNoSubmissionRow_AfterTheLastDeadline_IsRefused()
     {
         var (groupId, _) = await AddGroupAsync(students: 0);
-        var assignment = await CreateAssignmentAsync(_gradedFileSpec);
-        var linkId = await LinkAsync(assignment, new { groupId });
+        var assignment = await _client.CreateAssignmentAsync(_gradedFileSpec);
+        var linkId = (await _client.CreateLinkAsync(assignment, new { groupId })).Id;
         await SetDeadlinesAsync(linkId, _past);
 
         var result = await SubmitFilesAsync(linkId, "rapport.pdf");
@@ -1223,9 +1225,9 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task Grade_OnSite_FollowsTheSameTimingRule()
     {
         var (groupId, _) = await AddGroupAsync(students: 2);
-        var assignment = await CreateAssignmentAsync(
+        var assignment = await _client.CreateAssignmentAsync(
             new { submissionModes = new[] { "onSite" }, gradeScale = "passFail" });
-        var linkId = await LinkAsync(assignment, new { groupId });
+        var linkId = (await _client.CreateLinkAsync(assignment, new { groupId })).Id;
         var rows = await ListAsync(linkId);
         await SetDeadlinesAsync(linkId, _past, _future);
 
@@ -1282,8 +1284,8 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     public async Task PersonalDueAt_ForAStudentWithoutARow_CreatesANotStartedRow()
     {
         var (groupId, _) = await AddGroupAsync(students: 0);
-        var assignment = await CreateAssignmentAsync(_gradedFileSpec);
-        var linkId = await LinkAsync(assignment, new { groupId });
+        var assignment = await _client.CreateAssignmentAsync(_gradedFileSpec);
+        var linkId = (await _client.CreateLinkAsync(assignment, new { groupId })).Id;
         await SetDeadlinesAsync(linkId, _past);
         var lateStudent = await AddStudentToGroupAsync(groupId);
 
@@ -1300,8 +1302,8 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     {
         var (groupId, _) = await AddGroupAsync(students: 0);
         var (otherGroupId, _) = await AddGroupAsync(students: 0);
-        var assignment = await CreateAssignmentAsync(_gradedFileSpec);
-        var linkId = await LinkAsync(assignment, new { groupId });
+        var assignment = await _client.CreateAssignmentAsync(_gradedFileSpec);
+        var linkId = (await _client.CreateLinkAsync(assignment, new { groupId })).Id;
         await SetDeadlinesAsync(linkId, _past);
         var outsider = await AddStudentToGroupAsync(otherGroupId);
 
@@ -1522,31 +1524,6 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
             .ToListAsync();
     }
 
-    private async Task<Guid> CreateAssignmentAsync(object spec)
-    {
-        var body = new Dictionary<string, object?>
-        {
-            ["type"] = "assignment",
-            ["title"] = "Labb 1",
-            ["bodyMd"] = ""
-        };
-        foreach (var property in spec.GetType().GetProperties())
-        {
-            body[property.Name] = property.GetValue(spec);
-        }
-
-        var response = await _client.PostAsJsonAsync("/api/content", body);
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<IdResponse>())!.Id;
-    }
-
-    private async Task<Guid> LinkAsync(Guid contentId, object link)
-    {
-        var response = await _client.PostAsJsonAsync($"/api/content/{contentId}/links", link);
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<IdResponse>())!.Id;
-    }
-
     // Inlämningen skickas som multipart/form-data, precis som från formuläret, även när den bara har text.
     private async Task<HttpResponseMessage> PostSubmissionAsync(Guid linkId, string bodyMd)
     {
@@ -1563,13 +1540,13 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     }
 
     private async Task<List<SubmissionResponse>> ListAsync(Guid linkId) =>
-        (await _client.GetFromJsonAsync<List<SubmissionResponse>>($"/api/links/{linkId}/submissions"))!;
+        await _client.GetJsonAsync<List<SubmissionResponse>>($"/api/links/{linkId}/submissions");
 
     private async Task<SubmissionResponse> SubmitAsync(Guid linkId)
     {
         var result = await SubmitFilesAsync(linkId, "rapport.pdf");
         Assert.Equal(ResultStatus.Ok, result.Status);
-        return (await _client.GetFromJsonAsync<SubmissionResponse>($"/api/submissions/{result.Value!.Id}"))!;
+        return await _client.GetJsonAsync<SubmissionResponse>($"/api/submissions/{result.Value!.Id}");
     }
 
     // Lämnas in genom servicen, så att testet inte beror på hur formuläret kodas (det täcks i FileUploadTests).

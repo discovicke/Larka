@@ -49,9 +49,7 @@ public class StudentOverviewService(
     {
         var assignments = course.Assignments;
         // Automatiskt IG räknas som IG och inte som Komplettera eller Försenat, så att samma uppgift inte syns två gånger.
-        bool AutoFail(StudyPlanAssignmentDto assignment) =>
-            new GradingWindow(assignment.DueAt, assignment.ResubmitDueAt, now, assignment.PersonalDueAt)
-                .IsAutoFail(assignment.Status);
+        static bool AutoFail(StudyPlanAssignmentDto assignment) => assignment.Deadline?.AutoFail == true;
         int Count(SubmissionStatus status) => assignments.Count(assignment => assignment.Status == status);
         int Graded(GradeLevel level) => assignments.Count(assignment =>
             assignment.Status == SubmissionStatus.Graded && assignment.Grade == level);

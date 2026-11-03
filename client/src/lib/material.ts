@@ -2,6 +2,7 @@ import {PhFile, PhFileDoc, PhFileImage, PhFilePdf, PhFilePpt, PhFileXls, PhFileZ
 import type {Component} from 'vue'
 
 import type {Schema} from '@/lib/api'
+import {linksByContent, linkTargets} from '@/lib/feedLinks'
 
 /** Ikon för filens ändelse, med en allmän filikon för allt annat. */
 const fileIcons: Record<string, Component> = {
@@ -37,20 +38,6 @@ export interface MaterialRow {
   publishAt: string
 }
 
-function targetNames(links: MaterialLink[], key: 'courseId' | 'groupId', names: Map<string, string>): string[] {
-  const found: string[] = []
-  for (const link of links) {
-    const id = link[key]
-    const name = id
-      ? names.get(id)
-      : undefined
-    if (name && !found.includes(name)) {
-      found.push(name)
-    }
-  }
-  return found
-}
-
 function earliest(links: MaterialLink[]): string {
   return links
     .map((link) => link.publishAt)
@@ -69,31 +56,13 @@ export function materialRows(
   attachments: Schema<'AttachmentDto'>[],
   names: Map<string, string>,
 ): MaterialRow[] {
-  const seen = new Set<string>()
-  const byContent = new Map<string, MaterialLink[]>()
-  for (const item of items) {
-    if (seen.has(item.linkId)) {
-      continue
-    }
-    seen.add(item.linkId)
-    const links = byContent.get(item.contentId)
-    if (links) {
-      links.push(item)
-    } else {
-      byContent.set(item.contentId, [item])
-    }
-  }
-
   const contents = new Map<string, Omit<MaterialRow, 'attachment'>>()
-  for (const [contentId, links] of byContent) {
+  for (const links of linksByContent(items)) {
     const first = links[0]
-    contents.set(contentId, {
+    contents.set(first.contentId, {
       title: first.title,
       authorName: first.authorName,
-      targets: [
-        ...targetNames(links, 'courseId', names),
-        ...targetNames(links, 'groupId', names),
-      ],
+      targets: linkTargets(links, names),
       publishAt: earliest(links),
     })
   }

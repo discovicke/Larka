@@ -4,7 +4,7 @@ using Backend.Domain.Enums;
 namespace Backend.Application.Services;
 
 // Vad deadlinerna tillåter just nu: när eleven får lämna in och när läraren får sätta IG eller Komplettera.
-// Reglerna bor här och ingen annanstans. Klientens spegling finns i client/src/lib/gradingWindow.ts.
+// Reglerna bor här och ingen annanstans. Klienten räknar inget själv: den visar DeadlineStateDto som backend skickar.
 // En uppgift utan DueAt har ingen deadlinelogik: inlämning står öppen tills den bedömts och alla utfall är tillåtna.
 public readonly record struct GradingWindow(
     DateTimeOffset? DueAt,
@@ -41,6 +41,27 @@ public readonly record struct GradingWindow(
     }
 
     public bool HasDeadline => DueAt is not null;
+
+    /// <summary>Klassens sista deadline (DueAt eller sista kompletteringen), utan elevens egen. Null utan DueAt.</summary>
+    public DateTimeOffset? LastClassDeadline => DueAt is null
+        ? null
+        : ResubmitDueAt.Append(DueAt.Value).Max();
+
+    /// <summary>
+    /// Deadlinen som stänger elevens inlämning, eller null när inlämningen är stängd eller uppgiften saknar deadline.
+    /// En Inlämnad inlämning får ändras till DueAt. Annars gäller nästa deadline som återstår.
+    /// </summary>
+    public DateTimeOffset? HandInUntil(SubmissionStatus status)
+    {
+        if (DueAt is null || HandInError(status) is not null)
+        {
+            return null;
+        }
+
+        return status == SubmissionStatus.Submitted
+            ? DueAt
+            : NextDeadline;
+    }
 
     /// <summary>Första av elevens deadlines (DueAt, kompletteringarna och den personliga) som ligger efter nu, annars null.</summary>
     public DateTimeOffset? NextDeadline

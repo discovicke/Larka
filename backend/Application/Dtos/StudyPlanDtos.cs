@@ -35,4 +35,5 @@ public record StudyPlanAssignmentDto(
     SubmissionStatus Status,
     GradeLevel? Grade,
     string? Feedback,
-    DateTimeOffset? GradedAt);
+    DateTimeOffset? GradedAt,
+    DeadlineStateDto? Deadline = null);

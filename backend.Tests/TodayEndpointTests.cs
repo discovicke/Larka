@@ -34,24 +34,20 @@ public class TodayEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
     private record CourseResponse(Guid CourseId, string Code, int TotalParts, int CompletedParts,
         DateOnly? StartsOn, DateOnly? EndsOn);
 
-    private record ContentResponse(Guid Id);
-
-    private record LinkResponse(Guid Id);
-
-    private record ModuleResponse(Guid Id);
-
     [Fact]
     public async Task Todo_ListsOwnUpcomingAssignments_ByDueDate()
     {
         var setup = await AddSetupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         var soon = DateTimeOffset.UtcNow.AddDays(1);
         var later = DateTimeOffset.UtcNow.AddDays(9);
-        await CreateAssignmentLinkAsync("Senare", new { courseId = setup.CourseId, moduleId = week.Id, dueAt = later });
-        await CreateAssignmentLinkAsync("Snart", new { groupId = setup.GroupId, dueAt = soon });
-        await CreateAssignmentLinkAsync("Förfallen",
+        await _client.CreateAssignmentLinkAsync(
+            "Senare",
+            new { courseId = setup.CourseId, moduleId = week.Id, dueAt = later });
+        await _client.CreateAssignmentLinkAsync("Snart", new { groupId = setup.GroupId, dueAt = soon });
+        await _client.CreateAssignmentLinkAsync("Förfallen",
             new { courseId = setup.CourseId, moduleId = week.Id, dueAt = DateTimeOffset.UtcNow.AddDays(-1) });
-        await CreateAssignmentLinkAsync("Utan deadline", new { courseId = setup.CourseId, moduleId = week.Id });
+        await _client.CreateAssignmentLinkAsync("Utan deadline", new { courseId = setup.CourseId, moduleId = week.Id });
 
         var today = await GetTodayAsync(setup.StudentId);
 
@@ -64,23 +60,25 @@ public class TodayEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
     public async Task Todo_ExcludesUnpublishedAndOtherGroupsContent()
     {
         var setup = await AddSetupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
-        var futureWeek = await CreateModuleAsync(setup.CourseId, DateTimeOffset.UtcNow.AddDays(3));
+        var week = await _client.CreateModuleAsync(setup.CourseId);
+        var futureWeek = await _client.CreateModuleAsync(setup.CourseId, publishAt: DateTimeOffset.UtcNow.AddDays(3));
         var due = DateTimeOffset.UtcNow.AddDays(2);
-        await CreateAssignmentLinkAsync("Synlig", new { courseId = setup.CourseId, moduleId = week.Id, dueAt = due });
-        await CreateAssignmentLinkAsync("Publiceras senare", new
+        await _client.CreateAssignmentLinkAsync(
+            "Synlig",
+            new { courseId = setup.CourseId, moduleId = week.Id, dueAt = due });
+        await _client.CreateAssignmentLinkAsync("Publiceras senare", new
         {
             courseId = setup.CourseId,
             moduleId = week.Id,
             publishAt = DateTimeOffset.UtcNow.AddDays(1),
             dueAt = due
         });
-        await CreateAssignmentLinkAsync("Framtida vecka",
+        await _client.CreateAssignmentLinkAsync("Framtida vecka",
             new { courseId = setup.CourseId, moduleId = futureWeek.Id, dueAt = due });
-        var draft = await CreateContentAsync(
+        var draft = await _client.CreateContentAsync(
             new { type = "assignment", title = "Utkast", bodyMd = "", status = "draft" });
-        await CreateLinkAsync(draft.Id, new { courseId = setup.CourseId, moduleId = week.Id, dueAt = due });
-        await CreateAssignmentLinkAsync("Annan grupp",
+        await _client.CreateLinkAsync(draft.Id, new { courseId = setup.CourseId, moduleId = week.Id, dueAt = due });
+        await _client.CreateAssignmentLinkAsync("Annan grupp",
             new { groupId = setup.OtherGroupId, courseId = setup.OtherCourseId, dueAt = due });
 
         var today = await GetTodayAsync(setup.StudentId);
@@ -92,20 +90,20 @@ public class TodayEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
     public async Task Todo_ExcludesSubmittedItems_ButKeepsOnesNeedingWork()
     {
         var setup = await AddSetupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         var due = DateTimeOffset.UtcNow.AddDays(2);
-        var submitted = await CreateAssignmentLinkAsync("Inlämnad",
+        var submitted = await _client.CreateAssignmentLinkAsync("Inlämnad",
             new { courseId = setup.CourseId, moduleId = week.Id, dueAt = due });
-        var needsWork = await CreateAssignmentLinkAsync("Komplettera",
+        var needsWork = await _client.CreateAssignmentLinkAsync("Komplettera",
             new { courseId = setup.CourseId, moduleId = week.Id, dueAt = due });
-        await CreateAssignmentLinkAsync(
+        await _client.CreateAssignmentLinkAsync(
             "Ej inlämnad",
             new { courseId = setup.CourseId, moduleId = week.Id, dueAt = due });
         await AddSubmissionAsync(submitted, setup.StudentId, SubmissionStatus.Submitted);
         await AddSubmissionAsync(needsWork, setup.StudentId, SubmissionStatus.NeedsWork, feedback: "Lägg till tester");
         // En annan elevs inlämning ska inte påverka listan.
         await AddSubmissionAsync(
-            await CreateAssignmentLinkAsync("Någon annans",
+            await _client.CreateAssignmentLinkAsync("Någon annans",
                 new { courseId = setup.CourseId, moduleId = week.Id, dueAt = due }),
             setup.OtherStudentId, SubmissionStatus.Submitted);
 
@@ -124,13 +122,13 @@ public class TodayEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
     public async Task Todo_ShowsAPersonalDeadline_AfterTheClassDeadline_AndSortsByIt(SubmissionStatus status)
     {
         var setup = await AddSetupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         var personal = DateTimeOffset.UtcNow.AddDays(3);
-        var late = await CreateAssignmentLinkAsync("Egen deadline",
+        var late = await _client.CreateAssignmentLinkAsync("Egen deadline",
             new { courseId = setup.CourseId, moduleId = week.Id, dueAt = DateTimeOffset.UtcNow.AddDays(-4) });
-        await CreateAssignmentLinkAsync("Om en vecka",
+        await _client.CreateAssignmentLinkAsync("Om en vecka",
             new { courseId = setup.CourseId, moduleId = week.Id, dueAt = DateTimeOffset.UtcNow.AddDays(7) });
-        await CreateAssignmentLinkAsync("Om två dagar",
+        await _client.CreateAssignmentLinkAsync("Om två dagar",
             new { courseId = setup.CourseId, moduleId = week.Id, dueAt = DateTimeOffset.UtcNow.AddDays(2) });
         await AddSubmissionAsync(late, setup.StudentId, status);
         using (var scope = factory.Services.CreateScope())
@@ -152,9 +150,9 @@ public class TodayEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
     public async Task Todo_KeepsANeedsWorkAssignment_WhileAKomplettringDeadlineRemains_AndDropsItAfterTheLast()
     {
         var setup = await AddSetupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         var passed = DateTimeOffset.UtcNow.AddDays(-5);
-        var open = await CreateAssignmentLinkAsync("Komplettera före kompletteringsdeadline",
+        var open = await _client.CreateAssignmentLinkAsync("Komplettera före kompletteringsdeadline",
             new
             {
                 courseId = setup.CourseId,
@@ -162,11 +160,11 @@ public class TodayEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
                 dueAt = passed,
                 resubmitDueAt = new[] { DateTimeOffset.UtcNow.AddDays(3) }
             });
-        var closed = await CreateAssignmentLinkAsync("Komplettering missad",
+        var closed = await _client.CreateAssignmentLinkAsync("Komplettering missad",
             new { courseId = setup.CourseId, moduleId = week.Id, dueAt = passed });
-        await CreateAssignmentLinkAsync("Missad",
+        await _client.CreateAssignmentLinkAsync("Missad",
             new { courseId = setup.CourseId, moduleId = week.Id, dueAt = passed });
-        var graded = await CreateAssignmentLinkAsync("Bedömd",
+        var graded = await _client.CreateAssignmentLinkAsync("Bedömd",
             new { courseId = setup.CourseId, moduleId = week.Id, dueAt = passed });
         await AddSubmissionAsync(open, setup.StudentId, SubmissionStatus.NeedsWork, feedback: "Lägg till tester");
         await AddSubmissionAsync(closed, setup.StudentId, SubmissionStatus.NeedsWork, feedback: "Lägg till tester");
@@ -185,13 +183,13 @@ public class TodayEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
     public async Task Submitted_AndFeedback_AreTheStudentsOwn()
     {
         var setup = await AddSetupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         var due = DateTimeOffset.UtcNow.AddDays(2);
-        var graded = await CreateAssignmentLinkAsync("Betygsatt",
+        var graded = await _client.CreateAssignmentLinkAsync("Betygsatt",
             new { courseId = setup.CourseId, moduleId = week.Id, dueAt = due });
-        var handedIn = await CreateAssignmentLinkAsync("Väntar på betyg",
+        var handedIn = await _client.CreateAssignmentLinkAsync("Väntar på betyg",
             new { courseId = setup.CourseId, moduleId = week.Id, dueAt = due });
-        var notStarted = await CreateAssignmentLinkAsync("Ej påbörjad",
+        var notStarted = await _client.CreateAssignmentLinkAsync("Ej påbörjad",
             new { courseId = setup.CourseId, moduleId = week.Id, dueAt = due });
         await AddSubmissionAsync(graded, setup.StudentId, SubmissionStatus.Graded, GradeLevel.Pass, "Bra jobbat");
         await AddSubmissionAsync(handedIn, setup.StudentId, SubmissionStatus.Submitted);
@@ -228,9 +226,11 @@ public class TodayEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
     public async Task Courses_CountCompletedParts_OnlyForOwnCourses()
     {
         var setup = await AddSetupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
-        var done = await CreateAssignmentLinkAsync("Klar", new { courseId = setup.CourseId, moduleId = week.Id });
-        await CreateAssignmentLinkAsync("Inte klar", new { courseId = setup.CourseId, moduleId = week.Id });
+        var week = await _client.CreateModuleAsync(setup.CourseId);
+        var done = await _client.CreateAssignmentLinkAsync(
+            "Klar",
+            new { courseId = setup.CourseId, moduleId = week.Id });
+        await _client.CreateAssignmentLinkAsync("Inte klar", new { courseId = setup.CourseId, moduleId = week.Id });
         await CreateNewsAsync("En nyhet", new { courseId = setup.CourseId, moduleId = week.Id });
         await AddSubmissionAsync(done, setup.StudentId, SubmissionStatus.Submitted);
 
@@ -244,10 +244,10 @@ public class TodayEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
     public async Task Courses_DoNotCountAPartThatNeedsWork_AsCompleted()
     {
         var setup = await AddSetupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
+        var week = await _client.CreateModuleAsync(setup.CourseId);
         var link = new { courseId = setup.CourseId, moduleId = week.Id };
-        var submitted = await CreateAssignmentLinkAsync("Inlämnad", link);
-        var needsWork = await CreateAssignmentLinkAsync("Komplettera", link);
+        var submitted = await _client.CreateAssignmentLinkAsync("Inlämnad", link);
+        var needsWork = await _client.CreateAssignmentLinkAsync("Komplettera", link);
         await AddSubmissionAsync(submitted, setup.StudentId, SubmissionStatus.Submitted);
         await AddSubmissionAsync(needsWork, setup.StudentId, SubmissionStatus.NeedsWork);
 
@@ -261,8 +261,8 @@ public class TodayEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
     public async Task Teacher_GetsNoStudentLists()
     {
         var setup = await AddSetupAsync();
-        var week = await CreateModuleAsync(setup.CourseId);
-        await CreateAssignmentLinkAsync("Uppgift",
+        var week = await _client.CreateModuleAsync(setup.CourseId);
+        await _client.CreateAssignmentLinkAsync("Uppgift",
             new { courseId = setup.CourseId, moduleId = week.Id, dueAt = DateTimeOffset.UtcNow.AddDays(2) });
 
         var today = await GetTodayAsync(setup.TeacherId);
@@ -348,40 +348,12 @@ public class TodayEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
         return (await response.Content.ReadFromJsonAsync<TodayResponse>())!;
     }
 
-    private async Task<ModuleResponse> CreateModuleAsync(Guid courseId, DateTimeOffset? publishAt = null)
-    {
-        var response = await _client.PostAsJsonAsync(
-            $"/api/courses/{courseId}/modules", new { title = "Vecka 1", publishAt });
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<ModuleResponse>())!;
-    }
-
-    private async Task<Guid> CreateAssignmentLinkAsync(string title, object link)
-    {
-        var content = await CreateContentAsync(
-            new { type = "assignment", title, bodyMd = "", submissionModes = new[] { "text" } });
-        return await CreateLinkAsync(content.Id, link);
-    }
-
     private async Task CreateNewsAsync(string title, object link)
     {
-        var content = await CreateContentAsync(new { type = "news", title, bodyMd = "Text" });
-        await CreateLinkAsync(content.Id, link);
+        var content = await _client.CreateContentAsync(new { type = "news", title, bodyMd = "Text" });
+        await _client.CreateLinkAsync(content.Id, link);
     }
 
-    private async Task<ContentResponse> CreateContentAsync(object content)
-    {
-        var response = await _client.PostAsJsonAsync("/api/content", content);
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<ContentResponse>())!;
-    }
-
-    private async Task<Guid> CreateLinkAsync(Guid contentId, object link)
-    {
-        var response = await _client.PostAsJsonAsync($"/api/content/{contentId}/links", link);
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<LinkResponse>())!.Id;
-    }
 }
 
 public class TodayAuthenticationTests(JwtTestWebApplicationFactory factory)

@@ -17,8 +17,7 @@ function render(props: Partial<InstanceType<typeof PersonalDueAt>['$props']> = {
       linkId: 'l1',
       studentId: 'u1',
       personalDueAt: null,
-      dueAt: '2026-11-05T12:00:00Z',
-      resubmitDueAt: [],
+      lastClassDeadline: '2026-11-05T12:00:00Z',
       status: 'NotStarted',
       ...props,
     },
@@ -57,7 +56,7 @@ describe('PersonalDueAt', () => {
   })
 
   it('döljs utan uppgiftsdeadline, för bedömda inlämningar och för inlämningar som väntar på bedömning', () => {
-    expect(render({dueAt: null}).find('[data-test="personal-due-at"]').exists()).toBe(false)
+    expect(render({lastClassDeadline: null}).find('[data-test="personal-due-at"]').exists()).toBe(false)
     expect(render({status: 'Graded'}).find('[data-test="personal-due-at"]').exists()).toBe(false)
     expect(render({status: 'Submitted'}).find('[data-test="personal-due-at"]').exists()).toBe(false)
     expect(render({status: 'NeedsWork'}).find('[data-test="personal-due-at"]').exists()).toBe(true)
@@ -65,7 +64,7 @@ describe('PersonalDueAt', () => {
   })
 
   it('anger klassens sista deadline som tidigaste dag', () => {
-    const wrapper = render({dueAt: '2099-01-01T12:00:00Z', resubmitDueAt: ['2099-02-10T12:00:00Z']})
+    const wrapper = render({lastClassDeadline: '2099-02-10T12:00:00Z'})
 
     expect(wrapper.findComponent(DateTimePicker).props('min')).toBe('2099-02-10')
     expect(wrapper.text()).toContain('efter uppgiftens sista deadline')

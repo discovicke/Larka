@@ -1,10 +1,18 @@
 import {describe, expect, it} from 'vitest'
 
+import type {Schema} from '@/lib/api'
 import {deadlineLine, type GradingRow, groupByAssignment, gradingTabOf, groupRowsByTab, nextGradingRow} from '@/lib/gradingQueue'
+import {deadlineState} from '@/test/deadline'
 
-function row(linkId: string, name: string, extra: Partial<GradingRow> = {}, status = 'Submitted'): GradingRow {
+function row(
+  linkId: string,
+  name: string,
+  extra: Partial<GradingRow> = {},
+  status = 'Submitted',
+  deadline: Partial<Schema<'DeadlineStateDto'>> = {},
+): GradingRow {
   return {
-    submission: {id: `${linkId}-${name}`, status} as GradingRow['submission'],
+    submission: {id: `${linkId}-${name}`, status, deadline: deadlineState(deadline)} as GradingRow['submission'],
     courseId: 'c1',
     courseTitle: 'DevOps',
     linkId,
@@ -12,7 +20,6 @@ function row(linkId: string, name: string, extra: Partial<GradingRow> = {}, stat
     name,
     dueAt: null,
     resubmitDueAt: [],
-    personalDueAt: null,
     gradeScale: 'PassFailDistinction',
     previousGrade: false,
     ...extra,
@@ -55,30 +62,31 @@ describe('gradingTabOf', () => {
   })
 
   it('räknar elevens egen deadline: eleven väntar i stället för att få automatiskt IG', () => {
-    const personal = {dueAt: past, personalDueAt: later}
-    expect(gradingTabOf(row('a', 'Ada', personal, 'NotStarted'), now)).toBe('waiting')
-    expect(gradingTabOf(row('a', 'Ada', personal, 'NeedsWork'), now)).toBe('waiting')
-    expect(gradingTabOf(row('a', 'Ada', {dueAt: past}, 'NotStarted'), now)).toBeNull()
+    const personal = {nextDeadline: later}
+    expect(gradingTabOf(row('a', 'Ada', {dueAt: past}, 'NotStarted', personal), now)).toBe('waiting')
+    expect(gradingTabOf(row('a', 'Ada', {dueAt: past}, 'NeedsWork', personal), now)).toBe('waiting')
+    expect(gradingTabOf(row('a', 'Ada', {dueAt: past}, 'NotStarted', {autoFail: true}), now)).toBeNull()
   })
 
   it('lägger uteblivet arbete efter sista deadline i ingen flik', () => {
-    expect(gradingTabOf(row('a', 'Ada', {dueAt: past}, 'NotStarted'), now)).toBeNull()
+    expect(gradingTabOf(row('a', 'Ada', {dueAt: past}, 'NotStarted', {autoFail: true}), now)).toBeNull()
   })
 
   it('skiljer automatiskt IG (ingen flik) från Väntar på eleven på om en deadline återstår', () => {
-    const open = {dueAt: past, resubmitDueAt: [later]}
-    const closed = {dueAt: past, resubmitDueAt: [past]}
-    expect(gradingTabOf(row('a', 'Ada', open, 'NeedsWork'), now)).toBe('waiting')
-    expect(gradingTabOf(row('a', 'Ada', open, 'NotStarted'), now)).toBe('waiting')
-    expect(gradingTabOf(row('a', 'Ada', closed, 'NeedsWork'), now)).toBeNull()
-    expect(gradingTabOf(row('a', 'Ada', closed, 'NotStarted'), now)).toBeNull()
+    const group = {dueAt: past, resubmitDueAt: [later]}
+    const open = {nextDeadline: later}
+    const closed = {autoFail: true}
+    expect(gradingTabOf(row('a', 'Ada', group, 'NeedsWork', open), now)).toBe('waiting')
+    expect(gradingTabOf(row('a', 'Ada', group, 'NotStarted', open), now)).toBe('waiting')
+    expect(gradingTabOf(row('a', 'Ada', group, 'NeedsWork', closed), now)).toBeNull()
+    expect(gradingTabOf(row('a', 'Ada', group, 'NotStarted', closed), now)).toBeNull()
   })
 
   it('räknar rader per flik', () => {
     const tabs = groupRowsByTab([
       row('a', 'Ada'),
-      row('a', 'Bo', {dueAt: past}, 'NotStarted'),
-      row('a', 'Cia', {dueAt: past}, 'NeedsWork'),
+      row('a', 'Bo', {dueAt: past}, 'NotStarted', {autoFail: true}),
+      row('a', 'Cia', {dueAt: past}, 'NeedsWork', {autoFail: true}),
     ], now)
     expect(tabs.submitted).toHaveLength(1)
     expect(tabs.waiting).toHaveLength(0)

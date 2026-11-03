@@ -14,8 +14,6 @@ public class NotificationEndpointTests(TestWebApplicationFactory factory) : ICla
 {
     private readonly HttpClient _client = factory.CreateClient();
 
-    private record IdResponse(Guid Id);
-
     private record CreatedResponse(IdResponse Content, IdResponse Link);
 
     private record SubmissionResponse(Guid Id);
@@ -379,8 +377,7 @@ public class NotificationEndpointTests(TestWebApplicationFactory factory) : ICla
 
     private async Task SetStatusAsync(Guid contentId, string status)
     {
-        var response = await _client.PutAsJsonAsync($"/api/content/{contentId}/status", new { status });
-        response.EnsureSuccessStatusCode();
+        await _client.PutJsonAsync($"/api/content/{contentId}/status", new { status });
     }
 
     private async Task<Setup> AddSetupAsync()

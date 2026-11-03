@@ -158,13 +158,15 @@ public class SubmissionService(
         var avatars = await users.GetAvatarUrlsAsync(studentIds, ct);
         var support = await supportStatus.BuildAsync(linkSubmissions, ct);
         var urls = await DownloadUrlsAsync(linkSubmissions, ct);
+        var link = (await contents.GetLinkWithContentAsync(linkId, ct))?.Link;
         var dtos = linkSubmissions
             .Select(submission => ToDto(
                 submission,
                 names.GetValueOrDefault(submission.StudentId, ""),
                 support.GetValueOrDefault(submission.Id),
                 urls,
-                avatars.GetValueOrDefault(submission.StudentId)))
+                avatars.GetValueOrDefault(submission.StudentId),
+                link))
             .ToList();
 
         return ServiceResult<List<SubmissionDto>>.Ok(dtos);
@@ -178,10 +180,12 @@ public class SubmissionService(
     {
         var student = await users.GetAsync(submission.StudentId, ct);
         var support = await supportStatus.BuildAsync([submission], ct);
+        var linked = await contents.GetLinkWithContentAsync(submission.ContentLinkId, ct);
         return ToDto(
             submission, student?.Name ?? "", support.GetValueOrDefault(submission.Id),
             await DownloadUrlsAsync([submission], ct),
-            AvatarPolicy.UrlFor(submission.StudentId, student?.AvatarKey));
+            AvatarPolicy.UrlFor(submission.StudentId, student?.AvatarKey),
+            linked?.Link);
     }
 
     // Filernas länkar skapas här, när inlämningen läses, så de går inte att dela vidare och gälla för alltid. Alla
@@ -195,15 +199,20 @@ public class SubmissionService(
             IFileStorage.SignedUrlLifetime,
             ct);
 
-    private static SubmissionDto ToDto(
+    // Deadlinernas läge räknas här, med elevens egen deadline, så att klienten bara visar det.
+    private SubmissionDto ToDto(
         Submission submission,
         string studentName,
         StudentSupportDto? support,
         IReadOnlyDictionary<string, string> urls,
-        string? studentAvatarUrl)
+        string? studentAvatarUrl,
+        ContentLink? link)
     {
         var files = submission.Files.Select(file => SubmissionFileDto.From(file, urls[file.StorageKey])).ToList();
-        return SubmissionDto.From(submission, studentName, files, support, studentAvatarUrl);
+        var deadline = link is null
+            ? null
+            : DeadlineStateDto.From(GradingWindow.Of(link, submission, time.GetUtcNow()), submission.Status);
+        return SubmissionDto.From(submission, studentName, files, support, studentAvatarUrl, deadline);
     }
 
     /// <summary>
@@ -474,7 +483,7 @@ public class SubmissionService(
             return "Den nya deadlinen måste ligga i framtiden.";
         }
 
-        var lastClassDeadline = linked.Link.ResubmitDueAt.Append(linked.Link.DueAt.Value).Max();
+        var lastClassDeadline = GradingWindow.Of(linked.Link, now).LastClassDeadline!.Value;
         return dueAt.UtcDateTime <= lastClassDeadline.UtcDateTime
             ? "Den egna deadlinen måste ligga efter uppgiftens sista deadline."
             : null;

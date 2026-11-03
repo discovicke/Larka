@@ -112,7 +112,7 @@ export function courseStatusKey(status: keyof typeof courseStatusLabels): Status
 
 /**
  * Inlämningens läge som nyckel. Utan inlämning, eller när den inte är påbörjad, gäller Inte inlämnad.
- * Med autoFail (från isAutoFail i gradingWindow) blir uteblivet arbete i stället automatiskt IG.
+ * Med autoFail (deadline.autoFail från backend) blir uteblivet arbete i stället automatiskt IG.
  */
 export function submissionStatusKey(
   status: Schema<'SubmissionStatus'> | null | undefined,
@@ -161,7 +161,7 @@ export function partStatusKey(item: {
   isCompleted: boolean
   submissionStatus: Schema<'SubmissionStatus'> | null | undefined
   gradeLevel: 'Fail' | 'Pass' | 'Distinction' | null | undefined
-  /** Sant när eleven fått automatiskt IG, se isAutoFail i gradingWindow. */
+  /** Sant när eleven fått automatiskt IG, enligt deadline.autoFail från backend. */
   autoFail?: boolean
 }): StatusKey {
   if (item.isLocked) {

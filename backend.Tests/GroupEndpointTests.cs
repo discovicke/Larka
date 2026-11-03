@@ -284,26 +284,20 @@ public class GroupEndpointTests(TestWebApplicationFactory factory) : IClassFixtu
     {
         var schoolId = PlaceholderIds.SchoolId;
         var name = $"NET{Guid.NewGuid():N}"[..10];
-        var response = await _client.PostAsJsonAsync("/api/groups", new { schoolId, type = "class", name });
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<GroupResponse>())!;
+        return await _client.PostJsonAsync<GroupResponse>("/api/groups", new { schoolId, type = "class", name });
     }
 
     private async Task<CourseResponse> CreateCourseAsync(Guid schoolId, DateOnly? endsOn)
     {
-        var response = await _client.PostAsJsonAsync(
+        return await _client.PostJsonAsync<CourseResponse>(
             "/api/courses",
             new { schoolId, title = "DevOps", code = $"D{Guid.NewGuid():N}"[..10], endsOn });
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<CourseResponse>())!;
     }
 
     private async Task<CourseResponse> CreateCourseAsync(Guid schoolId)
     {
-        var response = await _client.PostAsJsonAsync(
+        return await _client.PostJsonAsync<CourseResponse>(
             "/api/courses", new { schoolId, title = "DevOps", code = "DEVOPS" });
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<CourseResponse>())!;
     }
 
     [Fact]

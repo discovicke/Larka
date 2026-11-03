@@ -15,8 +15,6 @@ public class FileUploadTests(TestWebApplicationFactory factory) : IClassFixture<
 
     private InMemoryFileStorage Storage => (InMemoryFileStorage)factory.Services.GetRequiredService<IFileStorage>();
 
-    private record IdResponse(Guid Id);
-
     private record AttachmentResponse(Guid Id, string FileName, string Url, long SizeBytes);
 
     private record FileResponse(Guid Id, string FileName, string Url);
@@ -284,9 +282,7 @@ public class FileUploadTests(TestWebApplicationFactory factory) : IClassFixture<
         var contentId = (await content.Content.ReadFromJsonAsync<IdResponse>())!.Id;
 
         // Eleverna läggs in före delningen, eftersom den skapar en inlämning per elev.
-        var link = await _client.PostAsJsonAsync($"/api/content/{contentId}/links", new { groupId });
-        link.EnsureSuccessStatusCode();
-        var linkId = (await link.Content.ReadFromJsonAsync<IdResponse>())!.Id;
+        var linkId = (await _client.PostJsonAsync<IdResponse>($"/api/content/{contentId}/links", new { groupId })).Id;
         return new FileAssignment(linkId, students, teachers);
     }
 
@@ -317,10 +313,8 @@ public class FileUploadTests(TestWebApplicationFactory factory) : IClassFixture<
 
     private async Task<Guid> CreateContentAsync()
     {
-        var response = await _client.PostAsJsonAsync("/api/content",
-            new { type = "theory", title = "Material", bodyMd = "" });
-        response.EnsureSuccessStatusCode();
-        var id = (await response.Content.ReadFromJsonAsync<IdResponse>())!.Id;
+        var id = (await _client.PostJsonAsync<IdResponse>("/api/content",
+            new { type = "theory", title = "Material", bodyMd = "" })).Id;
         await LinkToTeachersGroupAsync(id);
         return id;
     }
@@ -335,8 +329,7 @@ public class FileUploadTests(TestWebApplicationFactory factory) : IClassFixture<
                 scope.ServiceProvider.GetRequiredService<AppDb>(), placeholderTeaches: true)).Id;
         }
 
-        var link = await _client.PostAsJsonAsync($"/api/content/{contentId}/links", new { groupId });
-        link.EnsureSuccessStatusCode();
+        await _client.PostJsonAsync($"/api/content/{contentId}/links", new { groupId });
     }
 
     private static MultipartFormDataContent FileForm(string fileName, string? bodyMd = null, string field = "files")

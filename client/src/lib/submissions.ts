@@ -1,6 +1,5 @@
 import type {Schema} from '@/lib/api'
 import {formatDate} from '@/lib/content'
-import {autoFailLabel} from '@/lib/gradingWindow'
 
 const gradeLabels: Record<Schema<'GradeLevel'>, string> = {
   Fail: 'IG',
@@ -118,4 +117,11 @@ export function nextInQueue<T extends {id: string, studentName: string, status: 
   return others.find((candidate) => candidate.studentName.localeCompare(current.studentName, 'sv') > 0)
     ?? others[0]
     ?? null
+}
+
+/** Texten på ett automatiskt IG: det som saknades avgör förklaringen. */
+export function autoFailLabel(status: Schema<'SubmissionStatus'>): string {
+  return status === 'NeedsWork'
+    ? 'IG · Kompletteringen lämnades inte in'
+    : 'IG · Ingen inlämning'
 }

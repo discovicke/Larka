@@ -3,7 +3,6 @@ import type {Component} from 'vue'
 
 import type {Schema} from '@/lib/api'
 import {formatDate, partOf} from '@/lib/content'
-import {isAutoFail, nextDeadline} from '@/lib/gradingWindow'
 import {deadlineStatusKey, partStatusKey, statuses, toneTextClasses} from '@/lib/status'
 import {gradeScaleName} from '@/lib/submissions'
 
@@ -146,7 +145,7 @@ export function statusKey(item: Item) {
 
 /** Sista deadline har passerat utan inlämning eller komplettering: eleven har automatiskt IG. */
 export function hasAutoFail(item: Item): boolean {
-  return item.type === 'Assignment' && isAutoFail(item, item.submissionStatus ?? 'NotStarted')
+  return item.type === 'Assignment' && item.deadline?.autoFail === true
 }
 
 export function rowIcon(item: Item): Component {
@@ -189,8 +188,5 @@ function isDone(item: Item): boolean {
 // Läget följer elevens nästa deadline (komplettering eller egen deadline räknas med). Har eleven en deadline kvar
 // är hen inte försenad, även om huvuddeadlinen har passerat.
 export function dueStatus(item: Item) {
-  const upcoming = item.type === 'Assignment'
-    ? nextDeadline(item)
-    : null
-  return deadlineStatusKey(upcoming ?? item.dueAt, isDone(item))
+  return deadlineStatusKey(item.deadline?.nextDeadline ?? item.dueAt, isDone(item))
 }

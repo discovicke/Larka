@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Json;
 using Backend.Domain.Entities;
 using Backend.Domain.Enums;
 using Backend.Infrastructure.Persistence;
@@ -12,8 +11,6 @@ public class StudyPlanEndpointTests(TestWebApplicationFactory factory) : IClassF
     private readonly HttpClient _client = factory.CreateClient();
 
     private record Setup(Guid SchoolId, Guid GroupId, List<Guid> StudentIds);
-
-    private record IdResponse(Guid Id);
 
     private record PlanResponse(int CompletedPoints, int TotalPoints, List<CourseResponse> Courses);
 
@@ -80,11 +77,11 @@ public class StudyPlanEndpointTests(TestWebApplicationFactory factory) : IClassF
             courseId = (await AddCourseAsync(db, setup.SchoolId, setup.GroupId, "DevOps", 25, null, null)).Id;
         }
 
-        var moduleId = await CreateModuleAsync(courseId);
-        await LinkAssignmentAsync(courseId, moduleId, "Laboration: CI/CD", dueAt: "2026-11-06T16:00:00Z");
-        await LinkAssignmentAsync(courseId, moduleId, "Inlämningsuppgift 1");
-        await LinkAssignmentAsync(courseId, moduleId, "Utkast", draft: true);
-        await LinkAssignmentAsync(courseId, moduleId, "Publiceras senare", publishAt: "2099-01-01T08:00:00Z");
+        var moduleId = (await _client.CreateModuleAsync(courseId)).Id;
+        await _client.LinkAssignmentAsync(courseId, moduleId, "Laboration: CI/CD", dueAt: "2026-11-06T16:00:00Z");
+        await _client.LinkAssignmentAsync(courseId, moduleId, "Inlämningsuppgift 1");
+        await _client.LinkAssignmentAsync(courseId, moduleId, "Utkast", draft: true);
+        await _client.LinkAssignmentAsync(courseId, moduleId, "Publiceras senare", publishAt: "2099-01-01T08:00:00Z");
 
         var plan = await GetPlanAsync(setup.StudentIds[0]);
 
@@ -108,15 +105,15 @@ public class StudyPlanEndpointTests(TestWebApplicationFactory factory) : IClassF
             courseId = (await AddCourseAsync(db, setup.SchoolId, setup.GroupId, "DevOps", 25, null, null)).Id;
         }
 
-        var moduleId = await CreateModuleAsync(courseId);
-        var gradedLinkId = await LinkAssignmentAsync(
+        var moduleId = (await _client.CreateModuleAsync(courseId)).Id;
+        var gradedLinkId = await _client.LinkAssignmentAsync(
             courseId, moduleId, "Laboration: CI/CD", dueAt: "2099-10-23T16:00:00Z");
-        await LinkAssignmentAsync(courseId, moduleId, "Inlämningsuppgift 1");
+        await _client.LinkAssignmentAsync(courseId, moduleId, "Inlämningsuppgift 1");
         var studentId = setup.StudentIds[0];
         var otherStudentId = setup.StudentIds[1];
 
-        var submissionId = await SubmitAsync(studentId, gradedLinkId);
-        await GradeAsync(submissionId, "pass", "Bra jobbat");
+        var submissionId = await _client.SubmitAsync(studentId, gradedLinkId);
+        await _client.GradeAsync(submissionId, new { level = "pass", feedback = "Bra jobbat" });
 
         var plan = await GetPlanAsync(studentId);
         var course = Assert.Single(plan.Courses);
@@ -143,21 +140,25 @@ public class StudyPlanEndpointTests(TestWebApplicationFactory factory) : IClassF
             courseId = (await AddCourseAsync(db, setup.SchoolId, setup.GroupId, "DevOps", 25, null, null)).Id;
         }
 
-        var moduleId = await CreateModuleAsync(courseId);
+        var moduleId = (await _client.CreateModuleAsync(courseId)).Id;
         var dueAt = "2099-11-11T16:00:00Z";
-        var courseWideGraded = await LinkAssignmentAsync(courseId, moduleId, "Docker", dueAt: dueAt);
-        var groupGraded = await LinkAssignmentAsync(
+        var courseWideGraded = await _client.LinkAssignmentAsync(courseId, moduleId, "Docker", dueAt: dueAt);
+        var groupGraded = await _client.LinkAssignmentAsync(
             courseId, moduleId, "Kubernetes", dueAt: dueAt, groupId: setup.GroupId);
-        var courseWideSubmitted = await LinkAssignmentAsync(
+        var courseWideSubmitted = await _client.LinkAssignmentAsync(
             courseId, moduleId, "Sätt upp en CI-pipeline", dueAt: dueAt);
-        var groupNotStarted = await LinkAssignmentAsync(
+        var groupNotStarted = await _client.LinkAssignmentAsync(
             courseId, moduleId, "Terraform", dueAt: dueAt, groupId: setup.GroupId);
-        var courseWideNotStarted = await LinkAssignmentAsync(courseId, moduleId, "Monitorering", dueAt: dueAt);
+        var courseWideNotStarted = await _client.LinkAssignmentAsync(courseId, moduleId, "Monitorering", dueAt: dueAt);
         var studentId = setup.StudentIds[0];
 
-        await GradeAsync(await SubmitAsync(studentId, courseWideGraded), "pass", "Bra");
-        await GradeAsync(await SubmitAsync(studentId, groupGraded), "pass", "Bra");
-        await SubmitAsync(studentId, courseWideSubmitted);
+        await _client.GradeAsync(
+            await _client.SubmitAsync(studentId, courseWideGraded),
+            new { level = "pass", feedback = "Bra" });
+        await _client.GradeAsync(
+            await _client.SubmitAsync(studentId, groupGraded),
+            new { level = "pass", feedback = "Bra" });
+        await _client.SubmitAsync(studentId, courseWideSubmitted);
 
         var plan = await GetPlanAsync(studentId);
 
@@ -198,7 +199,7 @@ public class StudyPlanEndpointTests(TestWebApplicationFactory factory) : IClassF
     private async Task<PlanResponse> GetPlanAsync(Guid userId)
     {
         using var student = As(userId);
-        return (await student.GetFromJsonAsync<PlanResponse>("/api/me/study-plan"))!;
+        return await student.GetJsonAsync<PlanResponse>("/api/me/study-plan");
     }
 
     private HttpClient As(Guid userId)
@@ -241,63 +242,6 @@ public class StudyPlanEndpointTests(TestWebApplicationFactory factory) : IClassF
         return course;
     }
 
-    private async Task<Guid> CreateModuleAsync(Guid courseId)
-    {
-        var response = await _client.PostAsJsonAsync($"/api/courses/{courseId}/modules", new { title = "Vecka 1" });
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<IdResponse>())!.Id;
-    }
-
-    private async Task<Guid> LinkAssignmentAsync(
-        Guid courseId,
-        Guid moduleId,
-        string title,
-        string? publishAt = null,
-        string? dueAt = null,
-        bool draft = false,
-        Guid? groupId = null)
-    {
-        var content = await _client.PostAsJsonAsync("/api/content", new
-        {
-            type = "assignment",
-            title,
-            bodyMd = "",
-            status = draft
-                ? "draft"
-                : "published",
-            gradeScale = "passFail",
-            submissionModes = new[] { "text" }
-        });
-        content.EnsureSuccessStatusCode();
-        var contentId = (await content.Content.ReadFromJsonAsync<IdResponse>())!.Id;
-
-        var link = await _client.PostAsJsonAsync($"/api/content/{contentId}/links", new
-        {
-            courseId,
-            groupId,
-            moduleId,
-            publishAt,
-            dueAt
-        });
-        link.EnsureSuccessStatusCode();
-        return (await link.Content.ReadFromJsonAsync<IdResponse>())!.Id;
-    }
-
-    private async Task<Guid> SubmitAsync(Guid studentId, Guid linkId)
-    {
-        using var student = As(studentId);
-        var form = new MultipartFormDataContent { { new StringContent("Mitt svar"), "bodyMd" } };
-        var response = await student.PostAsync($"/api/links/{linkId}/submissions", form);
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<IdResponse>())!.Id;
-    }
-
-    private async Task GradeAsync(Guid submissionId, string level, string feedback)
-    {
-        var response = await _client.PostAsJsonAsync(
-            $"/api/submissions/{submissionId}/grade", new { level, feedback });
-        response.EnsureSuccessStatusCode();
-    }
 }
 
 // Den riktiga autentiseringen, utan testhandlern: ett anrop utan token ska få 401.

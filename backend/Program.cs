@@ -46,6 +46,7 @@ if (!isGeneratingOpenApiDocument)
     _ = app.Services.GetRequiredService<IOptions<JwtOptions>>().Value;
 
     app.Services.MigrateDatabase();
+    await app.Services.SeedFirstAdminAsync();
     await app.Services.SeedAccountsAsync();
     await app.Services.SeedDemoDataAsync();
 }
