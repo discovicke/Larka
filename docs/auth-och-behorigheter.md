@@ -53,13 +53,17 @@ När demodatan nedan finns skapas varken `Demo-klass` eller `Demo-kurs`, och kon
 
 ### Demodata (prod)
 
-Prod kan fyllas med en kompakt demodata när `Database:SeedDemoData` är `true`. Den skapar tre klasser med åtta elever vardera, en lärare och tre kurser per klass:
+Prod kan fyllas med en kompakt demodata när `Database:SeedDemoData` är `true`. Den skapar tre klasser med åtta elever vardera, en lärare och tre kurser per klass.
 
-| Klass     | Kurser                                                            |
-| --------- | ----------------------------------------------------------------- |
-| `.NET25`  | `NET-BAS` (avslutad), `NET-NUT` (pågående), `NET-FORD` (kommande) |
-| `JAVA25`  | `JAVA-BAS`, `JAVA-NUT`, `JAVA-FORD`                               |
-| `FIBER25` | `FIBER-BAS`, `FIBER-NUT`, `FIBER-FORD`                            |
+Kurskoden följer Edugrades mönster: klassens kod, understreck och en kort förkortning av kursen (`.NET25_DevOps`). Samma mönster föreslår appen när admin skapar en ny kurs från en tidigare.
+
+| Klass     | Avslutad                                             | Pågående                                   | Kommande                       |
+| --------- | ---------------------------------------------------- | ------------------------------------------ | ------------------------------ |
+| `.NET25`  | `.NET25_WeApp` Webbapplikationer i C#, ASP.NET       | `.NET25_DevOps` DevOps                     | `.NET25_LIA` LIA               |
+| `JAVA25`  | `JAVA25_OPJ` Objektorienterad programmering med Java | `JAVA25_SpBo` Webbtjänster med Spring Boot | `JAVA25_MjTe` Mjukvarutestning |
+| `FIBER25` | `FIBER25_FiTe` Fiberteknik                           | `FIBER25_NaUp` Nätuppbyggnad               | `FIBER25_FaPr` Fältprojekt     |
+
+En databas med den äldre demodatan (koder som `NET-NUT`) får de nya koderna och titlarna vid nästa start. Kurser som admin har skapat själv rörs inte.
 
 Varje kurs har två veckor, en teoridel och två till fyra uppgifter. Avslutade och pågående kurser har inlämningar med blandade betyg, kompletteringar och väntande bedömningar. Kommande kurser publiceras senare.
 

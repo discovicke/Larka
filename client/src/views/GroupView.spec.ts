@@ -717,6 +717,24 @@ describe('GroupView', () => {
       expect(modal()).toBeNull()
     })
 
+    it('föreslår en kurskod från namnet tills admin skriver en egen', async () => {
+      backend({role: 'Admin'})
+      const {wrapper} = await renderApp('/groups/g1')
+      await click(wrapper.find('[data-test="new-course-button"]').element)
+      await click(modal().querySelector('[data-test="new-course-empty"]'))
+      const code = () => (modal().querySelector('[data-test="new-course-code"]') as HTMLInputElement).value
+
+      await type('[data-test="new-course-title"]', 'Databaser')
+      expect(code()).toBe('TE22A_Data')
+
+      await type('[data-test="new-course-title"]', 'Designmönster & arkitektur')
+      expect(code()).toBe('TE22A_DeAr')
+
+      await type('[data-test="new-course-code"]', 'TE22A_DmAr')
+      await type('[data-test="new-course-title"]', 'Designmönster och arkitektur')
+      expect(code()).toBe('TE22A_DmAr')
+    })
+
     it('kräver namn, kod, datum och lärare innan något skickas', async () => {
       backend({role: 'Admin'})
       const {wrapper} = await renderApp('/groups/g1')

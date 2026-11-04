@@ -143,15 +143,61 @@ public class DemoSeedTests(DemoSeedTests.DemoFixture fixture) : IClassFixture<De
     }
 
     [Fact]
+    public async Task Seed_GivesEveryCourseAClassAndCourseCode()
+    {
+        using var scope = fixture.Factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+
+        var codes = await (
+                from link in db.GroupCourses
+                join grp in db.Groups on link.GroupId equals grp.Id
+                join course in db.Courses on link.CourseId equals course.Id
+                select new { Group = grp.Name, course.Code, course.Title })
+            .ToListAsync();
+
+        Assert.Equal(9, codes.Count);
+        Assert.All(codes, row => Assert.StartsWith(row.Group + "_", row.Code));
+        Assert.Equal(9, codes.Select(row => row.Title).Distinct().Count());
+        Assert.Contains(codes, row => row.Code == ".NET25_DevOps" && row.Title == "DevOps");
+    }
+
+    [Fact]
+    public async Task Seed_RenamesTheOldDemoCodes_WhenTheDemoDataAlreadyExists()
+    {
+        using var scope = fixture.Factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var course = await db.Courses.SingleAsync(row => row.Code == ".NET25_LIA");
+        var intro = await db.Content.SingleAsync(row => row.Title == "Introduktion till LIA");
+        course.Code = "NET-FORD";
+        course.Title = "Fördjupning";
+        course.Description = "Kommande kurs som bygger vidare på den pågående kursen.";
+        intro.Title = "Introduktion till Fördjupning";
+        intro.BodyMd = "Kort introduktion till **Fördjupning**.";
+        await db.SaveChangesAsync();
+
+        await scope.ServiceProvider.GetRequiredService<DemoSeed>().SeedAsync(CancellationToken.None);
+
+        db.ChangeTracker.Clear();
+        var renamed = await db.Courses.SingleAsync(row => row.Id == course.Id);
+        var renamedIntro = await db.Content.SingleAsync(row => row.Id == intro.Id);
+        Assert.Equal(".NET25_LIA", renamed.Code);
+        Assert.Equal("LIA", renamed.Title);
+        Assert.StartsWith("Lärande i arbete", renamed.Description);
+        Assert.Equal("Introduktion till LIA", renamedIntro.Title);
+        Assert.Equal("Kort introduktion till **LIA**.", renamedIntro.BodyMd);
+        Assert.True(await db.Content.AnyAsync(row => row.Title == "Inlämning 1 – LIA"));
+    }
+
+    [Fact]
     public async Task DemoAccounts_CanReadTheOverviewThatThePresentationUses()
     {
         var admin = await GetAsync<OverviewResponse>("admin", "/api/me/admin-overview");
         Assert.Equal([".NET25", "FIBER25", "JAVA25"], admin.ClassTimelines.Select(item => item.Name).Order());
 
         var student = await GetAsync<StudyPlanResponse>("elev", "/api/me/study-plan");
-        Assert.Contains(student.Courses, course => course.Code == "NET-NUT");
+        Assert.Contains(student.Courses, course => course.Code == ".NET25_DevOps");
         var teacher = await GetAsync<TeachingResponse>("larare", "/api/me/teaching");
-        Assert.Contains(teacher.Courses, course => course.Code == "NET-NUT");
+        Assert.Contains(teacher.Courses, course => course.Code == ".NET25_DevOps");
     }
 
     private async Task<T> GetAsync<T>(string username, string url)

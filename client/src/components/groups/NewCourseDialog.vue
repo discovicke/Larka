@@ -18,7 +18,13 @@ import {Input} from '@/components/ui/input'
 import {api, ApiError, errorMessage, unwrap, type Schema} from '@/lib/api'
 import {countLabel} from '@/lib/content'
 import {periodLabel} from '@/lib/coursePeriod'
-import {addDays, courseLengthDays, suggestCourseCode, suggestCourseTitle} from '@/lib/courseSuggestions'
+import {
+  addDays,
+  courseLengthDays,
+  suggestCourseCode,
+  suggestCourseTitle,
+  suggestNewCourseCode,
+} from '@/lib/courseSuggestions'
 import {addCourseTeacher, createCourse, fetchCourses} from '@/lib/coursesApi'
 import {linkCourseToGroup} from '@/lib/groupsApi'
 import {fetchCourseModules} from '@/lib/modulesApi'
@@ -51,6 +57,7 @@ const copyContent = ref(true)
 const choosingWeeks = ref(false)
 const chosenWeeks = ref<string[]>([])
 let suggestedEnd = ''
+let suggestedCode = ''
 
 // Stegen som redan är klara, så att ett nytt försök fortsätter där det tog slut i stället för att skapa kursen igen.
 let createdCourse: Schema<'CourseDto'> | null = null
@@ -150,6 +157,15 @@ watch(() => form.startsOn, (startsOn) => {
   form.endsOn = suggestedEnd
 })
 
+// En tom kurs får en kod från namnet. Koden följer namnet så länge admin inte har skrivit en egen kod.
+watch(() => form.title, (title) => {
+  if (source.value || (form.code !== suggestedCode && form.code.trim() !== '')) {
+    return
+  }
+  suggestedCode = suggestNewCourseCode(props.groupName, title, courses.value.map((course) => course.code))
+  form.code = suggestedCode
+})
+
 watch(() => form.code, () => {
   codeTaken.value = false
 })
@@ -166,6 +182,7 @@ function resetForm() {
   submitted.value = false
   codeTaken.value = false
   suggestedEnd = ''
+  suggestedCode = ''
 }
 
 function startEmpty() {
@@ -450,7 +467,7 @@ async function save() {
                 id="new-course-code"
                 v-model="form.code"
                 class="font-mono"
-                placeholder="NET27_DEVOPS"
+                :placeholder="`${groupName}_DevOps`"
                 autocomplete="off"
                 :aria-invalid="codeError
                   ? true
@@ -458,6 +475,7 @@ async function save() {
                 data-test="new-course-code"
               />
               <FieldError v-if="codeError" data-test="new-course-code-error">{{ codeError }}</FieldError>
+              <FieldDescription v-else-if="!source">Föreslås från namnet. Skriv en egen kod om du vill.</FieldDescription>
             </Field>
             <Field
               :data-invalid="pointsError

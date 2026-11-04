@@ -1,6 +1,43 @@
 import {describe, expect, it} from 'vitest'
 
-import {addDays, courseLengthDays, suggestCourseCode, suggestCourseTitle} from './courseSuggestions'
+import {
+  abbreviateCourseTitle,
+  addDays,
+  courseLengthDays,
+  suggestCourseCode,
+  suggestCourseTitle,
+  suggestNewCourseCode,
+} from './courseSuggestions'
+
+describe('abbreviateCourseTitle', () => {
+  it.each([
+    ['DevOps', 'DevOps'],
+    ['LIA', 'LIA'],
+    ['Databaser', 'Data'],
+    ['Examensarbete', 'Exam'],
+    ['Designmönster & arkitektur', 'DeAr'],
+    ['Nätuppbyggnad i praktiken', 'NaPr'],
+    ['Objektorienterad Programmering med C# & .NET', 'OPCN'],
+    ['Projektledning & Agila metoder', 'PAM'],
+    ['  ', ''],
+  ])('förkortar "%s" till "%s"', (title, expected) => {
+    expect(abbreviateCourseTitle(title)).toBe(expected)
+  })
+})
+
+describe('suggestNewCourseCode', () => {
+  it('sätter klassens kod före förkortningen', () => {
+    expect(suggestNewCourseCode('.NET30', 'Databaser', [])).toBe('.NET30_Data')
+  })
+
+  it('lägger till en siffra när koden redan finns', () => {
+    expect(suggestNewCourseCode('.NET30', 'Databaser', ['.NET30_Data', '.net30_data2'])).toBe('.NET30_Data3')
+  })
+
+  it('föreslår ingenting utan namn', () => {
+    expect(suggestNewCourseCode('.NET30', '', [])).toBe('')
+  })
+})
 
 describe('suggestCourseTitle', () => {
   it('lägger klassen efter källkursens titel så att kopian får ett eget namn', () => {
@@ -14,7 +51,7 @@ describe('suggestCourseTitle', () => {
 
 describe('suggestCourseCode', () => {
   it('byter klassen i koden och behåller kursens del', () => {
-    expect(suggestCourseCode('NET27', '.NET25_DEVOPS')).toBe('NET27_DEVOPS')
+    expect(suggestCourseCode('.NET27', '.NET25_DevOps')).toBe('.NET27_DevOps')
   })
 
   it('använder hela koden när den saknar understreck', () => {
