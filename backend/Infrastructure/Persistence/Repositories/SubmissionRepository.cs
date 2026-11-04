@@ -70,7 +70,7 @@ public class SubmissionRepository(AppDb db) : ISubmissionRepository
          select new CourseToGradeCount(courseGroup.Key, courseGroup.Count()))
         .ToListAsync(ct);
 
-    public async Task<List<ActiveSubmission>> GetActiveForLinksAsync(
+    public async Task<Dictionary<Guid, (int Submitted, int Students)>> GetAudienceCountsAsync(
         IReadOnlyCollection<Guid> linkIds, CancellationToken ct)
     {
         if (linkIds.Count == 0)
@@ -78,12 +78,8 @@ public class SubmissionRepository(AppDb db) : ISubmissionRepository
             return [];
         }
 
-        return await db.Submissions
-            .Where(submission => linkIds.Contains(submission.ContentLinkId)
-                && submission.Status != SubmissionStatus.NotStarted)
-            .Select(submission => new ActiveSubmission(submission.ContentLinkId, submission.StudentId))
-            .Distinct()
-            .ToListAsync(ct);
+        var links = await db.ContentLinks.Where(link => linkIds.Contains(link.Id)).ToListAsync(ct);
+        return await LinkAudience.CountAsync(db, links, ct);
     }
 
     public Task<bool> IsTeacherOfLinkAsync(Guid linkId, Guid userId, CancellationToken ct)

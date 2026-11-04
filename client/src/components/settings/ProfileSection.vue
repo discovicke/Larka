@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import {PhTrash, PhUploadSimple} from '@phosphor-icons/vue'
-import {ref} from 'vue'
+import {ref, watch} from 'vue'
 
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar'
 import {Badge} from '@/components/ui/badge'
 import {Button} from '@/components/ui/button'
+import {Field, FieldLabel} from '@/components/ui/field'
+import {Input} from '@/components/ui/input'
 import {Skeleton} from '@/components/ui/skeleton'
 import {useAsync} from '@/composables/useAsync'
 import {useCurrentUser} from '@/composables/useCurrentUser'
@@ -16,6 +18,20 @@ import {initials} from '@/lib/person'
 const {me} = useCurrentUser()
 
 const roleLabels: Record<string, string> = {Admin: 'Admin', Teacher: 'Lärare', Student: 'Elev'}
+
+// Namnet går att ändra, som välkomstsidan lovar. E-posten kommer från skolkontot och går inte att ändra.
+const name = ref('')
+watch(() => me.value?.name, (value) => {
+  name.value = value ?? ''
+}, {immediate: true})
+
+const {run: saveName, loading: savingName, error: nameError} = useAsync(async () => {
+  const trimmed = name.value.trim()
+  if (!trimmed) {
+    throw new Error('Skriv ditt namn.')
+  }
+  me.value = unwrap(await api.PUT('/api/me/profile', {body: {name: trimmed}}))
+})
 
 const fileInput = ref<HTMLInputElement | null>(null)
 // Fel som syns innan något skickas (fel filtyp, för stor fil) visas med samma ruta som fel från servern.
@@ -59,7 +75,7 @@ async function onRemove() {
   <section id="profil" class="bg-card flex scroll-mt-6 flex-col gap-4 rounded-[11px] border p-5" data-test="profile">
     <header class="flex flex-col gap-0.5">
       <h2 class="text-base font-semibold">Profil</h2>
-      <p class="text-muted-foreground text-[13px]">Namn och e-post kommer från skolans register</p>
+      <p class="text-muted-foreground text-[13px]">Så ser lärare och klasskamrater dig. E-posten kommer från ditt skolkonto.</p>
     </header>
 
     <div v-if="me" class="flex flex-wrap items-center gap-4">
@@ -123,6 +139,39 @@ async function onRemove() {
     <Alert v-if="pickError || uploadError || removeError" variant="destructive" data-test="avatar-error">
       <AlertDescription>{{ pickError || uploadError || removeError }}</AlertDescription>
     </Alert>
+
+    <form
+      v-if="me"
+      class="flex flex-col gap-2"
+      data-test="profile-name-form"
+      @submit.prevent="saveName"
+    >
+      <Field>
+        <FieldLabel for="profile-name-input">Namn</FieldLabel>
+        <div class="flex flex-wrap gap-2">
+          <Input
+            id="profile-name-input"
+            v-model="name"
+            autocomplete="name"
+            class="h-9 flex-[1_1_220px]"
+            data-test="profile-name-input"
+          />
+          <Button
+            type="submit"
+            variant="outline"
+            :disabled="savingName || name.trim() === me.name"
+            data-test="profile-name-save"
+          >
+            {{ savingName
+              ? 'Sparar…'
+              : 'Spara namn' }}
+          </Button>
+        </div>
+      </Field>
+      <Alert v-if="nameError" variant="destructive" data-test="profile-name-error">
+        <AlertDescription>{{ nameError }}</AlertDescription>
+      </Alert>
+    </form>
 
     <div v-if="me" class="flex flex-col gap-2">
       <span class="text-[13px] font-medium">Grupper</span>

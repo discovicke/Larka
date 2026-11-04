@@ -190,6 +190,20 @@ describe('PartView', () => {
     expect(wrapper.find('[data-test="part-content"]').exists()).toBe(false)
   })
 
+  it('räknar elever som inte har börjat i fliken, som veckans lista gör', async () => {
+    backend({part: {...assignment, submittedCount: 0, studentCount: 3}, submissions: []})
+
+    const {wrapper} = await renderApp('/courses/c1/parts/l1')
+
+    expect(text(wrapper.find('[data-test="tab-submissions"]'))).toBe('Inlämningar 0 av 3')
+    expect(text(wrapper.find('[data-test="part-state"]'))).toContain('Inlämnade0 av 3')
+
+    await wrapper.find('[data-test="tab-submissions"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="submissions-none-yet"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('3 elever har fått uppgiften.')
+  })
+
   it('checklistan i uppgiften visas som en lista utan bockrutor', async () => {
     backend({bodyMd: 'Texten.\n\n- [ ] Länk till repot'})
 
@@ -414,6 +428,28 @@ describe('PartView', () => {
 
     expect(wrapper.findAll('[data-test="member-row"]')).toHaveLength(2)
     expect(wrapper.findAll('[data-test="member-row"]').map(text).join(' ')).toContain('Anna Andersson')
+  })
+
+  it('räknar en grupp som en att bedöma, i både delen och fliken', async () => {
+    const groupOne = {
+      id: 'g1',
+      name: 'Grupp 1',
+      members: [{id: 'u1', name: names.u1}, {id: 'u2', name: names.u2}],
+    }
+    backend({
+      submissions: [
+        makeSubmission('gs1', 'u1', 'Submitted', {repo, group: groupOne, submittedAt: '2026-10-21T10:00:00Z'}),
+        makeSubmission('gs2', 'u2', 'Submitted', {repo, group: groupOne, submittedAt: '2026-10-21T11:00:00Z'}),
+      ],
+    })
+
+    const {wrapper} = await renderApp('/courses/c1/parts/l1')
+
+    expect(text(wrapper.find('[data-test="part-state"]'))).toContain('Att bedöma1')
+    expect(text(wrapper.find('[data-test="grade-part"]'))).toBe('Bedöm 1 inlämning')
+    await wrapper.find('[data-test="grade-part"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Att bedöma 1')
   })
 
   it('visar gruppen som inlämnad när en medlem är bedömd och en inte har lämnat in', async () => {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {computed, reactive, ref, watch} from 'vue'
 
+import SearchPicker from '@/components/SearchPicker.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Button} from '@/components/ui/button'
 import {
@@ -22,7 +23,7 @@ import {fetchMicrosoftSettings} from '@/lib/auth/microsoft'
 import {fetchUsers} from '@/lib/usersApi'
 
 const props = defineProps<{groupId: string, groupName: string, schoolId: string, memberIds: string[]}>()
-const emit = defineEmits<{added: [member: Schema<'GroupMemberDto'>], paste: []}>()
+const emit = defineEmits<{added: [member: Schema<'GroupMemberDto'>]}>()
 
 const open = defineModel<boolean>('open', {required: true})
 
@@ -62,16 +63,11 @@ const passwordError = computed(() => form.password !== '' && form.password.lengt
 const roleOptions = computed(() => groupRoles.filter((option) =>
   option.value === 'Student' || !creating.value || form.schoolRole === 'Teacher'))
 
-// Den som redan är medlem kan inte läggas till igen.
-const candidates = computed(() => {
-  const query = search.value.trim().toLowerCase()
-  return users.value
-    .filter((user) => !props.memberIds.includes(user.id))
-    .filter((user) => role.value === 'Student' || user.role === 'Teacher')
-    .filter((user) => query === ''
-      || user.name.toLowerCase().includes(query)
-      || user.email.toLowerCase().includes(query))
-})
+// Den som redan är medlem kan inte läggas till igen. Sökningen matchar namn och e-post.
+const items = computed(() => users.value
+  .filter((user) => !props.memberIds.includes(user.id))
+  .filter((user) => role.value === 'Student' || user.role === 'Teacher')
+  .map((user) => ({id: user.id, title: user.name, detail: user.email})))
 
 watch(open, async (isOpen) => {
   if (!isOpen) {
@@ -105,9 +101,9 @@ watch(roleOptions, (options) => {
   }
 })
 
-// Ett val som filtret döljer ska inte skickas.
-watch(candidates, (list) => {
-  if (!list.some((user) => user.id === userId.value)) {
+// Ett val som rollen döljer ska inte skickas.
+watch(items, (list) => {
+  if (!list.some((item) => item.id === userId.value)) {
     userId.value = ''
   }
 })
@@ -256,38 +252,20 @@ async function addToGroup(user: Schema<'UserDto'> | null | undefined) {
         </template>
 
         <template v-else>
-          <div class="flex min-w-0 flex-col gap-1.5">
-            <FieldLabel for="member-search">Sök användare</FieldLabel>
-            <Input
-              id="member-search"
-              v-model="search"
-              class="w-full"
-              placeholder="Namn eller e-post"
-              :disabled="loading"
-              data-test="member-search"
-            />
-          </div>
-
-          <div class="flex min-w-0 flex-col gap-1.5">
-            <FieldLabel for="member-user">Användare</FieldLabel>
-            <NativeSelect
-              id="member-user"
-              v-model="userId"
-              class="w-full"
-              required
-              :disabled="loading"
-              data-test="member-user"
-            >
-              <NativeSelectOption value="">
-                {{ candidates.length === 0 && !loading
-                  ? 'Inga användare hittades'
-                  : 'Välj användare…' }}
-              </NativeSelectOption>
-              <NativeSelectOption v-for="user in candidates" :key="user.id" :value="user.id">
-                {{ user.name }} · {{ user.email }}
-              </NativeSelectOption>
-            </NativeSelect>
-          </div>
+          <SearchPicker
+            id="member-user"
+            v-model="userId"
+            v-model:search="search"
+            label="Användare"
+            placeholder="Sök på namn eller e-post"
+            :items="items"
+            :nouns="['användare', 'användare']"
+            :empty-text="role === 'Teacher'
+              ? 'Alla lärare är redan med i gruppen.'
+              : 'Alla användare är redan med i gruppen.'"
+            :loading="loading"
+            data-test="member-user"
+          />
 
           <p class="text-muted-foreground text-sm">
             Finns inte i listan?
@@ -299,16 +277,6 @@ async function addToGroup(user: Schema<'UserDto'> | null | undefined) {
               @click="showCreate"
             >
               Skapa användare
-            </Button>
-            eller
-            <Button
-              type="button"
-              variant="link"
-              class="h-auto p-0"
-              data-test="show-paste"
-              @click="emit('paste')"
-            >
-              klistra in en lista med elever
             </Button>.
           </p>
         </template>

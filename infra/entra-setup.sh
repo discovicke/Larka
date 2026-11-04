@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # Registrerar Lärka i skolans Microsoft Entra ID, eller uppdaterar registreringen om den redan finns.
 #
-#   az login                                        # i skolans tenant
+#   az login                                        # i skolans tenant, med kontot som ska bli admin
+#   az account show                                 # kolla att det är rätt konto
 #   APP_URL=https://larka.skolan.se infra/entra-setup.sh
 #
 # Appen är single-tenant, plattformen Single-page application, med bara inloggningsbehörigheter och ingen hemlighet.
 # Sist skrivs fyra rader Auth__Entra__... ut. Lägg dem där appens inställningar finns: Infisical (prod) för vår demo,
-# deploy/.env på en egen server. Den som kör skriptet blir skolans första admin vid sin första inloggning.
+# deploy/.env på en egen server. Den som kör skriptet blir skolans första admin vid sin första inloggning, så skriptet
+# visar kontot och frågar innan det ändrar något.
 #
 # Valfritt: ENTRA_APP_NAME (standard Lärka), SCHOOL_NAME (standard organisationens namn i Entra ID).
 set -euo pipefail
@@ -26,12 +28,24 @@ REDIRECT_PATH=/login
 APP_URL=${APP_URL%/}
 
 tenant=$(az account show --query tenantId -o tsv)
-echo "Tenant: $tenant ($(az account show --query user.name -o tsv))"
 # Du som kör skriptet blir första admin. Object id (oid) är samma som Microsoft skickar i ID-tokenet.
 admin_object_id=$(az ad signed-in-user show --query id -o tsv)
+admin_name=$(az ad signed-in-user show --query displayName -o tsv)
 school_name=${SCHOOL_NAME:-$(az rest --method GET --url https://graph.microsoft.com/v1.0/organization \
   --query 'value[0].displayName' -o tsv 2>/dev/null || true)}
-echo "Första admin: du ($admin_object_id). Skolans namn: ${school_name:-(inget, sätt SCHOOL_NAME)}"
+echo "Inloggad i az: $admin_name ($(az account show --query user.name -o tsv))"
+echo "Object id:     $admin_object_id"
+echo "Tenant:        $tenant"
+echo "Skolans namn:  ${school_name:-(inget, sätt SCHOOL_NAME)}"
+
+# Fel konto ger fel person admin, så inget ändras innan den som kör har sagt ja. Utan svar (ingen terminal) avbryts
+# skriptet. Byt konto med az login.
+answer=""
+read -r -p "Det här kontot blir Lärkas första admin. Fortsätt? [j/N] " answer || true
+case "$answer" in
+  j|J|ja|Ja|JA) ;;
+  *) echo "Avbrutet. Inget ändrades. Logga in med rätt konto (az login) och kör skriptet igen." >&2; exit 1 ;;
+esac
 
 app_id=$(az ad app list --filter "tags/any(t:t eq '$TAG')" --query '[0].appId' -o tsv)
 if [ -z "$app_id" ]; then

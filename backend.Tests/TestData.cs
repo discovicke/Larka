@@ -132,7 +132,9 @@ public static class TestData
     /// <summary>
     /// Skapar en kurs. Skickas groupId läser den gruppen kursen (GroupCourse). Testernas standardanvändare är
     /// placeholder-admin, som bara undervisar där hen står i CourseTeachers, så den läggs in som lärare om inte
-    /// placeholderTeaches är false. Tester av admin utan lärarroll skickar false.
+    /// placeholderTeaches är false. Tester av admin utan lärarroll skickar false. Appen låter aldrig en admin bli
+    /// lärare (#492). Raden skrivs direkt i databasen som en genväg, så att samma testanvändare når både admin- och
+    /// lärarsidan av API:et.
     /// </summary>
     public static async Task<Course> AddCourseAsync(
         AppDb db, Guid schoolId, Guid? groupId = null, bool placeholderTeaches = true)

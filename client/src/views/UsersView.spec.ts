@@ -38,7 +38,7 @@ function backend({role = 'Admin', roleStatus = 200}: {role?: string, roleStatus?
         : 'you cannot change your own role'}
     }
     if (method === 'PUT' && path === '/api/users/u2/role') {
-      return {status: 200, body: {...larare, ...(body as object)}}
+      return {status: 409, body: 'the user still teaches a course or a class'}
     }
     return {status: 404}
   })
@@ -167,16 +167,21 @@ describe('UsersView', () => {
     expect(wrapper.findAll('[data-test="user-role-cell"]')[1].text()).toBe('Lärare')
   })
 
-  it('varnar att en lärare som blir elev tas bort från sina kurser', async () => {
+  it('säger att en lärare först ersätts i sina kurser, och visar varför servern säger nej', async () => {
     backend()
     const {wrapper} = await renderApp('/users')
 
     await openChangeRole(wrapper, 'Lars Lärare')
     expect(dialog().querySelector('[data-test="demote-note"]')).toBeNull()
 
-    await chooseRole('Student')
+    await chooseRole('Admin')
     expect(dialog().querySelector('[data-test="demote-note"]')?.textContent)
-      .toContain('tas bort som lärare i sina kurser')
+      .toContain('måste du först ersätta hen där')
+    await click(dialog().querySelector('[data-test="save-role"]'))
+
+    expect(dialog().querySelector('[data-test="change-role-error"]')?.textContent)
+      .toContain('Hen undervisar fortfarande i en kurs eller klass.')
+    expect(wrapper.findAll('[data-test="user-role-cell"]')[2].text()).toBe('Lärare')
   })
 
   it('visar felet när API:et säger nej', async () => {

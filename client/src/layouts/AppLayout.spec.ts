@@ -230,14 +230,6 @@ describe('AppLayout', () => {
     expect(sidebar.text()).not.toContain('Att bedöma')
   })
 
-  it('admin som också undervisar ser Att bedöma', async () => {
-    meBackend(meAs('Admin', ['c1'], 'Ada Admin'))
-
-    const page = await render('/')
-
-    expect(page.find('[data-slot="sidebar"]').text()).toContain('Att bedöma')
-  })
-
   it('läraren ser Mina kurser och Att bedöma', async () => {
     const page = await render('/')
 

@@ -37,7 +37,8 @@ public record GroupAnalyticsStudentDto(
     List<GroupAnalyticsStudentCourseDto> Courses);
 
 /// <summary>En elevs räknare i en kurs. Overdue är uppgifter som passerat deadline utan inlämning medan en kompletteringsdeadline återstår.
-/// AutoFail är uppgifter där sista deadline passerat utan inlämning eller komplettering, alltså automatiskt IG.</summary>
+/// AutoFail är uppgifter där sista deadline passerat utan inlämning eller komplettering, alltså automatiskt IG.
+/// De räknas också som bedömda (GradedCount) och som IG (FailCount), så AutoFail är en delmängd av båda.</summary>
 public record GroupAnalyticsStudentCourseDto(
     Guid CourseId,
     int AssignmentCount,

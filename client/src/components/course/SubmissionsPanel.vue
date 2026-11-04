@@ -31,6 +31,7 @@ import {type Schema} from '@/lib/api'
 import {formatDate} from '@/lib/content'
 import {lockGitHubRepos, refreshGitHubRepos} from '@/lib/integrations'
 import {submissionStatusKey} from '@/lib/status'
+import {buildRows, countToGrade, toStudentRow, type TrackingRow} from '@/lib/submissionRows'
 import {resolveStudentHelp} from '@/lib/support'
 import {checkClass, checkLabel, gradeBadgeVariant, gradeLabel, gradeName, statusLabel} from '@/lib/submissions'
 
@@ -46,27 +47,6 @@ type Filter = 'all'
   | 'supportHelp'
 
 type Submission = Schema<'SubmissionDto'>
-type Group = Schema<'AssignmentGroupDto'>
-
-interface TrackingRow {
-  key: string
-  name: string
-  group: Group | null
-  submissions: Submission[]
-  primary: Submission
-  status: Schema<'SubmissionStatus'>
-  /** Sista deadline har passerat utan inlämning eller komplettering: automatiskt IG. */
-  autoFail: boolean
-  /** Elevens egen extra deadline, för en elevrad. */
-  personalDueAt: string | null
-  repo: Submission['repo']
-  submittedAt: string | null
-  files: number
-  grade: Submission['grade']
-  gradedCount: number
-  isMember: boolean
-  supportReasons: string[]
-}
 
 const props = defineProps<{
   courseId: string
@@ -74,6 +54,8 @@ const props = defineProps<{
   submissions: Submission[]
   /** Bedöms på plats: läraren kan sätta betyg utan inlämning. */
   onSite?: boolean
+  /** Eleverna som delen delas ut till. En elev som inte har börjat har ingen inlämning och syns inte i listan. */
+  studentCount?: number
 }>()
 
 const emit = defineEmits<{reload: []}>()
@@ -86,134 +68,7 @@ const actionError = ref('')
 const cloneOpen = ref(false)
 const expanded = ref<string[]>([])
 
-function aggregateStatus(submissions: Submission[]): Schema<'SubmissionStatus'> {
-  if (submissions.length > 0 && submissions.every((submission) => submission.status === 'Graded')) {
-    return 'Graded'
-  }
-  if (submissions.some((submission) => submission.status === 'NeedsWork')) {
-    return 'NeedsWork'
-  }
-  if (submissions.some((submission) => submission.status === 'Submitted' || submission.status === 'Graded')) {
-    return 'Submitted'
-  }
-  return 'NotStarted'
-}
-
-// Backend räknar automatiskt IG per elev. En grupp har det först när alla medlemmar har det.
-function groupAutoFail(submissions: Submission[]): boolean {
-  return submissions.length > 0 && submissions.every((submission) => submission.deadline?.autoFail === true)
-}
-
-function reasonsFor(submissions: Submission[]): string[] {
-  const reasons = new Set<string>()
-  for (const submission of submissions) {
-    const support = submission.support
-    if (!support) {
-      continue
-    }
-    if (support.helpRequested) {
-      reasons.add('Elevflagga')
-    }
-    if (support.notStarted) {
-      reasons.add('Inte startat')
-    }
-    if (support.noRecentPush) {
-      reasons.add('Ingen push')
-    }
-    if (support.redChecks) {
-      reasons.add('Röda tester')
-    }
-  }
-  return [...reasons]
-}
-
-function preferredSubmission(submissions: Submission[]): Submission {
-  return submissions.find((submission) => submission.status === 'Submitted')
-    ?? submissions.find((submission) => submission.status === 'NeedsWork')
-    ?? submissions[0]
-}
-
-function submittedAtOf(submissions: Submission[]): string | null {
-  return submissions
-    .map((submission) => submission.submittedAt)
-    .filter((value): value is string => Boolean(value))
-    .sort()
-    .at(-1) ?? null
-}
-
-function sharedGrade(submissions: Submission[]): Submission['grade'] {
-  if (submissions.length === 0 || submissions.some((submission) => submission.grade === null)) {
-    return null
-  }
-  const level = submissions[0].grade?.level ?? null
-  return submissions.every((submission) => (submission.grade?.level ?? null) === level)
-    ? submissions[0].grade
-    : null
-}
-
-function toStudentRow(submission: Submission, isMember = false): TrackingRow {
-  return {
-    key: `student:${submission.id}`,
-    name: submission.studentName,
-    group: null,
-    submissions: [submission],
-    primary: submission,
-    status: submission.status,
-    autoFail: submission.deadline?.autoFail === true,
-    personalDueAt: submission.personalDueAt ?? null,
-    repo: submission.repo,
-    submittedAt: submission.submittedAt,
-    files: submission.files.length,
-    grade: submission.grade,
-    gradedCount: submission.grade
-      ? 1
-      : 0,
-    isMember,
-    supportReasons: reasonsFor([submission]),
-  }
-}
-
-function toGroupRow(group: Group, submissions: Submission[]): TrackingRow {
-  return {
-    key: `group:${group.id}`,
-    name: group.name,
-    group,
-    submissions,
-    primary: preferredSubmission(submissions),
-    status: aggregateStatus(submissions),
-    // Gruppens medlemmar kan ha olika personliga deadlines, så gruppen räknar med den senaste.
-    autoFail: groupAutoFail(submissions),
-    personalDueAt: null,
-    repo: submissions.find((submission) => submission.repo)?.repo ?? null,
-    submittedAt: submittedAtOf(submissions),
-    files: submissions.reduce((sum, submission) => sum + submission.files.length, 0),
-    grade: sharedGrade(submissions),
-    gradedCount: submissions.filter((submission) => submission.grade).length,
-    isMember: false,
-    supportReasons: reasonsFor(submissions),
-  }
-}
-
-const rows = computed<TrackingRow[]>(() => {
-  const groups = new Map<string, {group: Group, submissions: Submission[]}>()
-  const students: TrackingRow[] = []
-  for (const submission of props.submissions) {
-    if (submission.group) {
-      const existing = groups.get(submission.group.id)
-      if (existing) {
-        existing.submissions.push(submission)
-      } else {
-        groups.set(submission.group.id, {group: submission.group, submissions: [submission]})
-      }
-    } else {
-      students.push(toStudentRow(submission))
-    }
-  }
-  return [
-    ...students,
-    ...[...groups.values()].map(({group, submissions}) => toGroupRow(group, submissions)),
-  ]
-})
+const rows = computed<TrackingRow[]>(() => buildRows(props.submissions))
 
 const hasGroups = computed(() => rows.value.some((row) => row.group !== null))
 const unit = computed(() => {
@@ -230,7 +85,9 @@ const unit = computed(() => {
 const hasRepos = computed(() => props.submissions.some((submission) => submission.repo !== null))
 
 function countOf(status: Schema<'SubmissionStatus'>): number {
-  return rows.value.filter((row) => row.status === status && !row.autoFail).length
+  return status === 'Submitted'
+    ? countToGrade(rows.value)
+    : rows.value.filter((row) => row.status === status && !row.autoFail).length
 }
 
 const autoFailCount = computed(() => rows.value.filter((row) => row.autoFail).length)
@@ -525,8 +382,18 @@ function rowBorder(index: number) {
         <EmptyMedia variant="icon">
           <PhUsersThree/>
         </EmptyMedia>
-        <EmptyTitle>Inga elever än</EmptyTitle>
-        <EmptyDescription>Uppgiften har inte delats ut till några elever.</EmptyDescription>
+        <template v-if="(studentCount ?? 0) > 0">
+          <EmptyTitle data-test="submissions-none-yet">Ingen har börjat än</EmptyTitle>
+          <EmptyDescription>
+            {{ studentCount }} {{ studentCount === 1
+              ? 'elev har'
+              : 'elever har' }} fått uppgiften. Här syns de när de har börjat eller lämnat in.
+          </EmptyDescription>
+        </template>
+        <template v-else>
+          <EmptyTitle>Inga elever än</EmptyTitle>
+          <EmptyDescription>Uppgiften har inte delats ut till några elever.</EmptyDescription>
+        </template>
       </EmptyHeader>
     </Empty>
 

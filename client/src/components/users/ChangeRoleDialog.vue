@@ -14,7 +14,7 @@ import {
 import {Label} from '@/components/ui/label'
 import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
 import {useAsync} from '@/composables/useAsync'
-import {ApiError, type Schema} from '@/lib/api'
+import {type Schema} from '@/lib/api'
 import {userRoles} from '@/lib/userRoles'
 import {updateUserRole} from '@/lib/usersApi'
 
@@ -35,15 +35,10 @@ watch(open, (isOpen) => {
 })
 
 const {run: save, loading: saving, error} = useAsync(async () => {
+  // Servern säger nej till den egna rollen och till en lärare som fortfarande undervisar. Texten kommer från
+  // serverMessages.
   if (role.value !== props.user.role) {
-    try {
-      emit('saved', await updateUserRole(props.user.id, role.value))
-    } catch (exception) {
-      // 409: ingen kan ändra sin egen roll, så att skolan alltid har kvar en admin.
-      throw exception instanceof ApiError && exception.status === 409
-        ? new Error('Du kan inte ändra din egen roll.')
-        : exception
-    }
+    emit('saved', await updateUserRole(props.user.id, role.value))
   }
   open.value = false
 })
@@ -69,8 +64,8 @@ const {run: save, loading: saving, error} = useAsync(async () => {
           </NativeSelect>
         </div>
 
-        <p v-if="role === 'Student' && user.role !== 'Student'" class="text-muted-foreground text-sm" data-test="demote-note">
-          Hen tas bort som lärare i sina kurser. Det hen har skapat och bedömt finns kvar.
+        <p v-if="user.role === 'Teacher' && role !== 'Teacher'" class="text-muted-foreground text-sm" data-test="demote-note">
+          Undervisar hen i en kurs eller klass måste du först ersätta hen där. Admin undervisar aldrig.
         </p>
 
         <Alert v-if="error" variant="destructive" data-test="change-role-error">

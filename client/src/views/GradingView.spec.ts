@@ -131,6 +131,37 @@ describe('GradingView', () => {
       .toBe('/courses/c2/assignments/l3/submissions/s4')
   })
 
+  it('hämtar bara inlämningar i kurser där användaren bedömer', async () => {
+    mockApi((_method, path) => {
+      if (path === '/api/me') {
+        return {status: 200, body: meAs('Teacher', ['c1'])}
+      }
+      if (path === '/api/courses') {
+        return {status: 200, body: [devops, databases]}
+      }
+      if (path === '/api/courses/c1/modules') {
+        return {status: 200, body: [week('m1', [release])]}
+      }
+      if (path === '/api/courses/c2/modules') {
+        return {status: 200, body: [week('m2', [docker])]}
+      }
+      if (path === '/api/links/l1/submissions') {
+        return {status: 200, body: releaseSubmissions}
+      }
+      if (path === '/api/links/l3/submissions') {
+        return {status: 200, body: dockerSubmissions}
+      }
+      return {status: 404}
+    })
+
+    const {wrapper} = await renderApp('/grading')
+    await flushPromises()
+
+    expect(requests.some((request) => request.path === '/api/links/l3/submissions')).toBe(false)
+    expect(requests.some((request) => request.path === '/api/courses/c2/modules')).toBe(false)
+    expect(wrapper.findAll('[data-test="grading-group"]')).toHaveLength(1)
+  })
+
   it('knappen Bedöm i ordning öppnar gruppens första inlämning', async () => {
     backend({
       release: [

@@ -18,6 +18,7 @@ import {parseChecklist} from '@/lib/checklist'
 import {formatDate, partOf} from '@/lib/content'
 import {fetchContent, setContentStatus} from '@/lib/contentApi'
 import {fetchCourseModules} from '@/lib/modulesApi'
+import {buildRows, countToGrade} from '@/lib/submissionRows'
 import {gradeScaleName, handInLabel} from '@/lib/submissions'
 import {fetchLinkSubmissions} from '@/lib/submissionsApi'
 
@@ -52,9 +53,14 @@ const tab = computed(() => route.query.tab === 'inlamningar' && hasSubmissions.v
   ? 'submissions'
   : 'content')
 
-const toGrade = computed(() => submissions.value.filter((submission) => submission.status === 'Submitted').length)
-const handedIn = computed(() => submissions.value.filter((submission) => submission.status !== 'NotStarted').length)
-const handedInLabel = computed(() => `${handedIn.value} av ${submissions.value.length}`)
+const toGrade = computed(() => countToGrade(buildRows(submissions.value)))
+// Samma tal som i veckans lista: nämnaren är eleverna som delen delas ut till, inte bara de som har en inlämning.
+// Den som inte har börjat har ingen inlämning, så listan räcker inte som nämnare.
+const handedIn = computed(() => part.value?.submittedCount
+  ?? new Set(submissions.value
+    .filter((submission) => submission.status !== 'NotStarted')
+    .map((submission) => submission.studentId)).size)
+const handedInLabel = computed(() => `${handedIn.value} av ${part.value?.studentCount ?? submissions.value.length}`)
 
 const checklist = computed(() => parseChecklist(content.value?.bodyMd ?? ''))
 
@@ -285,6 +291,7 @@ watch([courseId, linkId], () => {
         :link-id="linkId"
         :submissions="submissions"
         :on-site="(content?.assignment?.submissionModes ?? []).includes('OnSite')"
+        :student-count="part?.studentCount ?? undefined"
         @reload="load(false)"
       />
 

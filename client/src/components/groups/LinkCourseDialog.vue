@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {computed, ref, watch} from 'vue'
 
+import SearchPicker from '@/components/SearchPicker.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Button} from '@/components/ui/button'
 import {
@@ -11,9 +12,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {FieldLabel} from '@/components/ui/field'
-import {Input} from '@/components/ui/input'
-import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
 import {useAsync} from '@/composables/useAsync'
 import {ApiError, errorMessage, type Schema} from '@/lib/api'
 import {splitFinished} from '@/lib/courseStatus'
@@ -38,14 +36,8 @@ const available = computed(() => {
   return [...current, ...finished]
 })
 
-// Sökfältet filtrerar listan på titel och kod.
-const visible = computed(() => {
-  const query = search.value.trim().toLowerCase()
-  return query === ''
-    ? available.value
-    : available.value.filter((course) =>
-        course.title.toLowerCase().includes(query) || course.code.toLowerCase().includes(query))
-})
+// Sökningen matchar titel och kod.
+const items = computed(() => available.value.map((course) => ({id: course.id, title: course.title, detail: course.code})))
 
 watch(open, async (isOpen) => {
   if (!isOpen) {
@@ -91,37 +83,18 @@ async function link() {
           <DialogDescription>Gruppens medlemmar får tillgång till kursen.</DialogDescription>
         </DialogHeader>
 
-        <div class="flex min-w-0 flex-col gap-1.5">
-          <FieldLabel for="link-course-search">Sök kurs</FieldLabel>
-          <Input
-            id="link-course-search"
-            v-model="search"
-            type="search"
-            placeholder="Titel eller kod"
-            :disabled="loading"
-            data-test="link-course-search"
-          />
-          <FieldLabel for="link-course" class="mt-1.5">Kurs</FieldLabel>
-          <NativeSelect
-            id="link-course"
-            v-model="courseId"
-            class="w-full"
-            required
-            :disabled="loading"
-            data-test="link-course"
-          >
-            <NativeSelectOption value="">
-              {{ available.length === 0 && !loading
-                ? 'Det finns inga kurser att koppla'
-                : visible.length === 0 && !loading
-                  ? 'Ingen kurs matchar sökningen'
-                  : 'Välj kurs…' }}
-            </NativeSelectOption>
-            <NativeSelectOption v-for="course in visible" :key="course.id" :value="course.id">
-              {{ course.title }} · {{ course.code }}
-            </NativeSelectOption>
-          </NativeSelect>
-        </div>
+        <SearchPicker
+          id="link-course"
+          v-model="courseId"
+          v-model:search="search"
+          label="Kurs"
+          placeholder="Sök på titel eller kod"
+          :items="items"
+          :nouns="['kurs', 'kurser']"
+          empty-text="Det finns inga kurser att koppla."
+          :loading="loading"
+          data-test="link-course"
+        />
 
         <Alert v-if="error" variant="destructive">
           <AlertDescription>{{ error }}</AlertDescription>

@@ -23,9 +23,6 @@ import {addCourseTeacher, createCourse, fetchCourses} from '@/lib/coursesApi'
 import {linkCourseToGroup} from '@/lib/groupsApi'
 import {fetchCourseModules} from '@/lib/modulesApi'
 import {fetchUsers} from '@/lib/usersApi'
-import {useCurrentUser} from '@/composables/useCurrentUser'
-
-const {me} = useCurrentUser()
 
 const props = defineProps<{groupId: string, groupName: string, schoolId: string}>()
 // created kommer när något har sparats, också om ett senare steg misslyckades, så att sidan visar det som finns.
@@ -133,9 +130,9 @@ watch(open, async (isOpen) => {
   try {
     const [courseList, userList] = await Promise.all([fetchCourses(), fetchUsers()])
     courses.value = courseList
-    // Lärare, och admin själv om hen också undervisar. Andra admin kan inte väljas.
+    // Bara användare med rollen Lärare. Admin undervisar aldrig.
     teachers.value = userList
-      .filter((user) => user.role === 'Teacher' || user.id === me.value?.id)
+      .filter((user) => user.role === 'Teacher')
       .sort((first, second) => first.name.localeCompare(second.name, 'sv'))
   } catch (exception) {
     error.value = errorMessage(exception)

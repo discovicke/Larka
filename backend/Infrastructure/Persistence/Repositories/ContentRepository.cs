@@ -319,6 +319,15 @@ public class ContentRepository(AppDb db) : IContentRepository
              && courseIds.Contains(link.CourseId.Value)
              && content.Type == ContentType.Assignment
              && content.Status == ContentStatus.Published
+             // Bara uppgifter som tar emot inlämningar, och bara delar eleverna redan ser: länkens och veckans
+             // publicering ska ha passerat. Samma urval som veckolistans räknare.
+             && content.Assignment != null
+             && content.Assignment.SubmissionModes.Count > 0
+             && link.PublishAt <= fromAt
+             && (link.ModuleId == null
+                 || !db.Modules.Any(module => module.Id == link.ModuleId
+                     && module.PublishAt != null
+                     && module.PublishAt > fromAt))
              && link.DueAt != null
              && link.DueAt >= fromAt
              && link.DueAt <= toAt

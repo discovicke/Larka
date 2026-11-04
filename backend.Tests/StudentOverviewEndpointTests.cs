@@ -69,7 +69,7 @@ public class StudentOverviewEndpointTests(TestWebApplicationFactory factory) : I
         var course = Assert.Single(overview.Courses);
         Assert.Equal(scenario.CourseId, course.CourseId);
         Assert.Equal(
-            (7, 1, 1, 1, 2, 1, 1, 1),
+            (7, 1, 1, 1, 3, 1, 1, 1), // automatiskt IG räknas som bedömt och som IG
             (course.AssignmentCount, course.NeedsWorkCount, course.LateCount, course.SubmittedCount,
                 course.GradedCount, course.FailCount, course.PassCount, course.DistinctionCount));
     }

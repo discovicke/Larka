@@ -40,10 +40,13 @@ const exact: Record<string, string> = {
   'user belongs to another school': 'Användaren tillhör en annan skola.',
 
   // Roller
-  'user must be a teacher or an admin': 'Användaren måste vara lärare eller admin.',
+  'user must be a teacher': 'Bara en lärare kan undervisa i en kurs. Admin undervisar inte.',
+  'teachers must be teachers at the school': 'Bara skolans lärare kan undervisa i kursen. Admin undervisar inte.',
   'only a teacher can be a teacher in a group': 'Bara en lärare kan vara lärare i en klass.',
   'you cannot deactivate yourself': 'Du kan inte spärra dig själv.',
   'you cannot change your own role': 'Du kan inte ändra din egen roll.',
+  'the user still teaches a course or a class':
+    'Hen undervisar fortfarande i en kurs eller klass. Ersätt hen som lärare där först.',
   'a committee cannot read courses, unlink them first': 'En kommitté kan inte läsa kurser. Koppla bort kurserna först.',
 
   // Inlämning och bedömning
@@ -90,7 +93,6 @@ const exact: Record<string, string> = {
 
 const patterns: [RegExp, (...groups: string[]) => string][] = [
   [/^password must be at least (\d+) characters$/, (count) => `Lösenordet måste vara minst ${count} tecken.`],
-  [/^lines must contain between 1 and (\d+) students$/, (count) => `Klistra in mellan 1 och ${count} elever.`],
   [/^the part is locked by: (.+)$/, (parts) => `Delen är låst tills du har klarat: ${parts}.`],
   [/^cycle: (.+)$/, (path) => `Ordningen blir en ring: ${path}.`],
   [/^at most (\d+) files can be uploaded at once$/, (count) => `Högst ${count} filer kan laddas upp åt gången.`],

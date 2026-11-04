@@ -20,6 +20,12 @@ public interface IUserRepository
     Task<User?> GetByExternalIdAsync(string externalId, CancellationToken ct);
     Task<List<User>> GetStudentsInGroupsAsync(IReadOnlyCollection<Guid> groupIds, CancellationToken ct);
 
+    /// <summary>
+    /// Som GetStudentsInGroupsAsync men utan avaktiverade elever. Används där läraren ser listan. Utdelning och
+    /// gruppindelning behåller alla, så att en återaktiverad elev har sina inlämningar kvar.
+    /// </summary>
+    Task<List<User>> GetActiveStudentsInGroupsAsync(IReadOnlyCollection<Guid> groupIds, CancellationToken ct);
+
     /// <summary>Avstängda notisslag per användare. Användare utan avstängda slag saknas i resultatet.</summary>
     Task<Dictionary<Guid, List<NotificationKind>>> GetMutedKindsAsync(
         IReadOnlyCollection<Guid> userIds, CancellationToken ct);

@@ -88,10 +88,11 @@ Render kör imagen och Supabase har databasen och filerna. Inställningarna ligg
 
 ## Microsoft-inloggning
 
-Registrera Lärka i skolans Entra ID med [`infra/entra-setup.sh`](../infra/entra-setup.sh), inloggad med Azure CLI i skolans tenant:
+Registrera Lärka i skolans Entra ID med [`infra/entra-setup.sh`](../infra/entra-setup.sh), inloggad med Azure CLI i skolans tenant. Kontot du är inloggad med blir skolans första admin, så kolla med `az account show` att det är rätt konto innan du kör skriptet. Skriptet visar kontot och frågar innan det ändrar något.
 
 ```bash
 az login
+az account show
 APP_URL=https://larka.skolan.se infra/entra-setup.sh
 ```
 

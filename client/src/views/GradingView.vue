@@ -9,6 +9,7 @@ import {Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/co
 import {Skeleton} from '@/components/ui/skeleton'
 import {useAsync} from '@/composables/useAsync'
 import {useCourses} from '@/composables/useCourses'
+import {useCurrentUser} from '@/composables/useCurrentUser'
 import {useFlash} from '@/composables/useFlash'
 import {formatDate} from '@/lib/content'
 import {
@@ -23,6 +24,7 @@ import {
 import {submissionStatusKey} from '@/lib/status'
 
 const {courses, status} = useCourses()
+const {can, status: meStatus} = useCurrentUser()
 
 const rows = ref<GradingRow[]>([])
 // Beskedet från bedömningen som skickade läraren hit, t.ex. "Bedömningen är sparad."
@@ -73,7 +75,8 @@ function chanceUntil(row: GradingRow): string {
 }
 
 const {run: loadRows, loading, error} = useAsync(
-  () => fetchAssignmentRows(courses.value),
+  // Bara kurser där användaren bedömer. I en kurs hen läser hämtas annars hens egna inlämningar.
+  () => fetchAssignmentRows(courses.value.filter((course) => can('grade', course.id))),
   'Kunde inte hämta inlämningarna.',
 )
 
@@ -84,8 +87,8 @@ async function load() {
   }
 }
 
-watch(status, (value) => {
-  if (value !== 'loading') {
+watch([status, meStatus], ([coursesValue, meValue]) => {
+  if (coursesValue !== 'loading' && meValue !== 'loading') {
     load()
   }
 }, {immediate: true})

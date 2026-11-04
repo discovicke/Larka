@@ -7,7 +7,8 @@ using Backend.Domain.Enums;
 namespace Backend.Application.Services;
 
 // Vem som är lärare i en kurs. Bara admin sätter det, och läraren behöver inte vara medlem i någon klass.
-// Läraren ska höra till samma skola som kursen och vara lärare eller admin i systemet, inte elev.
+// Läraren ska höra till samma skola som kursen och ha rollen lärare. Admin undervisar aldrig: den som både leder och
+// undervisar har ett konto för varje (se docs/roller-och-floden.md).
 public class CourseTeacherService(
     ICourseRepository courses,
     IUserRepository users,
@@ -58,9 +59,9 @@ public class CourseTeacherService(
             return ServiceResult<CourseTeacherDto>.Invalid("user belongs to another school");
         }
 
-        if (user.Role == UserRole.Student)
+        if (user.Role != UserRole.Teacher)
         {
-            return ServiceResult<CourseTeacherDto>.Invalid("user must be a teacher or an admin");
+            return ServiceResult<CourseTeacherDto>.Invalid("user must be a teacher");
         }
 
         if (await courses.GetTeacherAsync(courseId, user.Id, ct) is not null)

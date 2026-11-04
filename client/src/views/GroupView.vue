@@ -13,7 +13,6 @@ import UnlinkCourseDialog from '@/components/groups/UnlinkCourseDialog.vue'
 import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar'
 import CourseStatusBadge from '@/components/course/CourseStatusBadge.vue'
 import CourseTeachersDialog from '@/components/groups/CourseTeachersDialog.vue'
-import ImportStudentsDialog from '@/components/groups/ImportStudentsDialog.vue'
 import NewCourseDialog from '@/components/groups/NewCourseDialog.vue'
 import StudentOverviewDialog from '@/components/groups/StudentOverviewDialog.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -60,7 +59,6 @@ const addingMember = ref(false)
 const memberToRemove = ref<Schema<'GroupMemberDto'> | null>(null)
 const linkingCourse = ref(false)
 const creatingCourse = ref(false)
-const importingStudents = ref(false)
 const courseForTeachers = ref<Schema<'CourseDto'> | null>(null)
 // Lärarna per kurs, bara för admin. En kurs som saknas här har inte fått sina lärare hämtade.
 const teachersByCourse = ref<Record<string, Schema<'CourseTeacherDto'>[]>>({})
@@ -227,21 +225,9 @@ function addMember(member: Schema<'GroupMemberDto'>) {
   showToast(`${member.name} är tillagd i ${group.value?.name}.`)
 }
 
-function addMembers(added: Schema<'GroupMemberDto'>[]) {
-  members.value = [...members.value, ...added]
-  showToast(added.length === 1
-    ? `1 person är tillagd i ${group.value?.name}.`
-    : `${added.length} personer är tillagda i ${group.value?.name}.`)
-}
-
 async function roleChanged() {
   await reloadMembers()
   showToast('Rollen är ändrad.')
-}
-
-function pasteStudents() {
-  addingMember.value = false
-  importingStudents.value = true
 }
 
 function removeMember(userId: string) {
@@ -558,14 +544,6 @@ watch(isAdmin, (admin) => {
         :school-id="group.schoolId"
         :member-ids="members.map((member) => member.userId)"
         @added="addMember"
-        @paste="pasteStudents"
-      />
-      <ImportStudentsDialog
-        v-model:open="importingStudents"
-        :group-id="group.id"
-        :group-name="group.name"
-        :member-ids="members.map((member) => member.userId)"
-        @added="addMembers"
       />
       <NewCourseDialog
         v-model:open="creatingCourse"

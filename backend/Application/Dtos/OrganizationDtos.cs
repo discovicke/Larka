@@ -72,27 +72,3 @@ public record UpdateCourseDto(
 public record AddMemberDto(Guid UserId, GroupRole Role = GroupRole.Student);
 
 public record UpdateMemberDto(GroupRole Role);
-
-/// <summary>En rad i en inklistrad elevlista.</summary>
-public record ImportStudentLineDto(string? Name, string? Email);
-
-public record ImportStudentsDto(List<ImportStudentLineDto> Lines);
-
-/// <summary>
-/// Vad som hände med en rad: Created (ny elev utan lösenord, lagd i klassen), Added (befintlig elev lagd i
-/// klassen), AlreadyMember, NotStudent (användaren är lärare eller admin), Duplicate (samma adress två gånger)
-/// eller Invalid (namn eller adress saknas eller går inte att läsa, eller adressen hör till en annan skola).
-/// </summary>
-public enum ImportStudentOutcome
-{
-    Created,
-    Added,
-    AlreadyMember,
-    NotStudent,
-    Duplicate,
-    Invalid
-}
-
-public record ImportStudentResultDto(string Name, string Email, ImportStudentOutcome Outcome);
-
-public record ImportStudentsResultDto(List<ImportStudentResultDto> Lines, List<GroupMemberDto> Added);

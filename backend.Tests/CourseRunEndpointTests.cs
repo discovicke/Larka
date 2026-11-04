@@ -338,9 +338,14 @@ public class CourseRunEndpointTests(TestWebApplicationFactory factory) : IClassF
     }
 
     [Fact]
-    public async Task Run_WithAStudentAsTeacherOrAWeekFromAnotherCourse_ReturnsBadRequest()
+    public async Task Run_WithAStudentOrAdminAsTeacherOrAWeekFromAnotherCourse_ReturnsBadRequest()
     {
         var scenario = await AddScenarioAsync();
+        Guid adminId;
+        await using (var db = OpenDb())
+        {
+            adminId = (await TestData.AddUserAsync(db, scenario.SchoolId, UserRole.Admin)).Id;
+        }
 
         var student = await SendAsync(HttpMethod.Post, $"/api/courses/{scenario.CourseId}/runs", Guid.Empty, new
         {
@@ -350,6 +355,16 @@ public class CourseRunEndpointTests(TestWebApplicationFactory factory) : IClassF
             endsOn = "2027-03-01",
             copyContent = true,
             teacherIds = new[] { scenario.StudentId }
+        });
+        // Admin undervisar aldrig, inte ens i en kurs som admin själv skapar.
+        var admin = await SendAsync(HttpMethod.Post, $"/api/courses/{scenario.CourseId}/runs", Guid.Empty, new
+        {
+            code = scenario.RunCode,
+            groupId = scenario.NewGroupId,
+            startsOn = "2027-01-04",
+            endsOn = "2027-03-01",
+            copyContent = true,
+            teacherIds = new[] { adminId }
         });
         var week = await SendAsync(HttpMethod.Post, $"/api/courses/{scenario.CourseId}/runs", Guid.Empty, new
         {
@@ -362,7 +377,11 @@ public class CourseRunEndpointTests(TestWebApplicationFactory factory) : IClassF
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, student.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, admin.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, week.StatusCode);
+        await using var check = OpenDb();
+        Assert.False(await check.Courses.AnyAsync(
+            course => course.SchoolId == scenario.SchoolId && course.Code == scenario.RunCode));
     }
 
     private async Task<RunResponse> CreateRunAsync(Scenario scenario, bool copyContent = true)

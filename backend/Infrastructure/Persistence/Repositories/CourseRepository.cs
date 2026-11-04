@@ -89,10 +89,6 @@ public class CourseRepository(AppDb db) : ICourseRepository
         db.CourseTeachers.RemoveRange(
             await db.CourseTeachers.Where(courseTeacher => courseTeacher.CourseId == courseId).ToListAsync(ct));
 
-    public async Task RemoveTeacherFromAllCoursesAsync(Guid userId, CancellationToken ct) =>
-        db.CourseTeachers.RemoveRange(
-            await db.CourseTeachers.Where(courseTeacher => courseTeacher.UserId == userId).ToListAsync(ct));
-
     public void Add(Course course) => db.Courses.Add(course);
 
     public void Remove(Course course) => db.Courses.Remove(course);

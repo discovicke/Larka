@@ -119,28 +119,27 @@ export function summarize(analytics: GroupAnalytics, courseId: string): Analytic
     + counts.needsWorkCount
     + counts.submittedCount
     + counts.overdueCount
-    + counts.autoFailCount
   return {
     ...counts,
     studentCount: rows.length,
     atRiskStudentCount: rows.filter((row) => row.needsSupport).length,
     notStartedCount: Math.max(0, counts.assignmentCount - accountedFor),
-    // Ett automatiskt IG räknas som ett IG, så det drar ner andelen godkända.
-    passRate: counts.gradedCount + counts.autoFailCount === 0
+    // Ett automatiskt IG är redan bedömt och räknat som IG, så det drar ner andelen godkända.
+    passRate: counts.gradedCount === 0
       ? 0
-      : (counts.passCount + counts.distinctionCount) / (counts.gradedCount + counts.autoFailCount),
+      : (counts.passCount + counts.distinctionCount) / counts.gradedCount,
   }
 }
 
 export function gradeDistribution(summary: AnalyticsSummary): ChartDatum[] {
   return [
-    {key: 'fail', label: 'IG', count: summary.failCount + summary.autoFailCount, color: chartColors.fail},
+    {key: 'fail', label: 'IG', count: summary.failCount, color: chartColors.fail},
     {key: 'pass', label: 'G', count: summary.passCount, color: chartColors.pass},
     {key: 'distinction', label: 'VG', count: summary.distinctionCount, color: chartColors.distinction},
     {
       key: 'ungraded',
       label: 'Ej bedömt',
-      count: Math.max(0, summary.assignmentCount - summary.gradedCount - summary.autoFailCount),
+      count: Math.max(0, summary.assignmentCount - summary.gradedCount),
       color: chartColors.ungraded,
     },
   ]
@@ -148,7 +147,8 @@ export function gradeDistribution(summary: AnalyticsSummary): ChartDatum[] {
 
 export function statusDistribution(summary: AnalyticsSummary): ChartDatum[] {
   return [
-    {key: 'graded', label: 'Bedömt', count: summary.gradedCount, color: chartColors.pass},
+    // Automatiskt IG ingår i gradedCount men har en egen del, så att uppgiften inte syns två gånger.
+    {key: 'graded', label: 'Bedömt', count: summary.gradedCount - summary.autoFailCount, color: chartColors.pass},
     {key: 'submitted', label: 'Att bedöma', count: summary.submittedCount, color: chartColors.submitted},
     {key: 'needsWork', label: 'Komplettering', count: summary.needsWorkCount, color: chartColors.needsWork},
     {key: 'autoFail', label: 'IG (ingen inlämning)', count: summary.autoFailCount, color: chartColors.missing},
@@ -161,7 +161,7 @@ export function courseGradeData(courses: AnalyticsCourse[]) {
   return courses.map((course) => ({
     code: course.code,
     title: course.title,
-    fail: course.failCount + course.autoFailCount,
+    fail: course.failCount,
     pass: course.passCount,
     distinction: course.distinctionCount,
     atRisk: course.atRiskStudentCount,

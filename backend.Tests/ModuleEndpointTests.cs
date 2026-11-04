@@ -451,6 +451,31 @@ public class ModuleEndpointTests(TestWebApplicationFactory factory) : IClassFixt
     }
 
     [Fact]
+    public async Task Modules_DoNotCountDeactivatedStudents()
+    {
+        var setup = await AddCourseWithTwoGroupsAsync();
+        var week = await _client.CreateModuleAsync(setup.CourseId, "Vecka 1");
+        var assignment = await LinkAssignmentAsync(setup.CourseId, week.Id, new { });
+        await DeactivateAsync(setup.FirstStudents[0]);
+        await AddSubmissionsAsync(
+            assignment,
+            (setup.FirstStudents[0], SubmissionStatus.Submitted), // avaktiverad, räknas inte
+            (setup.FirstStudents[1], SubmissionStatus.Submitted));
+
+        var item = (await GetModulesAsync(setup.CourseId)).Single().Content.Single();
+
+        Assert.Equal((1, 4), (item.SubmittedCount, item.StudentCount));
+    }
+
+    private async Task DeactivateAsync(Guid userId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        await db.Users.Where(user => user.Id == userId)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(user => user.DeactivatedAt, DateTimeOffset.UtcNow));
+    }
+
+    [Fact]
     public async Task Modules_HaveNoCountsForTheoryOrExercisesWithoutSubmissionModes()
     {
         var setup = await AddCourseWithTwoGroupsAsync();

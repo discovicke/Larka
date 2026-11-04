@@ -32,10 +32,11 @@ async function openDialog(status = 201, list: unknown[] = courses) {
   return wrapper
 }
 
+// Kurserna i listan under sökfältet, i ordning.
+const shown = () => [...document.querySelectorAll<HTMLInputElement>('[data-test="link-course-radio"]')].map((radio) => radio.value)
+
 async function pick(value: string) {
-  const select = document.querySelector('[data-test="link-course"]') as HTMLSelectElement
-  select.value = value
-  select.dispatchEvent(new Event('change'))
+  document.querySelector<HTMLInputElement>(`[data-test="link-course-radio"][value="${value}"]`)!.click()
   await flushPromises()
   ;(document.querySelector('[data-test="confirm-link-course"]') as HTMLElement).click()
   await flushPromises()
@@ -45,8 +46,8 @@ describe('LinkCourseDialog', () => {
   it('listar bara kurser som inte redan är kopplade', async () => {
     await openDialog()
 
-    const select = document.querySelector('[data-test="link-course"]') as HTMLSelectElement
-    expect([...select.options].map((option) => option.value)).toEqual(['', 'c2'])
+    expect(shown()).toEqual(['c2'])
+    expect(document.querySelector('[data-test="link-course-count"]')?.textContent?.trim()).toBe('1 kurs')
   })
 
   it('lägger avslutade kurser sist', async () => {
@@ -56,8 +57,7 @@ describe('LinkCourseDialog', () => {
       courses[1],
     ])
 
-    const select = document.querySelector('[data-test="link-course"]') as HTMLSelectElement
-    expect([...select.options].map((option) => option.value)).toEqual(['', 'c2', 'c3'])
+    expect(shown()).toEqual(['c2', 'c3'])
   })
 
   it('filtrerar kurserna på titel och kod i sökfältet', async () => {
@@ -69,23 +69,24 @@ describe('LinkCourseDialog', () => {
     await wrapper.setProps({open: true})
     await flushPromises()
     mounted.push(wrapper)
-    const select = document.querySelector('[data-test="link-course"]') as HTMLSelectElement
     const search = document.querySelector('[data-test="link-course-search"]') as HTMLInputElement
 
     search.value = 'grund'
     search.dispatchEvent(new Event('input'))
     await flushPromises()
-    expect([...select.options].map((option) => option.value)).toEqual(['', 'c3'])
+    expect(shown()).toEqual(['c3'])
+    expect(document.querySelector('[data-test="link-course-count"]')?.textContent?.trim()).toBe('1 av 2 kurser')
 
     search.value = 'java'
     search.dispatchEvent(new Event('input'))
     await flushPromises()
-    expect([...select.options].map((option) => option.value)).toEqual(['', 'c2'])
+    expect(shown()).toEqual(['c2'])
 
     search.value = 'finns inte'
     search.dispatchEvent(new Event('input'))
     await flushPromises()
-    expect([...select.options].map((option) => option.text.trim())).toEqual(['Ingen kurs matchar sökningen'])
+    expect(shown()).toEqual([])
+    expect(document.querySelector('[data-test="link-course-no-match"]')).not.toBeNull()
   })
 
   it('kopplar vald kurs och meddelar det', async () => {

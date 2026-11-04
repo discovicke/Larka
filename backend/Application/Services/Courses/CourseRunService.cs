@@ -76,9 +76,9 @@ public class CourseRunService(
         foreach (var teacherId in teacherIds)
         {
             var user = await users.GetAsync(teacherId, ct);
-            if (user is null || user.SchoolId != source.SchoolId || user.Role == UserRole.Student)
+            if (user is null || user.SchoolId != source.SchoolId || user.Role != UserRole.Teacher)
             {
-                return ServiceResult<CourseRunResultDto>.Invalid("teachers must be staff at the school");
+                return ServiceResult<CourseRunResultDto>.Invalid("teachers must be teachers at the school");
             }
         }
 

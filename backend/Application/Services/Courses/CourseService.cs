@@ -286,7 +286,7 @@ public class CourseService(
         }
 
         var groupIds = await groups.GetGroupIdsReadingCourseAsync(courseId, ct);
-        var students = await users.GetStudentsInGroupsAsync(groupIds, ct);
+        var students = await users.GetActiveStudentsInGroupsAsync(groupIds, ct);
         return ServiceResult<List<UnlinkedGitHubStudentDto>>.Ok(
             students
                 .Where(student => string.IsNullOrWhiteSpace(student.GitHubLogin))

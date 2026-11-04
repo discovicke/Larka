@@ -583,6 +583,24 @@ public class StudentContentEndpointTests(TestWebApplicationFactory factory)
         Assert.Equal(setup.StudentIds[1], student.Id);
     }
 
+    [Fact]
+    public async Task UnlinkedGitHubStudents_SkipsDeactivatedStudents()
+    {
+        var setup = await AddCourseWithGroupAsync();
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            var deactivated = await db.Users.FindAsync(setup.StudentIds[0]);
+            deactivated!.DeactivatedAt = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync();
+        }
+
+        var students = await _client.GetFromJsonAsync<List<UnlinkedStudentResponse>>(
+            $"/api/courses/{setup.CourseId}/students/unlinked-github");
+
+        Assert.Equal(setup.StudentIds[1], Assert.Single(students!).Id);
+    }
+
     private record ChecklistResponse(List<int> CheckedIndexes);
 
     private record StudentHelpResponse(bool Requested, string? Message, bool Resolved);

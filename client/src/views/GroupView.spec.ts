@@ -39,7 +39,6 @@ interface Backend {
   teachers?: Record<string, {userId: string, name: string, email: string}[]>
   // Namnen på de andra klasserna som läser kursen, per kurs-id.
   shared?: Record<string, string[]>
-  importResult?: unknown
   // Status för skrivande anrop, som POST, PUT och DELETE.
   writeStatus?: number
 }
@@ -79,9 +78,6 @@ function backend(options: Backend = {}) {
     if (teachersPath && method === 'POST') {
       const user = users.find((found) => found.id === (body as {userId: string}).userId)!
       return {status: 201, body: {userId: user.id, name: user.name, email: user.email}}
-    }
-    if (method === 'POST' && path === `/api/groups/${group.id}/members/import`) {
-      return {status: 200, body: options.importResult}
     }
     if (method === 'POST' && path === `/api/groups/${group.id}/members`) {
       return {status: 201, body: {}}
@@ -337,7 +333,7 @@ describe('GroupView', () => {
       const {wrapper} = await renderApp('/groups/g1')
 
       await click(wrapper.find('[data-test="add-member"]').element)
-      const options = [...modal().querySelectorAll('[data-test="member-user"] option')].map((option) => option.textContent?.trim())
+      const options = [...modal().querySelectorAll('[data-test="member-user-option"]')].map((option) => option.textContent?.trim())
       // Siv är redan medlem.
       expect(options.some((text) => text?.includes('Siv Student'))).toBe(false)
       expect(options.some((text) => text?.includes('Nils Ny'))).toBe(true)
@@ -348,13 +344,10 @@ describe('GroupView', () => {
       role.value = 'Teacher'
       role.dispatchEvent(new Event('change'))
       await flushPromises()
-      const teacherOptions = [...modal().querySelectorAll('[data-test="member-user"] option')]
+      const teacherOptions = [...modal().querySelectorAll('[data-test="member-user-option"]')]
         .map((option) => option.textContent?.trim())
       expect(teacherOptions.some((text) => text?.includes('Nils Ny'))).toBe(false)
-      const user = modal().querySelector('[data-test="member-user"]') as HTMLSelectElement
-      user.value = 'u6'
-      user.dispatchEvent(new Event('change'))
-      await flushPromises()
+      await click(modal().querySelector('[data-test="member-user-radio"][value="u6"]'))
       await click(modal().querySelector('[data-test="confirm-add-member"]'))
 
       expect(sent('POST', '/api/groups/g1/members')).toEqual({userId: 'u6', role: 'Teacher'})
@@ -367,13 +360,13 @@ describe('GroupView', () => {
       const {wrapper} = await renderApp('/groups/g1')
 
       await click(wrapper.find('[data-test="add-member"]').element)
-      const search = modal().querySelector('[data-test="member-search"]') as HTMLInputElement
+      const search = modal().querySelector('[data-test="member-user-search"]') as HTMLInputElement
       search.value = 'zzz'
       search.dispatchEvent(new Event('input'))
       await flushPromises()
 
-      expect(modal().querySelectorAll('[data-test="member-user"] option')).toHaveLength(1)
-      expect(modal().textContent).toContain('Inga användare hittades')
+      expect(modal().querySelectorAll('[data-test="member-user-option"]')).toHaveLength(0)
+      expect(modal().textContent).toContain('Inget matchar sökningen.')
     })
 
     async function openMemberMenu(wrapper: Awaited<ReturnType<typeof renderApp>>['wrapper'], name: string) {
@@ -469,12 +462,10 @@ describe('GroupView', () => {
       const {wrapper} = await renderApp('/groups/g1')
 
       await click(wrapper.find('[data-test="link-course-button"]').element)
-      const select = modal().querySelector('[data-test="link-course"]') as HTMLSelectElement
       // DevOps är redan kopplad.
-      expect([...select.options].map((option) => option.value)).toEqual(['', 'c2'])
-      select.value = 'c2'
-      select.dispatchEvent(new Event('change'))
-      await flushPromises()
+      expect([...modal().querySelectorAll<HTMLInputElement>('[data-test="link-course-radio"]')].map((radio) => radio.value))
+        .toEqual(['c2'])
+      await click(modal().querySelector('[data-test="link-course-radio"][value="c2"]'))
       await click(modal().querySelector('[data-test="confirm-link-course"]'))
 
       expect(requests.some((request) => request.method === 'POST' && request.path === '/api/groups/g1/courses/c2')).toBe(true)
@@ -487,10 +478,7 @@ describe('GroupView', () => {
       const {wrapper} = await renderApp('/groups/g1')
 
       await click(wrapper.find('[data-test="link-course-button"]').element)
-      const select = modal().querySelector('[data-test="link-course"]') as HTMLSelectElement
-      select.value = 'c2'
-      select.dispatchEvent(new Event('change'))
-      await flushPromises()
+      await click(modal().querySelector('[data-test="link-course-radio"][value="c2"]'))
       await click(modal().querySelector('[data-test="confirm-link-course"]'))
 
       expect(modal().textContent).toContain('Kursen är redan kopplad till gruppen.')
@@ -569,8 +557,8 @@ describe('GroupView', () => {
       await wrapper.find('[data-test="edit-teachers"]').trigger('click')
       await flushPromises()
       const options = [...modal().querySelectorAll('[data-test="add-teacher-select"] option')]
-      // Lars undervisar redan, eleverna är inga lärare och den andra admin kan inte väljas. Admin själv kan det.
-      expect(options.map((option) => (option as HTMLOptionElement).value)).toEqual(['', 'u-me', 'u6'])
+      // Lars undervisar redan, eleverna är inga lärare och admin undervisar aldrig, inte heller admin själv.
+      expect(options.map((option) => (option as HTMLOptionElement).value)).toEqual(['', 'u6'])
       await pick(modal().querySelector('[data-test="add-teacher-select"]'), 'u6')
       await click(modal().querySelector('[data-test="add-teacher"]'))
 
@@ -654,63 +642,11 @@ describe('GroupView', () => {
       const {wrapper} = await renderApp('/groups/g1')
 
       await click(wrapper.find('[data-test="link-course-button"]').element)
-      await pick(modal().querySelector('[data-test="link-course"]'), 'c2')
+      await click(modal().querySelector('[data-test="link-course-radio"][value="c2"]'))
       await click(modal().querySelector('[data-test="confirm-link-course"]'))
 
       const rows = wrapper.findAll('[data-test="course-row"]')
       expect(rows[1].find('[data-test="course-teacher-names"]').text()).toBe('Lärare: Tina Tränare')
-    })
-
-    it('förhandsvisar en inklistrad lista och lägger till eleverna', async () => {
-      backend({
-        role: 'Admin',
-        importResult: {
-          lines: [
-            {name: 'Nils Ny', email: 'nils@example.com', outcome: 'Added'},
-            {name: 'Olle Ovan', email: 'olle@example.com', outcome: 'Created'},
-          ],
-          added: [
-            {userId: 'u5', name: 'Nils Ny', role: 'Student'},
-            {userId: 'u7', name: 'Olle Ovan', role: 'Student'},
-          ],
-        },
-      })
-      const {wrapper} = await renderApp('/groups/g1')
-
-      await click(wrapper.find('[data-test="add-member"]').element)
-      await click(modal().querySelector('[data-test="show-paste"]'))
-      await type('[data-test="import-text"]', [
-        'Nils Ny, nils@example.com',
-        'Olle Ovan\tolle@example.com',
-        'Siv Student, siv@example.com',
-        'Lars Lärare, lars@example.com',
-        'bara ett namn',
-      ].join('\n'))
-
-      const titles = [...modal().querySelectorAll('[data-test="import-preview"] h3')].map((heading) => heading.textContent)
-      expect(titles).toEqual([
-        'Finns redan, läggs till i klassen (1)',
-        'Nya, skapas utan lösenord (1)',
-        'Hoppas över (2)',
-        'Går inte att läsa (1)',
-      ])
-      expect(requests.some((request) => request.method === 'POST')).toBe(false)
-      const confirm = modal().querySelector('[data-test="confirm-import"]') as HTMLButtonElement
-      expect(confirm.textContent?.trim()).toBe('Lägg till 2 elever')
-      await click(confirm)
-
-      expect(sent('POST', '/api/groups/g1/members/import')).toEqual({
-        lines: [
-          {name: 'Nils Ny', email: 'nils@example.com'},
-          {name: 'Olle Ovan', email: 'olle@example.com'},
-          {name: 'Siv Student', email: 'siv@example.com'},
-          {name: 'Lars Lärare', email: 'lars@example.com'},
-          {name: 'bara ett namn', email: ''},
-        ],
-      })
-      expect(modal().querySelector('[data-test="import-summary"]')?.textContent).toContain('2 av 2 rader')
-      expect(modal().querySelectorAll('[data-test="import-report-row"]')).toHaveLength(2)
-      expect(roleOf(wrapper, 'Olle Ovan')).toBe('Elev')
     })
 
     async function addFirstTeacher() {

@@ -217,17 +217,6 @@ describe('CourseAboutView', () => {
     expect(wrapper.find('h1').text()).toBe('DevOps 2')
   })
 
-  it('admin som också undervisar i kursen redigerar beskrivningen', async () => {
-    backend({me: meAs('Admin', ['c1'])})
-
-    const {wrapper} = await renderApp('/courses/c1/about')
-
-    await wrapper.find('[data-test="edit-course"]').trigger('click')
-    await flushPromises()
-
-    expect(document.querySelector('#course-edit-description, [aria-label="Beskrivning"]')).not.toBeNull()
-  })
-
   it('en lärare i en annan kurs ser ingen Redigera-knapp', async () => {
     backend({me: meAs('Teacher', ['c2'])})
 

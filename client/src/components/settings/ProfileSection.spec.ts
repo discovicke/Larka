@@ -11,7 +11,10 @@ import ProfileSection from './ProfileSection.vue'
 const withAvatar: Me = {...meAs('Student', [], 'Anna Elev'), avatarUrl: '/api/avatars/u-me/ny'}
 
 function backend(status = 200) {
-  mockApi((method, path) => {
+  mockApi((method, path, body) => {
+    if (method === 'PUT' && path === '/api/me/profile') {
+      return {status: 200, body: {...meAs('Student', [], 'Anna Elev'), name: (body as {name: string}).name}}
+    }
     if (method === 'POST' && path === '/api/me/avatar') {
       return status === 200
         ? {status, body: withAvatar}
@@ -54,6 +57,35 @@ describe('ProfileSection', () => {
     expect(useCurrentUser().me.value?.avatarUrl).toBe('/api/avatars/u-me/ny')
     expect(wrapper.find('[data-test="avatar-upload"]').text()).toBe('Byt bild')
     expect(wrapper.find('[data-test="avatar-remove"]').exists()).toBe(true)
+  })
+
+  it('sparar ett nytt namn', async () => {
+    backend()
+    const wrapper = mount(ProfileSection)
+    const save = wrapper.find('[data-test="profile-name-save"]')
+    expect(save.attributes('disabled')).toBeDefined()
+
+    await wrapper.find('[data-test="profile-name-input"]').setValue('  Anna Andersson ')
+    expect(save.attributes('disabled')).toBeUndefined()
+    await wrapper.find('[data-test="profile-name-form"]').trigger('submit')
+    await flushPromises()
+
+    const request = requests.find((sent) => sent.method === 'PUT' && sent.path === '/api/me/profile')
+    expect(request?.body).toEqual({name: 'Anna Andersson'})
+    expect(useCurrentUser().me.value?.name).toBe('Anna Andersson')
+    expect(wrapper.find('[data-test="profile-name"]').text()).toBe('Anna Andersson')
+  })
+
+  it('kräver ett namn', async () => {
+    backend()
+    const wrapper = mount(ProfileSection)
+
+    await wrapper.find('[data-test="profile-name-input"]').setValue('   ')
+    await wrapper.find('[data-test="profile-name-form"]').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="profile-name-error"]').text()).toContain('Skriv ditt namn.')
+    expect(requests.some((sent) => sent.method === 'PUT')).toBe(false)
   })
 
   it('tar bort bilden', async () => {

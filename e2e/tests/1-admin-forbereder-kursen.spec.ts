@@ -2,6 +2,7 @@ import {expect, test} from '../fixtures'
 import {createUser, pickDay, uid} from '../journeys'
 
 // 1. Admin förbereder kursen: skapar en klass, lägger in elever och skapar en kurs med en lärare på klassens sida.
+// Eleverna finns redan i skolan, som efter sin första inloggning med Microsoft.
 test('1: admin skapar en klass med elever och en kurs med lärare', async ({apiAs, pageAs}) => {
   const tag = uid()
   const teacher = await createUser(await apiAs('admin'), `Lärare ${tag}`, 'Teacher')
@@ -9,6 +10,9 @@ test('1: admin skapar en klass med elever och en kurs med lärare', async ({apiA
   const className = `Klass ${tag}`
   const courseTitle = `Kurs ${tag}`
   const students = [`Siv ${tag}`, `Stig ${tag}`]
+  for (const name of students) {
+    await createUser(await apiAs('admin'), name, 'Student')
+  }
 
   // Ny klass från Alla grupper. Efter sparandet öppnas klassens sida.
   await page.goto('/groups')
@@ -19,15 +23,13 @@ test('1: admin skapar en klass med elever och en kurs med lärare', async ({apiA
   await expect(page).toHaveURL(/\/groups\/[0-9a-f-]+$/)
   await expect(page.getByRole('heading', {name: className, level: 1})).toBeVisible()
 
-  // Eleverna klistras in som namn och e-post, en per rad.
-  await page.getByTestId('add-member').click()
-  await page.getByTestId('show-paste').click()
-  await page.getByTestId('import-text').fill(students.map((name, index) => `${name}, elev${index}.${tag}@e2e.test`).join('\n'))
-  await expect(page.getByTestId('import-row')).toHaveCount(2)
-  await page.getByTestId('confirm-import').click()
-  await expect(page.getByTestId('import-report-row')).toHaveCount(2)
-  await page.getByTestId('import-close').click()
+  // Eleverna läggs till en i taget: sök på namnet och välj träffen i listan.
   for (const name of students) {
+    await page.getByTestId('add-member').click()
+    await page.getByTestId('member-user-search').fill(name)
+    await expect(page.getByTestId('member-user-option')).toHaveCount(1)
+    await page.getByTestId('member-user-option').filter({hasText: name}).click()
+    await page.getByTestId('confirm-add-member').click()
     await expect(page.getByTestId('member-row').filter({hasText: name})).toBeVisible()
   }
 

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Backend.Domain.Entities;
 using Backend.Domain.Enums;
 using Backend.Infrastructure.Persistence;
 using Backend.Infrastructure.Persistence.Configurations;
@@ -219,7 +220,7 @@ public class UserEndpointTests(TestWebApplicationFactory factory) : IClassFixtur
     }
 
     [Fact]
-    public async Task UpdateRole_ToStudent_RemovesTheUserAsCourseTeacher()
+    public async Task UpdateRole_OfATeacherWhoTeachesACourse_IsRefused_AndKeepsTheCourse()
     {
         var teacher = await AddUserAsync(PlaceholderIds.SchoolId, UserRole.Teacher);
         Guid courseId;
@@ -231,33 +232,43 @@ public class UserEndpointTests(TestWebApplicationFactory factory) : IClassFixtur
             courseId = course.Id;
         }
 
-        var response = await _client.PutAsJsonAsync($"/api/users/{teacher.Id}/role", new { role = "student" });
+        // Admin undervisar aldrig, och en elev kan inte heller vara lärare. Admin ersätter läraren i kursen först.
+        var toAdmin = await _client.PutAsJsonAsync($"/api/users/{teacher.Id}/role", new { role = "admin" });
+        var toStudent = await _client.PutAsJsonAsync($"/api/users/{teacher.Id}/role", new { role = "student" });
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, toAdmin.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, toStudent.StatusCode);
         using var check = factory.Services.CreateScope();
         var checkDb = check.ServiceProvider.GetRequiredService<AppDb>();
-        Assert.False(checkDb.CourseTeachers.Any(row => row.UserId == teacher.Id));
-        Assert.True(checkDb.CourseTeachers.Any(row =>
-            row.CourseId == courseId && row.UserId == PlaceholderIds.UserId));
+        Assert.Equal(UserRole.Teacher, checkDb.Users.Single(user => user.Id == teacher.Id).Role);
+        Assert.True(checkDb.CourseTeachers.Any(row => row.CourseId == courseId && row.UserId == teacher.Id));
     }
 
     [Fact]
-    public async Task UpdateRole_ToAdmin_KeepsCourseTeaching()
+    public async Task UpdateRole_OfATeacherInAClass_IsRefused()
     {
-        var teacher = await AddUserAsync(PlaceholderIds.SchoolId, UserRole.Teacher);
+        User teacher;
         using (var scope = factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDb>();
-            var course = await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId);
-            await TestData.AddCourseTeacherAsync(db, course, teacher);
+            var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
+            teacher = await TestData.AddMemberAsync(db, group, GroupRole.Teacher, UserRole.Teacher);
         }
 
         var response = await _client.PutAsJsonAsync($"/api/users/{teacher.Id}/role", new { role = "admin" });
 
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateRole_OfATeacherWithoutCourses_ToAdmin_Works()
+    {
+        var teacher = await AddUserAsync(PlaceholderIds.SchoolId, UserRole.Teacher);
+
+        var response = await _client.PutAsJsonAsync($"/api/users/{teacher.Id}/role", new { role = "admin" });
+
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        using var check = factory.Services.CreateScope();
-        var checkDb = check.ServiceProvider.GetRequiredService<AppDb>();
-        Assert.True(checkDb.CourseTeachers.Any(row => row.UserId == teacher.Id));
+        Assert.Equal("Admin", (await response.Content.ReadFromJsonAsync<UserResponse>())!.Role);
     }
 
     [Fact]

@@ -1,5 +1,6 @@
 import {describe, expect, it} from 'vitest'
 
+import type {Schema} from '@/lib/api'
 import {assignmentStatus, coursePeriod, courseStatusLabel, gradeText, shortDate} from '@/lib/studyPlan'
 import {deadlineState} from '@/test/deadline'
 
@@ -10,6 +11,7 @@ function assignment(
   dueAt: string | null = null,
   resubmitDueAt: string[] = [],
   autoFail = false,
+  deadline: Partial<Schema<'DeadlineStateDto'>> = {},
 ) {
   return {
     linkId: 'l1',
@@ -17,7 +19,7 @@ function assignment(
     dueAt,
     resubmitDueAt,
     personalDueAt: null,
-    deadline: deadlineState({autoFail}),
+    deadline: deadlineState({autoFail, ...deadline}),
     status,
     grade: status === 'Graded'
       ? 'Pass' as const
@@ -70,11 +72,29 @@ describe('shortDate', () => {
 
 describe('assignmentStatus', () => {
   it('visar pågår med deadline, slutade och ej inlämnad', () => {
-    expect(assignmentStatus(assignment('NotStarted', '2026-11-06T16:00:00Z'), now))
-      .toBe('Pågår · deadline 6 nov')
-    expect(assignmentStatus(assignment('NotStarted', '2026-10-23T16:00:00Z', ['2026-12-01T16:00:00Z']), now))
-      .toBe('Deadline passerade 23 okt')
+    expect(assignmentStatus(
+      assignment('NotStarted', '2026-11-06T16:00:00Z', [], false, {nextDeadline: '2026-11-06T16:00:00Z'}),
+      now,
+    )).toBe('Pågår · deadline 6 nov')
+    expect(assignmentStatus(
+      assignment('NotStarted', '2026-10-23T16:00:00Z', [], false, {lastClassDeadline: '2026-10-23T16:00:00Z'}),
+      now,
+    )).toBe('Deadline passerade 23 okt')
     expect(assignmentStatus(assignment('NotStarted'), now)).toBe('Inte inlämnad')
+  })
+
+  it('visar nästa deadline som återstår, också när klassens deadline har passerat', () => {
+    expect(assignmentStatus(
+      assignment('NotStarted', '2026-10-23T16:00:00Z', ['2026-12-01T16:00:00Z'], false, {
+        nextDeadline: '2026-12-01T16:00:00Z',
+        lastClassDeadline: '2026-12-01T16:00:00Z',
+      }),
+      now,
+    )).toBe('Pågår · deadline 1 dec')
+    expect(assignmentStatus(
+      assignment('NotStarted', '2026-10-23T16:00:00Z', [], false, {nextDeadline: '2026-11-15T16:00:00Z'}),
+      now,
+    )).toBe('Pågår · deadline 15 nov')
   })
 
   it('visar inlämnad, komplettering och betyg', () => {

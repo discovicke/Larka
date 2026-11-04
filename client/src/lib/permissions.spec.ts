@@ -23,7 +23,6 @@ function user(role: Me['role'], courses: Me['courses']): Me {
 
 // /api/me ger en admin inga kursroller av sig själv. Roller kommer av CourseTeacher och klasserna.
 const admin = user('Admin', [])
-const adminWhoTeachesA = user('Admin', [{courseId: 'a', role: 'Teacher'}])
 const teacherOfA = user('Teacher', [{courseId: 'a', role: 'Teacher'}])
 const student = user('Student', [{courseId: 'a', role: 'Student'}])
 
@@ -41,15 +40,6 @@ describe('canDo', () => {
       expect(canDo(admin, action)).toBe(false)
       expect(canDo(admin, action, 'a')).toBe(false)
     }
-  })
-
-  it('admin som också undervisar får lärarrätt bara i den kursen', () => {
-    for (const action of teacherActions) {
-      expect(canDo(adminWhoTeachesA, action, 'a')).toBe(true)
-      expect(canDo(adminWhoTeachesA, action, 'b')).toBe(false)
-    }
-    expect(canDo(adminWhoTeachesA, 'grade')).toBe(true)
-    expect(canDo(adminWhoTeachesA, 'manageCourse', 'b')).toBe(true)
   })
 
   it('lärare i kurs A får ändra A men inte B', () => {
@@ -88,7 +78,6 @@ describe('isStudentEverywhere', () => {
     expect(isStudentEverywhere(user('Teacher', []))).toBe(true)
     expect(isStudentEverywhere(teacherOfA)).toBe(false)
     expect(isStudentEverywhere(admin)).toBe(false)
-    expect(isStudentEverywhere(adminWhoTeachesA)).toBe(false)
     expect(isStudentEverywhere(null)).toBe(false)
   })
 })
@@ -96,7 +85,6 @@ describe('isStudentEverywhere', () => {
 describe('teachesAnywhere', () => {
   it('följer lärarrollen i en kurs, inte den globala rollen', () => {
     expect(teachesAnywhere(teacherOfA)).toBe(true)
-    expect(teachesAnywhere(adminWhoTeachesA)).toBe(true)
     expect(teachesAnywhere(admin)).toBe(false)
     expect(teachesAnywhere(user('Teacher', []))).toBe(false)
     expect(teachesAnywhere(null)).toBe(false)

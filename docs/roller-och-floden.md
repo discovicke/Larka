@@ -20,7 +20,11 @@ Den globala rollen säger vad du administrerar. Din koppling till en kurs eller 
 
 **Vem ändrar vad på en kurs.** En lärare som är tilldelad kursen får ändra kursens titel, poäng, datum och beskrivning, och bygger veckorna och innehållet. Admin skapar och tar bort kurser och tilldelar lärarna. Det finns ingen arkivering: en kurs är avslutad när slutdatumet har passerat, och en klass när alla dess kurser är det. Beskrivningen är lärarens egen text, så admin skriver den inte.
 
-Admin har ingen genväg in i undervisningen. Är en lärare sjuk tilldelar admin en vikarie, eller sig själv om hen också undervisar. Betyget visar alltid vem som formellt var lärare.
+Admin undervisar aldrig, inte heller i en kurs admin själv har skapat. Bara användare med rollen Lärare kan vara lärare i en kurs eller klass, och admin kan inte välja sig själv. Är en lärare sjuk tilldelar admin en vikarie. Betyget visar alltid vem som formellt var lärare. Beslutat 4 november 2026 i #491.
+
+**Den som både leder och undervisar** har två konton, ett med rollen Admin och ett med rollen Lärare, till exempel `anna.admin@skolan.se` och `anna@skolan.se`. Varje Microsoft-konto blir ett eget konto i Lärka, så skolans IT skapar det andra kontot. Ett separat konto för adminarbete är också vanlig säkerhetspraxis. Två webbläsarprofiler gör det lätt att byta. Det nya kontot blir elev vid första inloggningen, och admin ger det rätt roll under Användare.
+
+**Byta roll.** En lärare som undervisar i en kurs eller klass behåller rollen Lärare tills admin har ersatt hen där. Då blir ingen kurs utan lärare av misstag.
 
 Eleven ser namn på dem i samma grupp, och kontaktuppgifter till kursens lärare. Aldrig andras inlämningar, betyg eller framsteg.
 
@@ -58,10 +62,12 @@ Deadlinerna bestämmer när eleven får lämna in och vad läraren får sätta. 
 - Inte inlämnad visas som _IG · Ingen inlämning_.
 - Komplettera visas som _IG · Kompletteringen lämnades inte in_.
 - Ett automatiskt IG räknas som klart på samma sätt som ett bedömt IG: delen lämnar elevens att göra-lista och låser upp nästa del.
+- I klassens analys och elevens översikt räknas ett automatiskt IG som bedömt och som IG. Tre uppgifter med ett G och ett automatiskt IG ger _Bedömda 2 av 3 (G 1 · IG 1)_. `AutoFailCount` visar hur många av IG:na som kom av sig själva. Beslutade i #490.
+- Läraren kan fortfarande ge eleven en personlig deadline efter ett automatiskt IG (`PUT /api/links/{id}/students/{studentId}/personal-due-at`). Då återstår en deadline, IG:t försvinner och eleven kan lämna in igen.
 - Lämnade eleven in efter sista deadline gäller Väntar på bedömning, aldrig automatiskt IG. Bedömd visar lärarens betyg.
 - Utan huvuddeadline blir det aldrig automatiskt IG.
 - Vid bedömning på plats (`OnSite`) gäller automatiskt IG också, men läraren kan fortfarande sätta betyg direkt, och det betyget ersätter det automatiska IG:t.
-- Före sista deadline ändras inget i reglerna. Eleven ser bara till när hen kan lämna in (_Du kan lämna in till …_, _Komplettera senast …_). Delen kallas inte Försenad så länge eleven har en deadline kvar, och i lärarens listor är eleven kvar under Väntar på eleven.
+- Före sista deadline ändras inget i reglerna. Eleven ser bara till när hen kan lämna in (_Du kan lämna in till …_, _Komplettera senast …_). Delen kallas inte Försenad så länge eleven har en deadline kvar, och i lärarens listor är eleven kvar under Väntar på eleven. I elevens studieplan står _Pågår · deadline …_ med elevens nästa deadline som återstår (också en kompletteringsdeadline eller en personlig), och _Deadline passerade …_ först när ingen återstår (#488).
 
 **IG och Komplettera.** Läraren kan sätta IG för hand, bara när ingen deadline återstår och med en kommentar. Komplettera kräver en deadline som återstår. Finns ingen väljer läraren _Kompletteras senast_ i samma steg, och datumet sparas som elevens personliga deadline (`personalDueAt` i `POST /api/submissions/{id}/grade`, bara med `outcome: NeedsWork`). Läraren kan inte betygsätta en elev som inte lämnat in, utom vid bedömning på plats.
 
@@ -117,7 +123,9 @@ Sidan _Att bedöma_ har två flikar, med antalet på varje, och raderna är grup
 
 Raden i Inlämnat visar _Första inlämningen_, eller _Inlämnat igen_ när en tidigare bedömning finns.
 
-_Att bedöma_ listar bara det som väntar på läraren. Automatiskt IG kräver ingen åtgärd och syns därför inte där. Det syns i uppgiftens inlämningslista, med filtret _IG automatiskt_.
+_Att bedöma_ listar bara det som väntar på läraren, och bara i kurser där användaren kan bedöma. En gruppuppgift räknas som en rad, både här, i delens _Att bedöma_ och i inlämningsfliken (samma radbyggare, `client/src/lib/submissionRows.ts`). Automatiskt IG kräver ingen åtgärd och syns därför inte där. Det syns i uppgiftens inlämningslista, med filtret _IG automatiskt_.
+
+**Antal elever i räknarna.** "X av Y inlämnade" på veckolistan, i delen och på Idag räknar eleverna som delen delas ut till: länkens grupp, annars alla klasser som läser kursen. Avaktiverade elever räknas inte, på samma sätt som på klassens sida. Idag listar bara inlämningsuppgifter vars del och vecka redan är publicerade. Reglerna bor i `LinkAudience` (backend). Utdelning och gruppindelning behåller avaktiverade elever, så att en återaktiverad elev har sina inlämningar kvar (#485, #486).
 
 ### Specialfall
 
@@ -249,7 +257,7 @@ Läraren väljer flik efter vad som väntar: Inlämnat bedöms och Väntar på e
 ```mermaid
 flowchart LR
     A["Skolans IT skapar adresserna<br/>namn.efternamn.net25@..."] --> B["Ny klass<br/>/groups"]
-    B --> D["Lägg till medlemmar<br/>en i taget eller klistra in en lista"]
+    B --> D["Lägg till medlemmar<br/>en i taget"]
     D --> E["Toast: ... är tillagd i klassen."]
     A ==> F(["Eleverna loggar in, F1, och hamnar i klassen via koden"])
     F --> G["Elever utan klass på Idag, se A5"]

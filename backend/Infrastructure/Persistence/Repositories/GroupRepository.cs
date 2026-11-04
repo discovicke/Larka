@@ -197,7 +197,11 @@ public class GroupRepository(AppDb db) : IGroupRepository
         IReadOnlyCollection<Guid> courseIds, CancellationToken ct) =>
         await (from groupCourse in db.GroupCourses
                join enrollment in db.Enrollments on groupCourse.GroupId equals enrollment.GroupId
-               where courseIds.Contains(groupCourse.CourseId) && enrollment.Role == GroupRole.Student
+               join user in db.Users on enrollment.UserId equals user.Id
+               // Avaktiverade elever syns inte på klasssidan och räknas därför inte heller här.
+               where courseIds.Contains(groupCourse.CourseId)
+                   && enrollment.Role == GroupRole.Student
+                   && user.DeactivatedAt == null
                select new CourseStudent(groupCourse.CourseId, enrollment.UserId))
             .Distinct()
             .ToListAsync(ct);

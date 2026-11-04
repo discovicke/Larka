@@ -61,7 +61,7 @@ public class TeachingService(
                     item.SubmittedAt))
                 .ToList(),
             toGradeCounts.Values.Sum(),
-            await GetDeadlinesAsync(teachingCourseIds, studentsByCourse, now, ct),
+            await GetDeadlinesAsync(now, teachingCourseIds, ct),
             await GetScheduledAsync(teachingCourseIds, now, ct),
             courseList
                 .Select(course => new TeachingCourseDto(
@@ -85,29 +85,19 @@ public class TeachingService(
             || (upcoming && !preparedCourseIds.Contains(course.Id));
     }
 
-    // Deadlinen räknas bland eleverna som fortfarande läser kursen, så att antalet aldrig överstiger dem.
+    // Antalen räknas bland eleverna som deadlinen delas ut till (länkens grupp, annars kursens alla grupper), med
+    // samma regel som veckolistan, så att Idag och delen visar samma tal.
     private async Task<List<TeachingDeadlineDto>> GetDeadlinesAsync(
-        List<Guid> teachingCourseIds,
-        Dictionary<Guid, HashSet<Guid>> studentsByCourse,
-        DateTimeOffset now,
-        CancellationToken ct)
+        DateTimeOffset now, List<Guid> teachingCourseIds, CancellationToken ct)
     {
         var links = await contents.GetCourseDeadlinesAsync(
             teachingCourseIds, now, now.AddDays(_deadlineDays), ct);
-        var submittedByLink = (await submissions.GetActiveForLinksAsync(
-                links.Select(link => link.LinkId).ToList(), ct))
-            .GroupBy(submission => submission.LinkId)
-            .ToDictionary(
-                group => group.Key,
-                group => group.Select(submission => submission.StudentId).ToHashSet());
+        var counts = await submissions.GetAudienceCountsAsync(links.Select(link => link.LinkId).ToList(), ct);
 
         return links
             .Select(link =>
             {
-                var students = studentsByCourse.GetValueOrDefault(link.CourseId) ?? [];
-                var submitted = submittedByLink.TryGetValue(link.LinkId, out var submittedStudents)
-                    ? submittedStudents.Count(students.Contains)
-                    : 0;
+                var (submitted, students) = counts.GetValueOrDefault(link.LinkId);
                 return new TeachingDeadlineDto(
                     link.LinkId,
                     link.Title,
@@ -115,7 +105,7 @@ public class TeachingService(
                     link.CourseTitle,
                     link.DueAt,
                     submitted,
-                    students.Count);
+                    students);
             })
             .ToList();
     }

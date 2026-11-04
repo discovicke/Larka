@@ -100,7 +100,7 @@ API:et avgör vad en användare får göra. Klienten hämtar rollerna från `GET
 | Elev                         | Läsa flöden, moduler och innehåll, lämna in, kommentera och klarmarkera delar.                                                                                                                                                                                                                                                                                          |
 | Lärare i en annan kurs/grupp | Får 403 på det som hör till kursen eller gruppen hen inte undervisar, även när kursen läses av hens egen klass.                                                                                                                                                                                                                                                         |
 
-Det som gäller en kurs avgörs av relationen till kursen, inte av den globala rollen. En admin som också undervisar blir lärare i kursen på samma sätt som alla andra, med en rad i `CourseTeacher`, och får då lärarens rättigheter i just den kursen. En användare med `User.Role` Lärare men utan kurs och utan lärarroll i en grupp får inte skapa innehåll.
+Det som gäller en kurs avgörs av relationen till kursen, inte av den globala rollen. Lärare i en kurs är den som har en rad i `CourseTeacher`, och bara användare med `User.Role` Lärare kan få en sådan rad. Admin undervisar aldrig (#491). En användare med `User.Role` Lärare men utan kurs och utan lärarroll i en grupp får inte skapa innehåll.
 
 ### Användare och medlemslistor
 
@@ -122,7 +122,7 @@ Admin ändrar en användares skolroll (`User.Role`: Elev, Lärare eller Admin) p
 | Användare i en annan skola eller okänd | `404`                                   | `403`  |
 | Den egna rollen                        | `409` `you cannot change your own role` | `403`  |
 
-Ingen kan ändra sin egen roll. Den som ändrar är alltid admin i skolan, så skolan har alltid kvar minst en admin. Blir någon elev tas hen bort som lärare i alla kurser (raderna i `CourseTeacher`), eftersom bara lärare och admin kan vara lärare i en kurs. Det hen har skapat, bedömt och skrivit ligger kvar. Rollerna i grupperna (`GroupRole`) ändras inte, de sätts på gruppens sida. Blir en lärare admin behåller hen sina kurser.
+Ingen kan ändra sin egen roll. Den som ändrar är alltid admin i skolan, så skolan har alltid kvar minst en admin. En lärare som undervisar i en kurs (`CourseTeacher`) eller är lärare i en klass (`GroupRole.Teacher`) kan inte få en annan roll: `PUT /api/users/{id}/role` svarar `409` tills admin har ersatt hen där. Bara lärare undervisar, så ingen kurs eller klass blir utan lärare av misstag (#493).
 
 ### Spärra användare
 
@@ -137,11 +137,9 @@ Användare tas aldrig bort, eftersom deras inlämningar, betyg och kommentarer s
 
 En spärrad användare som loggar in med rätt lösenord får `403` med texten `Ditt konto är spärrat.` (fel lösenord ger som vanligt `401`, så spärren avslöjas inte). En inloggning som redan finns gäller tills tokenet går ut (8 timmar). Spärrade användare syns inte i gruppernas medlemslistor eller i listorna där admin väljer lärare och elever, men medlemskapen ligger kvar och namnet står kvar på det de har gjort. På _Användare_ har de märket _Spärrad_ och en egen flik.
 
-`POST /api/groups/{id}/members/import` tar en inklistrad elevlista (`{lines: [{name, email}]}`, högst 500 rader) och är bara för admin (`403` för alla andra, `404` för en annan skolas grupp). Nya elever skapas utan lösenord, alla läggs till som elever i klassen i ett enda sparsteg, och svaret redovisar varje rad: `Created`, `Added`, `AlreadyMember`, `NotStudent`, `Duplicate` eller `Invalid`. Lärare och admin läggs inte till på det här sättet.
+E-postadresser kontrolleras med en enda regel på servern (`EmailRule`): något före och efter `@` och en punkt i domänen, utan mellanslag. `POST /api/users` svarar `400` för en adress som inte klarar den.
 
-E-postadresser kontrolleras med en enda regel på servern (`EmailRule`), samma som klientens förhandsvisning av inklistrade listor: något före och efter `@` och en punkt i domänen, utan mellanslag. `POST /api/users` svarar `400` för en adress som inte klarar den, och importen markerar raden som `Invalid`.
-
-Bara en användare vars skolroll är Lärare kan vara lärare i en klass: `POST /api/groups/{id}/members` och `PUT /api/groups/{id}/members/{userId}` svarar `400` när admin eller en elev får rollen Lärare. Lärare i klassen väljs bland lärare. Rollen `Mentor` finns inte längre, och ett anrop med den svarar `400`. Lärare i en kurs är däremot kvar som ovan: lärare eller admin, eftersom en admin som också undervisar står i `CourseTeacher`.
+Bara en användare vars skolroll är Lärare kan vara lärare i en klass: `POST /api/groups/{id}/members` och `PUT /api/groups/{id}/members/{userId}` svarar `400` när admin eller en elev får rollen Lärare. Lärare i klassen väljs bland lärare. Rollen `Mentor` finns inte längre, och ett anrop med den svarar `400`. Samma regel gäller lärare i en kurs.
 
 Lärare i en kurs som gruppen läser får också medlemslistan, utan att vara medlemmar i gruppen. Övriga i skolan får `403`.
 
@@ -153,7 +151,7 @@ Admin hanterar klasser, grupper och kurser direkt på _Alla grupper_: knappen _N
 
 ### Lärare i en kurs
 
-Klassen har eleverna, och kursen har sina lärare. En lärare i en kurs är den som står i `CourseTeacher` för kursen. Det avgör vem som får redigera kursen, dess veckor och innehåll, och bedöma inlämningar. Att vara lärare i en klass (`GroupRole.Teacher`) ger ingen behörighet i klassens kurser, så en lärare i `.NET25` som undervisar i DevOps kan inte ändra eller betygsätta Databaser. Läraren behöver inte vara medlem i klassen. Admin är inte lärare på något vis förrän hen står där, och admin kan läsa kursen men inte undervisa i den.
+Klassen har eleverna, och kursen har sina lärare. En lärare i en kurs är den som står i `CourseTeacher` för kursen. Det avgör vem som får redigera kursen, dess veckor och innehåll, och bedöma inlämningar. Att vara lärare i en klass (`GroupRole.Teacher`) ger ingen behörighet i klassens kurser, så en lärare i `.NET25` som undervisar i DevOps kan inte ändra eller betygsätta Databaser. Läraren behöver inte vara medlem i klassen. Admin står aldrig där, och admin kan läsa kursen men inte undervisa i den.
 
 `GroupRole.Teacher` gäller bara det som riktas till enbart en grupp, utan kurs, till exempel en nyhet till klassen: där avgör fortfarande rollen i gruppen (`CanTeachGroupAsync`). Innehåll som är riktat till en grupp _och_ en kurs räknas som kursens.
 
@@ -165,11 +163,11 @@ Samma regel gäller överallt: `GET /api/me` (rollen per kurs), Idag-sidan för 
 | `POST /api/courses/{id}/teachers` `{userId}` | `201`, lägger till läraren | `403`                 |
 | `DELETE /api/courses/{id}/teachers/{userId}` | `204`, tar bort läraren    | `403`                 |
 
-Användaren ska finnas i kursens skola och vara lärare eller admin i systemet (`400` annars, och `409` om hen redan är lärare i kursen). En kurs i en annan skola svarar `404`, även för admin. `GET /api/courses/{id}/staff` visar kursens lärare, med e-post och namnen på klasserna som läser kursen, för dem som hör till kursen (se ovan).
+Användaren ska finnas i kursens skola och ha rollen Lärare (`400` annars, också för admin själv, och `409` om hen redan är lärare i kursen). En kurs i en annan skola svarar `404`, även för admin. `GET /api/courses/{id}/staff` visar kursens lärare, med e-post och namnen på klasserna som läser kursen, för dem som hör till kursen (se ovan).
 
 ### Admin, lärare och elev i kursen
 
-Admin bestämmer vem som undervisar vad, och läraren bestämmer vad som händer i kursen. Tabellen visar vad som gäller i en kurs. "Admin" är en admin i kursens skola som inte också står som lärare i kursen. En admin i en annan skola får `404` eller `403`, som alla andra utanför kursen.
+Admin bestämmer vem som undervisar vad, och läraren bestämmer vad som händer i kursen. Tabellen visar vad som gäller i en kurs. "Admin" är en admin i kursens skola. Admin står aldrig som lärare i en kurs. En admin i en annan skola får `404` eller `403`, som alla andra utanför kursen.
 
 | Anrop                                                | Lärare i kursen              | Elev i klassen       | Admin                      | Övriga        |
 | ---------------------------------------------------- | ---------------------------- | -------------------- | -------------------------- | ------------- |
@@ -189,7 +187,7 @@ Admin bestämmer vem som undervisar vad, och läraren bestämmer vad som händer
 | `POST /api/courses/{id}/modules/publish`             | Publicerar veckornas utkast  | `403`                | `403`                      | `403`         |
 | `GET /api/me/admin-overview`                         | `403`                        | `403`                | Skolans översikt           | `403`         |
 
-**Elevens läge i klassen (`GET /api/groups/{id}/students/{studentId}/overview`).** Admin i skolan ser läget för en elev i klassen: per kurs klassen läser antal uppgifter att komplettera, försenade, inlämnade men inte bedömda, och betygen hittills. Det är bara läsning och bygger på studieplanen, begränsad till klassens kurser. Alla andra, också en lärare som bara undervisar i en av klassens kurser, får `404`, och det får också den som frågar efter någon som inte är elev i klassen.
+**Elevens läge i klassen (`GET /api/groups/{id}/students/{studentId}/overview`).** Admin i skolan ser läget för en elev i klassen: per kurs klassen läser antal uppgifter att komplettera, försenade, inlämnade men inte bedömda, och betygen hittills. Ett automatiskt IG räknas som bedömt och som IG. Det är bara läsning och bygger på studieplanen, begränsad till klassens kurser. Alla andra, också en lärare som bara undervisar i en av klassens kurser, får `404`, och det får också den som frågar efter någon som inte är elev i klassen.
 
 **Läsa ett innehåll (`GET /api/content/{id}`, kommentarer och bilagor).** Att innehållet är publicerat räcker inte. Det läses bara av
 
@@ -203,7 +201,7 @@ I `GET /api/courses/{id}/student-modules` har en låst del (beroende som inte ä
 
 Filerna i en inlämning nås med kortlivade länkar som skapas när inlämningen läses, så en admin som inte får läsa inlämningen får inga länkar. Nyheter till en grupp kräver lärarrollen i gruppen (`CanTeachGroupAsync`).
 
-Admin som också undervisar i kursen (en rad i `CourseTeacher`) får lärarens kolumn i just den kursen, utöver adminens. Lärarens mallar för repo-uppgifter (`GET /api/integrations/github/templates` och senaste commit) och förhandsvisningen av reponamn kräver samma sak som att skapa innehåll, så en admin som inte undervisar får `403` där. Integrationens inställningar är fortfarande adminens.
+Admin undervisar aldrig och får därför aldrig lärarens kolumn. Lärarens mallar för repo-uppgifter (`GET /api/integrations/github/templates` och senaste commit) och förhandsvisningen av reponamn kräver samma sak som att skapa innehåll, så admin får `403` där. Integrationens inställningar är fortfarande adminens.
 
 `GET /api/me/admin-overview` ger adminens Idag: antal kurser per läge (kommande, pågår, avslutade, utan datum), kurser utan lärare och användare som inte kan logga in (inget lösenord, och skolan har inte Microsoft-inloggning) och elever utan klass. Spärrade användare räknas inte. Varje rad bär id:t på klassen eller kursen där admin ordnar det.
 

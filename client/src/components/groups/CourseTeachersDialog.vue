@@ -14,7 +14,6 @@ import {
 import {FieldLabel} from '@/components/ui/field'
 import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
 import {useAsync} from '@/composables/useAsync'
-import {useCurrentUser} from '@/composables/useCurrentUser'
 import {api, errorMessage, type Schema} from '@/lib/api'
 import {addCourseTeacher} from '@/lib/coursesApi'
 import {fetchUsers} from '@/lib/usersApi'
@@ -39,12 +38,10 @@ const confirmingLast = ref<Schema<'CourseTeacherDto'> | null>(null)
 // Samma felruta visar felet från hämtningen och från ändringarna.
 const {run: loadUsers, loading, error} = useAsync(fetchUsers)
 
-const {me} = useCurrentUser()
-
-// Den som redan undervisar i kursen kan inte läggas till igen. Användare med rollen Lärare kan väljas, och
-// admin själv om hen också undervisar (se docs/roller-och-floden.md).
+// Bara användare med rollen Lärare kan väljas. Admin undervisar aldrig (se docs/roller-och-floden.md), och den
+// som redan undervisar i kursen kan inte läggas till igen.
 const candidates = computed(() => users.value
-  .filter((user) => user.role === 'Teacher' || user.id === me.value?.id)
+  .filter((user) => user.role === 'Teacher')
   .filter((user) => !props.teachers.some((teacher) => teacher.userId === user.id))
   .sort((first, second) => first.name.localeCompare(second.name, 'sv')))
 

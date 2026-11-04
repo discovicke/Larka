@@ -3136,74 +3136,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/groups/{id}/members/import": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["ImportStudentsDto"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ImportStudentsResultDto"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": string;
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": string;
-                    };
-                };
-                /** @description Conflict */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": string;
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/groups/{id}/members/{userId}": {
         parameters: {
             query?: never;
@@ -7006,6 +6938,7 @@ export interface components {
         /**
          * @description En elevs räknare i en kurs. Overdue är uppgifter som passerat deadline utan inlämning medan en kompletteringsdeadline återstår.
          *         AutoFail är uppgifter där sista deadline passerat utan inlämning eller komplettering, alltså automatiskt IG.
+         *         De räknas också som bedömda (GradedCount) och som IG (FailCount), så AutoFail är en delmängd av båda.
          */
         GroupAnalyticsStudentCourseDto: {
             /** Format: uuid */
@@ -7085,30 +7018,6 @@ export interface components {
         /** Format: binary */
         IFormFile: string;
         IFormFileCollection: null | components["schemas"]["IFormFile"][];
-        /** @description En rad i en inklistrad elevlista. */
-        ImportStudentLineDto: {
-            name: null | string;
-            email: null | string;
-        };
-        /**
-         * @description Vad som hände med en rad: Created (ny elev utan lösenord, lagd i klassen), Added (befintlig elev lagd i
-         *     klassen), AlreadyMember, NotStudent (användaren är lärare eller admin), Duplicate (samma adress två gånger)
-         *     eller Invalid (namn eller adress saknas eller går inte att läsa, eller adressen hör till en annan skola).
-         * @enum {unknown}
-         */
-        ImportStudentOutcome: "Created" | "Added" | "AlreadyMember" | "NotStudent" | "Duplicate" | "Invalid";
-        ImportStudentResultDto: {
-            name: string;
-            email: string;
-            outcome: components["schemas"]["ImportStudentOutcome"];
-        };
-        ImportStudentsDto: {
-            lines: components["schemas"]["ImportStudentLineDto"][];
-        };
-        ImportStudentsResultDto: {
-            lines: components["schemas"]["ImportStudentResultDto"][];
-            added: components["schemas"]["GroupMemberDto"][];
-        };
         LinkGitHubRequest: {
             code: string;
         };
@@ -7869,7 +7778,6 @@ export const gradeScaleValues: ReadonlyArray<FlattenedDeepRequired<components>["
 export const groupRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GroupRole"]> = ["Student", "Teacher"];
 export const groupTypeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GroupType"]> = ["Class", "Committee", "Other"];
 export const handInClosedReasonValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["HandInClosedReason"]> = ["Locked", "Closed"];
-export const importStudentOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["ImportStudentOutcome"]> = ["Created", "Added", "AlreadyMember", "NotStudent", "Duplicate", "Invalid"];
 export const notificationKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationKind"]> = ["NewsPublished", "AssignmentPublished", "DeadlineSoon", "SubmissionNeedsWork", "SubmissionGraded", "StudentHelpRequested", "PersonalDeadlineSet"];
 export const repoProvisioningStateValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RepoProvisioningState"]> = ["Pending", "Creating", "Ready", "Failed"];
 export const repoWorkModeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RepoWorkMode"]> = ["Individual", "Group"];

@@ -15,10 +15,6 @@ public class PermissionGapTests(TestWebApplicationFactory factory) : IClassFixtu
 
     private record MemberResponse(Guid UserId, string Name, string Role);
 
-    private record ImportLine(string Email, string Outcome);
-
-    private record ImportResponse(List<ImportLine> Lines);
-
     private record StaffResponse(Guid UserId, string Name, string Email, List<string> Groups);
 
     [Theory]
@@ -108,28 +104,6 @@ public class PermissionGapTests(TestWebApplicationFactory factory) : IClassFixtu
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Contains("email is not a valid address", await response.Content.ReadAsStringAsync());
-    }
-
-    [Fact]
-    public async Task ImportStudents_UsesTheSameEmailRule_AsTheClientPreview()
-    {
-        await using var db = OpenDb();
-        var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
-        var valid = $"ok-{Guid.NewGuid():N}@skola.se";
-
-        var response = await _client.PostAsJsonAsync($"/api/groups/{group.Id}/members/import", new
-        {
-            lines = new[]
-            {
-                new { name = "Utan punkt", email = "elev@skola" },
-                new { name = "Giltig", email = valid },
-            }
-        });
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var result = (await response.Content.ReadFromJsonAsync<ImportResponse>())!;
-        Assert.Equal(["Invalid", "Created"], result.Lines.Select(line => line.Outcome));
-        Assert.False(await db.Users.AnyAsync(user => user.Email == "elev@skola"));
     }
 
     [Fact]

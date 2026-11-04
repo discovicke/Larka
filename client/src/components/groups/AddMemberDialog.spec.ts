@@ -45,9 +45,15 @@ const field = (name: string) => document.querySelector(`[data-test="${name}"]`) 
 async function choose(name: string, value: string) {
   const element = field(name)
   element.value = value
-  element.dispatchEvent(new Event(name === 'member-search'
-    ? 'input'
-    : 'change'))
+  element.dispatchEvent(new Event('change'))
+  await flushPromises()
+}
+
+// Användarna i listan under sökfältet, och ett klick på en av dem.
+const shown = () => [...document.querySelectorAll<HTMLInputElement>('[data-test="member-user-radio"]')].map((radio) => radio.value)
+
+async function pickUser(id: string) {
+  document.querySelector<HTMLInputElement>(`[data-test="member-user-radio"][value="${id}"]`)!.click()
   await flushPromises()
 }
 
@@ -55,7 +61,7 @@ describe('AddMemberDialog', () => {
   it('listar bara användare som inte redan är medlemmar och har Elev som standardroll', async () => {
     await openDialog()
 
-    expect([...field('member-user').options].map((option) => option.value)).toEqual(['', 'u2'])
+    expect(shown()).toEqual(['u2'])
     expect(field('member-role-select').value).toBe('Student')
     expect(field('confirm-add-member').hasAttribute('disabled')).toBe(true)
   })
@@ -63,7 +69,7 @@ describe('AddMemberDialog', () => {
   it('skickar vald användare och roll och meddelar att medlemmen lades till', async () => {
     const wrapper = await openDialog()
 
-    await choose('member-user', 'u2')
+    await pickUser('u2')
     await choose('member-role-select', 'Teacher')
     field('confirm-add-member').click()
     await flushPromises()
@@ -77,7 +83,7 @@ describe('AddMemberDialog', () => {
   it('visar felet och stänger inte vid misslyckande', async () => {
     const wrapper = await openDialog(500)
 
-    await choose('member-user', 'u2')
+    await pickUser('u2')
     field('confirm-add-member').click()
     await flushPromises()
 

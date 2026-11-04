@@ -607,7 +607,7 @@ public class GitHubLabProvisionerTests
             IReadOnlyCollection<Guid> courseIds, CancellationToken ct) =>
             throw new NotSupportedException();
 
-        public Task<List<ActiveSubmission>> GetActiveForLinksAsync(
+        public Task<Dictionary<Guid, (int Submitted, int Students)>> GetAudienceCountsAsync(
             IReadOnlyCollection<Guid> linkIds, CancellationToken ct) =>
             throw new NotSupportedException();
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {PhCode, PhHighlighterCircle, PhListBullets, PhPaperclip, PhTextB, PhTextItalic} from '@phosphor-icons/vue'
+import {PhCode, PhHighlighterCircle, PhListBullets, PhTextB, PhTextItalic} from '@phosphor-icons/vue'
 import type {Editor} from '@tiptap/core'
 import Highlight from '@tiptap/extension-highlight'
 import {Markdown} from '@tiptap/markdown'
@@ -72,16 +72,6 @@ function showRich() {
           <component :is="tool.icon"/>
         </Button>
       </template>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Bifoga fil"
-        title="Filuppladdning kommer i #47"
-        disabled
-      >
-        <PhPaperclip/>
-      </Button>
 
       <div class="ml-auto flex gap-0.5">
         <Button

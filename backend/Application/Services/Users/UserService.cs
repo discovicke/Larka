@@ -10,7 +10,7 @@ namespace Backend.Application.Services;
 public class UserService(
     IUserRepository users,
     ISchoolRepository schools,
-    ICourseRepository courses,
+    IGroupRepository groups,
     ICurrentUser currentUser,
     IPermissions permissions,
     ICurrentSchool currentSchool,
@@ -97,8 +97,8 @@ public class UserService(
     }
 
     // Admin ändrar skolrollen. Ingen kan ändra sin egen roll, så skolan har alltid kvar minst en admin (den som
-    // ändrar). Blir någon elev tas hen bort som lärare i sina kurser, eftersom en kurs bara kan ha lärare och admin
-    // som lärare. Det hen har skapat och bedömt ligger kvar.
+    // ändrar). Bara lärare undervisar, så en lärare som undervisar i en kurs eller klass behåller rollen tills admin
+    // har ersatt hen där. Ingen kurs blir då utan lärare av misstag (#493).
     public async Task<ServiceResult<UserDto>> UpdateRoleAsync(Guid id, UpdateUserRoleDto dto, CancellationToken ct)
     {
         if (!await permissions.IsAdminAsync(ct))
@@ -122,9 +122,9 @@ public class UserService(
             return ServiceResult<UserDto>.Ok(UserDto.From(user));
         }
 
-        if (dto.Role == UserRole.Student)
+        if (user.Role == UserRole.Teacher && await groups.TeachesAnythingAsync(user.Id, ct))
         {
-            await courses.RemoveTeacherFromAllCoursesAsync(user.Id, ct);
+            return ServiceResult<UserDto>.Conflict("the user still teaches a course or a class");
         }
 
         user.Role = dto.Role;

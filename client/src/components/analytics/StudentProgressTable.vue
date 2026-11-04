@@ -97,14 +97,14 @@ const visibleRows = computed(() => {
                   <span class="text-success">{{ row.passCount }} G</span>
                   <span class="text-info">{{ row.distinctionCount }} VG</span>
                   <span
-                    :class="row.failCount + row.autoFailCount > 0
+                    :class="row.failCount > 0
                       ? 'text-destructive font-semibold'
                       : 'text-muted-foreground'"
                     :title="row.autoFailCount > 0
                       ? `${row.autoFailCount} automatiskt IG utan inlämning`
                       : undefined"
                   >
-                    {{ row.failCount + row.autoFailCount }} IG
+                    {{ row.failCount }} IG
                   </span>
                 </div>
               </td>

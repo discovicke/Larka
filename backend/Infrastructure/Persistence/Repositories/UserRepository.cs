@@ -76,4 +76,18 @@ public class UserRepository(AppDb db) : IUserRepository
             .ToListAsync(ct);
         return await db.Users.Where(user => studentIds.Contains(user.Id)).ToListAsync(ct);
     }
+
+    // Som GetStudentsInGroupsAsync, men utan avaktiverade elever. För listor läraren ser, inte för utdelning.
+    public async Task<List<User>> GetActiveStudentsInGroupsAsync(
+        IReadOnlyCollection<Guid> groupIds, CancellationToken ct)
+    {
+        var studentIds = await db.Enrollments
+            .Where(enrollment => groupIds.Contains(enrollment.GroupId) && enrollment.Role == GroupRole.Student)
+            .Select(enrollment => enrollment.UserId)
+            .Distinct()
+            .ToListAsync(ct);
+        return await db.Users
+            .Where(user => studentIds.Contains(user.Id) && user.DeactivatedAt == null)
+            .ToListAsync(ct);
+    }
 }

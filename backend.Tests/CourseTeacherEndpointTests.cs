@@ -229,21 +229,17 @@ public class CourseTeacherEndpointTests(TestWebApplicationFactory factory) : ICl
     }
 
     [Fact]
-    public async Task AddTeacher_AsAdmin_AddsATeacherOrAdmin_AndGivesAccess()
+    public async Task AddTeacher_AsAdmin_AddsATeacher_AndGivesAccess()
     {
         var scenario = await AddScenarioAsync();
         var teacher = await AddUserAsync(UserRole.Teacher);
-        var admin = await AddUserAsync(UserRole.Admin);
 
         var addedTeacher = await SendAsync(
             HttpMethod.Post, $"/api/courses/{scenario.CourseB}/teachers", Guid.Empty, new { userId = teacher.Id });
-        var addedAdmin = await SendAsync(
-            HttpMethod.Post, $"/api/courses/{scenario.CourseB}/teachers", Guid.Empty, new { userId = admin.Id });
 
         Assert.Equal(HttpStatusCode.Created, addedTeacher.StatusCode);
         var body = (await addedTeacher.Content.ReadFromJsonAsync<TeacherResponse>())!;
         Assert.Equal((teacher.Id, teacher.Name, teacher.Email), (body.UserId, body.Name, body.Email));
-        Assert.Equal(HttpStatusCode.Created, addedAdmin.StatusCode);
         var edit = await SendAsync(
             HttpMethod.Put, $"/api/courses/{scenario.CourseB}", teacher.Id,
             _editBody);
@@ -257,9 +253,15 @@ public class CourseTeacherEndpointTests(TestWebApplicationFactory factory) : ICl
         var path = $"/api/courses/{scenario.CourseA}/teachers";
         var otherSchool = await AddUserInOtherSchoolAsync(UserRole.Teacher);
         var student = await AddUserAsync(UserRole.Student);
+        var admin = await AddUserAsync(UserRole.Admin);
 
         var foreign = await SendAsync(HttpMethod.Post, path, Guid.Empty, new { userId = otherSchool });
         var asStudent = await SendAsync(HttpMethod.Post, path, Guid.Empty, new { userId = student.Id });
+        // Admin undervisar aldrig, och inte heller admin som lägger till sig själv.
+        var asAdmin = await SendAsync(HttpMethod.Post, path, Guid.Empty, new { userId = admin.Id });
+        var asSelf = await SendAsync(
+            HttpMethod.Post, $"/api/courses/{scenario.CourseB}/teachers", Guid.Empty,
+            new { userId = PlaceholderIds.UserId });
         var unknown = await SendAsync(HttpMethod.Post, path, Guid.Empty, new { userId = Guid.NewGuid() });
         var duplicate = await SendAsync(HttpMethod.Post, path, Guid.Empty, new { userId = scenario.Teacher });
         var noCourse = await SendAsync(
@@ -267,11 +269,14 @@ public class CourseTeacherEndpointTests(TestWebApplicationFactory factory) : ICl
 
         Assert.Equal(HttpStatusCode.BadRequest, foreign.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, asStudent.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, asAdmin.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, asSelf.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, unknown.StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, duplicate.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, noCourse.StatusCode);
         await using var db = OpenDb();
-        Assert.False(await db.CourseTeachers.AnyAsync(row => row.UserId == otherSchool || row.UserId == student.Id));
+        Assert.False(await db.CourseTeachers.AnyAsync(
+            row => row.UserId == otherSchool || row.UserId == student.Id || row.UserId == admin.Id));
     }
 
     [Fact]

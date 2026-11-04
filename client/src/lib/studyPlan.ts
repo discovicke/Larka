@@ -80,10 +80,21 @@ export function assignmentStatus(assignment: StudyPlanAssignment, now = new Date
       if (!assignment.dueAt) {
         return 'Inte inlämnad'
       }
-      return new Date(assignment.dueAt) >= now
-        ? `Pågår · deadline ${shortDate(assignment.dueAt)}`
-        : `Deadline passerade ${shortDate(assignment.dueAt)}`
+      return deadlineText(assignment, now)
   }
+}
+
+// Backend räknar elevens nästa deadline, med kompletteringar och egen deadline. Passerad är den först när ingen återstår.
+function deadlineText(assignment: StudyPlanAssignment, now: Date): string {
+  const state = assignment.deadline
+  if (!state) {
+    return new Date(assignment.dueAt!) >= now
+      ? `Pågår · deadline ${shortDate(assignment.dueAt!)}`
+      : `Deadline passerade ${shortDate(assignment.dueAt!)}`
+  }
+  return state.nextDeadline
+    ? `Pågår · deadline ${shortDate(state.nextDeadline)}`
+    : `Deadline passerade ${shortDate(state.lastClassDeadline ?? assignment.dueAt!)}`
 }
 
 function monthAndYear(value: string): {month: string, year: string} {

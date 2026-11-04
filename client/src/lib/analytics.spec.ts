@@ -168,23 +168,32 @@ describe('analytics', () => {
       .toBe('needsSupport')
   })
 
-  it('räknar automatiskt IG som IG i fördelningarna', () => {
+  it('räknar automatiskt IG som bedömt och som IG, utan att räkna det två gånger', () => {
+    // Backend har redan lagt automatiskt IG i både gradedCount och failCount.
     const withAutoFail: GroupAnalytics = {
       ...analytics,
       courses: analytics.courses.map((course) => ({...course, autoFailCount: 1})),
       students: analytics.students.map((student) => ({
         ...student,
-        courses: student.courses.map((course) => ({...course, autoFailCount: 1})),
+        courses: student.courses.map((course) => ({
+          ...course,
+          gradedCount: course.gradedCount + 1,
+          failCount: course.failCount + 1,
+          autoFailCount: 1,
+        })),
       })),
     }
+    const base = summarize(analytics, 'c1')
     const summary = summarize(withAutoFail, 'c1')
     const students = studentRows(withAutoFail, 'c1').length
 
     expect(summary.autoFailCount).toBe(students)
-    expect(gradeDistribution(summary)[0].count).toBe(summary.failCount + students)
+    expect(summary.gradedCount).toBe(base.gradedCount + students)
+    expect(gradeDistribution(summary)[0].count).toBe(base.failCount + students)
     expect(statusDistribution(summary).find((item) => item.key === 'autoFail')?.count).toBe(students)
+    expect(statusDistribution(summary).find((item) => item.key === 'graded')?.count).toBe(base.gradedCount)
     expect(summary.passRate).toBe(
-      (summary.passCount + summary.distinctionCount) / (summary.gradedCount + students),
+      (summary.passCount + summary.distinctionCount) / summary.gradedCount,
     )
   })
 

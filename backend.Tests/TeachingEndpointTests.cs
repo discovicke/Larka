@@ -201,6 +201,92 @@ public class TeachingEndpointTests(TestWebApplicationFactory factory) : IClassFi
     }
 
     [Fact]
+    public async Task Students_DoNotIncludeDeactivatedStudents()
+    {
+        var setup = await AddSetupAsync();
+        var link = await _client.CreateAssignmentLinkAsync(
+            "Snart", new { courseId = setup.CourseId, dueAt = DateTimeOffset.UtcNow.AddDays(3) });
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            await db.Users.Where(user => user.Id == setup.OtherStudentId).ExecuteUpdateAsync(setters =>
+                setters.SetProperty(user => user.DeactivatedAt, DateTimeOffset.UtcNow));
+        }
+
+        var teaching = await GetTeachingAsync(setup.TeacherId);
+
+        Assert.Equal(1, Assert.Single(teaching.Courses).Students);
+        Assert.Equal(1, Assert.Single(teaching.Deadlines).Students);
+        Assert.Equal(link, Assert.Single(teaching.Deadlines).LinkId);
+    }
+
+    [Fact]
+    public async Task Deadlines_CountOnlyTheStudentsOfTheLinksGroup_InACourseWithTwoGroups()
+    {
+        var setup = await AddSetupAsync();
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            db.GroupCourses.Add(new Backend.Domain.Entities.GroupCourse
+            {
+                GroupId = setup.OtherGroupId,
+                CourseId = setup.CourseId
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var groupOnly = await _client.CreateAssignmentLinkAsync(
+            "Bara klass B", new { courseId = setup.CourseId, groupId = setup.OtherGroupId, dueAt = now.AddDays(2) });
+        var wholeCourse = await _client.CreateAssignmentLinkAsync(
+            "Hela kursen", new { courseId = setup.CourseId, dueAt = now.AddDays(3) });
+        await SetSubmissionAsync(groupOnly, setup.OtherGroupStudentId, SubmissionStatus.Submitted, now);
+        await SetSubmissionAsync(wholeCourse, setup.StudentId, SubmissionStatus.Submitted, now);
+        await SetSubmissionAsync(wholeCourse, setup.OtherGroupStudentId, SubmissionStatus.NotStarted, now);
+
+        var teaching = await GetTeachingAsync(setup.TeacherId);
+
+        Assert.Equal(
+            [("Bara klass B", 1, 1), ("Hela kursen", 1, 3)],
+            teaching.Deadlines.Select(item => (item.Title, item.Submitted, item.Students)));
+    }
+
+    [Fact]
+    public async Task Deadlines_SkipAssignmentsWithoutSubmissionMode()
+    {
+        var setup = await AddSetupAsync();
+        var now = DateTimeOffset.UtcNow;
+        var exercise = await _client.CreateContentAsync(new
+        {
+            type = "assignment",
+            title = "Övning",
+            bodyMd = "",
+            submissionModes = Array.Empty<string>()
+        });
+        await _client.CreateLinkAsync(exercise.Id, new { courseId = setup.CourseId, dueAt = now.AddDays(2) });
+
+        var teaching = await GetTeachingAsync(setup.TeacherId);
+
+        Assert.Empty(teaching.Deadlines);
+    }
+
+    [Fact]
+    public async Task Deadlines_SkipPartsThatAreNotPublishedYet()
+    {
+        var setup = await AddSetupAsync();
+        var now = DateTimeOffset.UtcNow;
+        await _client.CreateAssignmentLinkAsync(
+            "Senare", new { courseId = setup.CourseId, publishAt = now.AddDays(1), dueAt = now.AddDays(3) });
+        var week = await _client.CreateModuleAsync(setup.CourseId, publishAt: now.AddDays(1));
+        await _client.CreateAssignmentLinkAsync(
+            "Veckan senare", new { courseId = setup.CourseId, moduleId = week.Id, dueAt = now.AddDays(3) });
+
+        var teaching = await GetTeachingAsync(setup.TeacherId);
+
+        Assert.Empty(teaching.Deadlines);
+    }
+
+    [Fact]
     public async Task Scheduled_ShowsWeeksAndPartsWithinSevenDays()
     {
         var setup = await AddSetupAsync();

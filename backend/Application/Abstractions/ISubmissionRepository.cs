@@ -16,7 +16,6 @@ public record SubmissionToGrade(
 public record CourseToGradeCount(Guid CourseId, int Count);
 
 /// <summary>En påbörjad inlämning på en länk.</summary>
-public record ActiveSubmission(Guid LinkId, Guid StudentId);
 
 /// <summary>
 /// En elevrepo som ska låsas eftersom länkens deadline har passerat. PersonalDueAt är elevens egen extra
@@ -62,8 +61,11 @@ public interface ISubmissionRepository
     Task<List<CourseToGradeCount>> GetToGradeCountsAsync(
         IReadOnlyCollection<Guid> courseIds, CancellationToken ct);
 
-    /// <summary>Inlämningar som påbörjats på länkarna, en rad per elev och länk.</summary>
-    Task<List<ActiveSubmission>> GetActiveForLinksAsync(
+    /// <summary>
+    /// Per länk: unika elever som påbörjat (status skild från NotStarted) och eleverna utdelningen gäller,
+    /// alltså länkens grupp eller alla kursens grupper, utan avaktiverade. Samma regel som veckolistan.
+    /// </summary>
+    Task<Dictionary<Guid, (int Submitted, int Students)>> GetAudienceCountsAsync(
         IReadOnlyCollection<Guid> linkIds, CancellationToken ct);
 
     // Lärare i kursen utdelningen gäller för. Gäller den bara en grupp, utan kurs, lärare i gruppen.

@@ -53,7 +53,7 @@ Repot använder GitHubs oföränderliga OIDC-subject, så identiteten i Infisica
 ## En ny skola
 
 1. Databas och värdtjänst: med vår uppsättning ett Supabase-projekt och Render-tjänsten ([`infra/render-setup.sh`](../infra/render-setup.sh)), annars [drift.md](drift.md).
-2. Microsoft: kör [`infra/entra-setup.sh`](#microsoft-inloggning) och lägg raderna bland inställningarna. Du som kör det blir skolans första admin.
+2. Microsoft: logga in med `az login` med kontot som ska bli skolans första admin, och kolla med `az account show` att det är rätt konto. Kör sedan [`infra/entra-setup.sh`](#microsoft-inloggning) och lägg raderna bland inställningarna.
 3. Deploya och logga in med Microsoft. Skolan kopplas till tenanten, får organisationens namn, och du blir admin. Alla andra blir elever, i klassen som adressen slutar på om den finns.
 
 En ny installation har inga konton med kända lösenord och ingen demodata. Demokontona och Edugrades demodata finns bara med `Database__SeedDemoData=true`, som i vår demo, och lokalt.
@@ -61,9 +61,12 @@ En ny installation har inga konton med kända lösenord och ingen demodata. Demo
 ## Microsoft-inloggning
 
 ```bash
-az login                                              # i skolans tenant
+az login                                              # i skolans tenant, med kontot som ska bli admin
+az account show                                       # kolla att det är rätt konto
 APP_URL=https://larka.skolan.se infra/entra-setup.sh
 ```
+
+Kontot som är inloggat i `az` blir Lärkas första admin. Skriptet visar kontot och frågar `Fortsätt? [j/N]` innan det ändrar något. Svarar du inte `j` avbryts det och inget ändras.
 
 Skriptet registrerar Lärka i skolans Entra ID (eller uppdaterar registreringen, som hittas på taggen `larka-sign-in`): single-tenant, _Single-page application_ med redirect till `APP_URL/login` och `http://localhost:5173/login`, bara inloggningsbehörigheterna och ingen hemlighet. Den som kör är admin ger skriptet samtycke för hela organisationen. Sist skrivs fyra rader `Auth__Entra__…` ut.
 

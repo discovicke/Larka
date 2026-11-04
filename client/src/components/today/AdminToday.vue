@@ -25,7 +25,7 @@ const mobileGreeting = computed(() => name.value
   ? `Hej ${name.value}`
   : 'Hej')
 
-// Bara det som fortfarande hör till undervisningen räknas. Mentor och lösenord hanteras inte här.
+// Bara det som fortfarande hör till undervisningen räknas. Lösenord hanteras inte här.
 const attentionCount = computed(() => (overview.value?.coursesWithoutTeacher.length ?? 0)
   + ((overview.value?.studentsWithoutClass.length ?? 0) > 0
     ? 1

@@ -147,7 +147,11 @@ public class GroupAnalyticsService(
                 assignment.DueAt, assignment.ResubmitDueAt, now, submission?.PersonalDueAt);
             if (window.IsAutoFail(status))
             {
+                // Automatiskt IG är en bedömning: det räknas som bedömt och som IG. AutoFailCount visar hur många av
+                // dem som kom av sig själva.
                 autoFail += 1;
+                graded += 1;
+                fail += 1;
                 continue;
             }
 
@@ -175,7 +179,10 @@ public class GroupAnalyticsService(
                 case SubmissionStatus.Submitted:
                     submitted += 1;
                     break;
-                case SubmissionStatus.NotStarted when assignment.DueAt is not null && assignment.DueAt < now:
+                // Försenad är klassens deadline passerad medan en annan deadline (komplettering eller elevens egen)
+                // återstår. Återstår ingen är det automatiskt IG och räknas ovan.
+                case SubmissionStatus.NotStarted
+                    when window.DeadlineRemains && assignment.DueAt is not null && assignment.DueAt < now:
                     overdue += 1;
                     break;
             }

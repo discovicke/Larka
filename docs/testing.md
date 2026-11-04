@@ -70,7 +70,7 @@ Testerna startar en tillfällig Postgres med Testcontainers (en container per k�
 
 | #   | Flöde                                                                                      | Fil                                             |
 | --- | ------------------------------------------------------------------------------------------ | ----------------------------------------------- |
-| 1   | Admin skapar en klass, klistrar in elever och skapar en kurs med lärare                    | `1-admin-forbereder-kursen.spec.ts`             |
+| 1   | Admin skapar en klass, lägger till elever och skapar en kurs med lärare                    | `1-admin-forbereder-kursen.spec.ts`             |
 | 2   | Läraren publicerar en uppgift i en ny vecka, eleven lämnar in                              | `2-lararen-publicerar-eleven-lamnar-in.spec.ts` |
 | 3   | Läraren begär komplettering, eleven lämnar in igen, läraren bedömer och eleven ser betyget | `3-lararen-bedomer-eleven-ser-betyget.spec.ts`  |
 

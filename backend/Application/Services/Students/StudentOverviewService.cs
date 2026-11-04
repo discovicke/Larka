@@ -60,10 +60,14 @@ public class StudentOverviewService(
             course.Code,
             assignments.Count,
             assignments.Count(assignment => assignment.Status == SubmissionStatus.NeedsWork && !AutoFail(assignment)),
+            // Försenad: klassens deadline har passerat men backend räknar en deadline som återstår för eleven.
             assignments.Count(assignment =>
-                assignment.Status == SubmissionStatus.NotStarted && assignment.DueAt < now && !AutoFail(assignment)),
+                assignment.Status == SubmissionStatus.NotStarted
+                && assignment.DueAt < now
+                && assignment.Deadline?.NextDeadline is not null
+                && !AutoFail(assignment)),
             Count(SubmissionStatus.Submitted),
-            Count(SubmissionStatus.Graded),
+            Count(SubmissionStatus.Graded) + assignments.Count(AutoFail),
             Graded(GradeLevel.Fail) + assignments.Count(AutoFail),
             Graded(GradeLevel.Pass),
             Graded(GradeLevel.Distinction));
