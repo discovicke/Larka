@@ -13,7 +13,7 @@ public readonly record struct GradingWindow(
     DateTimeOffset? PersonalDueAt = null)
 {
     public const string ClosedMessage = "Deadlinen har gått ut och det finns ingen kompletteringsdeadline kvar.";
-    public const string LockedMessage = "Deadlinen har gått ut. Din inlämning är låst tills läraren har bedömt den.";
+    public const string LockedMessage = "Din inlämning är låst tills läraren har bedömt den.";
     public const string FailTooEarlyMessage =
         "IG kan bara sättas när sista deadline har passerat. Använd Komplettera så länge en deadline återstår.";
     public const string NeedsWorkTooLateMessage =

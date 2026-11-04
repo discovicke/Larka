@@ -134,6 +134,67 @@ public class PermissionGapTests(TestWebApplicationFactory factory) : IClassFixtu
         }
     }
 
+    // #507: en kurs eller grupp hämtad på id följer samma regel som listorna. Utomstående får 404.
+    [Fact]
+    public async Task GetCourse_IsForTheCourseTeachersStudentsAndAdminOnly()
+    {
+        await using var db = OpenDb();
+        var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
+        var course = await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId, group.Id, placeholderTeaches: false);
+        var teacher = await TestData.AddCourseTeacherAsync(db, course);
+        var formerTeacher = await TestData.AddCourseTeacherAsync(db, course);
+        var student = await TestData.AddMemberAsync(db, group);
+        var otherGroup = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
+        var otherStudent = await TestData.AddMemberAsync(db, otherGroup);
+        var otherCourse = await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId, placeholderTeaches: false);
+        var otherTeacher = await TestData.AddCourseTeacherAsync(db, otherCourse);
+        var otherSchoolAdmin = await TestData.AddUserAsync(db, role: UserRole.Admin);
+        await db.CourseTeachers
+            .Where(row => row.CourseId == course.Id && row.UserId == formerTeacher.Id)
+            .ExecuteDeleteAsync();
+        var path = $"/api/courses/{course.Id}";
+
+        foreach (var allowed in new[] { teacher.Id, student.Id, PlaceholderIds.UserId })
+        {
+            Assert.Equal(HttpStatusCode.OK, (await GetAsync(path, allowed)).StatusCode);
+        }
+
+        foreach (var denied in new[] { otherStudent.Id, otherTeacher.Id, formerTeacher.Id, otherSchoolAdmin.Id })
+        {
+            Assert.Equal(HttpStatusCode.NotFound, (await GetAsync(path, denied)).StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task GetGroup_IsForMembersTeachersOfItsCoursesAndAdminOnly()
+    {
+        await using var db = OpenDb();
+        var group = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
+        var course = await TestData.AddCourseAsync(db, PlaceholderIds.SchoolId, group.Id, placeholderTeaches: false);
+        var courseTeacher = await TestData.AddCourseTeacherAsync(db, course);
+        var classTeacher = await TestData.AddMemberAsync(db, group, GroupRole.Teacher, UserRole.Teacher);
+        var student = await TestData.AddMemberAsync(db, group);
+        var otherGroup = await TestData.AddGroupAsync(db, PlaceholderIds.SchoolId);
+        var otherStudent = await TestData.AddMemberAsync(db, otherGroup);
+        var otherCourse = await TestData.AddCourseAsync(
+            db, PlaceholderIds.SchoolId, otherGroup.Id, placeholderTeaches: false);
+        var otherTeacher = await TestData.AddCourseTeacherAsync(db, otherCourse);
+        var otherSchoolAdmin = await TestData.AddUserAsync(db, role: UserRole.Admin);
+
+        foreach (var path in new[] { $"/api/groups/{group.Id}", $"/api/groups/{group.Id}/courses" })
+        {
+            foreach (var allowed in new[] { courseTeacher.Id, classTeacher.Id, student.Id, PlaceholderIds.UserId })
+            {
+                Assert.Equal(HttpStatusCode.OK, (await GetAsync(path, allowed)).StatusCode);
+            }
+
+            foreach (var denied in new[] { otherStudent.Id, otherTeacher.Id, otherSchoolAdmin.Id })
+            {
+                Assert.Equal(HttpStatusCode.NotFound, (await GetAsync(path, denied)).StatusCode);
+            }
+        }
+    }
+
     private AppDb OpenDb() => factory.Services.CreateScope().ServiceProvider.GetRequiredService<AppDb>();
 
     private async Task<HttpResponseMessage> GetAsync(string path, Guid userId)

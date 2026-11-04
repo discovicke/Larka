@@ -28,15 +28,15 @@ import {Skeleton} from '@/components/ui/skeleton'
 import {useCourses} from '@/composables/useCourses'
 import {useCrumbLabels} from '@/composables/useCrumbLabels'
 import {useCurrentUser} from '@/composables/useCurrentUser'
+import {isNoAccess, useNoAccess} from '@/composables/useNoAccess'
 import {useToast} from '@/composables/useToast'
-import {ApiError, api, unwrap, type Schema} from '@/lib/api'
+import {api, unwrap, type Schema} from '@/lib/api'
 import {periodLabel} from '@/lib/coursePeriod'
 import {courseStatus} from '@/lib/courseStatus'
 import {groupRoles as roles} from '@/lib/groupRoles'
 import {groupTypeLabels} from '@/lib/groups'
 import {fetchGroupCourses, fetchGroupMembers} from '@/lib/groupsApi'
 import {initials} from '@/lib/person'
-import NotFoundView from '@/views/NotFoundView.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -44,6 +44,7 @@ const {can} = useCurrentUser()
 const {setCrumbLabel} = useCrumbLabels()
 const {loadCourses} = useCourses()
 const {showToast} = useToast()
+const {leave} = useNoAccess()
 const isAdmin = computed(() => can('admin'))
 const groupId = computed(() => String(route.params.groupId))
 
@@ -52,7 +53,6 @@ const courses = ref<Schema<'CourseDto'>[]>([])
 const members = ref<Schema<'GroupMemberDto'>[]>([])
 const loading = ref(true)
 const loadFailed = ref(false)
-const notFound = ref(false)
 const notice = ref('')
 
 const addingMember = ref(false)
@@ -140,7 +140,6 @@ async function load() {
   const id = groupId.value
   loading.value = true
   loadFailed.value = false
-  notFound.value = false
   group.value = null
   try {
     const [groupResult, loadedCourses, loadedMembers] = await Promise.all([
@@ -160,8 +159,9 @@ async function load() {
     if (id !== groupId.value) {
       return
     }
-    if (exception instanceof ApiError && exception.status === 404) {
-      notFound.value = true
+    // En grupp som användaren inte får öppna, eller som inte finns: till Idag med samma toast som andra sidor.
+    if (isNoAccess(exception)) {
+      await leave()
     } else {
       loadFailed.value = true
     }
@@ -287,9 +287,7 @@ watch(isAdmin, (admin) => {
     <Skeleton class="h-20 w-full rounded-[11px]"/>
   </div>
 
-  <NotFoundView v-else-if="notFound || !group"/>
-
-  <div v-else class="mx-auto flex w-full max-w-[1120px] flex-col gap-6">
+  <div v-else-if="group" class="mx-auto flex w-full max-w-[1120px] flex-col gap-6">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div class="flex flex-col gap-1">
         <h1 class="font-heading text-[30px] leading-tight font-semibold">{{ group.name }}</h1>

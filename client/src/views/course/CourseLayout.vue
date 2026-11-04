@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import {computed} from 'vue'
+import {computed, watch} from 'vue'
 import {useRoute} from 'vue-router'
 
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import CourseStatusBadge from '@/components/course/CourseStatusBadge.vue'
 import {Skeleton} from '@/components/ui/skeleton'
 import {useCourses} from '@/composables/useCourses'
+import {useNoAccess} from '@/composables/useNoAccess'
 import {periodLabel} from '@/lib/coursePeriod'
 import {courseStatus} from '@/lib/courseStatus'
-import NotFoundView from '@/views/NotFoundView.vue'
 
 const tabs = [
   {label: 'Innehåll', routeName: 'course-content'},
@@ -19,6 +19,15 @@ const tabs = [
 const route = useRoute()
 const {status, findCourse} = useCourses()
 const course = computed(() => findCourse(String(route.params.courseId)))
+const {leave} = useNoAccess()
+
+// Listan har bara kurserna användaren får öppna. En kurs som saknas där, också en okänd, leder till Idag
+// med samma toast som andra sidor användaren inte får öppna, så att sidan inte avslöjar vilka kurser som finns.
+watch([status, course], () => {
+  if (status.value === 'loaded' && !course.value) {
+    void leave()
+  }
+}, {immediate: true})
 
 // Period och omfattning under rubriken, som i mockupen. Delar som saknar data lämnas borta.
 const showHeader = computed(() => !(route.name === 'course-content' && route.query.del))
@@ -44,8 +53,7 @@ const subtitle = computed(() => {
   <Alert v-else-if="status === 'failed'" variant="destructive">
     <AlertDescription>Kunde inte hämta kurserna. Ladda om sidan.</AlertDescription>
   </Alert>
-  <NotFoundView v-else-if="!course"/>
-  <template v-else>
+  <template v-else-if="course">
     <div v-if="showHeader" class="flex flex-col gap-4 border-b">
       <div class="flex items-start justify-between gap-3">
         <div class="flex min-w-0 flex-col gap-1">

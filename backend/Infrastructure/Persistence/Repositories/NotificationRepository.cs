@@ -47,6 +47,17 @@ public class NotificationRepository(AppDb db) : INotificationRepository
             .ToListAsync(ct))
         .ToHashSet();
 
+    public async Task<HashSet<(Guid UserId, DateTimeOffset DueAt)>> GetDeadlineRemindersAsync(
+        Guid contentId, CancellationToken ct) =>
+        (await db.Notifications
+            .Where(notification => notification.Kind == NotificationKind.DeadlineSoon
+                && notification.ContentId == contentId
+                && notification.DueAt != null)
+            .Select(notification => new { notification.UserId, DueAt = notification.DueAt!.Value })
+            .ToListAsync(ct))
+        .Select(reminder => (reminder.UserId, reminder.DueAt))
+        .ToHashSet();
+
     public Task<List<ContentLink>> GetLinksAsync(Guid contentId, CancellationToken ct) =>
         db.ContentLinks.Where(link => link.ContentId == contentId).ToListAsync(ct);
 
@@ -65,7 +76,12 @@ public class NotificationRepository(AppDb db) : INotificationRepository
     {
         var rows = await VisibleLinks(now)
             .Where(row => row.Content.Type == ContentType.Assignment)
-            .Where(row => row.Link.DueAt > now && row.Link.DueAt <= until)
+            .Where(row => row.Link.DueAt != null)
+            .Where(row => (row.Link.DueAt > now && row.Link.DueAt <= until)
+                || row.Link.ResubmitDueAt.Any(due => due > now && due <= until)
+                || db.Submissions.Any(submission => submission.ContentLinkId == row.Link.Id
+                    && submission.PersonalDueAt > now
+                    && submission.PersonalDueAt <= until))
             .ToListAsync(ct);
         return rows.Select(row => new LinkedContent(row.Link, row.Content)).ToList();
     }

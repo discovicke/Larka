@@ -1,5 +1,14 @@
 <script setup lang="ts">
-import {PhCalendarBlank, PhCalendarCheck, PhCaretLeft, PhCaretRight, PhFlag} from '@phosphor-icons/vue'
+import {
+  PhArrowCounterClockwise,
+  PhCalendarBlank,
+  PhCalendarCheck,
+  PhCaretLeft,
+  PhCaretRight,
+  PhFlag,
+  PhUser,
+} from '@phosphor-icons/vue'
+import type {Component} from 'vue'
 import {computed, ref, watch} from 'vue'
 import {RouterLink, type RouteLocationRaw} from 'vue-router'
 
@@ -126,6 +135,14 @@ const chipLabels: Record<Item['kind'], string> = {
 
 function chipLabel(item: Item): string {
   return chipLabels[item.kind]
+}
+
+// Varje sorts händelse har en egen ikon, så att typen syns också i månadsvyn där etiketten inte får plats.
+const chipIcons: Record<Item['kind'], Component> = {
+  Deadline: PhFlag,
+  ResubmitDeadline: PhArrowCounterClockwise,
+  PersonalDeadline: PhUser,
+  Publish: PhCalendarCheck,
 }
 
 const {run: fetchItems, loading, error} = useAsync(async (from: Date, to: Date) => unwrap(await api.GET('/api/calendar', {
@@ -297,14 +314,26 @@ watch([view, anchor], load, {immediate: true})
               data-test="calendar-chip"
               class="flex min-w-0 flex-col rounded-[5px] border px-1.5 py-1 text-xs"
               :class="chipClass(item)"
+              :title="chipLabel(item)"
             >
               <span class="flex min-w-0 items-center gap-1 font-medium">
-                <PhFlag v-if="isDeadline(item)" class="size-3.5 shrink-0"/>
-                <PhCalendarCheck v-else class="size-3.5 shrink-0"/>
+                <component
+                  :is="chipIcons[item.kind]"
+                  class="size-3.5 shrink-0"
+                  :data-test="`chip-icon-${item.kind}`"
+                  aria-hidden="true"
+                />
                 <span class="shrink-0">{{ timeText(item.at) }}</span>
                 <span class="truncate">{{ item.title }}</span>
               </span>
-              <span v-if="view === 'week'" class="text-muted-foreground truncate">
+              <!-- Månadsvyn på desktop har inte plats för etiketten. Där säger ikonen och skärmläsartexten typen. -->
+              <span
+                class="text-muted-foreground truncate"
+                :class="view === 'month'
+                  ? 'md:sr-only'
+                  : ''"
+                data-test="chip-label"
+              >
                 {{ chipLabel(item) }}<template v-if="item.courseTitle"> · {{ item.courseTitle }}</template>
               </span>
             </component>

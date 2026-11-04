@@ -10,6 +10,7 @@ import {
 import {useCourses} from '@/composables/useCourses'
 import {useCrumbLabels} from '@/composables/useCrumbLabels'
 import {useCurrentUser} from '@/composables/useCurrentUser'
+import {noAccessMessage} from '@/composables/useNoAccess'
 import {useToast} from '@/composables/useToast'
 import AppLayout from '@/layouts/AppLayout.vue'
 import {auth} from '@/lib/auth'
@@ -235,9 +236,6 @@ function authGuard(to: RouteLocationNormalizedLoaded): RouteLocationRaw | true {
     ? true
     : {name: 'login', query: {redirect: to.fullPath}}
 }
-
-/** Texten när en sida kräver en behörighet som användaren saknar. */
-export const noAccessMessage = 'Du har inte behörighet till den sidan.'
 
 export function createAppRouter(history: RouterHistory = createWebHistory()) {
   const router = createRouter({history, routes})

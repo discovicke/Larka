@@ -6,6 +6,7 @@ import {
   checkClass,
   checkLabel,
   gradeBadgeVariant,
+  gradedLabel,
   gradeLabel,
   gradeName,
   levelsFor,
@@ -94,6 +95,24 @@ describe('statusLabel', () => {
 
   it('klarar en inlämnad rad utan tidpunkt', () => {
     expect(statusLabel({status: 'Submitted', submittedAt: null})).toBe('Inlämnad')
+  })
+
+  it('säger vem som bedömde', () => {
+    const grade = {gradedByName: 'Tomas Berg'}
+    expect(statusLabel({status: 'Graded', submittedAt: null, grade})).toBe('Bedömd av Tomas Berg')
+    expect(statusLabel({status: 'Graded', submittedAt: null, grade: {gradedByName: null}})).toBe('Bedömd')
+  })
+})
+
+describe('gradedLabel', () => {
+  it('visar lärarens namn och datumet', () => {
+    const label = gradedLabel({gradedByName: 'Tomas Berg', gradedAt: '2026-10-28T10:00:00Z'})
+    expect(label).toMatch(/^Bedömd av Tomas Berg \S/)
+    expect(label).toContain('28 okt')
+  })
+
+  it('visar bara datumet utan namn', () => {
+    expect(gradedLabel({gradedByName: null, gradedAt: '2026-10-28T10:00:00Z'})).toMatch(/^Bedömd [^a]/)
   })
 })
 

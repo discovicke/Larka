@@ -37,8 +37,24 @@ const pinned = news('l2', 'x2', 'Studiebesök', '2026-10-19T10:00:00Z', {isPinne
 const newest = news('l3', 'x3', 'Inlämning flyttad', '2026-10-10T10:00:00Z')
 const oldest = news('l1', 'x1', 'Välkommen till kursen', '2026-10-01T10:00:00Z')
 
-function comment(id: string, contentId: string, authorId: string, bodyMd: string) {
-  return {id, contentId, authorId, authorName: names[authorId], bodyMd, createdAt: '2026-10-19T11:00:00Z'}
+function comment(
+  id: string,
+  contentId: string,
+  authorId: string,
+  bodyMd: string,
+  rights: {canEdit?: boolean, canDelete?: boolean} = {},
+) {
+  return {
+    id,
+    contentId,
+    authorId,
+    authorName: names[authorId],
+    bodyMd,
+    createdAt: '2026-10-19T11:00:00Z',
+    canEdit: false,
+    canDelete: false,
+    ...rights,
+  }
 }
 
 function backend(posts: unknown[], comments: Record<string, unknown[]> = {}) {
@@ -51,6 +67,14 @@ function backend(posts: unknown[], comments: Record<string, unknown[]> = {}) {
     }
     if (path === '/api/courses/c1/content') {
       return {status: 200, body: posts}
+    }
+    const oneComment = path.match(/^\/api\/content\/([^/]+)\/comments\/([^/]+)$/)
+    if (oneComment && method === 'DELETE') {
+      return {status: 204}
+    }
+    if (oneComment && method === 'PUT') {
+      const sentBody = body as {bodyMd: string}
+      return {status: 200, body: comment(oneComment[2]!, oneComment[1]!, 'u1', sentBody.bodyMd, {canEdit: true, canDelete: true})}
     }
     const withComments = path.match(/^\/api\/content\/([^/]+)\/comments$/)
     if (withComments) {
@@ -274,6 +298,64 @@ describe('CourseNewsView', () => {
     expect(wrapper.findAll('[data-test="comment"]')).toHaveLength(2)
     expect(wrapper.text()).toContain('Bra jobbat!')
     expect((wrapper.find('#comment-body').element as HTMLTextAreaElement).value).toBe('')
+  })
+
+  it('säger till när kommentaren är för lång och skickar den inte', async () => {
+    backend([pinned])
+
+    const {wrapper} = await renderApp('/courses/c1/news')
+
+    await wrapper.find('#comment-body').setValue('a'.repeat(5001))
+    await wrapper.find('section[aria-labelledby="comments-heading"] form').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="text-limit"]').text().replace(/\s/g, ' '))
+      .toBe('Texten är för lång: 5 001 tecken, högst 5 000.')
+    expect(sent('POST', '/api/content/x2/comments')).toBeUndefined()
+  })
+
+  it('läraren tar bort en elevs kommentar efter att ha bekräftat', async () => {
+    backend([pinned], {x2: [comment('k1', 'x2', 'u2', 'Olämpligt', {canDelete: true})]})
+
+    const {wrapper} = await renderApp('/courses/c1/news')
+
+    await wrapper.find('[data-test="comment-menu"]').trigger('keydown', {key: 'Enter'})
+    await flushPromises()
+    expect(document.querySelector('[data-test="comment-edit"]')).toBeNull()
+    newsAction('Ta bort').click()
+    await flushPromises()
+    ;(document.querySelector('[data-test="comment-delete-confirm"]') as HTMLElement).click()
+    await flushPromises()
+
+    expect(requests.some((request) => request.method === 'DELETE'
+      && request.path === '/api/content/x2/comments/k1')).toBe(true)
+    expect(wrapper.findAll('[data-test="comment"]')).toHaveLength(0)
+  })
+
+  it('författaren ändrar sin kommentar på plats', async () => {
+    backend([pinned], {x2: [comment('k1', 'x2', 'u1', 'Första', {canEdit: true, canDelete: true})]})
+
+    const {wrapper} = await renderApp('/courses/c1/news')
+
+    await wrapper.find('[data-test="comment-menu"]').trigger('keydown', {key: 'Enter'})
+    await flushPromises()
+    newsAction('Redigera').click()
+    await flushPromises()
+    await wrapper.find('#comment-edit-k1').setValue('Ändrad')
+    await wrapper.find('[data-test="comment-edit-form"]').trigger('submit')
+    await flushPromises()
+
+    expect(sent('PUT', '/api/content/x2/comments/k1')).toEqual({bodyMd: 'Ändrad'})
+    expect(wrapper.find('[data-test="comment-edit-form"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="comment"]').text()).toContain('Ändrad')
+  })
+
+  it('visar ingen meny på andras kommentarer utan rättigheter', async () => {
+    backend([pinned], {x2: [comment('k1', 'x2', 'u2', 'Hej')]})
+
+    const {wrapper} = await renderApp('/courses/c1/news')
+
+    expect(wrapper.find('[data-test="comment-menu"]').exists()).toBe(false)
   })
 
   it('visar nyhetens text formaterad som markdown', async () => {

@@ -132,6 +132,42 @@ public class UserService(
         return ServiceResult<UserDto>.Ok(UserDto.From(user));
     }
 
+    // Admin sätter ett nytt lösenord för en användare i skolan, till exempel ett tillfälligt när någon har glömt sitt
+    // eller skapades utan lösenord. Inte det egna: det ändras inte utan det gamla lösenordet. Inte heller för den som
+    // loggar in med Microsoft i en skola som har Microsoft-inloggning, där skolans konto gäller.
+    public async Task<ServiceResult<UserDto>> SetPasswordAsync(Guid id, SetUserPasswordDto dto, CancellationToken ct)
+    {
+        if (!await permissions.IsAdminAsync(ct))
+        {
+            return ServiceResult<UserDto>.Forbidden();
+        }
+
+        var user = await users.GetAsync(id, ct);
+        if (user is null || !await currentSchool.OwnsAsync(user.SchoolId, ct))
+        {
+            return ServiceResult<UserDto>.NotFound("user not found");
+        }
+
+        if (user.Id == currentUser.UserId)
+        {
+            return ServiceResult<UserDto>.Conflict("you cannot set your own password");
+        }
+
+        if (user.ExternalId is not null && (await schools.GetAsync(user.SchoolId, ct))?.EntraTenantId is not null)
+        {
+            return ServiceResult<UserDto>.Conflict("the user signs in with Microsoft");
+        }
+
+        if (dto.Password is null || dto.Password.Length < _minPasswordLength)
+        {
+            return ServiceResult<UserDto>.Invalid($"password must be at least {_minPasswordLength} characters");
+        }
+
+        user.PasswordHash = passwordHasher.HashPassword(user, dto.Password);
+        await unitOfWork.SaveChangesAsync(ct);
+        return ServiceResult<UserDto>.Ok(UserDto.From(user));
+    }
+
     // Spärrar i stället för att ta bort, så att inlämningar, betyg och kommentarer finns kvar. Ingen kan spärra sig
     // själv, så skolan har alltid kvar en admin. En inloggning som redan finns gäller tills tokenet går ut.
     public Task<ServiceResult<UserDto>> DeactivateAsync(Guid id, CancellationToken ct) =>

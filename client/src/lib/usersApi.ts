@@ -36,3 +36,9 @@ export async function updateUserRole(id: string, role: Schema<'UserRole'>) {
   const {data} = await api.PUT('/api/users/{id}/role', {params: {path: {id}}, body: {role}})
   return data!
 }
+
+/** Sätter ett nytt lösenord för användaren. Bara admin, inte det egna och minst 8 tecken. */
+export async function setUserPassword(id: string, password: string) {
+  const {data} = await api.POST('/api/users/{id}/password', {params: {path: {id}}, body: {password}})
+  return data!
+}

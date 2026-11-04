@@ -1,5 +1,5 @@
 import {flushPromises} from '@vue/test-utils'
-import {afterEach, beforeEach, describe, expect, it} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {defineComponent, h} from 'vue'
 import {createMemoryHistory, type Router} from 'vue-router'
 
@@ -143,6 +143,38 @@ describe('AppLayout', () => {
     expect(sidebar().attributes('data-state')).toBe('collapsed')
   })
 
+  it('på telefonen stängs sidomenyn när man har gått till en annan sida', async () => {
+    // Sidomenyn blir ett ark under 768 px, som useMediaQuery läser från matchMedia.
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query.includes('max-width'),
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      onchange: null,
+      dispatchEvent: () => false,
+    }))
+    // Arket mäter sig med ResizeObserver, som jsdom saknar.
+    vi.stubGlobal('ResizeObserver', class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    })
+    const {wrapper: page, router} = await renderApp('/')
+    const sheet = () => document.querySelector('[data-sidebar="sidebar"][data-mobile="true"]')
+    expect(sheet()).toBeNull()
+
+    await page.find('[data-slot="sidebar-trigger"]').trigger('click')
+    await flushPromises()
+    expect(sheet()).not.toBeNull()
+
+    await router.push('/calendar')
+    await flushPromises()
+    await flushPromises()
+    expect(sheet()).toBeNull()
+  })
+
   it('brödsmulorna följer sidan', async () => {
     const page = await render('/courses/c1/modules/1/new')
 
@@ -159,8 +191,18 @@ describe('AppLayout', () => {
     expect(page.find('[data-test="tab-course-content"]').attributes('aria-current')).toBeUndefined()
   })
 
-  it('en kurs som inte finns visar sidan som inte finns', async () => {
-    const page = await render('/courses/finns-inte/content')
+  // #518: en kurs utanför listan, också en okänd, leder till Idag med toasten. Sidan avslöjar inte vilka kurser som finns.
+  it('en kurs som användaren inte får öppna leder till Idag med en toast', async () => {
+    const {wrapper, router} = await renderApp('/courses/finns-inte/content')
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('today')
+    expect(wrapper.find('[data-test="toast"]').text()).toContain('Du har inte behörighet till den sidan.')
+    expect(wrapper.find('[data-test="not-found"]').exists()).toBe(false)
+  })
+
+  it('en okänd adress visar fortfarande sidan som inte finns', async () => {
+    const page = await render('/finns-inte')
 
     expect(page.find('[data-test="not-found"]').exists()).toBe(true)
   })
@@ -278,5 +320,17 @@ describe('AppLayout', () => {
 
     expect(auth.isSignedIn()).toBe(false)
     expect(router.currentRoute.value.name).toBe('login')
+  })
+
+  // #519: nästa person ska inte hamna på sidan förra användaren hade öppen.
+  it('Logga ut från en kurssida slutar på en ren inloggning utan redirect', async () => {
+    const {wrapper, router} = await renderApp('/courses/c1/content')
+    await wrapper.find('[data-test="user-menu"]').trigger('click')
+    await flushPromises()
+
+    ;(document.querySelector('[data-test="sign-out"]') as HTMLElement).click()
+    await flushPromises()
+
+    expect(router.currentRoute.value.fullPath).toBe('/login')
   })
 })

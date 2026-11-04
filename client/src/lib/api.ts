@@ -1,7 +1,7 @@
 import createClient, {type Middleware} from 'openapi-fetch'
 
 import type {components, paths} from './api-types'
-import {clearSession, currentToken} from './auth/session'
+import {clearSession, currentToken, hasStoredSession} from './auth/session'
 import {redirectToLogin} from './auth/redirect'
 import {fallbackForStatus, isSwedish, swedishServerMessage} from './serverMessages'
 
@@ -103,12 +103,18 @@ const addBearer: Middleware = {
 
 // Svar som inte är 2xx kastas som ApiError, så anropen bara behöver hantera det lyckade svaret.
 // Ett 401 betyder att tokenet inte gäller längre: logga ut och visa inloggningen i stället.
-// Inloggningen själv är undantagen, där betyder 401 bara fel lösenord.
+// Inloggningen själv är undantagen, där betyder 401 bara fel lösenord. Har användaren själv loggat ut finns ingen
+// session kvar, och ett anrop som gick iväg medan Logga ut stängde sidan skickar inte vidare med sidan i redirect.
+// Annars hamnar nästa person på förra användarens sida (#519). En utgången session skickar vidare som förut.
 const throwOnError: Middleware = {
   async onResponse({request, response}) {
-    if (response.status === 401 && new URL(request.url).pathname !== '/api/auth/login') {
+    if (response.status === 401
+      && new URL(request.url).pathname !== '/api/auth/login'
+      && (request.headers.has('Authorization') || hasStoredSession())) {
       clearSession()
-      redirectToLogin(window.location.pathname + window.location.search)
+      if (window.location.pathname !== '/login') {
+        redirectToLogin(window.location.pathname + window.location.search)
+      }
     }
 
     if (response.ok) {

@@ -63,6 +63,10 @@ function backend(feeds: Feeds = {}) {
     if (method === 'POST' && path.startsWith('/api/notifications/')) {
       return {status: 204}
     }
+    // Delens sida hämtar kursens veckor. En kurs utan veckor räcker för att sidan ska öppnas.
+    if (/^\/api\/courses\/[^/]+\/modules$/.test(path)) {
+      return respond<'/api/courses/{id}/modules', 'get'>([])
+    }
     if (method === 'DELETE') {
       return {status: 204}
     }

@@ -5,6 +5,7 @@ import AppearanceSection from '@/components/settings/AppearanceSection.vue'
 import IntegrationsSection from '@/components/settings/IntegrationsSection.vue'
 import NotificationsSection from '@/components/settings/NotificationsSection.vue'
 import ProfileSection from '@/components/settings/ProfileSection.vue'
+import SchoolSection from '@/components/settings/SchoolSection.vue'
 import UserGitHubSection from '@/components/settings/UserGitHubSection.vue'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 
@@ -20,7 +21,7 @@ const navItems = computed(() => [
   {id: 'aviseringar', label: 'Aviseringar'},
   {id: 'utseende', label: 'Utseende'},
   ...(isAdmin.value
-    ? [{id: 'integrationer', label: 'Integrationer'}]
+    ? [{id: 'skola', label: 'Skola'}, {id: 'integrationer', label: 'Integrationer'}]
     : []),
 ])
 const activeSection = ref('profil')
@@ -67,6 +68,8 @@ onMounted(loadMe)
         <NotificationsSection/>
 
         <AppearanceSection/>
+
+        <SchoolSection v-if="isAdmin"/>
 
         <IntegrationsSection v-if="isAdmin"/>
       </div>

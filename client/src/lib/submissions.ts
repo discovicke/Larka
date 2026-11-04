@@ -52,9 +52,24 @@ export function levelsFor(scale: Schema<'GradeScale'> | null): Schema<'GradeLeve
     : []
 }
 
-/** Statusen i elevernas rad, t.ex. "Inlämnad mån 26 okt". Med autoFail visas det automatiska IG:t. */
+/** Vem som bedömde och när, t.ex. "Bedömd av Tomas Berg ons 28 okt". Utan lärarens namn bara datumet. */
+export function gradedLabel(grade: Pick<Schema<'GradeDto'>, 'gradedAt' | 'gradedByName'>, withTime = false): string {
+  const date = formatDate(grade.gradedAt, withTime)
+  return grade.gradedByName
+    ? `Bedömd av ${grade.gradedByName} ${date}`
+    : `Bedömd ${date}`
+}
+
+/**
+ * Statusen i elevernas rad, t.ex. "Inlämnad mån 26 okt" eller "Bedömd av Tomas Berg". Med autoFail visas det
+ * automatiska IG:t, som ingen lärare har satt.
+ */
 export function statusLabel(
-  submission: {status: Schema<'SubmissionStatus'>, submittedAt: string | null},
+  submission: {
+    status: Schema<'SubmissionStatus'>
+    submittedAt: string | null
+    grade?: Pick<Schema<'GradeDto'>, 'gradedByName'> | null
+  },
   autoFail = false,
 ): string {
   if (autoFail) {
@@ -68,7 +83,9 @@ export function statusLabel(
     case 'NeedsWork':
       return 'Komplettering'
     case 'Graded':
-      return 'Bedömd'
+      return submission.grade?.gradedByName
+        ? `Bedömd av ${submission.grade.gradedByName}`
+        : 'Bedömd'
     default:
       return 'Inte inlämnad'
   }

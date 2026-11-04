@@ -50,6 +50,7 @@ const gradedSubmission = {
     level: 'Pass',
     feedback: 'Tidigare kommentar',
     gradedAt: '2026-10-24T09:00:00Z',
+    gradedByName: 'Tomas Berg',
   },
 }
 
@@ -642,6 +643,57 @@ describe('ReviewView', () => {
 
     expect((wrapper.find('#feedback').element as HTMLTextAreaElement).value).toBe('Tidigare kommentar')
     expect(wrapper.findAll('[role="radio"]')[1].attributes('aria-checked')).toBe('true')
-    expect(wrapper.text()).toContain('Bedömd')
+    expect(wrapper.find('[data-test="review-state"]').text()).toContain('Bedömd av Tomas Berg')
+  })
+
+  it('börjar med en tom kommentar när eleven lämnat in igen, och visar förra återkopplingen ovanför', async () => {
+    const resubmitted = {
+      ...baseSubmission,
+      status: 'Submitted',
+      grade: {
+        gradedById: 'u0',
+        level: null,
+        feedback: 'Lägg till en bild och en länk.',
+        gradedAt: '2026-10-24T09:00:00Z',
+        gradedByName: 'Tomas Berg',
+      },
+    }
+    backend({scale: 'PassFail', submission: resubmitted, queue: [queued('s1', 'Anna'), queued('s2', 'Bo')]})
+
+    const {wrapper} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
+
+    expect((wrapper.find('#feedback').element as HTMLTextAreaElement).value).toBe('')
+    const previous = wrapper.find('[data-test="review-previous"]')
+    expect(previous.text()).toContain('Förra återkopplingen')
+    expect(previous.text()).toContain('Lägg till en bild och en länk.')
+    expect(previous.text()).toContain('Komplettering · Bedömd av Tomas Berg')
+    expect(wrapper.findAll('[role="radio"]').every((radio) => radio.attributes('aria-checked') === 'false')).toBe(true)
+
+    await radiosButton(wrapper, 'G')
+    await button(wrapper, 'Spara och nästa').trigger('click')
+    await flushPromises()
+
+    expect(sent('POST', '/api/submissions/s1/grade')).toMatchObject({level: 'Pass', feedback: '', outcome: 'Graded'})
+  })
+
+  it('tar inte med IG-kommentaren när läraren byter ett IG mot G, och tar fram den igen vid IG', async () => {
+    const failed = {
+      ...gradedSubmission,
+      grade: {...gradedSubmission.grade, level: 'Fail', feedback: 'Testerna saknas.'},
+    }
+    backend({scale: 'PassFail', submission: failed})
+
+    const {wrapper} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
+    const comment = () => (wrapper.find('#feedback').element as HTMLTextAreaElement).value
+    expect(comment()).toBe('Testerna saknas.')
+    expect(wrapper.find('[data-test="review-previous"]').exists()).toBe(false)
+
+    await radiosButton(wrapper, 'G')
+    expect(comment()).toBe('')
+    expect(wrapper.find('[data-test="review-previous"]').text()).toContain('Testerna saknas.')
+
+    await radiosButton(wrapper, 'IG')
+    expect(comment()).toBe('Testerna saknas.')
+    expect(wrapper.find('[data-test="review-previous"]').exists()).toBe(false)
   })
 })

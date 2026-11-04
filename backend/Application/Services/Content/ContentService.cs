@@ -179,6 +179,12 @@ public class ContentService(
             return ServiceResult<ContentDto>.Invalid("news text is required");
         }
 
+        var lengthError = LengthError(dto.Title, dto.BodyMd);
+        if (lengthError is not null)
+        {
+            return ServiceResult<ContentDto>.Invalid(lengthError);
+        }
+
         var fieldError = AssignmentFieldsValidator.Check(
             content.Type,
             dto.GradeScale,
@@ -227,6 +233,8 @@ public class ContentService(
     /// <summary>
     /// Filtrerar på typ (news|theory|assignment) om den går att tolka, annars returneras alla. Bara gruppens
     /// medlemmar, lärare i en kurs gruppen läser och admin i skolan får läsa. Utkast ingår aldrig i flödet.
+    /// Admin och gruppens elever ser hela flödet. En lärare ser bara kurserna hen undervisar i, och det som är riktat
+    /// till bara gruppen om hen är lärare i gruppen, aldrig gruppens övriga kurser.
     /// </summary>
     public async Task<ServiceResult<List<ContentFeedItem>>> GetGroupFeedAsync(
         Guid groupId, string? type, CancellationToken ct)
@@ -241,8 +249,24 @@ public class ContentService(
             return ServiceResult<List<ContentFeedItem>>.Forbidden();
         }
 
-        return ServiceResult<List<ContentFeedItem>>.Ok(
-            await contents.GetGroupFeedAsync(groupId, ParseType(type), time.GetUtcNow(), ct));
+        var feed = await contents.GetGroupFeedAsync(groupId, ParseType(type), time.GetUtcNow(), ct);
+        var classTeacher = await groups.IsTeacherAsync(groupId, currentUser.UserId, ct);
+        if (await permissions.IsAdminAsync(ct)
+            || (!classTeacher && await groups.IsMemberAsync(groupId, currentUser.UserId, ct)))
+        {
+            return ServiceResult<List<ContentFeedItem>>.Ok(feed);
+        }
+
+        // Lärarrollen i klassen ger bara det som är riktat till klassen utan kurs, aldrig klassens kurser.
+        var taught = (await groups.GetCourseRolesAsync(currentUser.UserId, ct))
+            .Where(role => role.Role == GroupRole.Teacher)
+            .Select(role => role.CourseId)
+            .ToHashSet();
+        return ServiceResult<List<ContentFeedItem>>.Ok(feed
+            .Where(item => item.CourseId is null
+                ? classTeacher
+                : taught.Contains(item.CourseId.Value))
+            .ToList());
     }
 
     /// <summary>
@@ -265,6 +289,18 @@ public class ContentService(
             await contents.GetCourseFeedAsync(courseId, ParseType(type), time.GetUtcNow(), ct));
     }
 
+    private static string? LengthError(string title, string? bodyMd)
+    {
+        if (title.Trim().Length > TextLimits.Title)
+        {
+            return TextLimits.TitleTooLong;
+        }
+
+        return TextLimits.IsTooLong(bodyMd, TextLimits.ContentBody)
+            ? TextLimits.ContentBodyTooLong
+            : null;
+    }
+
     private ValidationResult<Content> BuildContent(CreateContentDto dto)
     {
         var type = dto.Type;
@@ -278,6 +314,12 @@ public class ContentService(
         if (type == ContentType.News && string.IsNullOrWhiteSpace(dto.BodyMd))
         {
             return ValidationResult<Content>.Invalid("news text is required");
+        }
+
+        var lengthError = LengthError(dto.Title, dto.BodyMd);
+        if (lengthError is not null)
+        {
+            return ValidationResult<Content>.Invalid(lengthError);
         }
 
         var fieldError = AssignmentFieldsValidator.Check(

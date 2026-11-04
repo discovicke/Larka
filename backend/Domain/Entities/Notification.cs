@@ -10,6 +10,9 @@ public class Notification
     public NotificationKind Kind { get; set; }
     public Guid? ContentId { get; set; }
     public Guid? SubmissionId { get; set; }
+
+    // Deadlinen en påminnelse (DeadlineSoon) gäller, så att eleven påminns en gång per deadline. Null för andra slag.
+    public DateTimeOffset? DueAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? ReadAt { get; set; }
 }

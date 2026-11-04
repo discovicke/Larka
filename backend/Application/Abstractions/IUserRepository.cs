@@ -6,6 +6,7 @@ namespace Backend.Application.Abstractions;
 public interface IUserRepository
 {
     Task<List<User>> GetAllAsync(CancellationToken ct);
+    /// <summary>Skolans användare. Migrationens admin "Placeholder" är inte med så länge ingen kan logga in som hen.</summary>
     Task<List<User>> GetForSchoolAsync(Guid schoolId, CancellationToken ct);
 
     /// <summary>Namnen på användarna, per id. Id:n som inte finns saknas i resultatet.</summary>

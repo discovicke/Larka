@@ -19,14 +19,13 @@ import {Item, ItemMedia} from '@/components/ui/item'
 import type {Schema} from '@/lib/api'
 import {countLabel, formatDate, partOf} from '@/lib/content'
 import {
-  dueLabel,
-  personalDueLabel,
   dueStatus,
   gradeScaleLabel,
   isAvailable,
   isFinished,
   isModuleComplete,
   kindOf,
+  nextDueLabel,
   rowIcon,
   rowIconClass,
   sectionsFor,
@@ -274,7 +273,7 @@ function rowBadge(item: Schema<'StudentContentItem'>) {
                         v-if="item.dueAt && !item.isLocked"
                         class="text-muted-foreground text-[12px] whitespace-nowrap"
                       >
-                        {{ personalDueLabel(item) || dueLabel(item) }}
+                        {{ nextDueLabel(item) }}
                       </span>
                     </span>
                     <PhCaretRight class="text-muted-foreground size-4 shrink-0"/>

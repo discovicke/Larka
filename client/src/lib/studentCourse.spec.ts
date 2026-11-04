@@ -1,7 +1,15 @@
 import {describe, expect, it} from 'vitest'
 
 import type {Schema} from '@/lib/api'
-import {dueStatus, isFinished, isModuleComplete, openableParts, resubmitLabel, sectionsFor} from '@/lib/studentCourse'
+import {
+  dueStatus,
+  isFinished,
+  isModuleComplete,
+  nextDueLabel,
+  openableParts,
+  resubmitLabel,
+  sectionsFor,
+} from '@/lib/studentCourse'
 import {deadlineState} from '@/test/deadline'
 
 type Item = Schema<'StudentContentItem'>
@@ -172,5 +180,44 @@ describe('dueStatus', () => {
 
   it('kallar en del utan deadline kvar försenad', () => {
     expect(dueStatus(item('x', {type: 'Theory', dueAt: passed}))).toBe('deadline.overdue')
+  })
+})
+
+describe('nextDueLabel', () => {
+  const passed = '2020-01-01T10:00:00Z'
+  const later = '2999-01-01T10:00:00Z'
+
+  it('visar huvuddeadlinen så länge den gäller', () => {
+    const open = item('m', {type: 'Assignment', dueAt: later, deadline: deadlineState({nextDeadline: later})})
+    expect(nextDueLabel(open)).toMatch(/^Deadline /)
+  })
+
+  it('visar elevens nästa deadline när huvuddeadlinen har passerat', () => {
+    const personal = item('p', {
+      type: 'Assignment',
+      dueAt: passed,
+      personalDueAt: later,
+      deadline: deadlineState({nextDeadline: '2999-01-01T10:00:00+00:00'}),
+    })
+    const resubmit = item('r', {
+      type: 'Assignment',
+      dueAt: passed,
+      resubmitDueAt: [later],
+      deadline: deadlineState({nextDeadline: later}),
+    })
+
+    expect(nextDueLabel(personal)).toMatch(/^Din deadline /)
+    expect(nextDueLabel(resubmit)).toMatch(/^Kompletteringsdeadline /)
+  })
+
+  it('visar huvuddeadlinen för en inlämnad del, som inte har någon deadline kvar att hålla', () => {
+    const submitted = item('s', {
+      type: 'Assignment',
+      dueAt: passed,
+      personalDueAt: later,
+      submissionStatus: 'Submitted',
+      deadline: deadlineState({nextDeadline: later}),
+    })
+    expect(nextDueLabel(submitted)).toMatch(/^Deadline /)
   })
 })

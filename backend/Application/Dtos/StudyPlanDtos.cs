@@ -2,9 +2,14 @@ using Backend.Domain.Enums;
 
 namespace Backend.Application.Dtos;
 
-/// <summary>Elevens studieplan: poängen hen klarat av och kurserna hen läser.</summary>
+/// <summary>
+/// Elevens studieplan och kurserna hen läser. CompletedPoints är poängen för avslutade kurser med godkänt kursbetyg
+/// (G eller VG), och EndedPoints poängen för alla avslutade kurser, oavsett betyg. Kursbetyg finns inte i modellen
+/// än, så CompletedPoints är 0 tills de gör det.
+/// </summary>
 public record StudyPlanDto(
     int CompletedPoints,
+    int EndedPoints,
     int TotalPoints,
     List<StudyPlanCourseDto> Courses);
 

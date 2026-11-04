@@ -166,6 +166,42 @@ export function dueLabel(item: Item): string {
     : ''
 }
 
+// Samma tidpunkt, oavsett hur backend skrivit tidszonen.
+function sameInstant(first: string, second: string): boolean {
+  return new Date(first).getTime() === new Date(second).getTime()
+}
+
+/**
+ * Vilken av elevens deadlines som gäller nu: huvuddeadlinen, elevens egen eller en kompletteringsdeadline.
+ * Klar eller inlämnad och utan deadline kvar gäller huvuddeadlinen.
+ */
+export function nextDueKind(item: Item): 'main' | 'personal' | 'resubmit' {
+  const next = item.deadline?.nextDeadline
+  if (!item.dueAt || !next || isDone(item) || sameInstant(next, item.dueAt)) {
+    return 'main'
+  }
+  return item.personalDueAt && sameInstant(next, item.personalDueAt)
+    ? 'personal'
+    : 'resubmit'
+}
+
+/**
+ * Deadlinen bredvid läget (dueStatus), så att datumet och "Deadline snart" gäller samma deadline. Har
+ * huvuddeadlinen passerat och eleven har en deadline kvar visas den: "Din deadline …" eller
+ * "Kompletteringsdeadline …".
+ */
+export function nextDueLabel(item: Item): string {
+  const next = item.deadline?.nextDeadline
+  switch (nextDueKind(item)) {
+    case 'personal':
+      return `Din deadline ${formatDate(next!, true)}`
+    case 'resubmit':
+      return `Kompletteringsdeadline ${formatDate(next!, true)}`
+    default:
+      return dueLabel(item)
+  }
+}
+
 /** "Kompletteringar: 15 nov 23:59, 29 nov 23:59", tom om delen saknar kompletteringsdeadlines. */
 export function resubmitLabel(item: Pick<Item, 'resubmitDueAt'>): string {
   return item.resubmitDueAt.length > 0

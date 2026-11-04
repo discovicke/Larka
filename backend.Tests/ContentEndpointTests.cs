@@ -75,6 +75,31 @@ public class ContentEndpointTests(TestWebApplicationFactory factory) : IClassFix
         Assert.Equal(PlaceholderIds.UserId, content.AuthorId);
     }
 
+    [Theory]
+    [InlineData(201, 10, "title can be at most 200 characters")]
+    [InlineData(10, 100_001, "the text can be at most 100000 characters")]
+    public async Task CreateAndUpdateContent_LongerThanTheLimits_ReturnBadRequest(
+        int titleLength, int bodyLength, string error)
+    {
+        var tooLong = new
+        {
+            type = "theory",
+            title = new string('t', titleLength),
+            bodyMd = new string('b', bodyLength)
+        };
+        var (groupId, _) = await AddGroupWithCourseAsync();
+        var content = await CreateTheoryAsync("Kort");
+        await LinkToGroupAsync(content.Id, groupId);
+
+        var created = await _client.PostAsJsonAsync("/api/content", tooLong);
+        var updated = await _client.PutAsJsonAsync($"/api/content/{content.Id}", tooLong);
+
+        Assert.Equal(HttpStatusCode.BadRequest, created.StatusCode);
+        Assert.Contains(error, await created.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.BadRequest, updated.StatusCode);
+        Assert.Contains(error, await updated.Content.ReadAsStringAsync());
+    }
+
     [Fact]
     public async Task CreateContent_WithUnknownType_ReturnsBadRequest()
     {

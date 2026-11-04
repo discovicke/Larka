@@ -111,6 +111,24 @@ describe('CalendarView', () => {
     expect(chipTexts(wrapper, '2026-10-23')[0]).toContain('Din deadline')
   })
 
+  it('skiljer deadlinetyperna åt med ikon och etikett också i månadsvyn', async () => {
+    backend({calendar: [
+      item('l1', 'Release-pipeline', local(10, 21), {kind: 'Deadline'}),
+      item('l1', 'Release-pipeline', local(10, 22, 12, 0), {kind: 'ResubmitDeadline'}),
+      item('l1', 'Release-pipeline', local(10, 23), {kind: 'PersonalDeadline'}),
+    ]})
+    const {wrapper} = await renderApp('/calendar')
+    await wrapper.findAll('[role="tab"]')[1].trigger('click')
+    await flushPromises()
+
+    const chip = (key: string) => wrapper.find(`[data-test="day-${key}"] [data-test="calendar-chip"]`)
+    expect(chip('2026-10-21').find('[data-test="chip-icon-Deadline"]').exists()).toBe(true)
+    expect(chip('2026-10-22').find('[data-test="chip-icon-ResubmitDeadline"]').exists()).toBe(true)
+    expect(chip('2026-10-23').find('[data-test="chip-icon-PersonalDeadline"]').exists()).toBe(true)
+    expect(chip('2026-10-23').attributes('title')).toBe('Din deadline')
+    expect(chip('2026-10-23').find('[data-test="chip-label"]').text()).toContain('Din deadline')
+  })
+
   it('hämtar veckans intervall och nästa vecka när man bläddrar', async () => {
     backend({calendar: thisWeek})
     const {wrapper} = await renderApp('/calendar')

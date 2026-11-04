@@ -25,6 +25,11 @@ public static class UserEndpoints
             async (Guid id, UpdateUserRoleDto roleDto, UserService service, CancellationToken ct) =>
                 (await service.UpdateRoleAsync(id, roleDto, ct)).ToHttp(user => TypedResults.Ok(user)));
 
+        // Bara admin, inte det egna lösenordet (409) och minst 8 tecken (400).
+        users.MapPost("/{id:guid}/password",
+            async (Guid id, SetUserPasswordDto passwordDto, UserService service, CancellationToken ct) =>
+                (await service.SetPasswordAsync(id, passwordDto, ct)).ToHttp(user => TypedResults.Ok(user)));
+
         // Spärrar och återaktiverar. Bara admin, och inte sig själv (409).
         users.MapPost("/{id:guid}/deactivate", async (Guid id, UserService service, CancellationToken ct) =>
             (await service.DeactivateAsync(id, ct)).ToHttp(user => TypedResults.Ok(user)));

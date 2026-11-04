@@ -28,16 +28,22 @@ const plan = ref<StudyPlan | null>(null)
 const openFeedback = ref<string | null>(null)
 
 const courses = computed(() => plan.value?.courses ?? [])
-const current = computed(() => courses.value.find((course) => course.status === 'Ongoing'))
+const ongoing = computed(() => courses.value.filter((course) => course.status === 'Ongoing'))
 const next = computed(() => courses.value.find((course) => course.status === 'Upcoming'))
 const assignmentCourses = computed(() => courses.value.filter((course) =>
   course.status === 'Ongoing' && course.assignments.length > 0))
 
+// Bara ett godkänt kursbetyg gör poängen avklarade. Kursbetyg finns inte än, och då visar rutan i stället
+// poängen för avslutade kurser och säger det, i stället för att kalla dem avklarade (#516).
+const hasCourseGrades = computed(() => courses.value.some((course) => course.grade))
+const pointsTile = computed(() => hasCourseGrades.value
+  ? {label: 'Avklarade poäng', points: plan.value?.completedPoints ?? 0}
+  : {label: 'Avslutade kurser', points: plan.value?.endedPoints ?? 0})
+
 const progress = computed(() => {
   const total = plan.value?.totalPoints ?? 0
-  const completed = plan.value?.completedPoints ?? 0
   return total > 0
-    ? Math.min(100, Math.round((completed / total) * 100))
+    ? Math.min(100, Math.round((pointsTile.value.points / total) * 100))
     : 0
 })
 
@@ -111,7 +117,7 @@ load()
   <div class="flex flex-col gap-5">
     <header class="flex flex-col gap-1">
       <h1 class="font-heading text-[30px] leading-tight font-semibold">Studieplan och betyg</h1>
-      <p class="text-muted-foreground">Dina kurser, poängen du klarat av och betygen på kursdelarna.</p>
+      <p class="text-muted-foreground">Dina kurser, poängen och betygen på kursdelarna.</p>
     </header>
 
     <Alert v-if="error" variant="destructive">
@@ -136,9 +142,9 @@ load()
       <div class="grid grid-cols-[repeat(auto-fit,minmax(min(220px,100%),1fr))] gap-3">
         <Card size="sm" class="gap-2 py-4">
           <CardHeader class="gap-1 px-4">
-            <CardDescription class="text-[13px]">Avklarade poäng</CardDescription>
+            <CardDescription class="text-[13px]" data-test="points-label">{{ pointsTile.label }}</CardDescription>
             <CardTitle class="text-2xl font-semibold">
-              {{ plan?.completedPoints ?? 0 }} p
+              {{ pointsTile.points }} p
               <span class="text-muted-foreground text-sm font-normal">av {{ plan?.totalPoints ?? 0 }} p</span>
             </CardTitle>
           </CardHeader>
@@ -152,14 +158,25 @@ load()
         <Card size="sm" class="gap-1 py-4">
           <CardHeader class="gap-1 px-4">
             <CardDescription class="text-[13px]">Pågår nu</CardDescription>
-            <CardTitle class="text-xl font-semibold">
-              {{ current
-                ? titleWithPoints(current)
-                : '–' }}
-            </CardTitle>
-            <CardDescription v-if="current?.endsOn" class="text-[13px]">
-              Slutar {{ shortDate(current.endsOn) }}
-            </CardDescription>
+            <template v-if="ongoing.length <= 1">
+              <CardTitle class="text-xl font-semibold">
+                {{ ongoing[0]
+                  ? titleWithPoints(ongoing[0])
+                  : '–' }}
+              </CardTitle>
+              <CardDescription v-if="ongoing[0]?.endsOn" class="text-[13px]">
+                Slutar {{ shortDate(ongoing[0].endsOn) }}
+              </CardDescription>
+            </template>
+            <!-- Flera kurser samtidigt: alla listas, var och en med sitt slutdatum. -->
+            <ul v-else class="flex flex-col gap-1" data-test="ongoing-courses">
+              <li v-for="course in ongoing" :key="course.courseId" class="flex flex-col">
+                <span class="font-semibold">{{ titleWithPoints(course) }}</span>
+                <span v-if="course.endsOn" class="text-muted-foreground text-[13px]">
+                  Slutar {{ shortDate(course.endsOn) }}
+                </span>
+              </li>
+            </ul>
           </CardHeader>
         </Card>
 

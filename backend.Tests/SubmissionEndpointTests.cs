@@ -5,6 +5,7 @@ using Backend.Application.Results;
 using Backend.Application.Services;
 using Backend.Domain.Enums;
 using Backend.Infrastructure.Persistence;
+using Backend.Infrastructure.Persistence.Configurations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -38,7 +39,7 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
         int ChecksPassed = 0,
         int ChecksTotal = 0);
 
-    private record GradeResponse(string? Level, string Feedback);
+    private record GradeResponse(string? Level, string Feedback, string? GradedByName = null);
 
     private record SupportResponse(
         bool NotStarted,
@@ -829,6 +830,20 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
     }
 
     [Fact]
+    public async Task Submit_TextLongerThanTheLimit_ReturnsBadRequest_AndSavesNothing()
+    {
+        var (groupId, _) = await AddGroupAsync(students: 0);
+        var assignment = await _client.CreateAssignmentAsync(new { submissionModes = new[] { "text" } });
+        var linkId = (await _client.CreateLinkAsync(assignment, new { groupId })).Id;
+
+        var response = await PostSubmissionAsync(linkId, new string('a', 50_001));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("the answer can be at most 50000 characters", await response.Content.ReadAsStringAsync());
+        Assert.DoesNotContain(await ListAsync(linkId), submission => submission.Status == "Submitted");
+    }
+
+    [Fact]
     public async Task Submit_TextAssignment_WithFiles_ReturnsBadRequest()
     {
         var (groupId, _) = await AddGroupAsync(students: 0);
@@ -911,6 +926,28 @@ public class SubmissionEndpointTests(TestWebApplicationFactory factory) : IClass
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("Fail", (await response.Content.ReadFromJsonAsync<SubmissionResponse>())!.Grade!.Level);
+    }
+
+    [Fact]
+    public async Task Grade_TellsWhoGradedIt_InTheGradeAndInTheList()
+    {
+        var (groupId, _) = await AddGroupAsync(students: 0);
+        var assignment = await _client.CreateAssignmentAsync(
+            new { submissionModes = new[] { "file" }, gradeScale = "passFail" });
+        var linkId = (await _client.CreateLinkAsync(assignment, new { groupId })).Id;
+        var submitted = await SubmitAsync(linkId);
+        string graderName;
+        using (var scope = factory.Services.CreateScope())
+        {
+            graderName = (await scope.ServiceProvider.GetRequiredService<AppDb>().Users
+                .SingleAsync(user => user.Id == PlaceholderIds.UserId)).Name;
+        }
+
+        var response = await _client.PostAsJsonAsync($"/api/submissions/{submitted.Id}/grade",
+            new { level = "pass", feedback = "Bra." });
+
+        Assert.Equal(graderName, (await response.Content.ReadFromJsonAsync<SubmissionResponse>())!.Grade!.GradedByName);
+        Assert.Equal(graderName, (await ListAsync(linkId)).Single().Grade!.GradedByName);
     }
 
     [Fact]

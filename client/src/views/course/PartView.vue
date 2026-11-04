@@ -13,6 +13,7 @@ import {Skeleton} from '@/components/ui/skeleton'
 import {useCrumbLabels} from '@/composables/useCrumbLabels'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {useFlash} from '@/composables/useFlash'
+import {isNoAccess, useNoAccess} from '@/composables/useNoAccess'
 import {errorMessage, type Schema} from '@/lib/api'
 import {parseChecklist} from '@/lib/checklist'
 import {formatDate, partOf} from '@/lib/content'
@@ -28,6 +29,7 @@ const route = useRoute()
 const router = useRouter()
 const {setCrumbLabel} = useCrumbLabels()
 const {me, can, status, loadMe} = useCurrentUser()
+const {leave} = useNoAccess()
 
 // Besked från sidan man kom från, till exempel att en bedömning är sparad.
 const notice = ref(useFlash().takeFlash())
@@ -157,7 +159,12 @@ async function load(showSkeleton = true) {
     ])
     content.value = loadedContent
     submissions.value = loadedSubmissions
-  } catch {
+  } catch (exception) {
+    // En kurs eller del som användaren inte får läsa: till Idag, som andra sidor hen inte får öppna.
+    if (isNoAccess(exception)) {
+      await leave()
+      return
+    }
     error.value = 'Kunde inte hämta delen.'
   } finally {
     loading.value = false

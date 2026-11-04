@@ -46,12 +46,15 @@ public class StudyPlanService(
             courseDtos.Add(await ToDtoAsync(studentCourse, studentId, now, today, ct));
         }
 
-        var completedPoints = courseDtos
-            .Where(course => course.Status == StudyPlanCourseStatus.Completed)
+        // En avslutad kurs är inte klarad: bara ett godkänt kursbetyg ger poängen (#516).
+        var ended = courseDtos.Where(course => course.Status == StudyPlanCourseStatus.Completed).ToList();
+        var completedPoints = ended
+            .Where(course => course.Grade is GradeLevel.Pass or GradeLevel.Distinction)
             .Sum(course => course.Points ?? 0);
+        var endedPoints = ended.Sum(course => course.Points ?? 0);
         var totalPoints = courseDtos.Sum(course => course.Points ?? 0);
 
-        return new StudyPlanDto(completedPoints, totalPoints, courseDtos);
+        return new StudyPlanDto(completedPoints, endedPoints, totalPoints, courseDtos);
     }
 
     private async Task<StudyPlanCourseDto> ToDtoAsync(

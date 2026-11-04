@@ -20,9 +20,11 @@ import {
 import {Input} from '@/components/ui/input'
 import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
 import {RadioGroup, RadioGroupItem} from '@/components/ui/radio-group'
+import TextLimitNote from '@/components/TextLimitNote.vue'
 import type {Schema} from '@/lib/api'
 import {partTypes} from '@/lib/content'
 import {type ContentForm, type FormErrors, isAssignment, isGraded, maxResubmitDueAt} from '@/lib/createContent'
+import {textLimits} from '@/lib/textLimits'
 
 // Delens fält som inte rör GitHub: typ, grundinfo och sättet att lämna in. Formuläret, felen och
 // listan med inlämningssätt ägs av vyn runtom.
@@ -96,12 +98,19 @@ function toggleMode(mode: Schema<'SubmissionMode'>, checked: boolean) {
     <h2 class="text-base">Grundinfo</h2>
     <Field :data-invalid="!!errors.title">
       <FieldLabel for="title">Titel</FieldLabel>
-      <Input id="title" v-model="form.title" :aria-invalid="!!errors.title"/>
+      <Input
+        id="title"
+        v-model="form.title"
+        :maxlength="textLimits.title"
+        :aria-invalid="!!errors.title"
+      />
       <FieldError v-if="errors.title">{{ errors.title }}</FieldError>
     </Field>
-    <Field>
+    <Field :data-invalid="!!errors.bodyMd">
       <FieldLabel for="description">Beskrivning</FieldLabel>
       <MarkdownEditor id="description" v-model="form.bodyMd" label="Beskrivning"/>
+      <TextLimitNote v-if="!errors.bodyMd" :text="form.bodyMd" :max="textLimits.contentBody"/>
+      <FieldError v-else>{{ errors.bodyMd }}</FieldError>
     </Field>
     <div class="grid grid-cols-[repeat(auto-fit,minmax(min(200px,100%),1fr))] gap-4">
       <Field>

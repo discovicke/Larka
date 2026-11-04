@@ -135,6 +135,24 @@ describe('TeacherToday', () => {
     expect(row.find('[role="progressbar"]').attributes('aria-valuenow')).toBe('25')
   })
 
+  it('visar kompletteringsdeadlines och elevers egna deadlines med vilka de gäller', async () => {
+    const testplan = full.deadlines[0]!
+    backend({
+      ...full,
+      deadlines: [
+        {...testplan, kind: 'ResubmitDeadline', submitted: 0, students: 2},
+        {...testplan, dueAt: local(10, 24, 23, 59), kind: 'PersonalDeadline', submitted: 0, students: 1},
+      ],
+    })
+
+    const {wrapper} = await renderApp('/')
+
+    const rows = wrapper.findAll('[data-test="deadline-item"]')
+    expect(rows.map((row) => row.find('[data-test="deadline-audience"]').text()))
+      .toEqual(['Kompletteringsdeadline · 2 elever', 'Egen deadline · 1 elev'])
+    expect(rows[0].find('[role="progressbar"]').exists()).toBe(false)
+  })
+
   it('visar schemalagda veckor och delar', async () => {
     backend()
 

@@ -1,6 +1,7 @@
 import type {Schema} from '@/lib/api'
 import type {PartType} from '@/lib/content'
 import {isoOrNull} from '@/lib/form'
+import {isTooLong, textLimitNote, textLimits} from '@/lib/textLimits'
 
 type SubmissionMode = Schema<'SubmissionMode'>
 
@@ -35,7 +36,7 @@ export interface ContentForm {
 }
 
 export type FormErrors = Partial<Record<
-  'title' | 'dueAt' | 'resubmitDueAt' | 'templateRepo' | 'repoNamePattern' | 'groups' | 'requirements',
+  'title' | 'bodyMd' | 'dueAt' | 'resubmitDueAt' | 'templateRepo' | 'repoNamePattern' | 'groups' | 'requirements',
   string
 >>
 
@@ -102,6 +103,9 @@ export function validate(
   const errors: FormErrors = {}
   if (!form.title.trim()) {
     errors.title = 'Ange en titel.'
+  }
+  if (isTooLong(form.bodyMd, textLimits.contentBody)) {
+    errors.bodyMd = textLimitNote(form.bodyMd, textLimits.contentBody).message
   }
   const publishAt = form.publishAt
     ? new Date(form.publishAt)

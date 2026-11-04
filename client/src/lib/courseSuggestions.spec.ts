@@ -7,6 +7,7 @@ import {
   suggestCourseCode,
   suggestCourseTitle,
   suggestNewCourseCode,
+  termCode,
 } from './courseSuggestions'
 
 describe('abbreviateCourseTitle', () => {
@@ -60,6 +61,32 @@ describe('suggestCourseCode', () => {
 
   it('ersätter mellanslag i klassens namn', () => {
     expect(suggestCourseCode('Klass 27', 'A_B')).toBe('Klass_27_B')
+  })
+
+  it('lägger till terminen när kursen går igen i samma klass', () => {
+    expect(suggestCourseCode('TE24A', 'TE24A_Webb1', ['TE24A_Webb1'], '2026-08-17')).toBe('TE24A_Webb1_HT26')
+    expect(suggestCourseCode('TE24A', 'TE24A_Webb1', ['te24a_webb1'], '2027-01-11')).toBe('TE24A_Webb1_VT27')
+  })
+
+  it('lägger till ett löpnummer utan startdatum eller när terminen också är tagen', () => {
+    expect(suggestCourseCode('TE24A', 'TE24A_Webb1', ['TE24A_Webb1'])).toBe('TE24A_Webb1_2')
+    expect(suggestCourseCode('TE24A', 'TE24A_Webb1', ['TE24A_Webb1', 'TE24A_Webb1_2'])).toBe('TE24A_Webb1_3')
+    expect(suggestCourseCode('TE24A', 'TE24A_Webb1', ['TE24A_Webb1', 'TE24A_Webb1_HT26'], '2026-08-17'))
+      .toBe('TE24A_Webb1_HT26_2')
+  })
+
+  it('utgår från kursdelen när källan själv har en termin eller ett löpnummer', () => {
+    expect(suggestCourseCode('TE25A', 'TE24A_Webb1_HT26', ['TE24A_Webb1_HT26'])).toBe('TE25A_Webb1')
+    expect(suggestCourseCode('TE24A', 'TE24A_Webb1_2', ['TE24A_Webb1', 'TE24A_Webb1_2'], '2027-01-11'))
+      .toBe('TE24A_Webb1_VT27')
+  })
+})
+
+describe('termCode', () => {
+  it('räknar juli till december som hösttermin och resten som vårtermin', () => {
+    expect(termCode('2026-07-01')).toBe('HT26')
+    expect(termCode('2026-12-31')).toBe('HT26')
+    expect(termCode('2027-06-30')).toBe('VT27')
   })
 })
 

@@ -306,7 +306,59 @@ export interface paths {
                 };
             };
         };
-        put?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateSchoolDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SchoolDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
         post?: never;
         delete?: never;
         options?: never;
@@ -712,6 +764,74 @@ export interface paths {
             };
         };
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/users/{id}/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetUserPasswordDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["UserDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -5139,16 +5259,152 @@ export interface paths {
                         "application/json": components["schemas"]["CommentDto"];
                     };
                 };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
                 /** @description Not Found */
                 404: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
                 };
             };
         };
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/content/{id}/comments/{commentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    commentId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateCommentDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CommentDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    commentId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -6536,7 +6792,10 @@ export interface components {
             /** Format: date-time */
             at: string;
         };
-        /** @enum {unknown} */
+        /**
+         * @default Deadline
+         * @enum {unknown}
+         */
         CalendarItemKind: "Deadline" | "Publish" | "ResubmitDeadline" | "PersonalDeadline";
         /** @description Vilka punkter i uppgiftens checklista eleven har bockat av (plats från 0). */
         ChecklistDto: {
@@ -6544,6 +6803,10 @@ export interface components {
         };
         /** @enum {unknown} */
         CheckStatus: "Pending" | "Green" | "Red";
+        /**
+         * @description CanEdit och CanDelete gäller den som frågar: författaren ändrar och tar bort sin egen kommentar, och läraren
+         *     på innehållet tar bort vilken kommentar som helst.
+         */
         CommentDto: {
             /** Format: uuid */
             id: string;
@@ -6556,6 +6819,10 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
             authorAvatarUrl?: null | string;
+            /** @default false */
+            canEdit: boolean;
+            /** @default false */
+            canDelete: boolean;
         };
         /** @enum {unknown} */
         CompletionRule: "Submitted" | "Approved";
@@ -6874,6 +7141,7 @@ export interface components {
             feedback: string;
             /** Format: date-time */
             gradedAt: string;
+            gradedByName: null | string;
         };
         /** @enum {unknown} */
         GradeLevel: "Fail" | "Pass" | "Distinction";
@@ -7270,6 +7538,10 @@ export interface components {
         SetStudentHelpDto: {
             message?: null | string;
         };
+        /** @description Ett nytt lösenord som admin sätter, till exempel ett tillfälligt när någon har glömt sitt. */
+        SetUserPasswordDto: {
+            password: string;
+        };
         /**
          * @description En förutsättning som eleven saknar. Title är null när förutsättningen inte är publicerad än,
          *     så att ett utkast inte läcker sin titel.
@@ -7458,10 +7730,16 @@ export interface components {
         };
         /** @enum {unknown} */
         StudyPlanCourseStatus: "Upcoming" | "Ongoing" | "Completed";
-        /** @description Elevens studieplan: poängen hen klarat av och kurserna hen läser. */
+        /**
+         * @description Elevens studieplan och kurserna hen läser. CompletedPoints är poängen för avslutade kurser med godkänt kursbetyg
+         *     (G eller VG), och EndedPoints poängen för alla avslutade kurser, oavsett betyg. Kursbetyg finns inte i modellen
+         *     än, så CompletedPoints är 0 tills de gör det.
+         */
         StudyPlanDto: {
             /** Format: int32 */
             completedPoints: number;
+            /** Format: int32 */
+            endedPoints: number;
             /** Format: int32 */
             totalPoints: number;
             courses: components["schemas"]["StudyPlanCourseDto"][];
@@ -7525,7 +7803,11 @@ export interface components {
             /** Format: date */
             endsOn: null | string;
         };
-        /** @description En publicerad uppgift med deadline de närmaste två veckorna. */
+        /**
+         * @description En deadline de närmaste två veckorna för en publicerad uppgift. Kind är Deadline (uppgiftens egen, med
+         *     inlämnade av elever), ResubmitDeadline (Students är elever med komplettering begärd) eller PersonalDeadline
+         *     (Students är elever med den egna deadlinen). Submitted gäller bara Deadline.
+         */
         TeachingDeadlineDto: {
             /** Format: uuid */
             linkId: string;
@@ -7539,6 +7821,7 @@ export interface components {
             submitted: number;
             /** Format: int32 */
             students: number;
+            kind?: components["schemas"]["CalendarItemKind"];
         };
         /**
          * @description Lärarens Idag-sida: inlämningar att bedöma, deadlines, schemalagda delar och kurserna.
@@ -7671,6 +7954,9 @@ export interface components {
         UpdateAssignmentGroupsDto: {
             groups: components["schemas"]["AssignmentGroupInput"][];
         };
+        UpdateCommentDto: {
+            bodyMd: string;
+        };
         UpdateContentDto: {
             title: string;
             bodyMd: string;
@@ -7724,6 +8010,10 @@ export interface components {
         };
         /** @description Det användaren själv får ändra om sig. Namnet kommer från Microsoft och kan rättas här. */
         UpdateProfileDto: {
+            name: string;
+        };
+        /** @description Skolans nya namn, som inloggningssidan och sidomenyn visar. */
+        UpdateSchoolDto: {
             name: string;
         };
         UpdateUserRoleDto: {

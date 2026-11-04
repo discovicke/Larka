@@ -107,7 +107,7 @@ Auth__FirstAdmin__Email=rektor@skolan.se
 Auth__FirstAdmin__Password=<minst 8 tecken, till exempel openssl rand -base64 18>
 ```
 
-När appen startar och skolan inte har någon admin som kan logga in skapas en admin med adressen och lösenordet (eller så blir en användare med adressen admin). Logga in med dem. Sedan skapar admin klasser och användare och ger dem tillfälliga lösenord under _Lägg till medlem_. Raderna kan ligga kvar, eftersom de inte gör något när skolan redan har en admin, men ta gärna bort lösenordet. En ogiltig adress eller ett för kort lösenord stoppar starten med ett tydligt fel.
+När appen startar och skolan inte har någon admin som kan logga in skapas en admin med adressen och lösenordet (eller så blir en användare med adressen admin). Logga in med dem. Skolan heter först _Placeholder-skolan_: byt namnet under _Inställningar → Skola_. Sedan skapar admin klasser och användare och ger dem tillfälliga lösenord under _Lägg till medlem_. Har någon glömt sitt lösenord, eller skapades utan, sätter admin ett nytt med _Sätt lösenord_ i menyn `⋯` på _Användare_. Raderna kan ligga kvar, eftersom de inte gör något när skolan redan har en admin, men ta gärna bort lösenordet. En ogiltig adress eller ett för kort lösenord stoppar starten med ett tydligt fel.
 
 ## Gör inte
 

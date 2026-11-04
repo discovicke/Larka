@@ -154,7 +154,10 @@ public class SubmissionService(
         }
 
         var studentIds = linkSubmissions.Select(submission => submission.StudentId).ToList();
-        var names = await users.GetNamesAsync(studentIds, ct);
+        var graderIds = linkSubmissions
+            .Where(submission => submission.Grade is not null)
+            .Select(submission => submission.Grade!.GradedById);
+        var names = await users.GetNamesAsync(studentIds.Concat(graderIds).Distinct().ToList(), ct);
         var avatars = await users.GetAvatarUrlsAsync(studentIds, ct);
         var support = await supportStatus.BuildAsync(linkSubmissions, ct);
         var urls = await DownloadUrlsAsync(linkSubmissions, ct);
@@ -166,7 +169,10 @@ public class SubmissionService(
                 support.GetValueOrDefault(submission.Id),
                 urls,
                 avatars.GetValueOrDefault(submission.StudentId),
-                link))
+                link,
+                submission.Grade is null
+                    ? null
+                    : names.GetValueOrDefault(submission.Grade.GradedById)))
             .ToList();
 
         return ServiceResult<List<SubmissionDto>>.Ok(dtos);
@@ -181,11 +187,15 @@ public class SubmissionService(
         var student = await users.GetAsync(submission.StudentId, ct);
         var support = await supportStatus.BuildAsync([submission], ct);
         var linked = await contents.GetLinkWithContentAsync(submission.ContentLinkId, ct);
+        var grader = submission.Grade is null
+            ? null
+            : await users.GetAsync(submission.Grade.GradedById, ct);
         return ToDto(
             submission, student?.Name ?? "", support.GetValueOrDefault(submission.Id),
             await DownloadUrlsAsync([submission], ct),
             AvatarPolicy.UrlFor(submission.StudentId, student?.AvatarKey),
-            linked?.Link);
+            linked?.Link,
+            grader?.Name);
     }
 
     // Filernas länkar skapas här, när inlämningen läses, så de går inte att dela vidare och gälla för alltid. Alla
@@ -206,13 +216,14 @@ public class SubmissionService(
         StudentSupportDto? support,
         IReadOnlyDictionary<string, string> urls,
         string? studentAvatarUrl,
-        ContentLink? link)
+        ContentLink? link,
+        string? gradedByName)
     {
         var files = submission.Files.Select(file => SubmissionFileDto.From(file, urls[file.StorageKey])).ToList();
         var deadline = link is null
             ? null
             : DeadlineStateDto.From(GradingWindow.Of(link, submission, time.GetUtcNow()), submission.Status);
-        return SubmissionDto.From(submission, studentName, files, support, studentAvatarUrl, deadline);
+        return SubmissionDto.From(submission, studentName, files, support, studentAvatarUrl, deadline, gradedByName);
     }
 
     /// <summary>
@@ -263,6 +274,11 @@ public class SubmissionService(
         if (!HasAnswer(modes, dto, files, keptFiles))
         {
             return ServiceResult<SubmissionDto>.Invalid("this assignment needs a text answer or files");
+        }
+
+        if (TextLimits.IsTooLong(dto.BodyMd, TextLimits.SubmissionText))
+        {
+            return ServiceResult<SubmissionDto>.Invalid(TextLimits.SubmissionTextTooLong);
         }
 
         if (submission is null)
@@ -597,6 +613,11 @@ public class SubmissionService(
         if (dto.Level == GradeLevel.Fail && string.IsNullOrWhiteSpace(dto.Feedback))
         {
             return "a fail grade requires a comment";
+        }
+
+        if (TextLimits.IsTooLong(dto.Feedback, TextLimits.Feedback))
+        {
+            return TextLimits.FeedbackTooLong;
         }
 
         return CheckLevel(spec.GradeScale, dto.Level);

@@ -36,6 +36,9 @@ public record GroupMemberDto(Guid UserId, string Name, GroupRole Role, string? A
 
 public record CreateSchoolDto(string Name);
 
+/// <summary>Skolans nya namn, som inloggningssidan och sidomenyn visar.</summary>
+public record UpdateSchoolDto(string Name);
+
 /// <summary>
 /// Microsoft-inloggning för skolan. Configured: appen har Auth:Entra. Linked: skolan tar emot inloggningar från
 /// TenantId, appens tenant.
@@ -46,6 +49,9 @@ public record SchoolMicrosoftDto(bool Configured, bool Linked, string? TenantId)
 public record CreateUserDto(Guid SchoolId, string Name, string Email, UserRole Role, string? Password = null);
 
 public record UpdateUserRoleDto(UserRole Role);
+
+/// <summary>Ett nytt lösenord som admin sätter, till exempel ett tillfälligt när någon har glömt sitt.</summary>
+public record SetUserPasswordDto(string Password);
 
 public record CreateGroupDto(Guid SchoolId, GroupType Type, string Name);
 

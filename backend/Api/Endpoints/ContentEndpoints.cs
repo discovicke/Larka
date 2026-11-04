@@ -67,14 +67,23 @@ public static class ContentEndpoints
             .MapGet("/{id:guid}/comments", async (Guid id, ContentCommentService service, CancellationToken ct) =>
                 TypedResults.Ok(await service.GetCommentsAsync(id, ct)));
 
-        contentGroup.MapPost("/{id:guid}/comments", async Task<Results<Created<CommentDto>, NotFound>> (
+        contentGroup.MapPost("/{id:guid}/comments", async (
             Guid id, CreateCommentDto commentDto, ContentCommentService service, CancellationToken ct) =>
-        {
-            var result = await service.AddCommentAsync(id, commentDto, ct);
-            return result.Status == ResultStatus.Ok
-                ? TypedResults.Created($"/api/content/{id}/comments", result.Value!)
-                : TypedResults.NotFound();
-        });
+            (await service.AddCommentAsync(id, commentDto, ct)).ToHttp(comment =>
+                TypedResults.Created($"/api/content/{id}/comments", comment)));
+
+        // Författaren ändrar sin kommentar. Författaren och läraren på innehållet tar bort den.
+        contentGroup.MapPut("/{id:guid}/comments/{commentId:guid}", async (
+            Guid id,
+            Guid commentId,
+            UpdateCommentDto commentDto,
+            ContentCommentService service,
+            CancellationToken ct) =>
+            (await service.UpdateCommentAsync(id, commentId, commentDto, ct)).ToHttp(TypedResults.Ok));
+
+        contentGroup.MapDelete("/{id:guid}/comments/{commentId:guid}", async (
+            Guid id, Guid commentId, ContentCommentService service, CancellationToken ct) =>
+            (await service.DeleteCommentAsync(id, commentId, ct)).ToHttp(_ => TypedResults.NoContent()));
 
         // Url i svaret är en kortlivad länk som skapas vid varje anrop.
         contentGroup.MapGet("/{id:guid}/attachments", async Task<Results<Ok<List<AttachmentDto>>, NotFound>> (

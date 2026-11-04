@@ -64,7 +64,7 @@ Supabase används när `Url` och `ServiceRoleKey` finns, annars disk när `Stora
 | `Notifications:Job:Enabled`         | nej    | `true`   | Bakgrundsjobbet som skapar notiser för publiceringar och deadlines. |
 | `Notifications:Job:IntervalMinutes` | nej    | `5`      | Hur ofta jobbet körs.                                               |
 
-Jobbet skapar notiser när en publiceringstid har passerat och påminnelser 24 timmar före en deadline. Det som redan har en notis hoppas över, så jobbet kan köras hur ofta som helst. Det är avstängt i testerna.
+Jobbet skapar notiser när en publiceringstid har passerat och påminnelser 24 timmar före en deadline. Påminnelsen gäller elevens nästa deadline som återstår (huvuddeadline, kompletteringsdeadline eller elevens egen) och går till elever som är Inte inlämnad eller Komplettera, en gång per elev och deadline. Uppgifter som bara bedöms på plats och elever som stängt av påminnelserna hoppas över. Det som redan har en notis hoppas över, så jobbet kan köras hur ofta som helst. Det är avstängt i testerna.
 
 ### Körmiljö
 

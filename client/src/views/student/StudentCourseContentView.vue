@@ -8,6 +8,7 @@ import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Skeleton} from '@/components/ui/skeleton'
 import {useCrumbLabels} from '@/composables/useCrumbLabels'
 import {useCurrentUser} from '@/composables/useCurrentUser'
+import {useNoAccess} from '@/composables/useNoAccess'
 import {useToast} from '@/composables/useToast'
 import {api, errorMessage, type Schema} from '@/lib/api'
 import {fetchStudentModules} from '@/lib/modulesApi'
@@ -24,6 +25,7 @@ const router = useRouter()
 const {loadMe} = useCurrentUser()
 const {setCrumbLabel} = useCrumbLabels()
 const {showToast} = useToast()
+const {leave} = useNoAccess()
 const modules = ref<Schema<'StudentModuleWithContentDto'>[]>([])
 const loading = ref(true)
 const error = ref('')
@@ -113,8 +115,9 @@ async function setCompleted(linkId: string, completed: boolean) {
 }
 
 // Den öppna delen bor i adressen (?del=<linkId>), så att notiser och länkar kan peka på den och
-// bakåtknappen fungerar. Okända och låsta delar, eller delar i en vecka som inte öppnat, ignoreras
-// och eleven hamnar i översikten.
+// bakåtknappen fungerar. En låst del ignoreras och eleven hamnar i översikten. En del eleven inte ser
+// (okänd, utkast, schemalagd eller i en vecka som inte öppnat) leder till Idag med samma toast som andra
+// sidor eleven inte får öppna, så att adressen inte avslöjar att delen finns.
 const wantedLinkId = computed(() => typeof route.query.del === 'string'
   ? route.query.del
   : '')
@@ -132,9 +135,14 @@ function syncFromQuery() {
     return
   }
   selectedLinkId.value = ''
-  if (wanted && modules.value.length > 0) {
-    setQuery('')
+  if (!wanted || error.value) {
+    return
   }
+  if (item) {
+    setQuery('')
+    return
+  }
+  void leave()
 }
 
 function setQuery(linkId: string, method: 'push' | 'replace' = 'replace') {

@@ -52,12 +52,13 @@ public record SubmissionDto(
         List<SubmissionFileDto> files,
         StudentSupportDto? support = null,
         string? studentAvatarUrl = null,
-        DeadlineStateDto? deadline = null)
+        DeadlineStateDto? deadline = null,
+        string? gradedByName = null)
     {
         var repo = submission.Repo ?? submission.Group?.Repo;
         var grade = submission.Grade is null
             ? null
-            : GradeDto.From(submission.Grade);
+            : GradeDto.From(submission.Grade, gradedByName);
         var group = submission.Group is null
             ? null
             : AssignmentGroupDto.From(submission.Group);
@@ -163,7 +164,10 @@ public record GitHubCheckRunDto(
     string Status,
     string? Conclusion);
 
-public record GradeDto(Guid GradedById, GradeLevel? Level, string Feedback, DateTimeOffset GradedAt)
+// GradedByName är läraren som satte betyget, så att det syns vem som bedömde även efter ett lärarbyte.
+public record GradeDto(
+    Guid GradedById, GradeLevel? Level, string Feedback, DateTimeOffset GradedAt, string? GradedByName)
 {
-    public static GradeDto From(Grade grade) => new(grade.GradedById, grade.Level, grade.Feedback, grade.GradedAt);
+    public static GradeDto From(Grade grade, string? gradedByName) =>
+        new(grade.GradedById, grade.Level, grade.Feedback, grade.GradedAt, gradedByName);
 }

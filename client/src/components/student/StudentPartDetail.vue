@@ -24,19 +24,20 @@ import {Checkbox} from '@/components/ui/checkbox'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {api, errorMessage, type Schema} from '@/lib/api'
 import {parseChecklist} from '@/lib/checklist'
-import {formatDate, partOf} from '@/lib/content'
+import {partOf} from '@/lib/content'
 import {
-  dueLabel,
   dueStatus,
   gradeScaleLabel,
   kindOf,
+  nextDueKind,
+  nextDueLabel,
   personalDueLabel,
   resubmitLabel,
   rowIcon,
   rowIconClass,
   statusHeading,
 } from '@/lib/studentCourse'
-import {gradeBadgeVariant, gradeLabel, gradeName, handInLabel} from '@/lib/submissions'
+import {gradeBadgeVariant, gradedLabel, gradeLabel, gradeName, handInLabel} from '@/lib/submissions'
 import {fetchLinkSubmissions} from '@/lib/submissionsApi'
 
 // En öppen del: innehåll, checklista, lärarens kommentar och elevens status. Vyn runtom äger
@@ -195,10 +196,14 @@ function handInOf(item: Schema<'StudentContentItem'>): string {
       <div class="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm" data-test="facts">
         <span v-if="part.dueAt" class="flex items-center gap-1.5" data-test="fact-due">
           <PhCalendarBlank class="size-4"/>
-          {{ dueLabel(part) }}
+          {{ nextDueLabel(part) }}
           <StatusBadge v-if="dueStatus(part)" :status="dueStatus(part)!"/>
         </span>
-        <span v-if="personalDueLabel(part)" class="font-medium" data-test="fact-personal-due">
+        <span
+          v-if="personalDueLabel(part) && nextDueKind(part) !== 'personal'"
+          class="font-medium"
+          data-test="fact-personal-due"
+        >
           {{ personalDueLabel(part) }}
         </span>
         <span v-if="resubmitLabel(part)" data-test="fact-resubmit">{{ resubmitLabel(part) }}</span>
@@ -380,10 +385,10 @@ function handInOf(item: Schema<'StudentContentItem'>): string {
                 {{ gradeLabel(feedback.level) }}
               </Badge>
             </div>
-            <p v-if="feedback.feedback" class="text-sm leading-relaxed whitespace-pre-wrap">
+            <p v-if="feedback.feedback" class="text-sm leading-relaxed whitespace-pre-wrap wrap-anywhere">
               {{ feedback.feedback }}
             </p>
-            <p class="text-muted-foreground text-xs">Bedömd {{ formatDate(feedback.gradedAt, true) }}</p>
+            <p class="text-muted-foreground text-xs" data-test="graded-by">{{ gradedLabel(feedback, true) }}</p>
           </section>
 
           <template v-if="part.canMarkDone && !part.isLocked">

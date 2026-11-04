@@ -21,6 +21,7 @@ import {
 import {Field, FieldGroup, FieldLabel} from '@/components/ui/field'
 import {Input} from '@/components/ui/input'
 import {Skeleton} from '@/components/ui/skeleton'
+import TextLimitNote from '@/components/TextLimitNote.vue'
 import {useAsync} from '@/composables/useAsync'
 import {useCourses} from '@/composables/useCourses'
 import {useCurrentUser} from '@/composables/useCurrentUser'
@@ -30,6 +31,7 @@ import {updateCourse as saveCourse} from '@/lib/coursesApi'
 import {periodLabel} from '@/lib/coursePeriod'
 import {initials} from '@/lib/person'
 import {gradeScaleName} from '@/lib/submissions'
+import {isTooLong, textLimits} from '@/lib/textLimits'
 import NotFoundView from '@/views/NotFoundView.vue'
 
 const route = useRoute()
@@ -67,6 +69,7 @@ const pointsText = computed(() => {
 const editOpen = ref(false)
 const titleMissing = ref(false)
 const form = reactive({title: '', description: '', points: '', startsOn: '', endsOn: ''})
+const descriptionTooLong = computed(() => canEditDescription.value && isTooLong(form.description, textLimits.courseDescription))
 
 const {run: fetchStaff, loading, error: staffError} = useAsync(async () => {
   const {data} = await api.GET('/api/courses/{id}/staff', {params: {path: {id: courseId.value}}})
@@ -281,6 +284,7 @@ watch(() => route.hash, scrollToStaff)
                 v-model="form.description"
                 label="Beskrivning"
               />
+              <TextLimitNote :text="form.description" :max="textLimits.courseDescription"/>
             </Field>
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field>
@@ -328,7 +332,7 @@ watch(() => route.hash, scrollToStaff)
             >
               Avbryt
             </Button>
-            <Button type="submit" :disabled="saving">Spara</Button>
+            <Button type="submit" :disabled="saving || descriptionTooLong">Spara</Button>
           </DialogFooter>
         </form>
       </DialogContent>

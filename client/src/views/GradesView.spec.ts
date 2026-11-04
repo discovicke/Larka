@@ -18,8 +18,8 @@ const devops: Schema<'CourseDto'> = {
   endsOn: '2026-11-13',
 }
 
-function planOf(courses: StudyPlanCourse[], completedPoints = 0, totalPoints = 0): StudyPlan {
-  return {completedPoints, totalPoints, courses}
+function planOf(courses: StudyPlanCourse[], completedPoints = 0, totalPoints = 0, endedPoints = completedPoints): StudyPlan {
+  return {completedPoints, endedPoints, totalPoints, courses}
 }
 
 function course(options: Partial<StudyPlanCourse> = {}): StudyPlanCourse {
@@ -119,11 +119,46 @@ describe('GradesView', () => {
     expect(cards[0].text()).toContain('Avslutad')
     expect(cards[0].text()).toContain('Väl godkänd')
     expect(cards[1].text()).toContain('Ej satt')
+    expect(wrapper.find('[data-test="points-label"]').text()).toBe('Avklarade poäng')
     expect(wrapper.text()).toContain('60 p')
     expect(wrapper.text()).toContain('av 85 p')
     expect(wrapper.text()).toContain('Pågår nu')
     expect(wrapper.text()).toContain('DevOps · 25 p')
     expect(wrapper.text()).toContain('Slutar 13 nov')
+  })
+
+  it('kallar inte avslutade kurser utan kursbetyg avklarade', async () => {
+    backend({
+      plan: planOf([
+        course({courseId: 'c1', title: 'Programmering 1', status: 'Completed', points: 100}),
+        course({courseId: 'c2', title: 'Webbutveckling', status: 'Completed', points: 100}),
+      ], 0, 200, 200),
+    })
+
+    const {wrapper} = await renderApp('/grades')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="points-label"]').text()).toBe('Avslutade kurser')
+    expect(wrapper.text()).not.toContain('Avklarade poäng')
+    expect(wrapper.text()).toContain('200 p')
+  })
+
+  it('listar alla kurser som pågår', async () => {
+    backend({
+      plan: planOf([
+        course({courseId: 'c1', title: 'DevOps', status: 'Ongoing', points: 25, endsOn: '2026-11-13'}),
+        course({courseId: 'c2', title: 'Databaser', status: 'Ongoing', points: 20, endsOn: '2026-12-18'}),
+      ], 0, 45),
+    })
+
+    const {wrapper} = await renderApp('/grades')
+    await flushPromises()
+
+    const ongoing = wrapper.find('[data-test="ongoing-courses"]')
+    expect(ongoing.findAll('li')).toHaveLength(2)
+    expect(ongoing.text()).toContain('DevOps · 25 p')
+    expect(ongoing.text()).toContain('Databaser · 20 p')
+    expect(ongoing.text()).toContain('Slutar 18 dec')
   })
 
   it('visar betyg på kursdelar och fäller ut återkopplingen', async () => {

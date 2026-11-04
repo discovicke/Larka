@@ -79,7 +79,7 @@ function makeSubmission(id: string, studentId: string, status: string, extra: Re
 const graded = makeSubmission('s1', 'u1', 'Graded', {
   submittedAt: '2026-10-20T10:00:00Z',
   repo,
-  grade: {gradedById: 'u0', level: 'Pass', feedback: 'Bra jobbat', gradedAt: '2026-10-24T09:00:00Z'},
+  grade: {gradedById: 'u0', level: 'Pass', feedback: 'Bra jobbat', gradedAt: '2026-10-24T09:00:00Z', gradedByName: 'Tomas Berg'},
 })
 const submitted = makeSubmission('s2', 'u2', 'Submitted', {
   submittedAt: '2026-10-21T10:00:00Z',
@@ -148,6 +148,26 @@ function rowNames(wrapper: Awaited<ReturnType<typeof renderApp>>['wrapper']): st
 }
 
 describe('PartView', () => {
+  // #518: en del i en kurs användaren inte får läsa (en annan klass kurs, eller en kurs läraren tagits bort från).
+  it.each([403, 404])('leder till Idag med en toast när kursens veckor svarar %i', async (status) => {
+    mockApi((_method, path) => {
+      if (path === '/api/me') {
+        return {status: 200, body: meAs('Teacher', [])}
+      }
+      if (path === '/api/courses/c9/modules') {
+        return {status, body: 'nej'}
+      }
+      return {status: 200, body: []}
+    })
+
+    const {wrapper, router} = await renderApp('/courses/c9/parts/l1')
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('today')
+    expect(wrapper.find('[data-test="toast"]').text()).toContain('Du har inte behörighet till den sidan.')
+    expect(wrapper.text()).not.toContain('Kunde inte hämta delen.')
+  })
+
   it('läraren får Bedöm', async () => {
     backend()
 
@@ -279,7 +299,7 @@ describe('PartView', () => {
     expect(rows[2].text()).toContain('9/12')
     expect(rows[2].text()).toContain('14')
     expect(rows[1].text()).toContain('Komplettera')
-    expect(rows[2].text()).toContain('Bedömd')
+    expect(rows[2].text()).toContain('Bedömd av Tomas Berg')
     expect(rows[2].text()).toContain('anna/release-pipeline')
     expect(rows[3].text()).toContain('Inte inlämnad')
   })

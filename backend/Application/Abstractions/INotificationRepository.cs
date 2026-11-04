@@ -33,6 +33,9 @@ public interface INotificationRepository
     /// <summary>Användarna som redan har en notis av den här sorten om innehållet.</summary>
     Task<HashSet<Guid>> GetNotifiedUserIdsAsync(NotificationKind kind, Guid contentId, CancellationToken ct);
 
+    /// <summary>Påminnelserna (DeadlineSoon) om innehållet: vem som fått en och för vilken deadline.</summary>
+    Task<HashSet<(Guid UserId, DateTimeOffset DueAt)>> GetDeadlineRemindersAsync(Guid contentId, CancellationToken ct);
+
     /// <summary>Länkarna till innehållet.</summary>
     Task<List<ContentLink>> GetLinksAsync(Guid contentId, CancellationToken ct);
 
@@ -42,7 +45,10 @@ public interface INotificationRepository
     /// </summary>
     Task<List<LinkedContent>> GetPublishedBetweenAsync(DateTimeOffset since, DateTimeOffset now, CancellationToken ct);
 
-    /// <summary>Synliga uppgifter vars deadline ligger i intervallet (now, until].</summary>
+    /// <summary>
+    /// Synliga uppgifter med en deadline i intervallet (now, until]: huvuddeadlinen, en kompletteringsdeadline
+    /// eller en elevs personliga deadline.
+    /// </summary>
     Task<List<LinkedContent>> GetDeadlinesBetweenAsync(DateTimeOffset now, DateTimeOffset until, CancellationToken ct);
 
     /// <summary>Användarens notiser, de nyaste först.</summary>

@@ -251,6 +251,32 @@ public class CalendarEndpointTests(TestWebApplicationFactory factory) : IClassFi
     }
 
     [Fact]
+    public async Task Teacher_GetsPublishItems_AtTheEffectiveTime_AndNeverForDrafts()
+    {
+        var setup = await AddSetupAsync();
+        var from = StartOfToday();
+        var to = from.AddDays(7);
+        var openWeek = await _client.CreateModuleAsync(setup.CourseId);
+        var laterWeek = await _client.CreateModuleAsync(setup.CourseId, publishAt: from.AddDays(4));
+        var draft = await _client.CreateContentAsync(
+            new { type = "theory", title = "Utkast", bodyMd = "", status = "draft" });
+        await _client.CreateLinkAsync(
+            draft.Id, new { courseId = setup.CourseId, moduleId = openWeek.Id, publishAt = from.AddDays(1) });
+        await _client.CreateTheoryLinkAsync(
+            "Vecka öppnar senare",
+            new { courseId = setup.CourseId, moduleId = laterWeek.Id, publishAt = from.AddDays(-3) });
+        await _client.CreateTheoryLinkAsync(
+            "Del efter veckan",
+            new { courseId = setup.CourseId, moduleId = laterWeek.Id, publishAt = from.AddDays(5) });
+
+        var items = await GetCalendarAsync(setup.TeacherId, from, to);
+
+        Assert.Equal(
+            [("Vecka öppnar senare", from.AddDays(4)), ("Del efter veckan", from.AddDays(5))],
+            items.Where(item => item.Kind == "Publish").Select(item => (item.Title, item.At)));
+    }
+
+    [Fact]
     public async Task Calendar_ShowsTheCourseToItsTeacherOutsideTheClass_AndNotToTheTeacherOfTheClass()
     {
         var setup = await AddSetupAsync();

@@ -6,10 +6,9 @@ using Backend.Domain.Enums;
 namespace Backend.Application.Services;
 
 // Kalendern: deadlines och publiceringstider för användarens grupper och de kurser grupperna läser.
-// Eleven ser bara det som är synligt i elevvyn. Läraren ser också när delarna publiceras.
+// Eleven ser bara det som är synligt i elevvyn. Läraren ser också när publicerade delar blir synliga.
 public class CalendarService(
     IContentRepository contents,
-    IPermissions permissions,
     ICurrentUser currentUser,
     TimeProvider time)
 {
@@ -33,7 +32,7 @@ public class CalendarService(
         var items = new List<CalendarItemDto>();
         foreach (var link in links)
         {
-            var isTeacher = await permissions.CanTeachLinkAsync(link.Link.Id, ct);
+            var isTeacher = link.IsTeacher;
             var isVisible = ContentVisibility.IsVisible(link.Content, link.Link, now)
                 && ContentVisibility.IsModuleAvailable(link.ModulePublishAt, now);
             if (link.Link.DueAt is not null
@@ -60,11 +59,15 @@ public class CalendarService(
                 items.Add(ToItem(link, CalendarItemKind.PersonalDeadline, link.PersonalDueAt.Value));
             }
 
+            // Läraren ser när eleverna får se delen: när både länken och veckan har öppnat. Ett utkast publiceras
+            // inte av sig självt, så det får ingen händelse.
+            var publishAt = EffectivePublishAt(link);
             if (isTeacher
-                && link.Link.PublishAt >= from
-                && link.Link.PublishAt < to)
+                && link.Content.Status == ContentStatus.Published
+                && publishAt >= from
+                && publishAt < to)
             {
-                items.Add(ToItem(link, CalendarItemKind.Publish, link.Link.PublishAt));
+                items.Add(ToItem(link, CalendarItemKind.Publish, publishAt));
             }
         }
 
@@ -74,6 +77,11 @@ public class CalendarService(
                 .ThenBy(item => item.Title)
                 .ToList());
     }
+
+    private static DateTimeOffset EffectivePublishAt(CalendarLink link) =>
+        link.ModulePublishAt is not null && link.ModulePublishAt > link.Link.PublishAt
+            ? link.ModulePublishAt.Value
+            : link.Link.PublishAt;
 
     private static CalendarItemDto ToItem(
         CalendarLink link, CalendarItemKind kind, DateTimeOffset at) =>

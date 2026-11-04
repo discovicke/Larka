@@ -5,6 +5,7 @@ import {RouterLink, type RouteLocationRaw} from 'vue-router'
 import ClassAnalytics from '@/components/analytics/ClassAnalytics.vue'
 import AdminQuickActions from '@/components/today/AdminQuickActions.vue'
 import ClassTimelines from '@/components/today/ClassTimelines.vue'
+import SetPasswordDialog from '@/components/users/SetPasswordDialog.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Skeleton} from '@/components/ui/skeleton'
 import {useAsync} from '@/composables/useAsync'
@@ -25,11 +26,26 @@ const mobileGreeting = computed(() => name.value
   ? `Hej ${name.value}`
   : 'Hej')
 
-// Bara det som fortfarande hör till undervisningen räknas. Lösenord hanteras inte här.
+// Klasserna där någon saknar lösenord. Användare utan klass räknas som en egen rad.
+const passwordClasses = computed(() =>
+  new Set((overview.value?.usersWithoutPassword ?? []).map((user) => user.groupId ?? '')).size)
+
+// Räknas per kurs och per klass, inte per användare: en klass där tolv saknar lösenord är en sak att ordna.
+// Elever utan klass är en sak, eftersom de ordnas på samma ställe.
 const attentionCount = computed(() => (overview.value?.coursesWithoutTeacher.length ?? 0)
   + ((overview.value?.studentsWithoutClass.length ?? 0) > 0
     ? 1
-    : 0))
+    : 0)
+  + passwordClasses.value)
+
+// Sätt lösenord öppnas direkt från listan Kan inte logga in. Sedan hämtas översikten igen, så att raden försvinner.
+const passwordOpen = ref(false)
+const passwordUser = ref<{id: string, name: string}>()
+
+function openSetPassword(user: Schema<'AdminUserWithoutPasswordDto'>) {
+  passwordUser.value = {id: user.userId, name: user.name}
+  passwordOpen.value = true
+}
 
 const summary = computed(() => attentionCount.value === 0
   ? 'Inget behöver ordnas'
@@ -50,6 +66,15 @@ const {run: load, loading, error} = useAsync(async () => {
   overview.value = unwrap(await api.GET('/api/me/admin-overview'))
 })
 const loadFailed = computed(() => error.value !== '')
+
+// Efter ett sparat lösenord hämtas översikten utan skelett, så att sidan står kvar medan raden försvinner.
+async function refresh() {
+  try {
+    overview.value = unwrap(await api.GET('/api/me/admin-overview'))
+  } catch {
+    // Listan står kvar som den var tills sidan laddas om.
+  }
+}
 
 const linkClass = 'inline-flex min-h-11 items-center gap-2 font-medium underline underline-offset-3 decoration-border hover:decoration-foreground'
 
@@ -132,8 +157,53 @@ load()
       </div>
     </section>
 
+    <section
+      v-if="overview.usersWithoutPassword.length"
+      aria-labelledby="a-no-password-heading"
+      class="flex flex-col gap-1.5"
+      data-test="no-password"
+    >
+      <h2 id="a-no-password-heading" class="text-base">Kan inte logga in</h2>
+      <p class="text-muted-foreground text-sm">
+        De här användarna har inget lösenord än. Ge dem ett tillfälligt lösenord.
+      </p>
+      <ul class="flex flex-col">
+        <li
+          v-for="user in overview.usersWithoutPassword"
+          :key="user.userId"
+          class="flex min-h-11 flex-wrap items-center gap-x-3"
+          data-test="no-password-item"
+        >
+          <span class="font-medium">{{ user.name }}</span>
+          <RouterLink
+            v-if="user.groupId"
+            :to="classLink(user.groupId)"
+            class="text-muted-foreground text-sm underline-offset-3 hover:underline"
+          >
+            {{ user.groupName }}
+          </RouterLink>
+          <span v-else class="text-muted-foreground text-sm">Utan klass</span>
+          <button
+            type="button"
+            class="ml-auto inline-flex min-h-11 items-center font-medium underline underline-offset-3 decoration-border hover:decoration-foreground"
+            :data-test="`set-password-${user.userId}`"
+            @click="openSetPassword(user)"
+          >
+            Sätt lösenord
+          </button>
+        </li>
+      </ul>
+    </section>
+
     <p v-if="attentionCount === 0" class="text-muted-foreground text-sm" data-test="admin-all-good">
-      Alla kurser har lärare och alla elever har en klass.
+      Alla kurser har lärare, alla elever har en klass och alla användare kan logga in.
     </p>
+
+    <SetPasswordDialog
+      v-if="passwordUser"
+      v-model:open="passwordOpen"
+      :user="passwordUser"
+      @saved="refresh"
+    />
   </div>
 </template>

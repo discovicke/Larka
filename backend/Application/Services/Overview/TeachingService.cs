@@ -85,19 +85,26 @@ public class TeachingService(
             || (upcoming && !preparedCourseIds.Contains(course.Id));
     }
 
-    // Antalen räknas bland eleverna som deadlinen delas ut till (länkens grupp, annars kursens alla grupper), med
-    // samma regel som veckolistan, så att Idag och delen visar samma tal.
+    // Antalen för uppgiftens egen deadline räknas bland eleverna som deadlinen delas ut till (länkens grupp, annars
+    // kursens alla grupper), med samma regel som veckolistan, så att Idag och delen visar samma tal. En
+    // kompletteringsdeadline och en egen deadline räknar bara eleverna den gäller.
     private async Task<List<TeachingDeadlineDto>> GetDeadlinesAsync(
         DateTimeOffset now, List<Guid> teachingCourseIds, CancellationToken ct)
     {
         var links = await contents.GetCourseDeadlinesAsync(
             teachingCourseIds, now, now.AddDays(_deadlineDays), ct);
-        var counts = await submissions.GetAudienceCountsAsync(links.Select(link => link.LinkId).ToList(), ct);
+        var mainLinkIds = links
+            .Where(link => link.Kind == CalendarItemKind.Deadline)
+            .Select(link => link.LinkId)
+            .ToList();
+        var counts = await submissions.GetAudienceCountsAsync(mainLinkIds, ct);
 
         return links
             .Select(link =>
             {
-                var (submitted, students) = counts.GetValueOrDefault(link.LinkId);
+                var (submitted, students) = link.Kind == CalendarItemKind.Deadline
+                    ? counts.GetValueOrDefault(link.LinkId)
+                    : (0, link.Students);
                 return new TeachingDeadlineDto(
                     link.LinkId,
                     link.Title,
@@ -105,7 +112,8 @@ public class TeachingService(
                     link.CourseTitle,
                     link.DueAt,
                     submitted,
-                    students);
+                    students,
+                    link.Kind);
             })
             .ToList();
     }

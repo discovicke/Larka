@@ -13,6 +13,8 @@ public class SchoolService(
     IUserRepository users,
     IUnitOfWork unitOfWork)
 {
+    private const int _maxNameLength = 200;
+
     public const string NoPasswordAdminMessage =
         "Ge minst en admin ett lösenord först. Annars kan ingen admin logga in när Microsoft är av.";
 
@@ -55,6 +57,32 @@ public class SchoolService(
         schools.Add(school);
         await unitOfWork.SaveChangesAsync(ct);
         return ServiceResult<SchoolDto>.Ok(SchoolDto.From(school));
+    }
+
+    // Admin i skolan byter skolans namn, till exempel en skola utan Microsoft som annars heter som migrationens skola.
+    // Med Microsoft sätts namnet en gång från Auth:Entra:SchoolName, och sedan går det att ändra här.
+    public async Task<ServiceResult<SchoolDto>> UpdateAsync(Guid id, UpdateSchoolDto dto, CancellationToken ct)
+    {
+        var school = await GetOwnAsAdminAsync(id, ct);
+        if (school.Status != ResultStatus.Ok)
+        {
+            return ServiceResult<SchoolDto>.From(school);
+        }
+
+        var name = dto.Name?.Trim() ?? "";
+        if (name.Length == 0)
+        {
+            return ServiceResult<SchoolDto>.Invalid("name is required");
+        }
+
+        if (name.Length > _maxNameLength)
+        {
+            return ServiceResult<SchoolDto>.Invalid("name must be 1 to 200 characters");
+        }
+
+        school.Value!.Name = name;
+        await unitOfWork.SaveChangesAsync(ct);
+        return ServiceResult<SchoolDto>.Ok(SchoolDto.From(school.Value));
     }
 
     // Microsoft-inloggning för skolan. Appens tenant (Auth:Entra) kopplas till skolan, så att inloggningar därifrån

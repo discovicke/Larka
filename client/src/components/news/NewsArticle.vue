@@ -9,6 +9,7 @@ import {
 } from '@phosphor-icons/vue'
 import {computed, ref, watch} from 'vue'
 
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import MarkdownView from '@/components/editor/MarkdownView.vue'
 import EditNewsDialog from '@/components/news/EditNewsDialog.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
@@ -30,6 +31,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import {Skeleton} from '@/components/ui/skeleton'
 import {Textarea} from '@/components/ui/textarea'
+import TextLimitNote from '@/components/TextLimitNote.vue'
 import {useAsync} from '@/composables/useAsync'
 import {useToast} from '@/composables/useToast'
 import {useCurrentUser} from '@/composables/useCurrentUser'
@@ -37,6 +39,7 @@ import {api, type Schema} from '@/lib/api'
 import {deleteContentLink, updateContentLink} from '@/lib/contentApi'
 import {formatDate} from '@/lib/content'
 import {initials} from '@/lib/person'
+import {isTooLong, textLimits} from '@/lib/textLimits'
 
 const props = defineProps<{
   post: Schema<'ContentFeedItem'>
@@ -89,12 +92,64 @@ const {run: sendComment, loading: sending, error: sendError} = useAsync(async (b
   }
   commentBody.value = ''
   showToast('Kommentaren är skickad.')
-}, 'Kunde inte skicka kommentaren.')
-const commentFailed = computed(() => sendError.value !== '')
+})
+const commentTooLong = computed(() => isTooLong(commentBody.value.trim(), textLimits.comment))
+
+// Författaren ändrar sin kommentar på plats. Läraren i kursen och författaren tar bort den.
+const editingId = ref<string | null>(null)
+const editBody = ref('')
+const editTooLong = computed(() => isTooLong(editBody.value.trim(), textLimits.comment))
+const removingComment = ref<Schema<'CommentDto'> | null>(null)
+const removeOpen = computed({
+  get: () => removingComment.value !== null,
+  set: (open: boolean) => {
+    if (!open) {
+      removingComment.value = null
+    }
+  },
+})
+
+const {run: saveEdit, loading: savingEdit, error: editError} = useAsync(async () => {
+  const commentId = editingId.value
+  const bodyMd = editBody.value.trim()
+  if (!commentId || bodyMd === '') {
+    return
+  }
+  const {data} = await api.PUT('/api/content/{id}/comments/{commentId}', {
+    params: {path: {id: props.post.contentId, commentId}},
+    body: {bodyMd},
+  })
+  if (data) {
+    comments.value = comments.value.map((comment) => comment.id === commentId
+      ? data
+      : comment)
+  }
+  editingId.value = null
+  showToast('Kommentaren är ändrad.')
+})
+
+function startEdit(comment: Schema<'CommentDto'>) {
+  editingId.value = comment.id
+  editBody.value = comment.bodyMd
+  editError.value = ''
+}
+
+async function removeComment() {
+  const comment = removingComment.value
+  if (!comment) {
+    return
+  }
+  await api.DELETE('/api/content/{id}/comments/{commentId}', {
+    params: {path: {id: props.post.contentId, commentId: comment.id}},
+  })
+  comments.value = comments.value.filter((kept) => kept.id !== comment.id)
+  showToast('Kommentaren är borttagen.')
+}
 
 async function loadComments(contentId: string) {
   comments.value = []
   sendError.value = ''
+  editingId.value = null
   const loaded = await fetchComments(contentId)
   if (loaded) {
     comments.value = loaded
@@ -103,7 +158,7 @@ async function loadComments(contentId: string) {
 
 async function submitComment() {
   const bodyMd = commentBody.value.trim()
-  if (bodyMd === '') {
+  if (bodyMd === '' || commentTooLong.value) {
     return
   }
 
@@ -237,12 +292,75 @@ watch(() => props.post.linkId, () => {
             />
             <AvatarFallback class="text-xs font-semibold">{{ initials(comment.authorName) }}</AvatarFallback>
           </Avatar>
-          <div class="flex min-w-0 flex-col gap-1">
-            <div class="flex flex-wrap items-baseline gap-1.5">
-              <span class="font-medium">{{ comment.authorName }}</span>
-              <span class="text-muted-foreground text-xs">· {{ formatDate(comment.createdAt, true) }}</span>
+          <div class="flex min-w-0 flex-1 flex-col gap-1">
+            <div class="flex items-start gap-1.5">
+              <div class="flex min-w-0 flex-1 flex-wrap items-baseline gap-1.5">
+                <span class="font-medium break-words">{{ comment.authorName }}</span>
+                <span class="text-muted-foreground text-xs">· {{ formatDate(comment.createdAt, true) }}</span>
+              </div>
+              <DropdownMenu v-if="(comment.canEdit || comment.canDelete) && editingId !== comment.id">
+                <DropdownMenuTrigger as-child>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    class="-mt-1 shrink-0"
+                    aria-label="Fler val för kommentaren"
+                    data-test="comment-menu"
+                  >
+                    <PhDotsThree/>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem v-if="comment.canEdit" data-test="comment-edit" @select="startEdit(comment)">
+                    <PhPencilSimple/>
+                    Redigera
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    v-if="comment.canDelete"
+                    variant="destructive"
+                    class="text-destructive"
+                    data-test="comment-delete"
+                    @select="removingComment = comment"
+                  >
+                    <PhTrash/>
+                    Ta bort
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
-            <p class="text-foreground/80 whitespace-pre-line">{{ comment.bodyMd }}</p>
+            <form
+              v-if="editingId === comment.id"
+              class="flex flex-col gap-2"
+              data-test="comment-edit-form"
+              @submit.prevent="saveEdit()"
+            >
+              <label class="sr-only" :for="`comment-edit-${comment.id}`">Ändra kommentaren</label>
+              <Textarea :id="`comment-edit-${comment.id}`" v-model="editBody" rows="2"/>
+              <TextLimitNote :text="editBody.trim()" :max="textLimits.comment"/>
+              <Alert v-if="editError" variant="destructive">
+                <AlertDescription>{{ editError }}</AlertDescription>
+              </Alert>
+              <div class="flex flex-wrap gap-2">
+                <Button
+                  type="submit"
+                  size="sm"
+                  :disabled="editBody.trim() === '' || editTooLong || savingEdit"
+                  data-test="comment-edit-save"
+                >
+                  Spara
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  :disabled="savingEdit"
+                  @click="editingId = null"
+                >
+                  Avbryt
+                </Button>
+              </div>
+            </form>
+            <p v-else class="text-foreground/80 whitespace-pre-line wrap-anywhere">{{ comment.bodyMd }}</p>
           </div>
         </li>
       </ul>
@@ -255,22 +373,32 @@ watch(() => props.post.linkId, () => {
           placeholder="Skriv en kommentar…"
           rows="2"
         />
+        <TextLimitNote :text="commentBody.trim()" :max="textLimits.comment"/>
         <div class="flex flex-wrap items-center justify-between gap-2">
           <span class="text-muted-foreground text-xs">Synlig för alla i kursen</span>
           <Button
             type="submit"
             size="sm"
-            :disabled="commentBody.trim() === '' || sending"
+            :disabled="commentBody.trim() === '' || commentTooLong || sending"
           >
             Kommentera
           </Button>
         </div>
       </form>
 
-      <Alert v-if="commentFailed" variant="destructive">
-        <AlertDescription>Kunde inte skicka kommentaren.</AlertDescription>
+      <Alert v-if="sendError" variant="destructive">
+        <AlertDescription>{{ sendError }}</AlertDescription>
       </Alert>
     </section>
+
+    <ConfirmDialog
+      v-model:open="removeOpen"
+      title="Ta bort kommentaren?"
+      description="Kommentaren tas bort för alla som läser nyheten."
+      confirm-label="Ta bort"
+      confirm-test="comment-delete-confirm"
+      :action="removeComment"
+    />
 
     <EditNewsDialog v-model:open="editOpen" :post="post" @saved="emit('changed')"/>
 

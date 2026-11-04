@@ -2,7 +2,7 @@ import {flushPromises} from '@vue/test-utils'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 import {testGroup} from '@/test/fixtures'
-import {mockApi} from '@/test/mockApi'
+import {mockApi, sent} from '@/test/mockApi'
 import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
 
@@ -104,9 +104,12 @@ const nothingToDo = {
 }
 
 function backend(options: {me?: ReturnType<typeof meAs>, overview?: unknown, groups?: unknown[], analytics?: unknown, fail?: boolean} = {}) {
-  mockApi((_method, path) => {
+  mockApi((method, path) => {
     if (path === '/api/me') {
       return {status: 200, body: options.me ?? meAs('Admin', [], 'Ada Admin')}
+    }
+    if (method === 'POST' && path === '/api/users/u1/password') {
+      return {status: 200, body: {id: 'u1', schoolId: 's1', name: 'Anna Elev', email: 'anna@example.com', role: 'Student'}}
     }
     if (path === '/api/courses') {
       return {status: 200, body: []}
@@ -149,7 +152,8 @@ describe('AdminToday', () => {
     const dashboard = wrapper.find('[data-test="admin-dashboard"]')
     expect(dashboard.find('h1').text()).toBe('God morgon, Ada')
     expect(dashboard.text()).toContain('Onsdag 21 oktober, vecka 43')
-    expect(dashboard.text()).toContain('2 saker att ordna')
+    // Två kurser utan lärare och två rader utan lösenord: klassen NET26 och användaren utan klass.
+    expect(dashboard.text()).toContain('4 saker att ordna')
     expect(wrapper.find('[data-test="teacher-dashboard"]').exists()).toBe(false)
   })
 
@@ -235,13 +239,43 @@ describe('AdminToday', () => {
     expect(items[1].find('a').attributes('href')).toBe('/courses/c2/content')
   })
 
-  it('visar inte mentor- eller lösenordslistor', async () => {
+  it('visar inte mentorlistan', async () => {
     backend()
 
     const {wrapper} = await renderApp('/')
 
     expect(wrapper.find('[data-test="no-mentor"]').exists()).toBe(false)
-    expect(wrapper.find('[data-test="no-password"]').exists()).toBe(false)
+  })
+
+  // #508: användare utan lösenord syns igen, med Sätt lösenord direkt på raden.
+  it('listar dem som inte kan logga in och sätter ett lösenord från raden', async () => {
+    backend()
+
+    const {wrapper} = await renderApp('/')
+
+    const section = wrapper.find('[data-test="no-password"]')
+    expect(section.find('h2').text()).toBe('Kan inte logga in')
+    expect(section.findAll('[data-test="no-password-item"]').map((item) => item.text().replace(/\s+/g, ' ')))
+      .toEqual([
+        'Anna ElevNET26 Sätt lösenord',
+        'Bo ElevNET26 Sätt lösenord',
+        'Clara LösUtan klass Sätt lösenord',
+      ])
+    expect(section.find('a').attributes('href')).toBe('/groups/g1')
+
+    await section.find('[data-test="set-password-u1"]').trigger('click')
+    await flushPromises()
+    const dialog = document.querySelector('[role="dialog"]') as HTMLElement
+    expect(dialog.textContent).toContain('Sätt lösenord för Anna Elev')
+    const input = dialog.querySelector('[data-test="set-password"]') as HTMLInputElement
+    input.value = 'hemligt123'
+    input.dispatchEvent(new Event('input'))
+    await flushPromises()
+    ;(dialog.querySelector('[data-test="save-password"]') as HTMLElement).click()
+    await flushPromises()
+
+    expect(sent('POST', '/api/users/u1/password')).toEqual({password: 'hemligt123'})
+    expect(wrapper.find('[data-test="toast"]').text()).toContain('Lösenordet är sparat. Ge det till Anna Elev.')
   })
 
   it('säger det när inget behöver ordnas', async () => {

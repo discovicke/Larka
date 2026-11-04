@@ -9,8 +9,8 @@ namespace Backend.Application.Services;
 // Notiser till användarna: skapas när något publiceras eller bedöms, och läses i inkorgen.
 // Metoderna som skapar notiser (Notify...) sparar inte själva. Anroparen sparar i samma transaktion som
 // ändringen som gav notisen. CreateScheduledAsync, som jobbet anropar, sparar däremot själv.
-// En nyhet eller uppgift ger högst en notis per användare (NewsPublished, AssignmentPublished,
-// DeadlineSoon), så att samma sak aldrig dyker upp två gånger.
+// En nyhet eller uppgift ger högst en notis per användare (NewsPublished, AssignmentPublished), och en påminnelse
+// (DeadlineSoon) högst en per användare och deadline, så att samma sak aldrig dyker upp två gånger.
 public class NotificationService(
     INotificationRepository notifications,
     IGroupRepository groups,
@@ -100,7 +100,7 @@ public class NotificationService(
 
     /// <summary>
     /// Det som sker på en klocka: publiceringar vars tid passerat sedan förra gången, och påminnelser till elever
-    /// som inte lämnat in en uppgift med deadline inom 24 timmar. Går att köra när som helst och hur ofta som
+    /// som har en deadline kvar att lämna in till inom 24 timmar (huvud, komplettering eller egen). Går att köra när som helst och hur ofta som
     /// helst, eftersom det som redan har en notis hoppas över. Returnerar antal nya notiser.
     /// </summary>
     public async Task<int> CreateScheduledAsync(CancellationToken ct)
@@ -199,8 +199,9 @@ public class NotificationService(
         return recipients.Count;
     }
 
-    // Eleverna som inte lämnat in och har en deadline inom ett dygn. Har läraren begärt komplettering har eleven
-    // redan fått en notis om det, så de påminns inte igen.
+    // Eleverna vars nästa deadline (GradingWindow.NextDeadline: huvud, komplettering eller egen) ligger inom ett
+    // dygn och som får lämna in till den: Inte inlämnad och Komplettera. En påminnelse per elev och deadline, så
+    // en elev som ska komplettera påminns före kompletteringsdeadlinen även om hen redan fått en före huvuddeadlinen.
     private async Task<int> RemindAboutDeadlinesAsync(
         List<LinkedContent> linked, DateTimeOffset now, CancellationToken ct)
     {
@@ -211,7 +212,7 @@ public class NotificationService(
             return 0;
         }
 
-        var reminded = await notifications.GetNotifiedUserIdsAsync(NotificationKind.DeadlineSoon, content.Id, ct);
+        var reminded = await notifications.GetDeadlineRemindersAsync(content.Id, ct);
         var created = new List<Notification>();
         var studentsByLink = new List<(ContentLink Link, List<Guid> StudentIds)>();
         foreach (var link in linked.Select(item => item.Link))
@@ -225,25 +226,30 @@ public class NotificationService(
         {
             var linkSubmissions = (await submissions.GetByLinkAsync(link.Id, ct))
                 .ToDictionary(submission => submission.StudentId);
-            foreach (var studentId in studentIds)
+            foreach (var studentId in studentIds.Where(studentId => !muted.Contains(studentId)))
             {
-                var hasSubmission = linkSubmissions.TryGetValue(studentId, out var submission);
-                if (hasSubmission && submission!.Status != SubmissionStatus.NotStarted)
+                linkSubmissions.TryGetValue(studentId, out var submission);
+                var status = submission?.Status ?? SubmissionStatus.NotStarted;
+                if (status is not (SubmissionStatus.NotStarted or SubmissionStatus.NeedsWork))
                 {
                     continue;
                 }
 
-                if (!muted.Contains(studentId) && reminded.Add(studentId))
+                var dueAt = GradingWindow.Of(link, submission, now).NextDeadline;
+                if (dueAt is null || dueAt.Value > now + _deadlineWarning || !reminded.Add((studentId, dueAt.Value)))
                 {
-                    created.Add(new Notification
-                    {
-                        UserId = studentId,
-                        Kind = NotificationKind.DeadlineSoon,
-                        ContentId = content.Id,
-                        SubmissionId = submission?.Id,
-                        CreatedAt = now
-                    });
+                    continue;
                 }
+
+                created.Add(new Notification
+                {
+                    UserId = studentId,
+                    Kind = NotificationKind.DeadlineSoon,
+                    ContentId = content.Id,
+                    SubmissionId = submission?.Id,
+                    DueAt = dueAt,
+                    CreatedAt = now
+                });
             }
         }
 

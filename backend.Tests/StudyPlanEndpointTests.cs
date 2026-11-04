@@ -12,7 +12,7 @@ public class StudyPlanEndpointTests(TestWebApplicationFactory factory) : IClassF
 
     private record Setup(Guid SchoolId, Guid GroupId, List<Guid> StudentIds);
 
-    private record PlanResponse(int CompletedPoints, int TotalPoints, List<CourseResponse> Courses);
+    private record PlanResponse(int CompletedPoints, int EndedPoints, int TotalPoints, List<CourseResponse> Courses);
 
     private record CourseResponse(
         Guid CourseId,
@@ -56,7 +56,8 @@ public class StudyPlanEndpointTests(TestWebApplicationFactory factory) : IClassF
 
         var plan = await GetPlanAsync(setup.StudentIds[0]);
 
-        Assert.Equal((20, 80), (plan.CompletedPoints, plan.TotalPoints));
+        // Kursen har slutat men har inget kursbetyg, så poängen är inte avklarade.
+        Assert.Equal((0, 20, 80), (plan.CompletedPoints, plan.EndedPoints, plan.TotalPoints));
         Assert.Equal(
             ["Avslutad kurs", "Pågående kurs", "Kommande kurs", "Kurs utan datum"],
             plan.Courses.Select(course => course.Title));

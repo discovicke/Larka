@@ -299,6 +299,13 @@ function adminBackend({
     if (method === 'POST' && path === '/api/groups') {
       return {status: 201, body: {id: 'g9', ...(body as object), memberCount: 0}}
     }
+    // Den nya klassens sida, som öppnas efter Ny klass.
+    if (method === 'GET' && path === '/api/groups/g9') {
+      return {status: 200, body: {...net25, id: 'g9', name: 'Alfa', memberCount: 0}}
+    }
+    if (method === 'GET' && (path === '/api/groups/g9/courses' || path === '/api/groups/g9/members')) {
+      return {status: 200, body: []}
+    }
     if (method === 'PUT' && path === '/api/groups/g1') {
       return {status: 200, body: {...net25, ...(body as object)}}
     }

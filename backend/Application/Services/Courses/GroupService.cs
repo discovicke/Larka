@@ -39,10 +39,11 @@ public class GroupService(
             .ToList();
     }
 
+    // Samma regel som grupplistan: medlemmar, lärare i en kurs gruppen läser och admin i skolan. Alla andra får 404.
     public async Task<GroupDto?> GetAsync(Guid id, CancellationToken ct)
     {
         var group = await GetOwnAsync(id, ct);
-        return group is null
+        return group is null || !await permissions.CanReadGroupAsync(id, ct)
             ? null
             : GroupDto.From(group, await groups.CountMembersAsync(id, ct), null);
     }
@@ -141,10 +142,10 @@ public class GroupService(
     }
 
     // Tom lista = fristående grupp (t.ex. committee).
-    // Null (404) om gruppen inte finns eller är en annan skolas.
+    // Null (404) om gruppen inte finns, är en annan skolas eller användaren inte får läsa gruppen.
     public async Task<List<CourseDto>?> GetCoursesAsync(Guid groupId, CancellationToken ct)
     {
-        if (await GetOwnAsync(groupId, ct) is null)
+        if (await GetOwnAsync(groupId, ct) is null || !await permissions.CanReadGroupAsync(groupId, ct))
         {
             return null;
         }

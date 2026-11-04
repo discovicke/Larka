@@ -1,3 +1,5 @@
+using Backend.Domain.Enums;
+
 namespace Backend.Application.Dtos;
 
 /// <summary>
@@ -22,7 +24,11 @@ public record TeachingToGradeDto(
     string StudentName,
     DateTimeOffset SubmittedAt);
 
-/// <summary>En publicerad uppgift med deadline de närmaste två veckorna.</summary>
+/// <summary>
+/// En deadline de närmaste två veckorna för en publicerad uppgift. Kind är Deadline (uppgiftens egen, med
+/// inlämnade av elever), ResubmitDeadline (Students är elever med komplettering begärd) eller PersonalDeadline
+/// (Students är elever med den egna deadlinen). Submitted gäller bara Deadline.
+/// </summary>
 public record TeachingDeadlineDto(
     Guid LinkId,
     string Title,
@@ -30,7 +36,8 @@ public record TeachingDeadlineDto(
     string CourseTitle,
     DateTimeOffset DueAt,
     int Submitted,
-    int Students);
+    int Students,
+    CalendarItemKind Kind = CalendarItemKind.Deadline);
 
 /// <summary>En del eller vecka som publiceras de närmaste sju dagarna. Kind är "Part" eller "Week".</summary>
 public record TeachingScheduledDto(

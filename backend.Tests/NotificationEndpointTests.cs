@@ -289,6 +289,89 @@ public class NotificationEndpointTests(TestWebApplicationFactory factory) : ICla
     }
 
     [Fact]
+    public async Task DeadlineReminder_ComesBeforeTheResubmissionDeadline_ForNotStartedAndNeedsWork()
+    {
+        var setup = await AddSetupAsync();
+        var created = await CreateAsync(
+            new { type = "assignment", title = "Komplettering", bodyMd = "", submissionModes = new[] { "text" } },
+            new { groupId = setup.GroupId, dueAt = DateTimeOffset.UtcNow.AddHours(12) });
+        var needsWork = await SubmissionOfAsync(created.Link.Id, setup.OtherStudentId);
+        await UpdateDbAsync(db => db.Submissions
+            .Where(submission => submission.Id == needsWork)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(submission => submission.Status, SubmissionStatus.NeedsWork)));
+
+        // Före huvuddeadlinen påminns båda: den som inte lämnat in och den som ska komplettera.
+        await RunJobAsync();
+        Assert.Single(await RemindersAsync(setup.StudentId, created.Content.Id));
+        Assert.Single(await RemindersAsync(setup.OtherStudentId, created.Content.Id));
+
+        // Huvuddeadlinen har passerat och en kompletteringsdeadline återstår inom ett dygn.
+        var resubmit = InHours(20);
+        await UpdateDbAsync(db => db.ContentLinks
+            .Where(link => link.Id == created.Link.Id)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(link => link.DueAt, InHours(-1))
+                .SetProperty(link => link.ResubmitDueAt, new List<DateTimeOffset> { resubmit })));
+
+        await RunJobAsync();
+        await RunJobAsync();
+
+        foreach (var studentId in new[] { setup.StudentId, setup.OtherStudentId })
+        {
+            var reminders = await RemindersAsync(studentId, created.Content.Id);
+            Assert.Equal(2, reminders.Count);
+            Assert.Contains(reminders, reminder => reminder.DueAt == resubmit);
+        }
+    }
+
+    [Fact]
+    public async Task DeadlineReminder_ComesBeforeAPersonalDeadline_OnlyToThatStudent()
+    {
+        var setup = await AddSetupAsync();
+        var created = await CreateAsync(
+            new { type = "assignment", title = "Egen", bodyMd = "", submissionModes = new[] { "text" } },
+            new { groupId = setup.GroupId, dueAt = DateTimeOffset.UtcNow.AddDays(3) });
+        await UpdateDbAsync(db => db.ContentLinks
+            .Where(link => link.Id == created.Link.Id)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(link => link.DueAt, InHours(-48))));
+        var personal = InHours(11);
+        await UpdateDbAsync(db => db.Submissions
+            .Where(submission => submission.ContentLinkId == created.Link.Id && submission.StudentId == setup.StudentId)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(submission => submission.PersonalDueAt, personal)));
+
+        await RunJobAsync();
+        await RunJobAsync();
+
+        var reminder = Assert.Single(await RemindersAsync(setup.StudentId, created.Content.Id));
+        Assert.Equal(personal, reminder.DueAt);
+        Assert.Empty(await RemindersAsync(setup.OtherStudentId, created.Content.Id));
+    }
+
+    [Fact]
+    public async Task DeadlineReminder_RespectsTheMuteSetting()
+    {
+        var setup = await AddSetupAsync();
+        var created = await CreateAsync(
+            new { type = "assignment", title = "Tyst", bodyMd = "", submissionModes = new[] { "text" } },
+            new { groupId = setup.GroupId, dueAt = DateTimeOffset.UtcNow.AddDays(3) });
+        await UpdateDbAsync(db => db.ContentLinks
+            .Where(link => link.Id == created.Link.Id)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(link => link.DueAt, InHours(-24))
+                .SetProperty(link => link.ResubmitDueAt, new List<DateTimeOffset> { InHours(5) })));
+        await UpdateDbAsync(db => db.Users
+            .Where(user => user.Id == setup.StudentId)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(
+                user => user.MutedNotificationKinds, new List<NotificationKind> { NotificationKind.DeadlineSoon })));
+
+        await RunJobAsync();
+
+        Assert.Empty(await RemindersAsync(setup.StudentId, created.Content.Id));
+        Assert.Single(await RemindersAsync(setup.OtherStudentId, created.Content.Id));
+    }
+
+    [Fact]
     public async Task MarkRead_SetsReadAt_AndLowersTheUnreadCount()
     {
         var setup = await AddSetupAsync();
@@ -439,6 +522,23 @@ public class NotificationEndpointTests(TestWebApplicationFactory factory) : ICla
     {
         using var scope = factory.Services.CreateScope();
         await change(scope.ServiceProvider.GetRequiredService<AppDb>());
+    }
+
+    // Hela sekunder, så att värdet är detsamma efter en tur genom databasen.
+    private static DateTimeOffset InHours(int hours)
+    {
+        var now = DateTimeOffset.UtcNow;
+        return now.AddTicks(-(now.Ticks % TimeSpan.TicksPerSecond)).AddHours(hours);
+    }
+
+    private async Task<List<Notification>> RemindersAsync(Guid studentId, Guid contentId)
+    {
+        using var scope = factory.Services.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<AppDb>().Notifications
+            .Where(notification => notification.UserId == studentId
+                && notification.ContentId == contentId
+                && notification.Kind == NotificationKind.DeadlineSoon)
+            .ToListAsync();
     }
 
     private async Task<int> RunJobAsync()

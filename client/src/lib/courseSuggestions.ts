@@ -1,12 +1,51 @@
 const dayMs = 24 * 60 * 60 * 1000
 
-/** Föreslår en kurskod som följer källkursens mönster: .NET27 och .NET25_DevOps ger .NET27_DevOps. */
-export function suggestCourseCode(groupName: string, sourceCode: string): string {
+/** Terminen ett datum (yyyy-mm-dd) ligger i: HT26 för hösten 2026, VT27 för våren 2027. */
+export function termCode(date: string): string {
+  const year = date.slice(2, 4)
+  const month = Number(date.slice(5, 7))
+  return month >= 7
+    ? `HT${year}`
+    : `VT${year}`
+}
+
+// En termin eller ett löpnummer som ett tidigare förslag har lagt till: _HT26, _VT27 eller _2.
+const addedSuffix = /_(?:[HV]T\d{2}|\d+)$/i
+
+/**
+ * Föreslår en kurskod som följer källkursens mönster: .NET27 och .NET25_DevOps ger .NET27_DevOps. Finns koden redan
+ * i skolan, till exempel när kursen går igen i samma klass, läggs terminen från startdatumet till (TE24A_Webb1_HT26),
+ * och finns även den, eller saknas startdatum, ett löpnummer (TE24A_Webb1_2).
+ */
+export function suggestCourseCode(
+  groupName: string,
+  sourceCode: string,
+  takenCodes: readonly string[] = [],
+  startsOn = '',
+): string {
   const prefix = groupName.trim().replace(/\s+/g, '_')
-  const suffix = sourceCode.includes('_')
-    ? sourceCode.slice(sourceCode.lastIndexOf('_') + 1)
+  // Tillägget tas bara bort när koden ändå har klass och kursdel kvar, så att DEVOPS_2 inte blir DEVOPS.
+  const stripped = sourceCode.replace(addedSuffix, '')
+  const sourceBase = stripped.includes('_')
+    ? stripped
     : sourceCode
-  return `${prefix}_${suffix}`
+  const suffix = sourceBase.includes('_')
+    ? sourceBase.slice(sourceBase.lastIndexOf('_') + 1)
+    : sourceBase
+  const base = `${prefix}_${suffix}`
+  const taken = new Set(takenCodes.map((code) => code.toLocaleLowerCase('sv')))
+  const isFree = (code: string) => !taken.has(code.toLocaleLowerCase('sv'))
+  if (isFree(base)) {
+    return base
+  }
+  const withTerm = startsOn
+    ? `${base}_${termCode(startsOn)}`
+    : base
+  let code = withTerm
+  for (let number = 2; !isFree(code); number += 1) {
+    code = `${withTerm}_${number}`
+  }
+  return code
 }
 
 const smallWords = new Set(['i', 'med', 'och', 'för', 'av', 'på', 'till', 'en', 'ett'])

@@ -17,6 +17,15 @@ const exact: Record<string, string> = {
   'endsOn must be on or after startsOn': 'Slutdatumet kan inte ligga före startdatumet.',
   'to must be after from': 'Slutdatumet måste ligga efter startdatumet.',
   'the range can be at most 62 days': 'Perioden får vara högst 62 dagar.',
+  'comment text is required': 'Skriv något i kommentaren.',
+
+  // Längd på texter (TextLimits i backend)
+  'title can be at most 200 characters': 'Titeln får vara högst 200 tecken.',
+  'the text can be at most 100000 characters': 'Texten får vara högst 100 000 tecken.',
+  'a comment can be at most 5000 characters': 'Kommentaren får vara högst 5 000 tecken.',
+  'the answer can be at most 50000 characters': 'Svaret får vara högst 50 000 tecken.',
+  'feedback can be at most 20000 characters': 'Kommentaren till eleven får vara högst 20 000 tecken.',
+  'description can be at most 20000 characters': 'Beskrivningen får vara högst 20 000 tecken.',
 
   // Dubbletter
   'the school already has a group with this name': 'Det finns redan en klass med det namnet.',
@@ -31,6 +40,7 @@ const exact: Record<string, string> = {
   'submission not found': 'Inlämningen finns inte längre.',
   'assignment not found': 'Uppgiften finns inte längre.',
   'content not found': 'Materialet finns inte längre.',
+  'comment not found': 'Kommentaren finns inte längre.',
   'module not found': 'Veckan finns inte längre.',
   'link not found': 'Delen finns inte längre.',
   'part not found': 'Delen finns inte längre.',
@@ -45,6 +55,8 @@ const exact: Record<string, string> = {
   'only a teacher can be a teacher in a group': 'Bara en lärare kan vara lärare i en klass.',
   'you cannot deactivate yourself': 'Du kan inte spärra dig själv.',
   'you cannot change your own role': 'Du kan inte ändra din egen roll.',
+  'you cannot set your own password': 'Du kan inte sätta ditt eget lösenord här.',
+  'the user signs in with Microsoft': 'Hen loggar in med Microsoft och behöver inget lösenord i Lärka.',
   'the user still teaches a course or a class':
     'Hen undervisar fortfarande i en kurs eller klass. Ersätt hen som lärare där först.',
   'a committee cannot read courses, unlink them first': 'En kommitté kan inte läsa kurser. Koppla bort kurserna först.',

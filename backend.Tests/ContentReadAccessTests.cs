@@ -16,6 +16,8 @@ public class ContentReadAccessTests(TestWebApplicationFactory factory)
 
     private record CreatedWithLink(IdResponse Content, IdResponse Link);
 
+    private record FeedItem(Guid ContentId, string Title, Guid? CourseId);
+
     private record Scene(Guid SchoolId, Guid GroupId, Guid CourseId, Guid ModuleId, Guid ContentId);
 
     private async Task<Scene> AddSceneAsync(string? moduleOpensAt = null, string? linkPublishAt = null)
@@ -241,5 +243,68 @@ public class ContentReadAccessTests(TestWebApplicationFactory factory)
 
         Assert.Equal(HttpStatusCode.NotFound, comment.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, attachments.StatusCode);
+    }
+
+    // #506: en klass läser två kurser. Läraren i den ena ser inte den andra kursens innehåll i klassens flöde,
+    // och inte heller det som är riktat till bara klassen. Medlemmar ser allt.
+    [Fact]
+    public async Task GroupFeed_TeacherOfOneCourse_SeesOnlyThatCourse()
+    {
+        Guid groupId;
+        Guid taughtCourseId;
+        Guid otherCourseId;
+        Guid teacherId;
+        Guid studentId;
+        Guid classTeacherId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            var school = await TestData.AddSchoolAsync(db);
+            var group = await TestData.AddGroupAsync(db, school.Id, placeholderTeaches: true);
+            var taught = await TestData.AddCourseAsync(db, school.Id, group.Id);
+            var other = await TestData.AddCourseAsync(db, school.Id, group.Id);
+            var teacher = await TestData.AddCourseTeacherAsync(db, taught);
+            var student = await TestData.AddMemberAsync(db, group);
+            var classTeacher = await TestData.AddMemberAsync(db, group, GroupRole.Teacher, UserRole.Teacher);
+            (groupId, taughtCourseId, otherCourseId) = (group.Id, taught.Id, other.Id);
+            (teacherId, studentId, classTeacherId) = (teacher.Id, student.Id, classTeacher.Id);
+        }
+
+        async Task PublishAsync(string type, string title, object link)
+        {
+            var created = await _placeholder.PostAsJsonAsync("/api/content/with-link", new
+            {
+                content = new { type, title, bodyMd = "Text" },
+                link
+            });
+            Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        }
+
+        await PublishAsync("news", "Egen kurs", new { courseId = taughtCourseId });
+        await PublishAsync("news", "Annan kurs", new { courseId = otherCourseId });
+        await PublishAsync("theory", "Annan kurs teori", new { courseId = otherCourseId });
+        await PublishAsync("news", "Bara klassen", new { groupId });
+
+        using var teacherClient = factory.CreateClient();
+        teacherClient.DefaultRequestHeaders.Add(TestAuthHandler.Header, teacherId.ToString());
+        using var studentClient = factory.CreateClient();
+        studentClient.DefaultRequestHeaders.Add(TestAuthHandler.Header, studentId.ToString());
+
+        var teacherFeed = await teacherClient.GetFromJsonAsync<List<FeedItem>>($"/api/groups/{groupId}/content");
+        var teacherNews = await teacherClient.GetFromJsonAsync<List<FeedItem>>(
+            $"/api/groups/{groupId}/content?type=news");
+        var studentFeed = await studentClient.GetFromJsonAsync<List<FeedItem>>($"/api/groups/{groupId}/content");
+        using var classTeacherClient = factory.CreateClient();
+        classTeacherClient.DefaultRequestHeaders.Add(TestAuthHandler.Header, classTeacherId.ToString());
+        var classTeacherFeed = await classTeacherClient.GetFromJsonAsync<List<FeedItem>>(
+            $"/api/groups/{groupId}/content");
+
+        Assert.Equal(["Egen kurs"], teacherFeed!.Select(item => item.Title));
+        Assert.Equal(["Egen kurs"], teacherNews!.Select(item => item.Title));
+        Assert.Equal(
+            ["Annan kurs", "Annan kurs teori", "Bara klassen", "Egen kurs"],
+            studentFeed!.Select(item => item.Title).Order());
+        // Lärarrollen i klassen ger det som är riktat till klassen, inte klassens kurser.
+        Assert.Equal(["Bara klassen"], classTeacherFeed!.Select(item => item.Title));
     }
 }

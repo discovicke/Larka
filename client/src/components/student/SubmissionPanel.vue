@@ -7,6 +7,7 @@ import MarkdownView from '@/components/editor/MarkdownView.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Button} from '@/components/ui/button'
 import {Input} from '@/components/ui/input'
+import TextLimitNote from '@/components/TextLimitNote.vue'
 import {useAsync} from '@/composables/useAsync'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {useToast} from '@/composables/useToast'
@@ -16,6 +17,7 @@ import {formatDate} from '@/lib/content'
 import {formatSize} from '@/lib/material'
 import {clearDraft, loadDraft, saveDraft} from '@/lib/submissionDraft'
 import {fetchLinkSubmissions} from '@/lib/submissionsApi'
+import {isTooLong, textLimits} from '@/lib/textLimits'
 
 // Elevens inlämning av en uppgift. Formuläret följer uppgiftens inlämningssätt: text och/eller filer.
 // Repo visas av GitHub-blocket i vyn och bedömning på plats har ingen inlämning från eleven.
@@ -70,8 +72,10 @@ const windowText = computed(() => {
       ? `Komplettera senast ${formatDate(state.until, true)}.`
       : `Du kan lämna in till ${formatDate(state.until, true)}.`
   }
+  // Låst efter huvuddeadlinen. Eleven kan ha en egen deadline eller en kompletteringsdeadline kvar, så texten
+  // säger inte att deadlinen har gått ut.
   if (state.closed === 'Locked') {
-    return 'Deadlinen har gått ut. Din inlämning är låst tills läraren har bedömt den.'
+    return 'Inlämnad. Den är låst tills läraren har bedömt den.'
   }
   if (state.closed !== 'Closed') {
     return ''
@@ -91,9 +95,10 @@ const submitLabel = computed(() => status.value === 'NotStarted'
 const repoSubmitLabel = computed(() => status.value === 'NeedsWork'
   ? 'Lämna in igen'
   : 'Lämna in senaste commit')
-const canSubmit = computed(() => hasRepo.value
+const textTooLong = computed(() => hasText.value && isTooLong(bodyMd.value, textLimits.submissionText))
+const canSubmit = computed(() => !textTooLong.value && (hasRepo.value
   || (hasText.value && bodyMd.value.trim() !== '')
-  || (hasFiles.value && keptFiles.value.length + addedFiles.value.length > 0))
+  || (hasFiles.value && keptFiles.value.length + addedFiles.value.length > 0)))
 
 const {run: submit, loading: saving, error} = useAsync(async () => {
   const doneText = status.value === 'NotStarted'
@@ -235,7 +240,7 @@ function onFilesChosen(event: Event) {
           ? 'Lärarens återkoppling'
           : 'Läraren vill att du kompletterar' }}
       </p>
-      <p class="text-sm leading-relaxed whitespace-pre-wrap">{{ submission.grade.feedback }}</p>
+      <p class="text-sm leading-relaxed whitespace-pre-wrap wrap-anywhere">{{ submission.grade.feedback }}</p>
       <p class="text-muted-foreground text-xs">{{ formatDate(submission.grade.gradedAt, true) }}</p>
     </div>
 
@@ -297,6 +302,7 @@ function onFilesChosen(event: Event) {
           label="Ditt svar"
           tall
         />
+        <TextLimitNote :text="bodyMd" :max="textLimits.submissionText"/>
         <div
           v-if="draftRestored"
           class="flex flex-wrap items-center gap-x-2 text-sm"

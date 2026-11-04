@@ -11,6 +11,7 @@ import {
 import PersonalDueAt from '@/components/course/PersonalDueAt.vue'
 import DateTimePicker from '@/components/DateTimePicker.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
+import TextLimitNote from '@/components/TextLimitNote.vue'
 import MarkdownView from '@/components/editor/MarkdownView.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar'
@@ -32,9 +33,10 @@ import {fetchGradingRows, type GradingRow, nextGradingRow} from '@/lib/gradingQu
 import {formatSize} from '@/lib/material'
 import {fetchCourseModules} from '@/lib/modulesApi'
 import {initials} from '@/lib/person'
-import {checkClass, checkLabel, gradeLabel, gradeName, levelsFor, nextInQueue} from '@/lib/submissions'
+import {checkClass, checkLabel, gradedLabel, gradeLabel, gradeName, levelsFor, nextInQueue} from '@/lib/submissions'
 import {submissionStatusKey} from '@/lib/status'
 import {fetchLinkSubmissions} from '@/lib/submissionsApi'
+import {isTooLong, textLimits} from '@/lib/textLimits'
 
 const route = useRoute()
 const {setCrumbLabel} = useCrumbLabels()
@@ -50,6 +52,9 @@ const submission = ref<Schema<'SubmissionDto'> | null>(null)
 const assignment = ref<Schema<'ModuleContentItem'> | null>(null)
 const feedback = ref('')
 const level = ref<Schema<'GradeLevel'> | null>(null)
+// Förra bedömningen, skrivskyddad ovanför kommentaren när den inte ska följa med i den nya: eleven har lämnat in
+// igen, eller läraren byter ett sparat IG mot G eller VG.
+const previousGrade = ref<Schema<'GradeDto'> | null>(null)
 const formError = ref('')
 const notice = ref('')
 // Uppgiftstexten och kön hämtas med sidan. Uppgiften är hopfälld tills läraren öppnar den,
@@ -88,6 +93,7 @@ const next = computed(() => submission.value && inQueue.value
 const remaining = computed(() => queue.value.filter((candidate) => candidate.status === 'Submitted').length)
 // IG måste motiveras, så sparaknappen väntar på en kommentar.
 const needsComment = computed(() => level.value === 'Fail' && !feedback.value.trim())
+const feedbackTooLong = computed(() => isTooLong(feedback.value, textLimits.feedback))
 // Är kön tom går läraren vidare till nästa uppgift med obedömt arbete, annars tillbaka till Att bedöma.
 const otherRow = ref<GradingRow | null>(null)
 const saveLabel = computed(() => {
@@ -135,7 +141,7 @@ const stateLabel = computed(() => {
     return 'Komplettering begärd'
   }
   return current.status === 'Graded' && current.grade
-    ? `Bedömd ${formatDate(current.grade.gradedAt)}`
+    ? gradedLabel(current.grade)
     : undefined
 })
 const stateText = computed(() => {
@@ -199,7 +205,13 @@ const {run: load, loading, error: loadError} = useAsync(async () => {
     : null
   setCrumbLabel(`assignment:${linkId.value}`, assignment.value?.title)
   setCrumbLabel(`student:${submissionId.value}`, studentName.value)
-  if (found?.grade) {
+  // Inlämnad igen efter en bedömning: den nya bedömningen börjar tom, så att en gammal begäran om komplettering
+  // inte skickas med ett betyg. Annars rättar läraren den nuvarande bedömningen och börjar från den.
+  const resubmitted = found?.status === 'Submitted' && Boolean(found.grade)
+  previousGrade.value = resubmitted
+    ? found!.grade
+    : null
+  if (found?.grade && !resubmitted) {
     level.value = found.grade.level
     feedback.value = found.grade.feedback
   } else {
@@ -267,6 +279,33 @@ watch([loading, coursesStatus, inQueue, next], async () => {
   if (lookedUpFor === submissionId.value) {
     otherRow.value = found
   }
+})
+
+// En IG-kommentar förklarar underkännandet och passar inte till G eller VG. Byter läraren ett sparat IG och har inte
+// ändrat kommentaren flyttas den till Förra återkopplingen. Tillbaka till IG tar fram den igen om rutan är tom.
+function chooseLevel(option: Schema<'GradeLevel'>) {
+  const saved = submission.value?.grade ?? null
+  if (savedLevel.value === 'Fail' && saved) {
+    if (option !== 'Fail' && level.value === 'Fail' && feedback.value === savedFeedback.value) {
+      feedback.value = ''
+      previousGrade.value = saved
+    } else if (option === 'Fail' && previousGrade.value === saved && !feedback.value.trim()) {
+      feedback.value = savedFeedback.value
+      previousGrade.value = null
+    }
+  }
+  level.value = option
+}
+
+const previousLabel = computed(() => {
+  const grade = previousGrade.value
+  if (!grade) {
+    return ''
+  }
+  const outcome = grade.level
+    ? gradeLabel(grade.level)
+    : 'Komplettering'
+  return `${outcome} · ${gradedLabel(grade)}`
 })
 
 async function publish() {
@@ -521,7 +560,7 @@ watch([courseId, linkId, submissionId], () => {
                 :class="level === option
                   ? 'bg-primary text-primary-foreground border-primary'
                   : ''"
-                @click="level = option"
+                @click="chooseLevel(option)"
               >
                 <span class="font-bold" aria-hidden="true">{{ gradeLabel(option) }}</span>
                 <span
@@ -539,6 +578,12 @@ watch([courseId, linkId, submissionId], () => {
           </section>
 
           <!-- Utan inlämning finns inget att kommentera och inget att spara. -->
+          <section v-if="!nothingToGrade && previousGrade" class="flex flex-col gap-1.5" data-test="review-previous">
+            <h2 class="font-heading text-sm font-semibold">Förra återkopplingen</h2>
+            <p class="text-muted-foreground text-[13px]">{{ previousLabel }}</p>
+            <p class="border-l-2 pl-3 text-sm leading-relaxed whitespace-pre-wrap">{{ previousGrade.feedback || 'Ingen kommentar.' }}</p>
+          </section>
+
           <div v-if="!nothingToGrade" class="flex flex-col gap-2">
             <label for="feedback" class="font-heading text-sm font-semibold">Sammanfattande kommentar</label>
             <Textarea
@@ -548,6 +593,7 @@ watch([courseId, linkId, submissionId], () => {
               class="bg-background"
               placeholder="Skriv en kommentar till eleven…"
             />
+            <TextLimitNote :text="feedback" :max="textLimits.feedback"/>
           </div>
 
           <!-- Ingen deadline återstår: kompletteringen behöver en ny deadline för eleven, som sparas i samma steg. -->
@@ -587,7 +633,7 @@ watch([courseId, linkId, submissionId], () => {
             </p>
             <Button
               class="w-full"
-              :disabled="saving || needsComment"
+              :disabled="saving || needsComment || feedbackTooLong"
               data-test="review-save"
               @click="publish"
             >
@@ -597,7 +643,7 @@ watch([courseId, linkId, submissionId], () => {
               v-if="canRequestWork"
               variant="outline"
               class="w-full"
-              :disabled="saving || (workNeedsDate && !workDate)"
+              :disabled="saving || feedbackTooLong || (workNeedsDate && !workDate)"
               data-test="review-request-work"
               @click="requestWork"
             >

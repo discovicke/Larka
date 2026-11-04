@@ -229,8 +229,12 @@ public class ContentRepository(AppDb db) : IContentRepository
         var taughtCourseIds = db.CourseTeachers
             .Where(courseTeacher => courseTeacher.UserId == userId)
             .Select(courseTeacher => courseTeacher.CourseId);
+        var teacherGroupIds = db.Enrollments
+            .Where(enrollment => enrollment.UserId == userId && enrollment.Role == GroupRole.Teacher)
+            .Select(enrollment => enrollment.GroupId);
 
         // Kursens lärare ser kursens alla länkar, även de riktade till en enskild klass, utan att vara med i klassen.
+        // En del publiceras när både länken och veckan har öppnat, så veckans datum kan lägga publiceringen i perioden.
         return db.ContentLinks
             .Where(link =>
                 (link.CourseId == null && link.GroupId != null && groupIds.Contains(link.GroupId.Value))
@@ -245,7 +249,10 @@ public class ContentRepository(AppDb db) : IContentRepository
                     && submission.StudentId == userId
                     && submission.PersonalDueAt >= from
                     && submission.PersonalDueAt < to)
-                || (link.PublishAt >= from && link.PublishAt < to))
+                || (link.PublishAt >= from && link.PublishAt < to)
+                || db.Modules.Any(module => module.Id == link.ModuleId
+                    && module.PublishAt >= from
+                    && module.PublishAt < to))
             .Join(
                 db.Content,
                 link => link.ContentId,
@@ -269,7 +276,10 @@ public class ContentRepository(AppDb db) : IContentRepository
                 db.Submissions
                     .Where(submission => submission.ContentLinkId == row.Link.Id && submission.StudentId == userId)
                     .Select(submission => submission.PersonalDueAt)
-                    .FirstOrDefault()))
+                    .FirstOrDefault(),
+                row.Link.CourseId != null
+                    ? taughtCourseIds.Contains(row.Link.CourseId.Value)
+                    : row.Link.GroupId != null && teacherGroupIds.Contains(row.Link.GroupId.Value)))
             .ToListAsync(ct);
     }
 
@@ -311,37 +321,92 @@ public class ContentRepository(AppDb db) : IContentRepository
             .OrderBy(group => group.Position)
             .ToListAsync(ct);
 
-    public Task<List<CourseDeadline>> GetCourseDeadlinesAsync(
-        IReadOnlyCollection<Guid> courseIds, DateTimeOffset fromAt, DateTimeOffset toAt, CancellationToken ct) =>
-        (from link in db.ContentLinks
-         join content in db.Content on link.ContentId equals content.Id
-         where link.CourseId != null
-             && courseIds.Contains(link.CourseId.Value)
-             && content.Type == ContentType.Assignment
-             && content.Status == ContentStatus.Published
-             // Bara uppgifter som tar emot inlämningar, och bara delar eleverna redan ser: länkens och veckans
-             // publicering ska ha passerat. Samma urval som veckolistans räknare.
-             && content.Assignment != null
-             && content.Assignment.SubmissionModes.Count > 0
-             && link.PublishAt <= fromAt
-             && (link.ModuleId == null
-                 || !db.Modules.Any(module => module.Id == link.ModuleId
-                     && module.PublishAt != null
-                     && module.PublishAt > fromAt))
-             && link.DueAt != null
-             && link.DueAt >= fromAt
-             && link.DueAt <= toAt
-         orderby link.DueAt, content.Title
-         select new CourseDeadline(
-             link.Id,
-             content.Title,
-             link.CourseId!.Value,
-             db.Courses
-                 .Where(course => course.Id == link.CourseId.Value)
-                 .Select(course => course.Title)
-                 .First(),
-             link.DueAt!.Value))
-        .ToListAsync(ct);
+    public async Task<List<CourseDeadline>> GetCourseDeadlinesAsync(
+        IReadOnlyCollection<Guid> courseIds, DateTimeOffset fromAt, DateTimeOffset toAt, CancellationToken ct)
+    {
+        var rows = await (
+                from link in db.ContentLinks
+                join content in db.Content on link.ContentId equals content.Id
+                where link.CourseId != null
+                    && courseIds.Contains(link.CourseId.Value)
+                    && content.Type == ContentType.Assignment
+                    && content.Status == ContentStatus.Published
+                    // Bara uppgifter som tar emot inlämningar, och bara delar eleverna redan ser: länkens och veckans
+                    // publicering ska ha passerat. Samma urval som veckolistans räknare.
+                    && content.Assignment != null
+                    && content.Assignment.SubmissionModes.Count > 0
+                    && link.PublishAt <= fromAt
+                    && (link.ModuleId == null
+                        || !db.Modules.Any(module => module.Id == link.ModuleId
+                            && module.PublishAt != null
+                            && module.PublishAt > fromAt))
+                    && link.DueAt != null
+                    && ((link.DueAt >= fromAt && link.DueAt <= toAt)
+                        || link.ResubmitDueAt.Any(due => due >= fromAt && due <= toAt)
+                        || db.Submissions.Any(submission => submission.ContentLinkId == link.Id
+                            && submission.Status != SubmissionStatus.Graded
+                            && submission.PersonalDueAt >= fromAt
+                            && submission.PersonalDueAt <= toAt))
+                select new
+                {
+                    LinkId = link.Id,
+                    content.Title,
+                    CourseId = link.CourseId!.Value,
+                    CourseTitle = db.Courses
+                        .Where(course => course.Id == link.CourseId.Value)
+                        .Select(course => course.Title)
+                        .First(),
+                    DueAt = link.DueAt!.Value,
+                    link.ResubmitDueAt,
+                    NeedsWork = db.Submissions.Count(submission => submission.ContentLinkId == link.Id
+                        && submission.Status == SubmissionStatus.NeedsWork),
+                    Personal = db.Submissions
+                        .Where(submission => submission.ContentLinkId == link.Id
+                            && submission.Status != SubmissionStatus.Graded
+                            && submission.PersonalDueAt >= fromAt
+                            && submission.PersonalDueAt <= toAt)
+                        .Select(submission => submission.PersonalDueAt!.Value)
+                        .ToList()
+                })
+            .ToListAsync(ct);
+
+        // En rad per deadline: uppgiftens egen, varje kompletteringsdeadline och elevernas egna deadlines, där
+        // elever med samma tid blir en rad.
+        return rows
+            .SelectMany(row =>
+            {
+                var deadlines = new List<CourseDeadline>();
+                if (row.DueAt >= fromAt && row.DueAt <= toAt)
+                {
+                    deadlines.Add(new CourseDeadline(row.LinkId, row.Title, row.CourseId, row.CourseTitle, row.DueAt));
+                }
+
+                deadlines.AddRange(row.ResubmitDueAt
+                    .Where(due => due >= fromAt && due <= toAt)
+                    .Select(due => new CourseDeadline(
+                        row.LinkId,
+                        row.Title,
+                        row.CourseId,
+                        row.CourseTitle,
+                        due,
+                        CalendarItemKind.ResubmitDeadline,
+                        row.NeedsWork)));
+                deadlines.AddRange(row.Personal
+                    .GroupBy(due => due)
+                    .Select(group => new CourseDeadline(
+                        row.LinkId,
+                        row.Title,
+                        row.CourseId,
+                        row.CourseTitle,
+                        group.Key,
+                        CalendarItemKind.PersonalDeadline,
+                        group.Count())));
+                return deadlines;
+            })
+            .OrderBy(deadline => deadline.DueAt)
+            .ThenBy(deadline => deadline.Title)
+            .ToList();
+    }
 
     public Task<List<ScheduledContentLink>> GetScheduledLinksAsync(
         IReadOnlyCollection<Guid> courseIds, DateTimeOffset fromAt, DateTimeOffset toAt, CancellationToken ct) =>
@@ -416,6 +481,11 @@ public class ContentRepository(AppDb db) : IContentRepository
             .ToListAsync(ct);
 
     public void AddComment(Comment comment) => db.Comments.Add(comment);
+
+    public Task<Comment?> GetCommentAsync(Guid contentId, Guid commentId, CancellationToken ct) =>
+        db.Comments.FirstOrDefaultAsync(comment => comment.ContentId == contentId && comment.Id == commentId, ct);
+
+    public void RemoveComment(Comment comment) => db.Comments.Remove(comment);
 
     public void AddAttachment(Attachment attachment) => db.Attachments.Add(attachment);
 

@@ -39,6 +39,14 @@ export function currentToken(): string | null {
     : null
 }
 
+/**
+ * Sant när en session har sparats och inte tagits bort, också om den har gått ut. Skiljer en utgången
+ * inloggning från en där användaren själv har loggat ut.
+ */
+export function hasStoredSession(): boolean {
+  return (readStorage(AUTH_TOKEN_KEY) ?? memoryToken) !== null
+}
+
 export function saveSession(accessToken: string, expiresAt: number): void {
   memoryToken = accessToken
   memoryExpiresAt = expiresAt

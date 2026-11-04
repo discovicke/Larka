@@ -356,7 +356,9 @@ describe('SubmissionPanel', () => {
       deadline: deadlineState({canHandIn: false, handInClosed: 'Locked', nextDeadline: '2099-02-01T10:00:00Z'}),
     })
 
-    expect(wrapper.find('[data-test="submission-closed"]').text()).toContain('låst')
+    const closed = wrapper.find('[data-test="submission-closed"]').text()
+    expect(closed).toBe('Inlämnad. Den är låst tills läraren har bedömt den.')
+    expect(closed).not.toContain('gått ut')
     expect(wrapper.find('[data-test="submission-edit"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="submission-form"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="submission-view"]').text()).toContain('Mitt svar')

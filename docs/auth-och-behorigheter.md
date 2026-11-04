@@ -2,7 +2,7 @@
 
 ## Inloggning
 
-Inloggning med lösenord och JWT är alltid på. Allt under `/api` kräver ett token, utom `/api/auth/*`. `/health`, `/version` och Swagger UI är öppna. Klienten skickar tokenet som `Authorization: Bearer` och skickar användaren till `/login` när det saknas eller har gått ut.
+Inloggning med lösenord och JWT är alltid på. Allt under `/api` kräver ett token, utom `/api/auth/*`. `/health`, `/version` och Swagger UI är öppna. Klienten skickar tokenet som `Authorization: Bearer` och skickar användaren till `/login` när det saknas eller har gått ut. Då följer sidan med (`?redirect=`), så att den öppnas igen efter inloggningen. _Logga ut_ slutar alltid på en ren `/login` utan sidan man var på, så att nästa person på samma dator inte hamnar på förra användarens sida.
 
 Inloggningen tar användarnamn eller e-post och lösenord, och jämför e-posten utan hänsyn till versaler. Alla fel ger samma svar, `401` med texten `Fel e-post eller lösenord.`.
 
@@ -16,7 +16,7 @@ Skolans elever och personal loggar in med sitt Microsoft-konto (Microsoft Entra 
 
 1. `GET /api/auth/providers` berättar om Microsoft-inloggning finns (`microsoft: {clientId, tenantId}` eller `null`). Klienten loggar in hos Microsoft med MSAL (redirect, auth code med PKCE, `openid profile email`) och får ett ID-token.
 2. Klienten skickar det en gång till `POST /api/auth/microsoft` `{idToken}`. Backend kontrollerar signaturen mot tenantens nycklar, utfärdaren (skolans tenant), mottagaren (`Auth:Entra:ClientId`) och tiden, och svarar med samma token som inloggning med lösenord, plus `firstSignIn`. Resten av API:et ser ingen skillnad.
-3. Användaren hittas på Microsofts id (`oid`, sparat som `User.ExternalId`). Saknas det kopplas en användare i skolan med samma e-post (utan hänsyn till versaler) som inte redan är kopplad, till exempel en elev från en inklistrad elevlista. Annars skapas en ny **elev**.
+3. Användaren hittas på Microsofts id (`oid`, sparat som `User.ExternalId`). Saknas det kopplas en användare i skolan med samma e-post (utan hänsyn till versaler) som inte redan är kopplad, till exempel en elev som admin har lagt in med _Skapa användare_ på klassens sida. Annars skapas en ny **elev**.
 4. Namnet är Microsofts `name`. Saknas det, eller är det bara e-postadressen, byggs namnet ur adressen (`SchoolAddress.NameFromEmail`): `christian.gennari.net25@...` ger `Christian Gennari` och `anna-karin.berg.net25@...` ger `Anna-Karin Berg`. Adressen delas på punkt och understreck, klasskoden sist tas bort och varje del (och varje del av ett bindestreck) får stor första bokstav. Ger adressen inget namn används själva adressen. Eleven kan rätta namnet på _Välkommen_.
 5. En ny elev läggs i klassen som adressen slutar på: `fornamn.efternamn.net25@...` ger `net25`, som matchar klassen `.NET25` (versaler, punkter och mellanslag räknas inte; samma regel i `SchoolAddress.NormalizeCode`). Bara om exakt en klass i skolan har namnet, och bara när användaren skapas. Annars har eleven ingen klass förrän admin lägger in hen. Dialogerna _Ny klass_ och _Redigera klass_ visar vilken kod namnet fångar ("Elever med adresser som slutar på `.net25@…` hamnar här", regeln speglas i `client/src/lib/classCode.ts`) och varnar när namnet inte ger någon kod, till exempel "NET 25 DevOps". En kopplad användare behåller sin roll och sina klasser.
 
@@ -91,7 +91,21 @@ Börja om från en tom databas: `docker compose down -v && npm run db`.
 
 ### Produktion
 
-Prod seedar inga lösenord utöver demokontona och demodatans elever (`larka-demo`), och en skola utan Microsoft får sin första admin från `Auth:FirstAdmin` ([drift.md](drift.md#utan-microsoft)). Admin kan ge en ny användare ett tillfälligt lösenord (minst 8 tecken) när hen skapas från _Lägg till medlem_ på en grupp, eller med `password` i `POST /api/users`. När Microsoft-inloggning är inställd visar _Lägg till medlem_ inget lösenordsfält, eftersom användaren loggar in med skolans konto. Utan lösenord kan användaren inte logga in. För äldre användare utan lösenord: hasha det med ASP.NET Core `PasswordHasher<User>` och skriv hashen i `Users.PasswordHash`.
+Prod seedar inga lösenord utöver demokontona och demodatans elever (`larka-demo`), och en skola utan Microsoft får sin första admin från `Auth:FirstAdmin` ([drift.md](drift.md#utan-microsoft)). Admin kan ge en ny användare ett tillfälligt lösenord (minst 8 tecken) när hen skapas från _Lägg till medlem_ på en grupp, eller med `password` i `POST /api/users`. När Microsoft-inloggning är inställd visar _Lägg till medlem_ inget lösenordsfält, eftersom användaren loggar in med skolans konto. Utan lösenord kan användaren inte logga in.
+
+### Sätta lösenord
+
+Admin sätter ett nytt lösenord för en användare med _Sätt lösenord_ i menyn `⋯` på _Användare_, eller från listan _Kan inte logga in_ på adminens Idag. Det används för en användare som skapades utan lösenord och för den som har glömt sitt. Lösenordet syns i fältet, så att admin kan ge det vidare, och det gamla slutar gälla. Användaren byter inte lösenordet själv i Lärka.
+
+| Anrop                                            | Admin                                          | Övriga |
+| ------------------------------------------------ | ---------------------------------------------- | ------ |
+| `POST /api/users/{id}/password` `{password}`     | `200` med användaren                           | `403`  |
+| Kortare än 8 tecken                              | `400` `password must be at least 8 characters` | `403`  |
+| Användare i en annan skola eller okänd           | `404`                                          | `403`  |
+| Det egna lösenordet                              | `409` `you cannot set your own password`       | `403`  |
+| Kopplad till Microsoft, i en skola med Microsoft | `409` `the user signs in with Microsoft`       | `403`  |
+
+Det egna lösenordet går inte att sätta här, eftersom det ska kräva det gamla lösenordet. En admin som har glömt sitt får ett nytt av en annan admin, eller från `Auth:FirstAdmin` när skolan inte har någon annan admin som kan logga in ([drift.md](drift.md#utan-microsoft)). Den som loggar in med Microsoft har ingen _Sätt lösenord_ i menyn. Har skolan slagit av Microsoft kopplar admin först bort Microsoft på raden.
 
 ## Roller och behörigheter
 
@@ -116,9 +130,13 @@ E-post och global roll (`User.Role`) lämnas bara ut till admin, och bara för a
 | `GET /api/users/{id}`          | Användare i skolan, med e-post och roll | `403`                                | `403`           | `404` för admin (en annan skola), andra `403` |
 | `GET /api/groups/{id}/members` | Hela listan                             | Hela listan                          | `403`           | `404`                                         |
 
+### Skolans namn
+
+Admin byter skolans namn under _Inställningar → Skola_ (`PUT /api/schools/{id}` `{name}`, 1 till 200 tecken). Namnet syns på inloggningssidan, i sidomenyn och i skolmenyn. Med Microsoft får skolan namnet från `Auth:Entra:SchoolName` när den kopplas, och sedan går det att ändra här. Bara admin i skolan: andra får `403` och en annan skola `404`.
+
 ### Skolroll
 
-Admin ändrar en användares skolroll (`User.Role`: Elev, Lärare eller Admin) på sidan _Användare_ (`/users`, bara admin), med _Ändra roll_ i menyn `⋯` på raden. Sidan listar skolans användare med namn, e-post och roll, med sökning och flikar per roll.
+Admin ändrar en användares skolroll (`User.Role`: Elev, Lärare eller Admin) på sidan _Användare_ (`/users`, bara admin), med _Ändra roll_ i menyn `⋯` på raden. Sidan listar skolans användare med namn, e-post och roll, med sökning och flikar per roll. Migrationens admin _Placeholder_ (`placeholder@larka.local`) är ingen riktig person och syns inte där, och den räknas inte bland dem som inte kan logga in, så länge ingen kan logga in som hen (inget lösenord och ingen Microsoft-koppling).
 
 | Anrop                                  | Admin                                   | Övriga |
 | -------------------------------------- | --------------------------------------- | ------ |
@@ -176,8 +194,10 @@ Admin bestämmer vem som undervisar vad, och läraren bestämmer vad som händer
 | Anrop                                                | Lärare i kursen              | Elev i klassen       | Admin                      | Övriga        |
 | ---------------------------------------------------- | ---------------------------- | -------------------- | -------------------------- | ------------- |
 | `GET /api/courses/{id}/modules`                      | Allt, med antal inlämningar  | Publicerat och öppet | Allt, utan antal           | `403`         |
+| `GET /api/courses/{id}`                              | Läser                        | Läser                | Läser                      | `404`         |
+| `GET /api/groups/{id}`, `/courses`                   | Läser (kursen gruppen läser) | Läser (är medlem)    | Läser                      | `404`         |
 | `GET /api/courses/{id}/content`                      | Läser                        | Läser                | Läser                      | `403`         |
-| `GET /api/groups/{id}/content`                       | Läser (kursen gruppen läser) | Läser (är medlem)    | Läser                      | `403`         |
+| `GET /api/groups/{id}/content`                       | Läser sina egna kurser       | Läser (är medlem)    | Läser                      | `403`         |
 | `GET /api/content/{id}` (publicerat, se nedan)       | Läser                        | Läser                | Läser                      | `404`         |
 | `GET /api/content/{id}` (ett utkast)                 | Läser                        | `404`                | Läser                      | `404`         |
 | `PUT /api/courses/{id}`                              | Allt, med beskrivningen      | `403`                | Titel, datum och poäng     | `403`         |
@@ -191,6 +211,8 @@ Admin bestämmer vem som undervisar vad, och läraren bestämmer vad som händer
 | `POST /api/courses/{id}/modules/publish`             | Publicerar veckornas utkast  | `403`                | `403`                      | `403`         |
 | `GET /api/me/admin-overview`                         | `403`                        | `403`                | Skolans översikt           | `403`         |
 
+**Klassens flöde (`GET /api/groups/{id}/content`).** Gruppens elever och admin i skolan ser hela flödet. En lärare ser bara det som hör till kurserna hen undervisar i, och nyheter till bara gruppen om hen är lärare i gruppen, aldrig gruppens andra kurser. Samma flöde ger _Inkorg_ och _Material_.
+
 **Elevens läge i klassen (`GET /api/groups/{id}/students/{studentId}/overview`).** Admin i skolan ser läget för en elev i klassen: per kurs klassen läser antal uppgifter att komplettera, försenade, inlämnade men inte bedömda, och betygen hittills. Ett automatiskt IG räknas som bedömt och som IG. Det är bara läsning och bygger på studieplanen, begränsad till klassens kurser. Alla andra, också en lärare som bara undervisar i en av klassens kurser, får `404`, och det får också den som frågar efter någon som inte är elev i klassen.
 
 **Läsa ett innehåll (`GET /api/content/{id}`, kommentarer och bilagor).** Att innehållet är publicerat räcker inte. Det läses bara av
@@ -200,6 +222,10 @@ Admin bestämmer vem som undervisar vad, och läraren bestämmer vad som händer
 - admin i skolan där innehållet skrevs (`ContentAccess.MayReadAsync`): admin läser kursernas innehåll, med utkast, men undervisar inte.
 
 Alla andra, också inloggade i en annan kurs eller skola, får `404` som för innehåll som inte finns. Kontrollen är en enda fråga per innehåll (`IPermissions.CanReadPublishedContentAsync`), flödena och veckovyerna har egna frågor och gör ingen kontroll per rad. Att redigera kräver lärarrätt på en länk (`MayEditAsync`, `403` annars): den som skrev innehållet men inte längre undervisar i kursen kan inte ändra det. Nytt innehåll skapas med `POST /api/content/with-link`, som prövar lärarrätt på kursen eller gruppen där det länkas, inte författarskap. Ett innehåll utan länk kan därför bara läsas av admin i skolan.
+
+**Kommentarer (`/api/content/{id}/comments`).** Den som får läsa innehållet får kommentera det. Författaren ändrar sin kommentar (`PUT …/comments/{commentId}`) och tar bort den (`DELETE …/comments/{commentId}`). Läraren på innehållet (`MayEditAsync`) tar bort vilken kommentar som helst, till exempel en elak eller trasig, men ändrar inte andras. Admin läser kommentarerna men undervisar inte, så admin tar bara bort sina egna. Andra får `403`, och den som inte får läsa innehållet får `404`. Varje kommentar i svaret har `canEdit` och `canDelete` för den som frågar, så klienten visar menyn bara där den går att använda.
+
+**Textgränser.** API:et nekar för långa texter med `400`: titel 200 tecken, text i en del eller nyhet 100 000, kommentar 5 000, elevens svar 50 000, lärarens kommentar vid bedömning 20 000 och kursens beskrivning 20 000. Gränserna står i `TextLimits` och i `client/src/lib/textLimits.ts`, och klienten visar en räknare nära gränsen innan texten skickas.
 
 I `GET /api/courses/{id}/student-modules` har en låst del (beroende som inte är uppfyllt) kvar titel och blockerare men `bodyMd` är `null`, så texten går inte att läsa i förväg.
 

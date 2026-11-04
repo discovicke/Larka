@@ -40,6 +40,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  useSidebar,
 } from '@/components/ui/sidebar'
 import {useCourses} from '@/composables/useCourses'
 import {useCurrentUser} from '@/composables/useCurrentUser'
@@ -83,6 +84,12 @@ const {me, can, resetCurrentUser} = useCurrentUser()
 const {unreadCount} = useNotifications()
 const {gradingCount, loadGradingCount} = useGradingCount()
 
+// På telefonen ligger menyn över sidan. Den stängs när man har gått någonstans, så att den nya sidan syns direkt.
+const {setOpenMobile} = useSidebar()
+watch(() => route.fullPath, () => {
+  setOpenMobile(false)
+})
+
 watch(() => can('grade'), (canGrade) => {
   if (canGrade) {
     loadGradingCount()
@@ -119,10 +126,13 @@ const userInitials = computed(() => me.value
   : exampleUser.initials)
 const schoolName = computed(() => me.value?.school.name ?? '')
 
+// Logga ut slutar alltid på en ren /login, utan redirect: nästa person på samma dator ska inte hamna på
+// förra användarens sida (#519). Användaren nollställs först när sidan är lämnad, så att den gamla sidan
+// inte hinner hämta något på nytt.
 async function signOut() {
   await auth.signOut()
+  await router.replace({name: 'login'})
   resetCurrentUser()
-  await router.push({name: 'login'})
 }
 
 type SidebarCourse = (typeof courses.value)[number]

@@ -32,6 +32,8 @@ const members = [
 interface Backend {
   group?: typeof classGroup
   courses?: unknown[]
+  // Skolans alla kurser (GET /api/courses). Utan värde DevOps och Java.
+  schoolCourses?: unknown[]
   members?: unknown[]
   membersStatus?: number
   role?: 'Teacher' | 'Admin'
@@ -58,7 +60,7 @@ function backend(options: Backend = {}) {
       return {status: 201, body: {...java, id: 'c9', code: (body as {code: string}).code, title: (body as {title: string}).title}}
     }
     if (path === '/api/courses') {
-      return {status: 200, body: [devops, java]}
+      return {status: 200, body: options.schoolCourses ?? [devops, java]}
     }
     const teachersPath = /^\/api\/courses\/([^/]+)\/teachers/.exec(path)
     if (method === 'GET' && path === `/api/groups/${group.id}/course-teachers`) {
@@ -258,12 +260,25 @@ describe('GroupView', () => {
     expect(wrapper.text()).toContain('Klassen har inga medlemmar ännu.')
   })
 
-  it('visar sidan som saknas när gruppen inte finns', async () => {
+  // #518: en grupp som inte finns eller som användaren inte får öppna leder till Idag med toasten.
+  it('leder till Idag med en toast när gruppen inte finns eller inte får öppnas', async () => {
     backend()
 
-    const {wrapper} = await renderApp('/groups/okand')
+    const {wrapper, router} = await renderApp('/groups/okand')
+    await flushPromises()
 
-    expect(wrapper.find('[data-test="not-found"]').exists()).toBe(true)
+    expect(router.currentRoute.value.name).toBe('today')
+    expect(wrapper.find('[data-test="toast"]').text()).toContain('Du har inte behörighet till den sidan.')
+  })
+
+  it('leder till Idag med en toast när gruppen svarar 403', async () => {
+    backend({membersStatus: 403})
+
+    const {wrapper, router} = await renderApp('/groups/g1')
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('today')
+    expect(wrapper.find('[data-test="toast"]').text()).toContain('Du har inte behörighet till den sidan.')
   })
 
   it('visar ett fel när medlemmarna inte kan hämtas', async () => {
@@ -683,6 +698,26 @@ describe('GroupView', () => {
       expect(paths).toHaveLength(1)
       expect(paths[0]).toMatch(/\/api\/courses\/[^/]+\/runs$/)
       expect(wrapper.find('[data-test="group-notice"]').text()).toContain('skapades')
+    })
+
+    it('föreslår en ledig kod när kursen går igen i samma klass, med terminen från startdatumet', async () => {
+      const webb = {id: 'c7', schoolId: 's1', code: 'TE22A_Webb1', title: 'Webbutveckling 1'}
+      backend({role: 'Admin', courses: [], schoolCourses: [webb]})
+      const {wrapper} = await renderApp('/groups/g1')
+
+      await click(wrapper.find('[data-test="new-course-button"]').element)
+      await click(modal().querySelector('[data-test="new-course-source"]'))
+      const code = () => (modal().querySelector('[data-test="new-course-code"]') as HTMLInputElement).value
+      expect(code()).toBe('TE22A_Webb1_2')
+
+      wrapper.findAllComponents(DatePicker)[0]!.vm.$emit('update:modelValue', '2027-01-11')
+      await flushPromises()
+      expect(code()).toBe('TE22A_Webb1_VT27')
+
+      await type('[data-test="new-course-code"]', 'TE22A_Webb1b')
+      wrapper.findAllComponents(DatePicker)[0]!.vm.$emit('update:modelValue', '2027-08-16')
+      await flushPromises()
+      expect(code()).toBe('TE22A_Webb1b')
     })
 
     async function fillNewCourse(wrapper: Awaited<ReturnType<typeof renderApp>>['wrapper'], title: string, code: string) {

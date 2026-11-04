@@ -157,6 +157,20 @@ watch(() => form.startsOn, (startsOn) => {
   form.endsOn = suggestedEnd
 })
 
+// En kopia får källans kod med klassen utbytt. Är den tagen, som när kursen går igen i samma klass, läggs terminen
+// från startdatumet till, så förslaget följer startdatumet så länge admin inte har skrivit en egen kod.
+function suggestCopyCode(course: Schema<'CourseDto'>): string {
+  return suggestCourseCode(props.groupName, course.code, courses.value.map((existing) => existing.code), form.startsOn)
+}
+
+watch(() => form.startsOn, () => {
+  if (!source.value || form.code !== suggestedCode) {
+    return
+  }
+  suggestedCode = suggestCopyCode(source.value)
+  form.code = suggestedCode
+})
+
 // En tom kurs får en kod från namnet. Koden följer namnet så länge admin inte har skrivit en egen kod.
 watch(() => form.title, (title) => {
   if (source.value || (form.code !== suggestedCode && form.code.trim() !== '')) {
@@ -195,7 +209,8 @@ async function pickSource(course: Schema<'CourseDto'>) {
   source.value = course
   resetForm()
   form.title = suggestCourseTitle(props.groupName, course.title)
-  form.code = suggestCourseCode(props.groupName, course.code)
+  suggestedCode = suggestCopyCode(course)
+  form.code = suggestedCode
   form.points = course.points === null || course.points === undefined
     ? ''
     : String(course.points)

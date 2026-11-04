@@ -223,6 +223,74 @@
             "description": "Not Found"
           }
         }
+      },
+      "put": {
+        "tags": [
+          "Schools"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSchoolDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchoolDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/schools/{id}/microsoft": {
@@ -591,6 +659,76 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/UpdateUserRoleDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/{id}/password": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetUserPasswordDto"
               }
             }
           },
@@ -5019,8 +5157,174 @@
               }
             }
           },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/content/{id}/comments/{commentId}": {
+      "put": {
+        "tags": [
+          "Content"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "commentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCommentDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Content"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "commentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -6761,7 +7065,8 @@
           "Publish",
           "ResubmitDeadline",
           "PersonalDeadline"
-        ]
+        ],
+        "default": "Deadline"
       },
       "ChecklistDto": {
         "required": [
@@ -6824,8 +7129,17 @@
               "null",
               "string"
             ]
+          },
+          "canEdit": {
+            "type": "boolean",
+            "default": false
+          },
+          "canDelete": {
+            "type": "boolean",
+            "default": false
           }
-        }
+        },
+        "description": "CanEdit och CanDelete gäller den som frågar: författaren ändrar och tar bort sin egen kommentar, och läraren\npå innehållet tar bort vilken kommentar som helst."
       },
       "CompletionRule": {
         "enum": [
@@ -7986,7 +8300,8 @@
           "gradedById",
           "level",
           "feedback",
-          "gradedAt"
+          "gradedAt",
+          "gradedByName"
         ],
         "type": "object",
         "properties": {
@@ -8010,6 +8325,12 @@
           "gradedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "gradedByName": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -9332,6 +9653,18 @@
           }
         }
       },
+      "SetUserPasswordDto": {
+        "required": [
+          "password"
+        ],
+        "type": "object",
+        "properties": {
+          "password": {
+            "type": "string"
+          }
+        },
+        "description": "Ett nytt lösenord som admin sätter, till exempel ett tillfälligt när någon har glömt sitt."
+      },
       "StudentBlockerDto": {
         "required": [
           "linkId",
@@ -10054,12 +10387,17 @@
       "StudyPlanDto": {
         "required": [
           "completedPoints",
+          "endedPoints",
           "totalPoints",
           "courses"
         ],
         "type": "object",
         "properties": {
           "completedPoints": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "endedPoints": {
             "type": "integer",
             "format": "int32"
           },
@@ -10074,7 +10412,7 @@
             }
           }
         },
-        "description": "Elevens studieplan: poängen hen klarat av och kurserna hen läser."
+        "description": "Elevens studieplan och kurserna hen läser. CompletedPoints är poängen för avslutade kurser med godkänt kursbetyg\n(G eller VG), och EndedPoints poängen för alla avslutade kurser, oavsett betyg. Kursbetyg finns inte i modellen\nän, så CompletedPoints är 0 tills de gör det."
       },
       "SubmissionDto": {
         "required": [
@@ -10355,9 +10693,12 @@
           "students": {
             "type": "integer",
             "format": "int32"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CalendarItemKind"
           }
         },
-        "description": "En publicerad uppgift med deadline de närmaste två veckorna."
+        "description": "En deadline de närmaste två veckorna för en publicerad uppgift. Kind är Deadline (uppgiftens egen, med\ninlämnade av elever), ResubmitDeadline (Students är elever med komplettering begärd) eller PersonalDeadline\n(Students är elever med den egna deadlinen). Submitted gäller bara Deadline."
       },
       "TeachingDto": {
         "required": [
@@ -10819,6 +11160,17 @@
         },
         "description": "Uppdaterar en gruppindelning efter att uppgiften delats ut. Bara befintliga grupper får ändras."
       },
+      "UpdateCommentDto": {
+        "required": [
+          "bodyMd"
+        ],
+        "type": "object",
+        "properties": {
+          "bodyMd": {
+            "type": "string"
+          }
+        }
+      },
       "UpdateContentDto": {
         "required": [
           "title",
@@ -11058,6 +11410,18 @@
           }
         },
         "description": "Det användaren själv får ändra om sig. Namnet kommer från Microsoft och kan rättas här."
+      },
+      "UpdateSchoolDto": {
+        "required": [
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        },
+        "description": "Skolans nya namn, som inloggningssidan och sidomenyn visar."
       },
       "UpdateUserRoleDto": {
         "required": [

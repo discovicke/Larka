@@ -408,6 +408,118 @@ public class UserEndpointTests(TestWebApplicationFactory factory) : IClassFixtur
         Assert.Null((await _client.GetJsonAsync<UserResponse>($"/api/users/{target.Id}")).DeactivatedAt);
     }
 
+    // #509: admin sätter ett lösenord för en användare som skapades utan, eller som har glömt sitt.
+    [Fact]
+    public async Task SetPassword_AsAdmin_LetsTheUserSignIn_AndReplacesTheOldOne()
+    {
+        var email = $"{Guid.NewGuid():N}@example.com";
+        var created = await _client.PostJsonAsync<UserResponse>("/api/users", new
+        {
+            schoolId = PlaceholderIds.SchoolId,
+            name = "Nils Utanlösen",
+            email,
+            role = "student"
+        });
+
+        var first = await _client.PostAsJsonAsync($"/api/users/{created.Id}/password", new { password = "forsta123" });
+        var login = await _client.PostAsJsonAsync("/api/auth/login", new { username = email, password = "forsta123" });
+        var second = await _client.PostAsJsonAsync($"/api/users/{created.Id}/password", new { password = "andra1234" });
+        var oldLogin = await _client.PostAsJsonAsync(
+            "/api/auth/login", new { username = email, password = "forsta123" });
+        var newLogin = await _client.PostAsJsonAsync(
+            "/api/auth/login", new { username = email, password = "andra1234" });
+
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, oldLogin.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, newLogin.StatusCode);
+    }
+
+    [Fact]
+    public async Task SetPassword_TooShort_ReturnsBadRequest()
+    {
+        var target = await AddUserAsync(PlaceholderIds.SchoolId, UserRole.Student);
+
+        var response = await _client.PostAsJsonAsync($"/api/users/{target.Id}/password", new { password = "kort" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("password must be at least 8 characters", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task SetPassword_ForYourself_ReturnsConflict()
+    {
+        var response = await _client.PostAsJsonAsync(
+            $"/api/users/{PlaceholderIds.UserId}/password", new { password = "hemligt123" });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Contains("you cannot set your own password", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task SetPassword_InAnotherSchool_Returns404_AndAsNonAdmin_Returns403()
+    {
+        var other = await AddUserAsync(null, UserRole.Student);
+        var target = await AddUserAsync(PlaceholderIds.SchoolId, UserRole.Student);
+        var teacher = await AddUserAsync(PlaceholderIds.SchoolId, UserRole.Teacher);
+
+        var foreign = await _client.PostAsJsonAsync($"/api/users/{other.Id}/password", new { password = "hemligt123" });
+        var request = new HttpRequestMessage(HttpMethod.Post, $"/api/users/{target.Id}/password")
+        {
+            Content = JsonContent.Create(new { password = "hemligt123" })
+        };
+        request.Headers.Add(TestAuthHandler.Header, teacher.Id.ToString());
+        var forbidden = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.NotFound, foreign.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+    }
+
+    [Fact]
+    public async Task SetPassword_ForAMicrosoftUser_InAMicrosoftSchool_ReturnsConflict()
+    {
+        Guid adminId;
+        Guid studentId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            var school = await TestData.AddSchoolAsync(db);
+            school.EntraTenantId = Guid.NewGuid().ToString();
+            var admin = await TestData.AddUserAsync(db, school.Id, UserRole.Admin);
+            var student = await TestData.AddUserAsync(db, school.Id);
+            student.ExternalId = Guid.NewGuid().ToString();
+            await db.SaveChangesAsync();
+            (adminId, studentId) = (admin.Id, student.Id);
+        }
+
+        var request = new HttpRequestMessage(HttpMethod.Post, $"/api/users/{studentId}/password")
+        {
+            Content = JsonContent.Create(new { password = "hemligt123" })
+        };
+        request.Headers.Add(TestAuthHandler.Header, adminId.ToString());
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Contains("the user signs in with Microsoft", await response.Content.ReadAsStringAsync());
+    }
+
+    // #521: migrationens admin "Placeholder" kan inte logga in och är ingen riktig person, så hen syns inte på
+    // Användare och räknas inte bland dem som inte kan logga in.
+    [Fact]
+    public async Task ListUsers_AndAdminOverview_HideThePlaceholderAdmin()
+    {
+        var withoutPassword = await AddUserAsync(PlaceholderIds.SchoolId, UserRole.Student);
+
+        var users = await _client.GetFromJsonAsync<List<UserResponse>>("/api/users");
+        var overview = await _client.GetStringAsync("/api/me/admin-overview");
+
+        Assert.DoesNotContain(users!, user => user.Id == PlaceholderIds.UserId);
+        Assert.Contains(users!, user => user.Id == withoutPassword.Id);
+        Assert.DoesNotContain(PlaceholderIds.UserId.ToString(), overview);
+        Assert.Contains(withoutPassword.Id.ToString(), overview);
+    }
+
     // En användare i skolan (eller en ny skola om schoolId saknas). Med groupRole läggs hen också i en grupp.
     private async Task<Backend.Domain.Entities.User> AddUserAsync(
         Guid? schoolId, UserRole role, GroupRole? groupRole = null)

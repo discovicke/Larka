@@ -2,6 +2,7 @@ using Backend.Application.Abstractions;
 using Backend.Application.Files;
 using Backend.Domain.Entities;
 using Backend.Domain.Enums;
+using Backend.Infrastructure.Persistence.Configurations;
 using Microsoft.EntityFrameworkCore;
 
 namespace Backend.Infrastructure.Persistence.Repositories;
@@ -11,8 +12,14 @@ public class UserRepository(AppDb db) : IUserRepository
     public Task<List<User>> GetAllAsync(CancellationToken ct) =>
         db.Users.OrderBy(user => user.Name).ToListAsync(ct);
 
+    // Migrationens admin "Placeholder" är ingen riktig person. Så länge ingen kan logga in som hen (inget lösenord och
+    // ingen Microsoft-koppling) syns hen inte på Användare och räknas inte bland dem som inte kan logga in (#521).
     public Task<List<User>> GetForSchoolAsync(Guid schoolId, CancellationToken ct) =>
-        db.Users.Where(user => user.SchoolId == schoolId).OrderBy(user => user.Name).ToListAsync(ct);
+        db.Users
+            .Where(user => user.SchoolId == schoolId)
+            .Where(user => user.Id != PlaceholderIds.UserId || user.PasswordHash != null || user.ExternalId != null)
+            .OrderBy(user => user.Name)
+            .ToListAsync(ct);
 
     public Task<Dictionary<Guid, string>> GetNamesAsync(IReadOnlyCollection<Guid> userIds, CancellationToken ct) =>
         db.Users.Where(user => userIds.Contains(user.Id)).ToDictionaryAsync(user => user.Id, user => user.Name, ct);

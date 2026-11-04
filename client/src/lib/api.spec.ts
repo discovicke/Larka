@@ -181,6 +181,27 @@ describe('api med inloggning', () => {
     expect(redirectToLogin).toHaveBeenCalledWith('/groups')
   })
 
+  it('ett 401 på en utgången session skickar till inloggningen med sidan man var på', async () => {
+    signInForTests()
+    sessionStorage.setItem('larka.expiresAt', String(Date.now() - 1000))
+    window.history.replaceState({}, '', '/groups')
+    respond(401, JSON.stringify({detail: 'Ogiltigt token'}))
+
+    await api.GET('/api/me').catch(() => undefined)
+
+    expect(redirectToLogin).toHaveBeenCalledWith('/groups')
+  })
+
+  // #519: ett anrop som gick iväg när användaren redan hade loggat ut lägger inte sidan i redirect.
+  it('ett 401 efter Logga ut skickar inte vidare', async () => {
+    window.history.replaceState({}, '', '/courses/c1/content')
+    respond(401, JSON.stringify({detail: 'Ogiltigt token'}))
+
+    await api.GET('/api/me').catch(() => undefined)
+
+    expect(redirectToLogin).not.toHaveBeenCalled()
+  })
+
   it('ett 401 från inloggningen skickar inte vidare', async () => {
     respond(401, JSON.stringify({detail: 'Fel e-post eller lösenord.'}))
 

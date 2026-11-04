@@ -205,6 +205,12 @@ public record ContentFeedItem(
     bool IsPinned,
     string? AuthorAvatarUrl = null);
 
+public record UpdateCommentDto(string BodyMd);
+
+/// <summary>
+/// CanEdit och CanDelete gäller den som frågar: författaren ändrar och tar bort sin egen kommentar, och läraren
+/// på innehållet tar bort vilken kommentar som helst.
+/// </summary>
 public record CommentDto(
     Guid Id,
     Guid ContentId,
@@ -212,11 +218,18 @@ public record CommentDto(
     string AuthorName,
     string BodyMd,
     DateTimeOffset CreatedAt,
-    string? AuthorAvatarUrl = null)
+    string? AuthorAvatarUrl = null,
+    bool CanEdit = false,
+    bool CanDelete = false)
 {
-    public static CommentDto From(Comment comment, string authorName, string? authorAvatarUrl = null) =>
+    public static CommentDto From(
+        Comment comment,
+        string authorName,
+        string? authorAvatarUrl = null,
+        bool canEdit = false,
+        bool canDelete = false) =>
         new(comment.Id, comment.ContentId, comment.AuthorId, authorName, comment.BodyMd, comment.CreatedAt,
-            authorAvatarUrl);
+            authorAvatarUrl, canEdit, canDelete);
 }
 
 /// <summary>Url är en tidsbegränsad länk som skapas när bilagan läses, inte något som sparas.</summary>

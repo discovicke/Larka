@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import {PhDotsThree, PhLinkBreak, PhProhibit, PhUserCheck, PhUserGear} from '@phosphor-icons/vue'
+import {PhDotsThree, PhKey, PhLinkBreak, PhProhibit, PhUserCheck, PhUserGear} from '@phosphor-icons/vue'
 import {computed, ref} from 'vue'
 import {useRoute} from 'vue-router'
 
 import ChangeRoleDialog from '@/components/users/ChangeRoleDialog.vue'
 import DeactivateUserDialog from '@/components/users/DeactivateUserDialog.vue'
+import SetPasswordDialog from '@/components/users/SetPasswordDialog.vue'
 import UnlinkMicrosoftDialog from '@/components/users/UnlinkMicrosoftDialog.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Badge} from '@/components/ui/badge'
@@ -75,6 +76,14 @@ const deactivatingUser = ref<User>()
 function openDeactivate(user: User) {
   deactivatingUser.value = user
   deactivateOpen.value = true
+}
+
+const setPasswordOpen = ref(false)
+const passwordUser = ref<User>()
+
+function openSetPassword(user: User) {
+  passwordUser.value = user
+  setPasswordOpen.value = true
 }
 
 const unlinkOpen = ref(false)
@@ -202,6 +211,15 @@ load()
                       <PhUserGear/>
                       Ändra roll
                     </DropdownMenuItem>
+                    <!-- Den som loggar in med Microsoft behöver inget lösenord i Lärka. -->
+                    <DropdownMenuItem
+                      v-if="!user.microsoftLinked"
+                      data-test="row-set-password"
+                      @select="openSetPassword(user)"
+                    >
+                      <PhKey/>
+                      Sätt lösenord
+                    </DropdownMenuItem>
                     <DropdownMenuItem
                       v-if="user.deactivatedAt"
                       data-test="row-reactivate"
@@ -247,6 +265,12 @@ load()
       v-if="deactivatingUser"
       v-model:open="deactivateOpen"
       :user="deactivatingUser"
+      @saved="onSaved"
+    />
+    <SetPasswordDialog
+      v-if="passwordUser"
+      v-model:open="setPasswordOpen"
+      :user="passwordUser"
       @saved="onSaved"
     />
     <UnlinkMicrosoftDialog

@@ -85,6 +85,17 @@ function deadlineProgress(deadline: Deadline): number {
   return progressPercent(deadline.submitted, deadline.students)
 }
 
+// Uppgiftens egen deadline visar hur många som lämnat in. En komplettering och en egen deadline gäller bara
+// några elever, så där står vilka det gäller i stället.
+function deadlineAudience(deadline: Deadline): string {
+  const students = deadline.students === 1
+    ? '1 elev'
+    : `${deadline.students} elever`
+  return deadline.kind === 'ResubmitDeadline'
+    ? `Kompletteringsdeadline · ${students}`
+    : `Egen deadline · ${students}`
+}
+
 function scheduledKind(item: Scheduled): string {
   return item.kind === 'Week'
     ? 'Vecka'
@@ -229,7 +240,7 @@ load()
           </p>
           <RouterLink
             v-for="item in teaching.deadlines"
-            :key="item.linkId"
+            :key="`${item.kind}-${item.linkId}-${item.dueAt}`"
             :to="assignmentLink(item)"
             data-test="deadline-item"
             class="flex flex-col gap-1.5"
@@ -243,20 +254,29 @@ load()
             </span>
             <span class="text-muted-foreground text-[13px]">{{ item.courseTitle }}</span>
             <span
-              class="bg-muted h-1.5 overflow-hidden rounded-full"
-              role="progressbar"
-              :aria-valuenow="deadlineProgress(item)"
-              aria-valuemin="0"
-              aria-valuemax="100"
+              v-if="item.kind === 'ResubmitDeadline' || item.kind === 'PersonalDeadline'"
+              class="text-muted-foreground text-[13px]"
+              data-test="deadline-audience"
             >
+              {{ deadlineAudience(item) }}
+            </span>
+            <template v-else>
               <span
-                class="bg-primary block h-full rounded-full"
-                :style="{width: `${deadlineProgress(item)}%`}"
-              />
-            </span>
-            <span class="text-muted-foreground text-[13px]">
-              {{ item.submitted }} av {{ item.students }} inlämnade
-            </span>
+                class="bg-muted h-1.5 overflow-hidden rounded-full"
+                role="progressbar"
+                :aria-valuenow="deadlineProgress(item)"
+                aria-valuemin="0"
+                aria-valuemax="100"
+              >
+                <span
+                  class="bg-primary block h-full rounded-full"
+                  :style="{width: `${deadlineProgress(item)}%`}"
+                />
+              </span>
+              <span class="text-muted-foreground text-[13px]">
+                {{ item.submitted }} av {{ item.students }} inlämnade
+              </span>
+            </template>
           </RouterLink>
         </section>
 

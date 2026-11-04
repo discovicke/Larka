@@ -45,7 +45,8 @@ public class TeachingEndpointTests(TestWebApplicationFactory factory) : IClassFi
         string CourseTitle,
         DateTimeOffset DueAt,
         int Submitted,
-        int Students);
+        int Students,
+        string Kind = "Deadline");
 
     private record ScheduledResponse(
         Guid? LinkId,
@@ -249,6 +250,38 @@ public class TeachingEndpointTests(TestWebApplicationFactory factory) : IClassFi
         Assert.Equal(
             [("Bara klass B", 1, 1), ("Hela kursen", 1, 3)],
             teaching.Deadlines.Select(item => (item.Title, item.Submitted, item.Students)));
+    }
+
+    [Fact]
+    public async Task Deadlines_IncludeResubmitAndPersonalDeadlines_WithTheStudentsTheyConcern()
+    {
+        var setup = await AddSetupAsync();
+        var now = DateTimeOffset.UtcNow;
+        var link = await _client.CreateAssignmentLinkAsync(
+            "Labb",
+            new
+            {
+                courseId = setup.CourseId,
+                publishAt = now.AddDays(-5),
+                dueAt = now.AddDays(-2),
+                resubmitDueAt = new[] { now.AddDays(3) }
+            });
+        await SetSubmissionAsync(link, setup.StudentId, SubmissionStatus.NeedsWork, now.AddDays(-3));
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            var personal = await db.Submissions.SingleAsync(row =>
+                row.ContentLinkId == link && row.StudentId == setup.OtherStudentId);
+            personal.PersonalDueAt = now.AddDays(5);
+            await db.SaveChangesAsync();
+        }
+
+        var teaching = await GetTeachingAsync(setup.TeacherId);
+
+        Assert.Equal(
+            [("ResubmitDeadline", 1), ("PersonalDeadline", 1)],
+            teaching.Deadlines.Select(item => (item.Kind, item.Students)));
+        Assert.All(teaching.Deadlines, item => Assert.Equal(link, item.LinkId));
     }
 
     [Fact]

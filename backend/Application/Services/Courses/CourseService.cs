@@ -38,10 +38,11 @@ public class CourseService(
         return schoolCourses.Select(CourseDto.From).ToList();
     }
 
+    // Samma regel som kurslistan: lärare och elever i kursen och admin i skolan. Alla andra får 404.
     public async Task<CourseDto?> GetAsync(Guid id, CancellationToken ct)
     {
         var course = await GetOwnAsync(id, ct);
-        return course is null
+        return course is null || !await permissions.CanReadCourseAsync(id, ct)
             ? null
             : CourseDto.From(course);
     }
@@ -119,9 +120,9 @@ public class CourseService(
             return ServiceResult<CourseDto>.Invalid("title is required");
         }
 
-        if (teaches && (dto.Description is null || dto.Description.Length > 20000))
+        if (teaches && (dto.Description is null || TextLimits.IsTooLong(dto.Description, TextLimits.CourseDescription)))
         {
-            return ServiceResult<CourseDto>.Invalid("description can be at most 20000 characters");
+            return ServiceResult<CourseDto>.Invalid(TextLimits.CourseDescriptionTooLong);
         }
 
         var rangeError = PointsAndDatesError(dto.Points, dto.StartsOn, dto.EndsOn);

@@ -186,9 +186,13 @@ function backend(content: StudentItem[], gitHubLogin: string | null = null) {
           bodyMd: 'Min lösning',
           submittedAt: '2026-10-27T10:00:00Z',
           files: [],
-          grade: {gradedById: 't1', level: 'Pass', feedback: 'Snyggt arbete med pipelinen', gradedAt: '2026-10-28T10:00:00Z'},
+          grade: {gradedById: 't1', level: 'Pass', feedback: 'Snyggt arbete med pipelinen', gradedAt: '2026-10-28T10:00:00Z', gradedByName: 'Tomas Berg'},
         }],
       }
+    }
+    // Idag, dit eleven skickas när en del inte går att öppna.
+    if (path === '/api/me/today') {
+      return {status: 200, body: {todo: [], submitted: [], feedback: [], news: [], courses: []}}
     }
     return {status: 200, body: []}
   })
@@ -595,13 +599,24 @@ describe('StudentCourseContentView', () => {
     expect(router.currentRoute.value.query.del).toBe('l1')
   })
 
-  it.each(['l2', 'okänd'])('faller tillbaka på översikten för ?del=%s', async (linkId) => {
+  it('faller tillbaka på översikten för en låst del', async () => {
     backend([theory, locked])
-    const {wrapper, router} = await renderApp(`/courses/c1/content?del=${linkId}`)
+    const {wrapper, router} = await renderApp('/courses/c1/content?del=l2')
 
     expect(wrapper.find('[data-test="student-detail"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="student-part-l1"]').exists()).toBe(true)
     expect(router.currentRoute.value.query.del).toBeUndefined()
+  })
+
+  // #518: en del eleven inte ser (okänd, utkast eller schemalagd) finns inte i elevens veckor. Eleven hamnar
+  // på Idag med toasten, så att adressen inte avslöjar att delen finns.
+  it('leder till Idag med en toast för en del eleven inte ser', async () => {
+    backend([theory, locked])
+    const {wrapper, router} = await renderApp('/courses/c1/content?del=utkast')
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('today')
+    expect(wrapper.find('[data-test="toast"]').text()).toContain('Du har inte behörighet till den sidan.')
   })
 
   it('visar lärarens kommentar och betyg på den bedömda uppgiften', async () => {
@@ -610,6 +625,7 @@ describe('StudentCourseContentView', () => {
 
     const feedback = wrapper.find('[data-test="student-feedback"]')
     expect(feedback.text()).toContain('Snyggt arbete med pipelinen')
+    expect(feedback.text()).toContain('Bedömd av Tomas Berg')
     expect(feedback.find('[data-test="grade-stamp"]').text()).toBe('G')
     expect(wrapper.find('[data-test="student-detail"] aside').text()).not.toContain('Betyg')
   })

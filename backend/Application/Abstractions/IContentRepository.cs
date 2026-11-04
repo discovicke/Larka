@@ -13,11 +13,21 @@ public record CalendarLink(
     Content Content,
     string? CourseTitle,
     DateTimeOffset? ModulePublishAt,
-    DateTimeOffset? PersonalDueAt = null); // användarens egen deadline på länken, när hen är elev och har fått en
+    DateTimeOffset? PersonalDueAt = null, // användarens egen deadline på länken, när hen är elev och har fått en
+    bool IsTeacher = false); // samma regel som IPermissions.CanTeachLinkAsync, i samma fråga som länkarna
 
-/// <summary>En uppgift med deadline i en kurs.</summary>
+/// <summary>
+/// En deadline för en uppgift i en kurs: uppgiftens egen, en kompletteringsdeadline eller elevers egen deadline.
+/// Students är antalet elever som deadlinen gäller för en komplettering (komplettering begärd) och en egen deadline.
+/// </summary>
 public record CourseDeadline(
-    Guid LinkId, string Title, Guid CourseId, string CourseTitle, DateTimeOffset DueAt);
+    Guid LinkId,
+    string Title,
+    Guid CourseId,
+    string CourseTitle,
+    DateTimeOffset DueAt,
+    CalendarItemKind Kind = CalendarItemKind.Deadline,
+    int Students = 0);
 
 /// <summary>En del som publiceras i en kurs.</summary>
 public record ScheduledContentLink(
@@ -105,7 +115,10 @@ public interface IContentRepository
     /// <summary>Projektgrupperna för en utdelning, med medlemmar och eventuellt grupprepo.</summary>
     Task<List<AssignmentGroup>> GetGroupsForLinkAsync(Guid linkId, CancellationToken ct);
 
-    /// <summary>Publicerade uppgifter med deadline i intervallet [fromAt, toAt] i kurserna.</summary>
+    /// <summary>
+    /// Deadlines i intervallet [fromAt, toAt] för publicerade uppgifter i kurserna: uppgiftens egen,
+    /// kompletteringsdeadlines och elevernas egna (inte för bedömda inlämningar).
+    /// </summary>
     Task<List<CourseDeadline>> GetCourseDeadlinesAsync(
         IReadOnlyCollection<Guid> courseIds, DateTimeOffset fromAt, DateTimeOffset toAt, CancellationToken ct);
 
@@ -140,6 +153,8 @@ public interface IContentRepository
 
     Task<List<Comment>> GetCommentsAsync(Guid contentId, CancellationToken ct);
     void AddComment(Comment comment);
+    Task<Comment?> GetCommentAsync(Guid contentId, Guid commentId, CancellationToken ct);
+    void RemoveComment(Comment comment);
     void AddAttachment(Attachment attachment);
     Task<List<Attachment>> GetAttachmentsAsync(Guid contentId, CancellationToken ct);
     Task<List<Attachment>> GetAttachmentsAsync(IReadOnlyCollection<Guid> contentIds, CancellationToken ct);

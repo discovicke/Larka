@@ -14,9 +14,11 @@ import {
 } from '@/components/ui/dialog'
 import {Field, FieldError, FieldGroup, FieldLabel} from '@/components/ui/field'
 import {Input} from '@/components/ui/input'
+import TextLimitNote from '@/components/TextLimitNote.vue'
 import {useAsync} from '@/composables/useAsync'
 import {type Schema} from '@/lib/api'
 import {updateContent} from '@/lib/contentApi'
+import {isTooLong, textLimits} from '@/lib/textLimits'
 
 const props = defineProps<{post: Schema<'ContentFeedItem'>}>()
 const emit = defineEmits<{saved: []}>()
@@ -48,7 +50,7 @@ async function save() {
   // Fälten kontrolleras här i stället för med required, så att felet står vid fältet.
   titleError.value = form.title.trim() === ''
   bodyError.value = form.bodyMd.trim() === ''
-  if (titleError.value || bodyError.value) {
+  if (titleError.value || bodyError.value || isTooLong(form.bodyMd, textLimits.contentBody)) {
     return
   }
 
@@ -70,6 +72,7 @@ async function save() {
             <Input
               id="news-edit-title"
               v-model="form.title"
+              :maxlength="textLimits.title"
               placeholder="Studiebesök på tisdag"
               :aria-invalid="titleError"
             />
@@ -78,6 +81,7 @@ async function save() {
           <Field>
             <FieldLabel for="news-edit-body">Text</FieldLabel>
             <MarkdownEditor id="news-edit-body" v-model="form.bodyMd" label="Text"/>
+            <TextLimitNote :text="form.bodyMd" :max="textLimits.contentBody"/>
             <FieldError v-if="bodyError">Skriv något i nyheten.</FieldError>
           </Field>
         </FieldGroup>

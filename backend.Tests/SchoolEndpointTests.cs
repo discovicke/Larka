@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Backend.Domain.Enums;
 using Backend.Infrastructure.Persistence;
 using Backend.Infrastructure.Persistence.Configurations;
 using Microsoft.Extensions.DependencyInjection;
@@ -75,6 +76,49 @@ public class SchoolEndpointTests(TestWebApplicationFactory factory) : IClassFixt
 
         Assert.Equal(HttpStatusCode.NotFound, asAdmin.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, asOtherUser.StatusCode);
+    }
+
+    // #521: admin i skolan byter namn på skolan. Andra får 403, en annan skola 404.
+    [Fact]
+    public async Task UpdateSchool_AsAdminOfTheSchool_RenamesIt()
+    {
+        var (schoolId, adminId, teacherId) = await AddSchoolWithAdminAndTeacherAsync();
+
+        var renamed = await SendAsync(
+            HttpMethod.Put, $"/api/schools/{schoolId}", adminId, new { name = "  Lärkskolan  " });
+        var read = await GetAsync($"/api/schools/{schoolId}", adminId);
+        var empty = await SendAsync(HttpMethod.Put, $"/api/schools/{schoolId}", adminId, new { name = " " });
+        var tooLong = await SendAsync(
+            HttpMethod.Put, $"/api/schools/{schoolId}", adminId, new { name = new string('a', 201) });
+        var asTeacher = await SendAsync(HttpMethod.Put, $"/api/schools/{schoolId}", teacherId, new { name = "Nej" });
+        var otherSchool = await SendAsync(
+            HttpMethod.Put, $"/api/schools/{PlaceholderIds.SchoolId}", adminId, new { name = "Nej" });
+
+        Assert.Equal(HttpStatusCode.OK, renamed.StatusCode);
+        Assert.Equal("Lärkskolan", (await renamed.Content.ReadFromJsonAsync<SchoolResponse>())!.Name);
+        Assert.Equal("Lärkskolan", (await read.Content.ReadFromJsonAsync<SchoolResponse>())!.Name);
+        Assert.Equal(HttpStatusCode.BadRequest, empty.StatusCode);
+        Assert.Contains("name is required", await empty.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.BadRequest, tooLong.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, asTeacher.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, otherSchool.StatusCode);
+    }
+
+    private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, Guid userId, object body)
+    {
+        var request = new HttpRequestMessage(method, path) { Content = JsonContent.Create(body) };
+        request.Headers.Add(TestAuthHandler.Header, userId.ToString());
+        return await _client.SendAsync(request);
+    }
+
+    private async Task<(Guid SchoolId, Guid AdminId, Guid TeacherId)> AddSchoolWithAdminAndTeacherAsync()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var school = await TestData.AddSchoolAsync(db);
+        var admin = await TestData.AddUserAsync(db, school.Id, UserRole.Admin);
+        var teacher = await TestData.AddUserAsync(db, school.Id, UserRole.Teacher);
+        return (school.Id, admin.Id, teacher.Id);
     }
 
     private async Task<HttpResponseMessage> GetAsync(string path, Guid userId)

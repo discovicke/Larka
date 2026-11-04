@@ -26,9 +26,10 @@ const editor = useEditor({
   editorProps: {
     attributes: {
       // Avstånd mellan alla block (stycken, listor, rubriker), lite mer före en rubrik.
+      // Ett långt ord bryts (wrap-anywhere), så att det aldrig gör sidan bredare.
       // ProseMirror visar radbrytningar som de står (pre-wrap). I ett stycke är en enkel radbrytning i
       // markdown bara ett mellanslag, så stycken får vanlig radbrytning. Kodblock behåller sina rader.
-      class: 'outline-none leading-relaxed [&>*+*]:mt-3 [&>*+h1]:mt-6 [&>*+h2]:mt-5 [&>*+h3]:mt-4 '
+      class: 'outline-none leading-relaxed wrap-anywhere [&>*+*]:mt-3 [&>*+h1]:mt-6 [&>*+h2]:mt-5 [&>*+h3]:mt-4 '
         + '[&_p]:whitespace-normal '
         + '[&_li>p+p]:mt-2 [&_ul]:list-disc [&_ul]:pl-5 '
         + '[&_ol]:list-decimal [&_ol]:pl-5 [&_li+li]:mt-1 '
