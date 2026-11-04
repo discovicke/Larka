@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import {computed, reactive, ref, watch} from 'vue'
+import {computed, ref, watch} from 'vue'
 
 import SearchPicker from '@/components/SearchPicker.vue'
+import CreateUserFields from '@/components/users/CreateUserFields.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Button} from '@/components/ui/button'
 import {
@@ -12,14 +13,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {Field, FieldDescription, FieldError, FieldLabel} from '@/components/ui/field'
-import {Input} from '@/components/ui/input'
+import {FieldLabel} from '@/components/ui/field'
 import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
 import {useAsync} from '@/composables/useAsync'
-import {api, errorMessage, unwrap, type Schema} from '@/lib/api'
+import {useCreateUserForm} from '@/composables/useCreateUserForm'
+import {errorMessage, type Schema} from '@/lib/api'
 import {groupRoles} from '@/lib/groupRoles'
 import {addGroupMember} from '@/lib/groupsApi'
-import {fetchMicrosoftSettings} from '@/lib/auth/microsoft'
 import {fetchUsers} from '@/lib/usersApi'
 
 const props = defineProps<{groupId: string, groupName: string, schoolId: string, memberIds: string[]}>()
@@ -37,31 +37,13 @@ const {run: loadUsers, loading, error} = useAsync(fetchUsers)
 
 // Fliken Skapa användare: en ny användare skapas och läggs till i gruppen i samma steg.
 const creating = ref(false)
-const submitted = ref(false)
-const form = reactive({name: '', email: '', schoolRole: 'Student' as Schema<'UserRole'>, password: ''})
-// Med Microsoft-inloggning loggar alla in med skolans konto, så admin sätter inga lösenord.
-const microsoftSignIn = ref(false)
+const newUser = useCreateUserForm()
 // Har användaren skapats men inte kunnat läggas till, används samma användare vid nästa försök.
 let createdUser: Schema<'UserDto'> | null = null
 
-const schoolRoles: {value: Schema<'UserRole'>, label: string}[] = [
-  {value: 'Student', label: 'Elev'},
-  {value: 'Teacher', label: 'Lärare'},
-]
-
-const nameError = computed(() => submitted.value && !form.name.trim()
-  ? 'Ange ett namn.'
-  : '')
-const emailError = computed(() => submitted.value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())
-  ? 'Ange en giltig e-postadress.'
-  : '')
-const passwordError = computed(() => form.password !== '' && form.password.length < 8
-  ? 'Lösenordet måste vara minst 8 tecken.'
-  : '')
-
 // Lärare i gruppen är alltid lärare i skolan. Admin och elever kan bara vara elever.
 const roleOptions = computed(() => groupRoles.filter((option) =>
-  option.value === 'Student' || !creating.value || form.schoolRole === 'Teacher'))
+  option.value === 'Student' || !creating.value || newUser.form.role === 'Teacher'))
 
 // Den som redan är medlem kan inte läggas till igen. Sökningen matchar namn och e-post.
 const items = computed(() => users.value
@@ -78,16 +60,8 @@ watch(open, async (isOpen) => {
   userId.value = ''
   role.value = 'Student'
   creating.value = false
-  submitted.value = false
   createdUser = null
-  Object.assign(form, {name: '', email: '', schoolRole: 'Student', password: ''})
-  void fetchMicrosoftSettings()
-    .then((settings) => {
-      microsoftSignIn.value = settings !== null
-    })
-    .catch(() => {
-      microsoftSignIn.value = false
-    })
+  newUser.reset()
   const loaded = await loadUsers()
   if (loaded) {
     users.value = loaded
@@ -119,8 +93,7 @@ function showPick() {
 }
 
 async function submit() {
-  submitted.value = true
-  if (creating.value && (!form.name.trim() || emailError.value || passwordError.value)) {
+  if (creating.value && !newUser.validate()) {
     return
   }
 
@@ -128,15 +101,7 @@ async function submit() {
   error.value = ''
   try {
     if (creating.value) {
-      createdUser ??= unwrap(await api.POST('/api/users', {
-        body: {
-          schoolId: props.schoolId,
-          name: form.name.trim(),
-          email: form.email.trim(),
-          role: form.schoolRole,
-          password: form.password || null,
-        },
-      }))
+      createdUser ??= await newUser.create(props.schoolId)
     }
     await addToGroup(creating.value
       ? createdUser
@@ -174,82 +139,7 @@ async function addToGroup(user: Schema<'UserDto'> | null | undefined) {
           </DialogDescription>
         </DialogHeader>
 
-        <template v-if="creating">
-          <Field
-            :data-invalid="nameError
-              ? true
-              : undefined"
-          >
-            <FieldLabel for="new-user-name">Namn</FieldLabel>
-            <Input
-              id="new-user-name"
-              v-model="form.name"
-              class="w-full"
-              autocomplete="off"
-              :aria-invalid="nameError
-                ? true
-                : undefined"
-              data-test="new-user-name"
-            />
-            <FieldError v-if="nameError" data-test="new-user-name-error">{{ nameError }}</FieldError>
-          </Field>
-          <Field
-            :data-invalid="emailError
-              ? true
-              : undefined"
-          >
-            <FieldLabel for="new-user-email">E-post</FieldLabel>
-            <Input
-              id="new-user-email"
-              v-model="form.email"
-              type="email"
-              class="w-full"
-              autocomplete="off"
-              :aria-invalid="emailError
-                ? true
-                : undefined"
-              data-test="new-user-email"
-            />
-            <FieldError v-if="emailError" data-test="new-user-email-error">{{ emailError }}</FieldError>
-          </Field>
-          <Field>
-            <FieldLabel for="new-user-role">Roll i skolan</FieldLabel>
-            <NativeSelect
-              id="new-user-role"
-              v-model="form.schoolRole"
-              class="w-full"
-              data-test="new-user-role"
-            >
-              <NativeSelectOption v-for="option in schoolRoles" :key="option.value" :value="option.value">
-                {{ option.label }}
-              </NativeSelectOption>
-            </NativeSelect>
-          </Field>
-          <p v-if="microsoftSignIn" class="text-muted-foreground text-sm" data-test="new-user-microsoft">
-            Hen loggar in med skolans Microsoft-konto, med samma e-postadress.
-          </p>
-          <Field
-            v-else
-            :data-invalid="passwordError
-              ? true
-              : undefined"
-          >
-            <FieldLabel for="new-user-password">Tillfälligt lösenord (valfritt)</FieldLabel>
-            <Input
-              id="new-user-password"
-              v-model="form.password"
-              type="text"
-              class="w-full"
-              autocomplete="off"
-              :aria-invalid="passwordError
-                ? true
-                : undefined"
-              data-test="new-user-password"
-            />
-            <FieldDescription>Minst 8 tecken. Utan lösenord kan användaren inte logga in ännu.</FieldDescription>
-            <FieldError v-if="passwordError" data-test="new-user-password-error">{{ passwordError }}</FieldError>
-          </Field>
-        </template>
+        <CreateUserFields v-if="creating" :state="newUser" :roles="['Student', 'Teacher']"/>
 
         <template v-else>
           <SearchPicker

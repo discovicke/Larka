@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import {PhDotsThree, PhKey, PhLinkBreak, PhProhibit, PhUserCheck, PhUserGear} from '@phosphor-icons/vue'
+import {PhDotsThree, PhKey, PhLinkBreak, PhPlus, PhProhibit, PhUserCheck, PhUserGear} from '@phosphor-icons/vue'
 import {computed, ref} from 'vue'
 import {useRoute} from 'vue-router'
 
 import ChangeRoleDialog from '@/components/users/ChangeRoleDialog.vue'
+import CreateUserDialog from '@/components/users/CreateUserDialog.vue'
 import DeactivateUserDialog from '@/components/users/DeactivateUserDialog.vue'
 import SetPasswordDialog from '@/components/users/SetPasswordDialog.vue'
 import UnlinkMicrosoftDialog from '@/components/users/UnlinkMicrosoftDialog.vue'
@@ -21,6 +22,7 @@ import SearchField from '@/components/ui/SearchField.vue'
 import {Skeleton} from '@/components/ui/skeleton'
 import {useAsync} from '@/composables/useAsync'
 import {useCurrentUser} from '@/composables/useCurrentUser'
+import {useToast} from '@/composables/useToast'
 import {type Schema} from '@/lib/api'
 import {userRoleLabels} from '@/lib/userRoles'
 import {fetchAllUsers} from '@/lib/usersApi'
@@ -60,6 +62,19 @@ function matchesFilter(user: User) {
   return filter.value === 'deactivated'
     ? !!user.deactivatedAt
     : user.role === filter.value
+}
+
+const {showToast} = useToast()
+const createOpen = ref(false)
+
+// Den nya användaren står först i listan. Döljer sökningen eller filtret hen, visas alla igen.
+function onCreated(created: User) {
+  users.value = [created, ...users.value]
+  if (!visibleUsers.value.some((user) => user.id === created.id)) {
+    filter.value = 'all'
+    search.value = ''
+  }
+  showToast(`${created.name} är skapad.`)
 }
 
 const changeRoleOpen = ref(false)
@@ -131,6 +146,11 @@ load()
           label="Sök användare"
           placeholder="Sök namn eller e-post…"
         />
+
+        <Button :disabled="!me" data-test="new-user" @click="createOpen = true">
+          <PhPlus/>
+          Ny användare
+        </Button>
       </div>
     </div>
 
@@ -255,6 +275,12 @@ load()
       </div>
     </section>
 
+    <CreateUserDialog
+      v-if="me"
+      v-model:open="createOpen"
+      :school-id="me.school.id"
+      @created="onCreated"
+    />
     <ChangeRoleDialog
       v-if="changingUser"
       v-model:open="changeRoleOpen"

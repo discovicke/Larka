@@ -23,6 +23,9 @@ function backend({role = 'Admin', roleStatus = 200}: {role?: string, roleStatus?
     if (method === 'GET' && path === '/api/users') {
       return {status: 200, body: [me, elev, larare, sparrad]}
     }
+    if (method === 'POST' && path === '/api/users') {
+      return {status: 201, body: {id: 'u9', ...(body as object)}}
+    }
     if (method === 'POST' && path === '/api/users/u1/deactivate') {
       return {status: 200, body: {...elev, deactivatedAt: '2026-11-02T10:00:00Z'}}
     }
@@ -194,6 +197,49 @@ describe('UsersView', () => {
 
     expect(dialog().querySelector('[data-test="change-role-error"]')?.textContent)
       .toContain('Du kan inte ändra din egen roll.')
+  })
+
+  describe('Ny användare', () => {
+    async function create(wrapper: Awaited<ReturnType<typeof renderApp>>['wrapper'], name: string, role: string) {
+      await click(wrapper.find('[data-test="new-user"]').element)
+      for (const [field, value] of [['new-user-name', name], ['new-user-email', 'ny@example.com']]) {
+        const input = dialog().querySelector(`[data-test="${field}"]`) as HTMLInputElement
+        input.value = value
+        input.dispatchEvent(new Event('input'))
+      }
+      const select = dialog().querySelector('[data-test="new-user-role"]') as HTMLSelectElement
+      select.value = role
+      select.dispatchEvent(new Event('change'))
+      await flushPromises()
+      await click(dialog().querySelector('[data-test="confirm-create-user"]'))
+    }
+
+    it('admin skapar en användare utan grupp och hen står först i listan', async () => {
+      backend()
+      const {wrapper} = await renderApp('/users')
+
+      await create(wrapper, 'Ada Admin', 'Admin')
+
+      expect(sent('POST', '/api/users')).toEqual({
+        schoolId: 's1', name: 'Ada Admin', email: 'ny@example.com', role: 'Admin', password: null,
+      })
+      expect(requests.some((request) => request.path.startsWith('/api/groups'))).toBe(false)
+      expect(dialog()).toBeNull()
+      expect(rows(wrapper)).toHaveLength(5)
+      expect(rows(wrapper)[0].text()).toContain('Ada Admin')
+      expect(rows(wrapper)[0].find('[data-test="user-role-cell"]').text()).toBe('Admin')
+    })
+
+    it('visar alla igen när filtret skulle dölja den nya användaren', async () => {
+      backend()
+      const {wrapper} = await renderApp('/users?filter=Student')
+      expect(rows(wrapper)).toHaveLength(2)
+
+      await create(wrapper, 'Tove Lärare', 'Teacher')
+
+      expect(rows(wrapper)).toHaveLength(5)
+      expect(rows(wrapper)[0].text()).toContain('Tove Lärare')
+    })
   })
 
   it('en lärare kommer inte åt sidan och ser ingen länk dit', async () => {

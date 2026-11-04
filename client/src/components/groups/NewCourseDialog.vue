@@ -2,6 +2,7 @@
 import {computed, reactive, ref, watch} from 'vue'
 
 import DatePicker from '@/components/DatePicker.vue'
+import CreateUserDialog from '@/components/users/CreateUserDialog.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Button} from '@/components/ui/button'
 import {Checkbox} from '@/components/ui/checkbox'
@@ -53,6 +54,7 @@ const codeTaken = ref(false)
 const selected = ref<string[]>([])
 const teacherSearch = ref('')
 const addingTeacher = ref(false)
+const creatingTeacher = ref(false)
 const copyContent = ref(true)
 const choosingWeeks = ref(false)
 const chosenWeeks = ref<string[]>([])
@@ -245,6 +247,12 @@ function addTeacher(userId: string) {
   selected.value = [...selected.value, userId]
   teacherSearch.value = ''
   addingTeacher.value = false
+}
+
+// En lärare som skapas här blir vald direkt.
+function onTeacherCreated(teacher: Schema<'UserDto'>) {
+  teachers.value = [...teachers.value, teacher]
+  addTeacher(teacher.id)
 }
 
 function removeTeacher(userId: string) {
@@ -592,7 +600,7 @@ async function save() {
               />
               <ul class="max-h-44 overflow-y-auto rounded-lg border" data-test="new-course-teacher-options">
                 <li v-if="teachers.length === 0" class="text-muted-foreground px-4 py-2.5 text-sm">
-                  Skolan har inga lärare ännu. Skapa en användare som lärare först.
+                  Skolan har inga lärare ännu.
                 </li>
                 <li
                   v-else-if="teacherOptions.length === 0"
@@ -616,6 +624,18 @@ async function save() {
                   </button>
                 </li>
               </ul>
+              <p class="text-muted-foreground text-sm">
+                Finns inte i listan?
+                <Button
+                  type="button"
+                  variant="link"
+                  class="h-auto p-0"
+                  data-test="new-course-create-teacher"
+                  @click="creatingTeacher = true"
+                >
+                  Skapa lärare
+                </Button>.
+              </p>
             </div>
             <FieldError v-if="teacherError" data-test="new-course-teacher-error">{{ teacherError }}</FieldError>
           </Field>
@@ -688,4 +708,11 @@ async function save() {
       </form>
     </DialogContent>
   </Dialog>
+
+  <CreateUserDialog
+    v-model:open="creatingTeacher"
+    :school-id="schoolId"
+    :roles="['Teacher']"
+    @created="onTeacherCreated"
+  />
 </template>

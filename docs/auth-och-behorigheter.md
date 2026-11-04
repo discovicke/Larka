@@ -91,7 +91,7 @@ Börja om från en tom databas: `docker compose down -v && npm run db`.
 
 ### Produktion
 
-Prod seedar inga lösenord utöver demokontona och demodatans elever (`larka-demo`), och en skola utan Microsoft får sin första admin från `Auth:FirstAdmin` ([drift.md](drift.md#utan-microsoft)). Admin kan ge en ny användare ett tillfälligt lösenord (minst 8 tecken) när hen skapas från _Lägg till medlem_ på en grupp, eller med `password` i `POST /api/users`. När Microsoft-inloggning är inställd visar _Lägg till medlem_ inget lösenordsfält, eftersom användaren loggar in med skolans konto. Utan lösenord kan användaren inte logga in.
+Prod seedar inga lösenord utöver demokontona och demodatans elever (`larka-demo`), och en skola utan Microsoft får sin första admin från `Auth:FirstAdmin` ([drift.md](drift.md#utan-microsoft)). Admin kan ge en ny användare ett tillfälligt lösenord (minst 8 tecken) när hen skapas med formuläret för nya användare (_Ny användare_ på _Användare_, _Lägg till medlem_ på en grupp eller _Skapa lärare_ i _Ny kurs_), eller med `password` i `POST /api/users`. När Microsoft-inloggning är inställd visar formuläret inget lösenordsfält, eftersom användaren loggar in med skolans konto. Utan lösenord kan användaren inte logga in.
 
 ### Sätta lösenord
 
@@ -169,7 +169,7 @@ Medlemslistan (`GroupMemberDto`) har bara id, namn, profilbild (`avatarUrl`, se 
 
 Lärarnas kontaktuppgifter (namn, e-post och vilka grupper de undervisar) visas via kursens egen lärarlista, `GET /api/courses/{id}/staff`, och inte via `/api/users`. Listan är bara för dem som hör till kursen: kursens lärare, eleverna i klasserna som läser den, och admin i kursens skola. Alla andra, också lärare och elever i andra kurser och admin i en annan skola, får `404`.
 
-Admin hanterar klasser, grupper och kurser direkt på _Alla grupper_: knappen _Ny_ uppe till höger skapar en klass eller grupp och öppnar dess sida, där kurser skapas, och menyn `⋯` på varje rad har _Redigera_ och _Ta bort_. Borttagningen frågar alltid först och namnger det som tas bort. Nya användare skapas från _Lägg till medlem_ på gruppens sida ("Finns inte i listan? Skapa användare"). Den gamla sidan _Program och klasser_ under Inställningar finns inte kvar, och `/settings/groups` skickar vidare till _Alla grupper_.
+Admin hanterar klasser, grupper och kurser direkt på _Alla grupper_: knappen _Ny_ uppe till höger skapar en klass eller grupp och öppnar dess sida, där kurser skapas, och menyn `⋯` på varje rad har _Redigera_ och _Ta bort_. Borttagningen frågar alltid först och namnger det som tas bort. Nya användare skapas på sidan _Användare_ med knappen _Ny användare_ (Elev, Lärare eller Admin, utan grupp), eller från _Lägg till medlem_ på gruppens sida ("Finns inte i listan? Skapa användare"), som också lägger in hen i gruppen. I _Ny kurs_ kan admin skapa en lärare direkt ("Finns inte i listan? Skapa lärare"), och läraren blir då vald för kursen. Alla tre använder samma formulär. Den gamla sidan _Program och klasser_ under Inställningar finns inte kvar, och `/settings/groups` skickar vidare till _Alla grupper_.
 
 ### Lärare i en kurs
 

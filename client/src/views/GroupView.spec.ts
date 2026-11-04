@@ -53,6 +53,9 @@ function backend(options: Backend = {}) {
     if (path === '/api/me') {
       return {status: 200, body: meAs(options.role ?? 'Teacher', ['c1'])}
     }
+    if (method === 'POST' && path === '/api/users') {
+      return {status: 201, body: {id: 'u9', schoolId: 's1', role: 'Teacher', ...(body as object)}}
+    }
     if (path === '/api/users') {
       return {status: 200, body: users}
     }
@@ -750,6 +753,37 @@ describe('GroupView', () => {
         schoolId: 's1', title: 'Testning', code: 'TEST25', points: null, startsOn: '2026-11-02', endsOn: '2026-12-18',
       })
       expect(modal()).toBeNull()
+    })
+
+    it('skapar en lärare direkt från Ny kurs och väljer hen som lärare', async () => {
+      backend({role: 'Admin', courses: []})
+      const {wrapper} = await renderApp('/groups/g1')
+
+      await fillNewCourse(wrapper, 'Testning', 'TEST25')
+      await click(modal().querySelector('[data-test="new-course-add-teacher"]'))
+      await click(modal().querySelector('[data-test="new-course-create-teacher"]'))
+
+      // Den nya dialogen ligger ovanpå Ny kurs och har bara rollen Lärare, så inget rollval visas.
+      const create = () => [...document.querySelectorAll('[role="dialog"]')].at(-1) as HTMLElement
+      expect(create().textContent).toContain('Ny lärare')
+      expect(create().querySelector('[data-test="new-user-role"]')).toBeNull()
+      for (const [name, value] of [['new-user-name', 'Tove Ny'], ['new-user-email', 'tove@example.com']]) {
+        const input = create().querySelector(`[data-test="${name}"]`) as HTMLInputElement
+        input.value = value
+        input.dispatchEvent(new Event('input'))
+      }
+      await flushPromises()
+      await click(create().querySelector('[data-test="confirm-create-user"]'))
+
+      expect(sent('POST', '/api/users')).toMatchObject({
+        schoolId: 's1', name: 'Tove Ny', email: 'tove@example.com', role: 'Teacher',
+      })
+      expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1)
+      expect(modal().querySelector('[data-test="new-course-teachers"]')?.textContent)
+        .toContain('Tove Ny')
+
+      await click(modal().querySelector('[data-test="save-new-course"]'))
+      expect(sent('POST', '/api/courses/c9/teachers')).toEqual({userId: 'u9'})
     })
 
     it('föreslår en kurskod från namnet tills admin skriver en egen', async () => {
