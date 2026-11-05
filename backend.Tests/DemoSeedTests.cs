@@ -1,4 +1,6 @@
 using System.Net.Http.Json;
+using Backend.Application.Abstractions;
+using Backend.Application.Services;
 using Backend.Domain.Enums;
 using Backend.Infrastructure.Persistence;
 using Backend.Infrastructure.Persistence.Seeding;
@@ -162,30 +164,173 @@ public class DemoSeedTests(DemoSeedTests.DemoFixture fixture) : IClassFixture<De
     }
 
     [Fact]
-    public async Task Seed_RenamesTheOldDemoCodes_WhenTheDemoDataAlreadyExists()
+    public async Task Seed_ReplacesOlderDemoData_AndKeepsTheAccounts()
     {
         using var scope = fixture.Factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDb>();
-        var course = await db.Courses.SingleAsync(row => row.Code == ".NET25_LIA");
-        var intro = await db.Content.SingleAsync(row => row.Title == "Introduktion till LIA");
-        course.Code = "NET-FORD";
-        course.Title = "Fördjupning";
-        course.Description = "Kommande kurs som bygger vidare på den pågående kursen.";
-        intro.Title = "Introduktion till Fördjupning";
-        intro.BodyMd = "Kort introduktion till **Fördjupning**.";
-        await db.SaveChangesAsync();
+        var before = (
+            await db.Users.CountAsync(),
+            await db.Groups.CountAsync(),
+            await db.Courses.CountAsync(),
+            await db.Submissions.CountAsync());
+        var studentId = (await db.Users.SingleAsync(user => user.Email == "elev")).Id;
 
-        await scope.ServiceProvider.GetRequiredService<DemoSeed>().SeedAsync(CancellationToken.None);
+        // Äldre demodata: klassen .NET25 med ett annat id, och en kurs som någon har lagt till själv.
+        var marker = await db.Groups.SingleAsync(group => group.Id == DemoSeed.MarkerGroupId);
+        var schoolId = marker.SchoolId;
+        await db.ContentLinks.Where(link => link.GroupId == marker.Id).ExecuteDeleteAsync();
+        await db.Enrollments.Where(row => row.GroupId == marker.Id).ExecuteDeleteAsync();
+        await db.GroupCourses.Where(row => row.GroupId == marker.Id).ExecuteDeleteAsync();
+        await db.Groups.Where(group => group.Id == marker.Id).ExecuteDeleteAsync();
+        db.Groups.Add(new Backend.Domain.Entities.Group { SchoolId = schoolId, Name = DemoSeed.MarkerGroupName });
+        db.Courses.Add(new Backend.Domain.Entities.Course { SchoolId = schoolId, Title = "Gammal kurs", Code = "OLD" });
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+
+        var seeded = await scope.ServiceProvider.GetRequiredService<DemoSeed>().SeedAsync(CancellationToken.None);
+
+        Assert.True(seeded);
+        Assert.False(await db.Courses.AnyAsync(course => course.Code == "OLD"));
+        Assert.True(await db.Groups.AnyAsync(group => group.Id == DemoSeed.MarkerGroupId));
+        Assert.Equal(studentId, (await db.Users.SingleAsync(user => user.Email == "elev")).Id);
+        Assert.Equal(before, (
+            await db.Users.CountAsync(),
+            await db.Groups.CountAsync(),
+            await db.Courses.CountAsync(),
+            await db.Submissions.CountAsync()));
+    }
+
+    [Fact]
+    public async Task Seed_GradesFollowTheDeadlineRules()
+    {
+        using var scope = fixture.Factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+
+        var rows = await (
+                from submission in db.Submissions
+                join link in db.ContentLinks on submission.ContentLinkId equals link.Id
+                join grade in db.Grades on submission.Id equals grade.SubmissionId
+                select new { Submission = submission, Link = link, Grade = grade })
+            .ToListAsync();
+
+        Assert.Contains(rows, row => row.Grade.Level == GradeLevel.Fail);
+        foreach (var row in rows)
+        {
+            Assert.True(row.Grade.GradedAt <= _demoDay);
+            Assert.True(row.Submission.SubmittedAt <= row.Grade.GradedAt);
+            if (row.Grade.Level == GradeLevel.Fail)
+            {
+                // IG kommer bara efter sista deadline, och texten säger inte åt eleven att komplettera.
+                Assert.True(GradingWindow.Of(row.Link, row.Submission, row.Grade.GradedAt).AllowsFail);
+                Assert.DoesNotContain("komplett", row.Grade.Feedback, StringComparison.OrdinalIgnoreCase);
+            }
+
+            if (row.Submission.Status == SubmissionStatus.NeedsWork)
+            {
+                Assert.Null(row.Grade.Level);
+                Assert.True(GradingWindow.Of(row.Link, row.Submission, _demoDay).AllowsNeedsWork);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task Seed_GivesTheDemoStudentSomethingToMarkDoneAndAnOpenAssignment()
+    {
+        using var scope = fixture.Factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var student = await db.Users.SingleAsync(user => user.Email == "elev");
+        var course = await db.Courses.SingleAsync(row => row.Code == ".NET25_DevOps");
+        var visible = await (
+                from link in db.ContentLinks
+                join module in db.Modules on link.ModuleId equals module.Id
+                join content in db.Content on link.ContentId equals content.Id
+                where link.CourseId == course.Id && link.PublishAt <= _demoDay && module.PublishAt <= _demoDay
+                select new { Link = link, content.Type })
+            .ToListAsync();
+        var done = await db.PartCompletions
+            .Where(row => row.StudentId == student.Id)
+            .Select(row => row.ContentLinkId)
+            .ToListAsync();
+
+        Assert.Contains(visible, row => row.Type == ContentType.Theory && !done.Contains(row.Link.Id));
+
+        // Uppgiften är öppen mer än en vecka till, så demon fungerar även några dagar efter att datan skapats.
+        var open = visible.Single(row => row.Type == ContentType.Assignment && row.Link.DueAt > _demoDay);
+        Assert.True(open.Link.DueAt > _demoDay.AddDays(7));
+        Assert.False(await db.Submissions.AnyAsync(submission => submission.ContentLinkId == open.Link.Id
+            && submission.StudentId == student.Id
+            && submission.Status != SubmissionStatus.NotStarted));
+
+        // En annan elev har redan bett om hjälp, och läraren har fått en notis.
+        Assert.True(await db.StudentHelpRequests.AnyAsync(request => request.ContentLinkId == open.Link.Id
+            && request.StudentId != student.Id
+            && request.ResolvedAt == null));
+        var teacher = await db.Users.SingleAsync(user => user.Email == "larare");
+        Assert.True(await db.Notifications.AnyAsync(notification => notification.UserId == teacher.Id
+            && notification.Kind == NotificationKind.StudentHelpRequested));
+
+        // Den avslutade kursen har betyg och feedback för demoeleven.
+        Assert.True(await (
+                from submission in db.Submissions
+                join link in db.ContentLinks on submission.ContentLinkId equals link.Id
+                join completed in db.Courses on link.CourseId equals completed.Id
+                join grade in db.Grades on submission.Id equals grade.SubmissionId
+                where completed.Code == ".NET25_WeApp" && submission.StudentId == student.Id
+                select grade.Level)
+            .AllAsync(level => level == GradeLevel.Pass || level == GradeLevel.Distinction));
+    }
+
+    [Fact]
+    public async Task ConnectedGitHub_TurnsTheGitHubAssignmentIntoARepoAssignment_Once()
+    {
+        using var scope = fixture.Factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        var seed = scope.ServiceProvider.GetRequiredService<DemoSeed>();
+        var github = (TestGitHubAppService)scope.ServiceProvider.GetRequiredService<IGitHubAppService>();
+
+        // Utan kopplad GitHub förblir uppgiften en textuppgift.
+        Assert.Equal(0, await seed.EnableGitHubAssignmentAsync(CancellationToken.None));
+
+        var school = await DemoSeed.FindSchoolAsync(db, CancellationToken.None);
+        db.SchoolGitHubInstallations.Add(new Backend.Domain.Entities.SchoolGitHubInstallation
+        {
+            SchoolId = school!.Id,
+            InstallationId = 42,
+            Org = "skolan",
+            Connected = true
+        });
+        await db.SaveChangesAsync();
+        github.TemplateRepositories =
+        [
+            new GitHubRepository("skolan/gammal-mall", "", "main", true, true, IsArchived: true),
+            new GitHubRepository("skolan/drifts-mall", "", "main", true, true, IsArchived: false),
+        ];
+
+        var created = await seed.EnableGitHubAssignmentAsync(CancellationToken.None);
+        var again = await seed.EnableGitHubAssignmentAsync(CancellationToken.None);
 
         db.ChangeTracker.Clear();
-        var renamed = await db.Courses.SingleAsync(row => row.Id == course.Id);
-        var renamedIntro = await db.Content.SingleAsync(row => row.Id == intro.Id);
-        Assert.Equal(".NET25_LIA", renamed.Code);
-        Assert.Equal("LIA", renamed.Title);
-        Assert.StartsWith("Lärande i arbete", renamed.Description);
-        Assert.Equal("Introduktion till LIA", renamedIntro.Title);
-        Assert.Equal("Kort introduktion till **LIA**.", renamedIntro.BodyMd);
-        Assert.True(await db.Content.AnyAsync(row => row.Title == "Inlämning 1 – LIA"));
+        var link = await (
+                from row in db.ContentLinks
+                join content in db.Content on row.ContentId equals content.Id
+                join course in db.Courses on row.CourseId equals course.Id
+                where course.Code == ".NET25_DevOps" && content.Title == "Inlämning 4: Driftsätt appen"
+                select row)
+            .SingleAsync();
+        var spec = await db.AssignmentSpecs.SingleAsync(row => row.ContentId == link.ContentId);
+        var repos = await db.StudentRepos
+            .Where(repo => db.Submissions.Any(submission =>
+                submission.Id == repo.SubmissionId && submission.ContentLinkId == link.Id))
+            .ToListAsync();
+
+        Assert.Equal(8, created);
+        Assert.Equal(0, again);
+        Assert.Equal([SubmissionMode.Repo], spec.SubmissionModes);
+        Assert.Equal("skolan/drifts-mall", spec.TemplateRepo);
+        Assert.Equal(8, repos.Count);
+        Assert.All(repos, repo => Assert.Equal(RepoProvisioningState.Pending, repo.ProvisioningState));
+        Assert.Equal(8, repos.Select(repo => repo.DesiredRepoName).Distinct().Count());
+        Assert.Contains(repos, repo => repo.DesiredRepoName == "devops-driftsatt-elev");
     }
 
     [Fact]

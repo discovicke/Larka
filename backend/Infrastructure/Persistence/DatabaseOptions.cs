@@ -9,4 +9,10 @@ public class DatabaseOptions
     /// i Infisical (prod).
     /// </summary>
     public bool SeedDemoData { get; set; }
+
+    /// <summary>
+    /// Mallrepot (ägare/namn) för demodatans GitHub-uppgift. Är det satt görs uppgiften om till en repo-uppgift vid
+    /// start, och varje elev får ett repo som bakgrundsjobbet skapar. Tomt betyder att uppgiften lämnas in som text.
+    /// </summary>
+    public string? DemoTemplateRepo { get; set; }
 }

@@ -63,11 +63,17 @@ Kurskoden följer Edugrades mönster: klassens kod, understreck och en kort för
 | `JAVA25`  | `JAVA25_OPJ` Objektorienterad programmering med Java | `JAVA25_SpBo` Webbtjänster med Spring Boot | `JAVA25_MjTe` Mjukvarutestning |
 | `FIBER25` | `FIBER25_FiTe` Fiberteknik                           | `FIBER25_NaUp` Nätuppbyggnad               | `FIBER25_FaPr` Fältprojekt     |
 
-En databas med den äldre demodatan (koder som `NET-NUT`) får de nya koderna och titlarna vid nästa start. Kurser som admin har skapat själv rörs inte.
+Texterna finns i [`DemoContent.cs`](../backend/Infrastructure/Persistence/Seeding/DemoContent.cs): teori med kodexempel, uppgifter med krav för G och VG som checklistor, elevsvar, feedback och nyheter. Avslutade kurser har bara bedömda inlämningar och ett automatiskt IG. Den pågående kursen har en vecka öppen just nu, med kompletteringar, väntande bedömningar och en elev med egen deadline. Kommande kurser och veckor publiceras senare.
 
-Varje kurs har två veckor, en teoridel och två till fyra uppgifter. Avslutade och pågående kurser har inlämningar med blandade betyg, kompletteringar och väntande bedömningar. Kommande kurser publiceras senare.
+Datumen räknas från dagen då demodatan skapas, och reglerna i `GradingWindow` gäller också här: IG bara efter sista deadline (och feedbacken säger aldrig åt eleven att komplettera), Komplettera bara medan en deadline återstår. Den öppna uppgiften i `.NET25_DevOps` har deadline tio dagar fram, så demon fungerar även några dagar efter en deploy.
 
-Seedningen är idempotent och styrs av klassen `.NET25`. Den skapar konton via `AccountSeed` och placerar `larare` och `elev` i `.NET25`. Övriga elever i demodatan har e-post som `.net25.2@larka.local`, `java25.1@larka.local` och `fiber25.1@larka.local` (klassens namn och platsen i klassen) och lösenordet `larka-demo` (`DemoSeed.DemoPassword`), så att flera elever går att pröva.
+För demon i `.NET25_DevOps` har `elev` bedömda uppgifter, en inlämning som väntar på bedömning, teori kvar att klarmarkera i veckan som pågår och en öppen uppgift med hjälpknappen. En annan elev har redan bett om hjälp på den uppgiften, så `larare` har en notis i inkorgen.
+
+**GitHub-uppgiften.** `Inlämning 4: Driftsätt appen` i `.NET25_DevOps` blir en repo-uppgift när skolan har GitHub kopplat. Seedningen väljer mall som en lärare gör: det första mallrepot (inte arkiverat) i organisationen som skolan har kopplat under _Inställningar → Integrationer_. `Database:DemoTemplateRepo` (`ägare/namn`) väljer en annan mall. Reponamnet blir `devops-driftsatt-{githubLogin}`, och varje elev får ett repo som bakgrundsjobbet skapar, som när en lärare publicerar en uppgift. Det sker en gång, vid första start då GitHub är kopplat och en mall finns. Utan koppling eller mall lämnas uppgiften in som text.
+
+**Ny version tar bort allt.** Demodatan har en version: klassen `.NET25` har ett fast id (`DemoSeed.MarkerGroupId`). Saknas den klassen vid start tar seedningen bort **all** undervisningsdata (klasser, kurser, innehåll, inlämningar, notiser och hjälpfrågor) och demodatans elever, och bygger sedan om demodatan. Konton, skolan, dess Microsoft-koppling och dess GitHub-installation finns kvar. Det sker bara när `Database:SeedDemoData` är `true`. Byt id:t när demodatan ska byggas om i prod.
+
+Seedningen är idempotent så länge versionen finns. Den skapar konton via `AccountSeed` och placerar `larare` och `elev` i `.NET25`. Övriga elever i demodatan har e-post som `.net25.2@larka.local`, `java25.1@larka.local` och `fiber25.1@larka.local` (klassens namn och platsen i klassen) och lösenordet `larka-demo` (`DemoSeed.DemoPassword`), så att flera elever går att pröva.
 
 **Logga in som:**
 
