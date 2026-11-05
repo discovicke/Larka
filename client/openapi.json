@@ -10929,6 +10929,7 @@
           "courseId",
           "courseTitle",
           "grade",
+          "needsWork",
           "feedback",
           "gradedAt"
         ],
@@ -10964,6 +10965,9 @@
               }
             ]
           },
+          "needsWork": {
+            "type": "boolean"
+          },
           "feedback": {
             "type": "string"
           },
@@ -10972,7 +10976,7 @@
             "format": "date-time"
           }
         },
-        "description": "Lärarens återkoppling på en inlämning. Grade är null vid komplettering."
+        "description": "Lärarens återkoppling på en inlämning. Grade är null vid komplettering (NeedsWork) och på en övning, som bara får\nfeedback."
       },
       "TodayNewsDto": {
         "required": [

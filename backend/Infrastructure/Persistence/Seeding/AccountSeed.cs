@@ -8,7 +8,8 @@ using Microsoft.Extensions.Options;
 namespace Backend.Infrastructure.Persistence.Seeding;
 
 /// <summary>
-/// Inloggningskonton: admin, larare och elev, med lösenordet samma som användarnamnet. Körs vid varje start i
+/// Inloggningskonton: admin, larare och elev, med lösenordet samma som användarnamnet. Med demodatan
+/// (Database:SeedDemoData) skapas också elev-fiber, demoeleven i yrkesklassen FIBER25. Körs vid varje start i
 /// alla miljöer, efter migrationerna, och är idempotent: användarna skapas bara om de saknas, lösenorden sätts
 /// om varje gång, och klassen, kopplingarna och kursen skapas bara om de saknas. Inget annat rörs, och inget
 /// tas bort. Läraren blir lärare i Demo-kurs när kursen skapas. Demo-klass kopplas bara till Demo-kurs, och när demodatan (DemoSeed) finns skapas varken Demo-klass
@@ -32,6 +33,9 @@ public sealed class AccountSeed(
         new("elev", "elev", "Demo Elev", UserRole.Student)
     ];
 
+    private static readonly AccountSpec _fiberStudent =
+        new("elev-fiber", "elev-fiber", "Demo Elev Fiber", UserRole.Student);
+
     public async Task SeedAsync(CancellationToken ct)
     {
         var school = await FindSchoolAsync(ct);
@@ -46,6 +50,11 @@ public sealed class AccountSeed(
         var hasDemoData = options.Value.SeedDemoData
             || await db.Groups.AnyAsync(
                 row => row.SchoolId == school.Id && row.Name == DemoSeed.MarkerGroupName, ct);
+        if (options.Value.SeedDemoData)
+        {
+            await EnsureUserAsync(school, _fiberStudent, created, ct);
+        }
+
         if (!hasDemoData)
         {
             await EnsureDemoClassAsync(school, teacher, student, created, ct);

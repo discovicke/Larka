@@ -145,27 +145,34 @@ function timeLabel(iso: string): string {
     : formatDate(iso)
 }
 
+// Återkoppling utan betyg är antingen en komplettering eller feedback på en övning, som inte har någon betygsskala.
 function feedbackLabel(item: Feedback): string {
-  return item.grade
-    ? 'Betyg'
-    : 'Komplettera'
+  if (item.grade) {
+    return 'Betyg'
+  }
+  return item.needsWork
+    ? 'Komplettera'
+    : 'Återkoppling'
 }
 
 // Brickan är en bokstav i en rund ruta, och får hela namnet som etikett.
 function gradeTile(item: Feedback): string {
-  return item.grade
-    ? gradeLabel(item.grade)
-    : 'K'
+  if (item.grade) {
+    return gradeLabel(item.grade)
+  }
+  return item.needsWork
+    ? 'K'
+    : 'Å'
 }
 
 function gradeTileName(item: Feedback): string {
   return item.grade
     ? gradeName(item.grade)
-    : 'Komplettera'
+    : feedbackLabel(item)
 }
 
 function gradeTileClass(item: Feedback): string {
-  if (item.grade === 'Fail') {
+  if (item.grade === 'Fail' || (!item.grade && item.needsWork)) {
     return 'bg-grade-fail/10 text-grade-fail dark:bg-grade-fail/20'
   }
   if (item.grade === 'Distinction') {
@@ -173,7 +180,7 @@ function gradeTileClass(item: Feedback): string {
   }
   return item.grade
     ? 'bg-grade-pass/10 text-grade-pass dark:bg-grade-pass/20'
-    : 'bg-destructive/10 text-destructive dark:bg-destructive/20'
+    : 'bg-muted text-muted-foreground'
 }
 
 function statusText(item: Submission): string {

@@ -1,3 +1,5 @@
+using Backend.Domain.Enums;
+
 namespace Backend.Infrastructure.Persistence.Seeding;
 
 /// <summary>
@@ -7,16 +9,23 @@ namespace Backend.Infrastructure.Persistence.Seeding;
 /// </summary>
 internal static class DemoContent
 {
-    /// <summary>Uppgiften som blir en GitHub-uppgift när Database:DemoTemplateRepo är satt.</summary>
-    public const string GitHubAssignmentTitle = "Inlämning 4: Driftsätt appen";
-
-    public const string GitHubCourseCode = ".NET25_DevOps";
-
     public static readonly IReadOnlyDictionary<string, DemoClass> Classes = new Dictionary<string, DemoClass>
     {
-        [".NET25"] = new(WebApp, DevOps, Lia, CurrentDaysLeft: 18),
+        [".NET25"] = new(
+            WebApp,
+            DevOps,
+            Lia,
+            CurrentDaysLeft: 18,
+            FeaturedStudent: "elev",
+            HelpMessage: "Jag får inte containern att starta i molnet. Loggen säger att porten redan används."),
         ["JAVA25"] = new(Java, SpringBoot, Testing, CurrentDaysLeft: 35),
-        ["FIBER25"] = new(FiberTech, Network, FieldProject, CurrentDaysLeft: 50),
+        ["FIBER25"] = new(
+            FiberTech,
+            Network,
+            FieldProject,
+            CurrentDaysLeft: 50,
+            FeaturedStudent: "elev-fiber",
+            HelpMessage: "Ska alla OTDR-kurvor med i överlämningsdokumentet, eller räcker en tabell med mätvärdena?"),
     };
 
     // --- .NET25 ---------------------------------------------------------------------------------------------------
@@ -69,7 +78,8 @@ internal static class DemoContent
                         + "i en egen metod så att den går att testa. Svårast var att få rätt statuskod när "
                         + "titeln saknas.",
                         14,
-                        28),
+                        28,
+                        HandIn: DemoHandIn.Repo),
                 ]),
             new DemoWeek(
                 "Vecka 2: Data med Entity Framework Core",
@@ -105,7 +115,8 @@ internal static class DemoContent
                         "Jag har lagt till en BookContext med två tabeller och en migration. Böckerna hämtas med "
                         + "Include så att författaren kommer med i samma fråga. Alla gamla endpoints fungerar.",
                         35,
-                        49),
+                        49,
+                        HandIn: DemoHandIn.Repo),
                 ]),
             new DemoWeek(
                 "Vecka 3: Razor Pages och slutprojekt",
@@ -135,7 +146,8 @@ internal static class DemoContent
                         "Appen har sidor för böcker och recensioner, med validering i alla formulär. Jag har lagt "
                         + "till inloggning med Identity, och bara den som skrev en recension kan ändra den.",
                         63,
-                        null),
+                        null,
+                        HandIn: DemoHandIn.Repo),
                 ]),
         ]);
 
@@ -176,7 +188,8 @@ internal static class DemoContent
                         "Vi har grenskydd på main som kräver en pull request och en godkänd granskning. README:n "
                         + "beskriver hur man startar projektet lokalt, och vi har en mall för pull requests.",
                         12,
-                        26),
+                        26,
+                        HandIn: DemoHandIn.GroupRepo),
                 ]),
             new DemoWeek(
                 "Vecka 2: Automatiska tester",
@@ -211,7 +224,8 @@ internal static class DemoContent
                         "Backend har xUnit-tester och frontend Vitest. Båda körs i ett workflow på varje pull "
                         + "request, och grenskyddet kräver att de går igenom innan merge.",
                         30,
-                        null),
+                        null,
+                        HandIn: DemoHandIn.GroupRepo),
                 ]),
             new DemoWeek(
                 "Vecka 3: CI med GitHub Actions",
@@ -241,7 +255,8 @@ internal static class DemoContent
                         "Vår pipeline bygger med varningar som fel, kör dotnet format och alla tester. E2E-testerna "
                         + "körs varje natt med ett schemalagt workflow.",
                         50,
-                        74),
+                        74,
+                        HandIn: DemoHandIn.GroupRepo),
                 ]),
             new DemoWeek(
                 "Vecka 4: Containrar och driftsättning",
@@ -274,7 +289,7 @@ internal static class DemoContent
                         """,
                         BlockedBy: "Docker: images och containrar"),
                     new DemoAssignment(
-                        GitHubAssignmentTitle,
+                        "Inlämning 4: Driftsätt appen",
                         """
                         Driftsätt gruppens app automatiskt när en pull request mergas till `main`.
 
@@ -290,7 +305,7 @@ internal static class DemoContent
                         + "driftsätter den automatiskt. Versionen syns på /version.",
                         70,
                         null,
-                        GitHub: true),
+                        HandIn: DemoHandIn.GroupRepo),
                 ]),
             new DemoWeek(
                 "Vecka 5: Release och semantisk versionering",
@@ -313,7 +328,8 @@ internal static class DemoContent
                         """,
                         "Vi använder semantic-release. Varje merge till main ger en ny tagg och en release.",
                         77,
-                        null),
+                        null,
+                        HandIn: DemoHandIn.GroupRepo),
                 ]),
         ],
         [
@@ -353,10 +369,14 @@ internal static class DemoContent
                         """),
                     new DemoAssignment(
                         "LIA-plan",
-                        "Beskriv vilket företag du är på, vem som är din handledare och tre saker du vill lära dig.",
+                        "Fyll i mallen i bilagan med din handledare: företaget, handledaren och tre saker du vill lära "
+                        + "dig. Ladda upp den underskrivna planen som PDF eller foto.",
                         "",
                         7,
-                        null),
+                        null,
+                        HandIn: DemoHandIn.File,
+                        Scale: GradeScale.PassFail,
+                        Attachments: ["lia-plan-mall.pdf"]),
                 ]),
             new DemoWeek(
                 "Vecka 2: Första veckan på företaget",
@@ -368,7 +388,29 @@ internal static class DemoContent
                         "Vad har du gjort den här veckan, vad har du lärt dig och vad vill du ha hjälp med?",
                         "",
                         14,
-                        null),
+                        null,
+                        Scale: GradeScale.PassFail),
+                ]),
+            new DemoWeek(
+                "Vecka 5: Trepartssamtal",
+                "Halvtid på LIA.",
+                28,
+                [
+                    new DemoAssignment(
+                        "Trepartssamtal med handledaren",
+                        """
+                        Du, din handledare och läraren går igenom hur LIA går. Läraren bedömer samtalet direkt
+                        efteråt, och du lämnar inte in något här.
+
+                        Läraren bedömer att:
+                        - du kan beskriva vad du har gjort och lärt dig
+                        - du har en plan för resten av perioden
+                        """,
+                        "",
+                        35,
+                        null,
+                        HandIn: DemoHandIn.OnSite,
+                        Scale: GradeScale.PassFail),
                 ]),
         ]);
 
@@ -397,7 +439,8 @@ internal static class DemoContent
                         "Programmet frågar efter en temperatur och en enhet och skriver ut svaret. Fel inmatning fångas "
                         + "med try/catch.",
                         14,
-                        28),
+                        28,
+                        HandIn: DemoHandIn.Repo),
                 ]),
             new DemoWeek(
                 "Vecka 2: Klasser och objekt",
@@ -413,7 +456,8 @@ internal static class DemoContent
                         "Skapa en klass `Account` med insättning och uttag. Saldot får aldrig bli negativt.",
                         "Account har ett privat saldo. Uttag som är större än saldot ger ett undantag.",
                         49,
-                        null),
+                        null,
+                        HandIn: DemoHandIn.Repo),
                 ]),
         ]);
 
@@ -438,7 +482,8 @@ internal static class DemoContent
                         "Skapa en controller med `GET /hello/{name}` som svarar med JSON.",
                         "Controllern svarar med ett JSON-objekt med en hälsning. Jag har ett test med MockMvc.",
                         12,
-                        26),
+                        26,
+                        HandIn: DemoHandIn.GroupRepo),
                 ]),
             new DemoWeek(
                 "Vecka 2: Data med JPA",
@@ -454,7 +499,8 @@ internal static class DemoContent
                         "Spara böcker och lån i en databas med JPA. Ett lån hör till en bok.",
                         "Book och Loan är entiteter med en relation. Repositoryt hittar alla lån för en bok.",
                         30,
-                        null),
+                        null,
+                        HandIn: DemoHandIn.GroupRepo),
                 ]),
             new DemoWeek(
                 "Vecka 3: Validering och felhantering",
@@ -470,7 +516,8 @@ internal static class DemoContent
                         "Lägg till validering och felhantering i bibliotekets API.",
                         "Alla DTO:er har validering, och fel ger 400 med en lista över vad som saknas.",
                         50,
-                        74),
+                        74,
+                        HandIn: DemoHandIn.GroupRepo),
                 ]),
             new DemoWeek(
                 "Vecka 4: Säkerhet",
@@ -486,7 +533,8 @@ internal static class DemoContent
                         "Skydda API:et så att bara inloggade användare kan låna böcker.",
                         "Inloggningen ger en JWT, och lån kräver en giltig token.",
                         70,
-                        null),
+                        null,
+                        HandIn: DemoHandIn.GroupRepo),
                 ]),
         ],
         [
@@ -517,7 +565,8 @@ internal static class DemoContent
                         "Skriv tester för klassen Account från kursen i Java.",
                         "",
                         14,
-                        null),
+                        null,
+                        HandIn: DemoHandIn.Repo),
                 ]),
             new DemoWeek(
                 "Vecka 2: Integrationstester",
@@ -529,11 +578,14 @@ internal static class DemoContent
                         "Testa bibliotekets API mot en riktig databas med Testcontainers.",
                         "",
                         35,
-                        null),
+                        null,
+                        HandIn: DemoHandIn.Repo),
                 ]),
         ]);
 
     // --- FIBER25 --------------------------------------------------------------------------------------------------
+    // En yrkesutbildning utan programmering: inlämningar som filer och foton, ett praktiskt prov som bedöms på plats,
+    // textsvar för beräkningar och en övning med bara feedback.
 
     private static DemoCourse FiberTech => new(
         "FiTe",
@@ -549,12 +601,40 @@ internal static class DemoContent
                 [
                     new DemoTheory(
                         "Singelmod, multimod och dämpning",
-                        "Singelmodsfiber används för långa avstånd. Dämpningen mäts i dB och ökar med längden, "
-                        + "skarvarna och kontakterna."),
+                        """
+                        En optisk fiber består av en **kärna** och en **mantel**. Ljuset hålls kvar i kärnan för att
+                        manteln har lägre brytningsindex.
+
+                        ## Efter veckan kan du
+                        - förklara skillnaden mellan singelmod (9 µm kärna) och multimod (50 µm kärna)
+                        - räkna ut dämpningen för en länk
+                        - välja våglängd: 1310 nm eller 1550 nm
+
+                        ## Typiska värden
+                        | Del | Dämpning |
+                        |---|---|
+                        | Singelmod vid 1550 nm | 0,35 dB/km |
+                        | Svetsskarv | högst 0,1 dB |
+                        | Kontakt | högst 0,5 dB |
+
+                        Dämpningsbudgeten är summan av allt på länken. Lägg alltid till en marginal på 3 dB.
+                        """),
                     new DemoAssignment(
                         "Inlämning 1: Dämpningsbudget för en länk",
-                        "Räkna ut dämpningsbudgeten för en länk på 12 km med fyra skarvar och två kontakter.",
-                        "Fibern ger 4,2 dB, skarvarna 0,4 dB och kontakterna 1,0 dB. Totalt 5,6 dB, inom budgeten.",
+                        """
+                        Räkna ut dämpningsbudgeten för en länk på 12 km med fyra skarvar och två kontakter, vid
+                        1550 nm. Utrustningen klarar 10 dB.
+
+                        - [ ] dämpningen för fibern, skarvarna och kontakterna var för sig
+                        - [ ] summan och marginalen
+                        - [ ] svar på om länken klarar sig
+
+                        **För VG:** visa hur många skarvar till länken klarar innan marginalen tar slut.
+
+                        Skriv uträkningen i textfältet.
+                        """,
+                        "Fibern ger 12 × 0,35 = 4,2 dB, skarvarna 4 × 0,1 = 0,4 dB och kontakterna 2 × 0,5 = 1,0 dB. "
+                        + "Totalt 5,6 dB. Med 3 dB marginal blir det 8,6 dB, så länken klarar sig inom 10 dB.",
                         14,
                         28),
                 ]),
@@ -565,14 +645,45 @@ internal static class DemoContent
                 [
                     new DemoTheory(
                         "Skarvning och mätning med OTDR",
-                        "En OTDR skickar ljuspulser och mäter det som reflekteras. Kurvan visar var skarvar, "
-                        + "kontakter och brott finns."),
+                        """
+                        En **OTDR** skickar ljuspulser in i fibern och mäter ljuset som kommer tillbaka. Kurvan visar
+                        avståndet längs x-axeln och dämpningen längs y-axeln.
+
+                        - En jämn lutning är fiberns egen dämpning.
+                        - Ett litet steg nedåt är en svetsskarv.
+                        - En topp följd av ett steg är en kontakt.
+                        - En hög topp följd av brus är fiberns slut, eller ett brott.
+
+                        Mät från båda hållen och ta medelvärdet, annars kan en skarv se bättre eller sämre ut än
+                        den är.
+                        """),
                     new DemoAssignment(
                         "Inlämning 2: Tolka en OTDR-kurva",
-                        "Tolka kurvan i bilagan. Ange var skarvarna finns och om någon skarv är för dålig.",
-                        "Skarvarna finns vid 2,1 km och 5,8 km. Skarven vid 5,8 km har 0,3 dB och bör göras om.",
+                        """
+                        Tolka kurvan i bilagan. Ange var skarvarna finns, hur stor dämpning varje skarv har och om
+                        någon skarv behöver göras om. Gränsvärdet för en skarv är 0,1 dB.
+                        """,
+                        "Skarvarna finns vid 2,1 km och 5,8 km. Skarven vid 2,1 km har 0,08 dB och är godkänd. "
+                        + "Skarven vid 5,8 km har 0,3 dB och bör göras om. Fibern slutar vid 12 km.",
                         49,
-                        null),
+                        null,
+                        Attachments: ["otdr-lank-a.png"]),
+                    new DemoAssignment(
+                        "Praktiskt prov: Svetsskarva och mät",
+                        """
+                        Provet görs i verkstaden. Du skarvar fyra fibrer med svetsen och mäter dem med OTDR medan
+                        läraren tittar på. Läraren sätter betyget på plats, och du lämnar inte in något här.
+
+                        Läraren bedömer att:
+                        - fibrerna är rent kapade och rengjorda
+                        - alla fyra skarvar har högst 0,1 dB
+                        - skarvskydden sitter rätt i kassetten
+                        """,
+                        "",
+                        42,
+                        null,
+                        HandIn: DemoHandIn.OnSite,
+                        Scale: GradeScale.PassFail),
                 ]),
         ]);
 
@@ -590,14 +701,34 @@ internal static class DemoContent
                 [
                     new DemoTheory(
                         "Från nod till fastighet",
-                        "Ett fibernät går från en nod, via kopplingsskåp, till varje fastighet. Planera för fler "
-                        + "kunder än i dag."),
+                        """
+                        Ett fibernät går från en **nod**, via **kopplingsskåp**, ut till varje fastighet. Från noden
+                        går en grov kabel till skåpen, och från skåpen går en tunn kabel till varje hus.
+
+                        ## Efter veckan kan du
+                        - rita ett nät med nod, skåp och anslutningar
+                        - placera skåpen så att kablarna till husen blir korta
+                        - planera för fler kunder än i dag
+
+                        Ett skåp ska ha plats för minst hälften fler fastigheter än det har från början.
+                        """),
                     new DemoAssignment(
                         "Inlämning 1: Rita nätet för kvarteret",
-                        "Rita ett nät för kvarteret på kartan i bilagan, med nod, skåp och fastigheter.",
-                        "Nätet har en nod och två skåp. Varje skåp har plats för tolv fastigheter till.",
+                        """
+                        Rita ett nät för kvarteret på kartan i bilagan, med nod, skåp och alla 24 fastigheter.
+
+                        - [ ] noden och skåpen är utritade
+                        - [ ] varje fastighet är ansluten till ett skåp
+                        - [ ] skåpen har plats för fler kunder
+
+                        Rita på papper eller i ett program. Ladda upp ritningen som foto, bild eller PDF.
+                        """,
+                        "Nätet har en nod i korsningen och två skåp. Varje skåp har plats för tolv fastigheter till.",
                         12,
-                        26),
+                        26,
+                        HandIn: DemoHandIn.File,
+                        Attachments: ["karta-kvarteret.png"],
+                        AnswerFiles: ["natskiss-kvarteret.png"]),
                 ]),
             new DemoWeek(
                 "Vecka 2: Projektering",
@@ -606,14 +737,42 @@ internal static class DemoContent
                 [
                     new DemoTheory(
                         "Kanalisation och schaktning",
-                        "Kanalisationen är rören som fibern blåses i. Schakta så lite som möjligt och samordna med "
-                        + "andra ledningsägare."),
+                        """
+                        Kanalisationen är rören som fibern blåses in i. Lägg ett grovt rör i huvudstråket och
+                        mikrorör ut till husen.
+
+                        - Begär **ledningsanvisning** innan ni gräver, så att ni inte skadar el eller vatten.
+                        - Schakta så lite som möjligt och samordna med andra ledningsägare.
+                        - Räkna med 5 % extra rör för böjar och skarvar.
+                        """),
+                    new DemoAssignment(
+                        "Övning: Hur mycket rör går åt?",
+                        """
+                        Kvarteret är 180 meter långt, och varje hus ligger i snitt 25 meter från skåpet. Hur många
+                        meter mikrorör behövs till 24 hus, med 5 % extra?
+
+                        Övningen ger inget betyg. Läraren ger dig feedback på uträkningen.
+                        """,
+                        "24 × 25 = 600 meter. Med 5 % extra blir det 630 meter mikrorör.",
+                        21,
+                        null,
+                        Scale: GradeScale.None),
                     new DemoAssignment(
                         "Inlämning 2: Materiallista och tidsplan",
-                        "Gör en materiallista och en tidsplan för nätet från inlämning 1.",
+                        """
+                        Gör en materiallista och en tidsplan för nätet från inlämning 1.
+
+                        - [ ] alla rör, kablar och skåp med antal
+                        - [ ] en tidsplan vecka för vecka
+                        - [ ] ledningsanvisningen finns med i planen
+
+                        Ladda upp listan och planen som PDF eller Excel.
+                        """,
                         "Materiallistan har rör, fiber och skåp. Tidsplanen är sex veckor.",
                         30,
-                        null),
+                        null,
+                        HandIn: DemoHandIn.File,
+                        AnswerFiles: ["materiallista-och-tidsplan.pdf"]),
                 ]),
             new DemoWeek(
                 "Vecka 3: Installation",
@@ -622,13 +781,25 @@ internal static class DemoContent
                 [
                     new DemoTheory(
                         "Blåsning av fiber och skåp",
-                        "Fibern blåses in i röret med tryckluft. Märk varje fiber så att den går att hitta i skåpet."),
+                        """
+                        Fibern blåses in i röret med tryckluft. Kontrollera först att röret är helt och rent med en
+                        provkula.
+
+                        Märk varje fiber i skåpet med skåpets nummer och fiberns nummer, till exempel **B2-07**, så
+                        att den går att hitta om tio år. Fyll i installationsprotokollet medan du arbetar, inte efteråt.
+                        """),
                     new DemoAssignment(
                         "Inlämning 3: Installationsprotokoll",
-                        "Fyll i installationsprotokollet för ert skåp.",
+                        """
+                        Fyll i protokollet i bilagan för ert skåp, med märkning, längd och skarvdämpning för varje
+                        fiber. Ladda upp det ifyllda protokollet som PDF eller som foto.
+                        """,
                         "Protokollet är ifyllt för alla 24 fibrer, med märkning och längd.",
                         50,
-                        74),
+                        74,
+                        HandIn: DemoHandIn.File,
+                        Attachments: ["installationsprotokoll-mall.pdf"],
+                        AnswerFiles: ["installationsprotokoll-skap-2.pdf"]),
                 ]),
             new DemoWeek(
                 "Vecka 4: Driftsättning och dokumentation",
@@ -637,20 +808,44 @@ internal static class DemoContent
                 [
                     new DemoTheory(
                         "Slutmätning och dokumentation",
-                        "Innan nätet lämnas över mäts varje fiber. Mätvärdena sparas i dokumentationen."),
+                        """
+                        Innan nätet lämnas över mäts varje fiber från båda hållen. Mätvärdena sparas i
+                        dokumentationen tillsammans med ritningarna.
+
+                        Överlämningsdokumentet ska innehålla:
+                        - [ ] en ritning över nätet som det faktiskt byggdes
+                        - [ ] mätvärden för varje fiber
+                        - [ ] installationsprotokollen för alla skåp
+                        - [ ] kontaktuppgifter till den som har byggt nätet
+                        """),
                     new DemoAssignment(
                         "Inlämning 4: Överlämningsdokument",
-                        "Skriv överlämningsdokumentet för nätet, med mätvärden och ritningar.",
+                        """
+                        Skriv överlämningsdokumentet för nätet, med mätvärden och ritningar. Följ checklistan i
+                        teorin för veckan.
+
+                        **För VG:** en kort analys av vad ni skulle göra annorlunda nästa gång.
+
+                        Ladda upp dokumentet som PDF.
+                        """,
                         "Dokumentet har ritningar, mätvärden för alla fibrer och en lista över skåpen.",
                         70,
-                        null),
+                        null,
+                        HandIn: DemoHandIn.File),
                 ]),
         ],
         [
             new DemoNews(
                 "Fältdag på onsdag",
-                "På onsdag är vi ute på fältet hela dagen. Ta med arbetskläder och skyddsskor.",
+                """
+                På onsdag är vi ute på fältet hela dagen och blåser fiber i kvarteret. Ta med arbetskläder,
+                skyddsskor och varselväst. Vi samlas vid skåp 2 kl. 7.30.
+                """,
                 4),
+            new DemoNews(
+                "Svetsen i verkstaden är lagad",
+                "Svetsen fungerar igen. Ni som inte hann göra det praktiska provet kan boka en ny tid i kalendern.",
+                12),
         ]);
 
     private static DemoCourse FieldProject => new(
@@ -667,13 +862,18 @@ internal static class DemoContent
                 [
                     new DemoTheory(
                         "Säkerhet på arbetsplatsen",
-                        "Gå igenom riskerna innan arbetet börjar. Ingen arbetar ensam i en schakt."),
+                        """
+                        Gå igenom riskerna innan arbetet börjar. Ingen arbetar ensam i en schakt, och arbete nära
+                        väg kräver en godkänd trafikanordningsplan.
+                        """),
                     new DemoAssignment(
                         "Inlämning 1: Riskanalys",
-                        "Gör en riskanalys för projektet.",
+                        "Gör en riskanalys för projektet i mallen i bilagan och ladda upp den.",
                         "",
                         14,
-                        null),
+                        null,
+                        HandIn: DemoHandIn.File,
+                        Attachments: ["riskanalys-mall.pdf"]),
                 ]),
             new DemoWeek(
                 "Vecka 2: Fältarbete",
@@ -687,10 +887,47 @@ internal static class DemoContent
                         35,
                         null),
                 ]),
+            new DemoWeek(
+                "Vecka 3: Slutbesiktning",
+                "Nätet besiktas tillsammans med beställaren.",
+                49,
+                [
+                    new DemoAssignment(
+                        "Slutbesiktning på plats",
+                        """
+                        Läraren och beställaren går igenom nätet med er på plats och bedömer arbetet där. Ni lämnar
+                        inte in något här.
+                        """,
+                        "",
+                        63,
+                        null,
+                        HandIn: DemoHandIn.OnSite,
+                        Scale: GradeScale.PassFail),
+                ]),
         ]);
 }
 
-internal sealed record DemoClass(DemoCourse Completed, DemoCourse Current, DemoCourse Upcoming, int CurrentDaysLeft);
+// Hur eleven lämnar in. Repo och GroupRepo blir GitHub-uppgifter när skolan har GitHub kopplat och ett mallrepo
+// finns, annars text och filer. GroupRepo ger ett repo per projektgrupp. File tar emot filer och en kommentar.
+// OnSite bedöms av läraren i klassrummet, och eleven lämnar inte in något.
+internal enum DemoHandIn
+{
+    Text,
+    Repo,
+    GroupRepo,
+    File,
+    OnSite
+}
+
+// FeaturedStudent är inloggningen som får en demoväg i klassen, och HelpMessage frågan som en annan elev redan har
+// ställt på den öppna uppgiften.
+internal sealed record DemoClass(
+    DemoCourse Completed,
+    DemoCourse Current,
+    DemoCourse Upcoming,
+    int CurrentDaysLeft,
+    string? FeaturedStudent = null,
+    string? HelpMessage = null);
 
 // Days är kursens längd i dagar. Den pågående kursens slut styrs av klassen i stället (0 här).
 internal sealed record DemoCourse(
@@ -711,15 +948,18 @@ internal abstract record DemoPart(string Title, string Body);
 internal sealed record DemoTheory(string Title, string Body, string? BlockedBy = null) : DemoPart(Title, Body);
 
 // Answer är elevernas svar i inlämningen, tomt för uppgifter i kurser som inte har börjat. ResubmitOnDay är
-// kompletteringsdeadline, eller null när uppgiften bara har en deadline. GitHub betyder att uppgiften kan bli en
-// repo-uppgift, och då har ingen elev lämnat in text i förväg.
+// kompletteringsdeadline, eller null när uppgiften bara har en deadline. Attachments är lärarens bilagor och
+// AnswerFiles filerna som eleverna har lämnat in, båda filnamn i DemoFiles. Scale None är en övning med bara feedback.
 internal sealed record DemoAssignment(
     string Title,
     string Body,
     string Answer,
     int DueOnDay,
     int? ResubmitOnDay,
-    bool GitHub = false) : DemoPart(Title, Body);
+    DemoHandIn HandIn = DemoHandIn.Text,
+    GradeScale Scale = GradeScale.PassFailDistinction,
+    string[]? Attachments = null,
+    string[]? AnswerFiles = null) : DemoPart(Title, Body);
 
 // DaysAgo är hur många dagar sedan nyheten publicerades.
 internal sealed record DemoNews(string Title, string Body, int DaysAgo);

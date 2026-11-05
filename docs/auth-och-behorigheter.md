@@ -47,6 +47,8 @@ Tre konton läggs in vid varje start i Development och när `Database:SeedDemoDa
 | `larare`     | `larare` | Teacher |
 | `elev`       | `elev`   | Student |
 
+Med demodatan (`Database:SeedDemoData`) skapas också `elev-fiber` (lösenord `elev-fiber`), demoeleven i yrkesklassen `FIBER25`.
+
 Vid start skapas också klassen `Demo-klass` (läraren och eleven i den), och om skolan saknar kurser kursen `Demo-kurs` (kod `DEMO`) med en vecka. Klassen läser bara `Demo-kurs`, aldrig skolans övriga kurser. Ingen annan användare rörs. Kontona är offentliga, så prod-data är öppen för den som prövar dem.
 
 När demodatan nedan finns skapas varken `Demo-klass` eller `Demo-kurs`, och kontona sitter i de riktiga klasserna i stället.
@@ -67,21 +69,37 @@ Texterna finns i [`DemoContent.cs`](../backend/Infrastructure/Persistence/Seedin
 
 Datumen räknas från dagen då demodatan skapas, och reglerna i `GradingWindow` gäller också här: IG bara efter sista deadline (och feedbacken säger aldrig åt eleven att komplettera), Komplettera bara medan en deadline återstår. Den öppna uppgiften i `.NET25_DevOps` har deadline tio dagar fram, så demon fungerar även några dagar efter en deploy.
 
+**Inlämningssätt.** Uppgifterna lämnas in på det sätt som passar arbetet:
+
+| Sorts uppgift                                             | Inlämning                                                      |
+| --------------------------------------------------------- | -------------------------------------------------------------- |
+| Programmering (`.NET25`, `JAVA25`)                        | GitHub-repo och en kort text. Utan GitHub: zip-fil och text    |
+| Grupprojekt (`.NET25_DevOps`, `JAVA25_SpBo`)              | Ett GitHub-repo per projektgrupp (två grupper med fyra elever) |
+| Ritningar, protokoll och dokument (`FIBER25`, LIA-planen) | Filer (foto, bild eller PDF) och en kommentar                  |
+| Beräkningar, tolkningar, dagbok och veckorapporter        | Text                                                           |
+| Praktiskt prov, slutbesiktning och trepartssamtal         | Bedöms på plats av läraren, eleven lämnar inte in något        |
+| Övningen i `FIBER25_NaUp`                                 | Text, med feedback men utan betyg                              |
+
+Uppgifter som hänvisar till en bilaga har den: kartan över kvarteret, OTDR-kurvan, protokoll- och riskanalysmallarna och LIA-planen. De ligger i [`DemoFiles`](../backend/Infrastructure/Persistence/Seeding/DemoFiles) och laddas upp till fillagringen när demodatan skapas, tillsammans med elevernas inlämnade filer. Utan fillagring får demodatan inga filer.
+
 För demon i `.NET25_DevOps` har `elev` bedömda uppgifter, en inlämning som väntar på bedömning, teori kvar att klarmarkera i veckan som pågår och en öppen uppgift med hjälpknappen. En annan elev har redan bett om hjälp på den uppgiften, så `larare` har en notis i inkorgen.
 
-**GitHub-uppgiften.** `Inlämning 4: Driftsätt appen` i `.NET25_DevOps` blir en repo-uppgift när skolan har GitHub kopplat. Seedningen väljer mall som en lärare gör: det första mallrepot (inte arkiverat) i organisationen som skolan har kopplat under _Inställningar → Integrationer_. `Database:DemoTemplateRepo` (`ägare/namn`) väljer en annan mall. Reponamnet blir `devops-driftsatt-{githubLogin}`, och varje elev får ett repo som bakgrundsjobbet skapar, som när en lärare publicerar en uppgift. Det sker en gång, vid första start då GitHub är kopplat och en mall finns. Utan koppling eller mall lämnas uppgiften in som text.
+För demon i `FIBER25_NaUp` har `elev-fiber` en öppen filuppgift (överlämningsdokumentet) med deadline tio dagar fram, ett installationsprotokoll som väntar på bedömning, en bedömd ritning och en övning med feedback. En annan elev har frågat om överlämningsdokumentet, så `larare` har en notis även där.
+
+**GitHub-uppgifterna.** Programmeringsuppgifterna blir repo-uppgifter när skolan har GitHub kopplat. Seedningen väljer mall som en lärare gör: det första mallrepot (inte arkiverat) i organisationen som skolan har kopplat under _Inställningar → Integrationer_. `Database:DemoTemplateRepo` (`ägare/namn`) väljer en annan mall. Uppgifterna delas ut direkt, som när en lärare skapar dem, och bakgrundsjobbet skapar repona: 56 elevrepon och 18 grupprepon. Reponamnet är kursens förkortning och uppgiftens namn, följt av elevens GitHub-namn eller gruppen, till exempel `devops-inl-mning-4-drifts-tt-appen-grupp-1`. Kopplas GitHub efter att demodatan har skapats görs uppgifterna om vid nästa start. Utan koppling eller mall lämnas de in som zip-fil och text.
 
 **Ny version tar bort allt.** Demodatan har en version: klassen `.NET25` har ett fast id (`DemoSeed.MarkerGroupId`). Saknas den klassen vid start tar seedningen bort **all** undervisningsdata (klasser, kurser, innehåll, inlämningar, notiser och hjälpfrågor) och demodatans elever, och bygger sedan om demodatan. Konton, skolan, dess Microsoft-koppling och dess GitHub-installation finns kvar. Det sker bara när `Database:SeedDemoData` är `true`. Byt id:t när demodatan ska byggas om i prod.
 
-Seedningen är idempotent så länge versionen finns. Den skapar konton via `AccountSeed` och placerar `larare` och `elev` i `.NET25`. Övriga elever i demodatan har e-post som `.net25.2@larka.local`, `java25.1@larka.local` och `fiber25.1@larka.local` (klassens namn och platsen i klassen) och lösenordet `larka-demo` (`DemoSeed.DemoPassword`), så att flera elever går att pröva.
+Seedningen är idempotent så länge versionen finns. Den skapar konton via `AccountSeed` och placerar `larare` och `elev` i `.NET25` och `elev-fiber` i `FIBER25`. Övriga elever i demodatan har e-post som `.net25.2@larka.local`, `java25.1@larka.local` och `fiber25.1@larka.local` (klassens namn och platsen i klassen) och lösenordet `larka-demo` (`DemoSeed.DemoPassword`), så att flera elever går att pröva.
 
 **Logga in som:**
 
-| Konto    | Lösenord | Visar                                                        |
-| -------- | -------- | ------------------------------------------------------------ |
-| `admin`  | `admin`  | Adminöversikt, klasser, kurser, användare och charts         |
-| `larare` | `larare` | Nio kurser, bedömningskö och elevlistor                      |
-| `elev`   | `elev`   | Studieplan med en avslutad, en pågående och en kommande kurs |
+| Konto        | Lösenord     | Visar                                                             |
+| ------------ | ------------ | ----------------------------------------------------------------- |
+| `admin`      | `admin`      | Adminöversikt, klasser, kurser, användare och charts              |
+| `larare`     | `larare`     | Nio kurser, bedömningskö och elevlistor                           |
+| `elev`       | `elev`       | Studieplan med en avslutad, en pågående och en kommande kurs      |
+| `elev-fiber` | `elev-fiber` | Yrkesklassen `FIBER25`: filinlämningar, bilagor och prov på plats |
 
 ### Lokalt
 

@@ -48,6 +48,7 @@ const full = {
       courseId: 'c1',
       courseTitle: 'DevOps',
       grade: 'Pass',
+      needsWork: false,
       feedback: 'Tydlig plan',
       gradedAt: local(10, 20, 11, 20),
     },
@@ -244,6 +245,7 @@ describe('TodayView', () => {
           courseId: 'c1',
           courseTitle: 'DevOps',
           grade: null,
+          needsWork: true,
           feedback: 'Lägg till tester',
           gradedAt: local(10, 20, 12, 0),
         },
@@ -280,6 +282,7 @@ describe('TodayView', () => {
           courseId: 'c1',
           courseTitle: 'DevOps',
           grade: null,
+          needsWork: true,
           feedback: 'Pipelinen kör inte testerna',
           gradedAt: local(10, 15, 12, 0),
         },
@@ -298,6 +301,33 @@ describe('TodayView', () => {
     expect(nextUp.text()).toContain('Deadline passerad')
     // Återkopplingen på kompletteringen står först i Nytt fast nyheterna är nyare.
     expect(mobile.findAll('[data-test="mobile-recent-item"]')[0].text()).toContain('CI/CD')
+  })
+
+  it('visar feedback på en övning som återkoppling, inte som komplettering', async () => {
+    backend({
+      ...full,
+      feedback: [
+        {
+          linkId: 'l5',
+          title: 'Övning: Hur mycket rör går åt?',
+          courseId: 'c1',
+          courseTitle: 'Nätuppbyggnad',
+          grade: null,
+          needsWork: false,
+          feedback: 'Rätt uträkning.',
+          gradedAt: local(10, 20, 12, 0),
+        },
+      ],
+    })
+
+    const {wrapper} = await renderApp('/')
+
+    const tile = wrapper.find('[data-test="feedback-item"] [role="img"]')
+    expect(tile.text()).toBe('Å')
+    expect(tile.attributes('aria-label')).toBe('Återkoppling')
+    const recent = wrapper.findAll('[data-test="today-mobile"] [data-test="mobile-recent-item"]').map((row) => row.text())
+    expect(recent).toContainEqual(expect.stringContaining('Återkoppling'))
+    expect(recent).not.toContainEqual(expect.stringContaining('Komplettera'))
   })
 
   it('visar Komplettera-märket i mobilens lista', async () => {

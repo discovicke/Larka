@@ -5,7 +5,7 @@
 
 Ett lärplattformssystem (LMS) för skolor. Lärare skapar innehåll (nyheter, teori och uppgifter) och publicerar det till grupper. Elever lämnar in uppgifter och får betyg, kommentarer och notiser. Admin hanterar skolor, användare, kurser och grupper.
 
-**Live:** https://net25-devops-grupp-4.onrender.com. Logga in som `elev`/`elev`, `larare`/`larare` eller `admin`/`admin`. Gratisinstansen somnar efter 15 minuter utan trafik, så första anropet kan ta en minut.
+**Live:** https://net25-devops-grupp-4.onrender.com. Logga in som `elev`/`elev`, `elev-fiber`/`elev-fiber` (yrkesklassen), `larare`/`larare` eller `admin`/`admin`. Gratisinstansen somnar efter 15 minuter utan trafik, så första anropet kan ta en minut.
 
 | Del     | Teknik                                       | Mapp                                |
 | ------- | -------------------------------------------- | ----------------------------------- |
@@ -25,7 +25,7 @@ npm run db                   # Postgres i Docker
 npm run dev                  # backend och klient
 ```
 
-Öppna http://localhost:5173 och logga in med `larare`/`larare`, `elev`/`elev` eller `admin`/`admin`. En tom databas får samma demodata som demon. Swagger UI finns på http://localhost:5257/swagger.
+Öppna http://localhost:5173 och logga in med `larare`/`larare`, `elev`/`elev`, `elev-fiber`/`elev-fiber` eller `admin`/`admin`. En tom databas får samma demodata som demon. Swagger UI finns på http://localhost:5257/swagger.
 
 Innan du pushar: `npm run format`, `dotnet test Larka.sln` och `npm --prefix client run test`. Alla kontroller finns i [docs/bidra.md](docs/bidra.md).
 

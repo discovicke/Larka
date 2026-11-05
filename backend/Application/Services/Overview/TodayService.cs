@@ -57,6 +57,7 @@ public class TodayService(
                     item.Link.Link.CourseId,
                     item.CourseTitle,
                     item.Submission.Grade!.Level,
+                    item.Submission.Status == SubmissionStatus.NeedsWork,
                     item.Submission.Grade.Feedback,
                     item.Submission.Grade.GradedAt))
                 .ToList(),

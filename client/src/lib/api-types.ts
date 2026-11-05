@@ -7888,7 +7888,10 @@ export interface components {
             news: components["schemas"]["TodayNewsDto"][];
             courses: components["schemas"]["TodayCourseDto"][];
         };
-        /** @description Lärarens återkoppling på en inlämning. Grade är null vid komplettering. */
+        /**
+         * @description Lärarens återkoppling på en inlämning. Grade är null vid komplettering (NeedsWork) och på en övning, som bara får
+         *     feedback.
+         */
         TodayFeedbackDto: {
             /** Format: uuid */
             linkId: string;
@@ -7897,6 +7900,7 @@ export interface components {
             courseId: null | string;
             courseTitle: null | string;
             grade: null | components["schemas"]["GradeLevel"];
+            needsWork: boolean;
             feedback: string;
             /** Format: date-time */
             gradedAt: string;

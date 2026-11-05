@@ -27,6 +27,11 @@
     <InternalsVisibleTo Include="backend.Tests" />
   </ItemGroup>
 
+  <!-- Bilagor och elevfiler i demodatan. DemoSeed läser dem med filnamnet som namn. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Infrastructure/Persistence/Seeding/DemoFiles/*" LogicalName="DemoFiles/%(Filename)%(Extension)" />
+  </ItemGroup>
+
   <PropertyGroup>
     <ClientRoot>$(MSBuildProjectDirectory)/../client/</ClientRoot>
   </PropertyGroup>

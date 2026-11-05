@@ -1,4 +1,5 @@
 using Backend.Application.Abstractions;
+using Backend.Application.Files;
 using Backend.Application.Services;
 using Backend.Domain.Entities;
 using Backend.Domain.Enums;
@@ -11,8 +12,13 @@ namespace Backend.Infrastructure.Persistence.Seeding;
 
 /// <summary>
 /// Demodata för en kort demonstration: tre klasser med en avslutad, en pågående och en kommande kurs, åtta elever
-/// per klass och inlämningar i blandade lägen. Kontona admin, larare och elev skapas av AccountSeed. Texterna finns
-/// i <see cref="DemoContent"/>.
+/// per klass och inlämningar i blandade lägen. Kontona admin, larare, elev och elev-fiber skapas av AccountSeed.
+/// Texterna finns i <see cref="DemoContent"/>, och bilagorna och elevernas filer i DemoFiles.
+/// <para>
+/// Programmeringsuppgifterna blir GitHub-uppgifter när skolan har GitHub kopplat och ett mallrepo finns, annars
+/// lämnas de in som text och filer. Kopplas GitHub senare görs de om vid nästa start
+/// (<see cref="EnableGitHubAssignmentsAsync"/>).
+/// </para>
 /// <para>
 /// Demodatan har en version: klassen .NET25 får ett fast id (<see cref="MarkerGroupId"/>). Saknas den klassen
 /// tas all undervisningsdata bort och demodatan byggs om. Konton, skolan, dess Microsoft-koppling och dess
@@ -25,6 +31,7 @@ public sealed class DemoSeed(
     TimeProvider time,
     IOptions<DatabaseOptions> options,
     IGitHubAppService github,
+    IServiceProvider services,
     ILogger<DemoSeed> logger)
 {
     public const string DemoPassword = "larka-demo";
@@ -32,12 +39,19 @@ public sealed class DemoSeed(
     public const string DemoStudentDomain = "@larka.local";
 
     /// <summary>Id:t för klassen .NET25 i den här versionen av demodatan.</summary>
-    public static readonly Guid MarkerGroupId = Guid.Parse("5320d3b0-0000-4000-8000-000000000532");
-
-    // Reponamnet utan å, ä och ö, som GitHub inte tillåter: devops-driftsatt-elev, eller elevens GitHub-namn.
-    internal const string GitHubRepoPattern = "devops-driftsatt-{githubLogin}";
+    public static readonly Guid MarkerGroupId = Guid.Parse("5350d3b0-0000-4000-8000-000000000535");
 
     private const int _studentsPerClass = 8;
+
+    // Projektgrupperna i en grupp-uppgift: åtta elever blir två grupper.
+    private const int _studentsPerProjectGroup = 4;
+
+    // Filerna som laddas upp innan demodatan sparas: lärarens bilagor och elevernas inlämnade filer.
+    private readonly List<(object Row, string Folder, string FileName)> _uploads = [];
+
+    // Mallrepot för GitHub-uppgifterna, och om fillagringen finns, medan demodatan byggs.
+    private string? _template;
+    private bool _withFiles;
 
     private static readonly string[] _studentNames =
     [
@@ -71,6 +85,12 @@ public sealed class DemoSeed(
         + "blir IG. Hör av dig så hittar vi en väg framåt.",
     ];
 
+    private static readonly string[] _exerciseFeedback =
+    [
+        "Rätt uträkning. Tänk på att skriva ut enheten i varje steg.",
+        "Bra, du har fått med påslaget. Kontrollera avrundningen en gång till.",
+    ];
+
     private static readonly string[] _needsWorkFeedback =
     [
         "Komplettera: beskrivningen av hur du har löst uppgiften saknas, och ett av G-kraven är inte uppfyllt. "
@@ -98,9 +118,13 @@ public sealed class DemoSeed(
         if (await db.Groups.AnyAsync(group => group.Id == MarkerGroupId, ct))
         {
             logger.LogInformation("Demodatan finns redan i skolan {School}, inget lades till.", school.Name);
-            await EnableGitHubAssignmentAsync(ct);
+            await EnableGitHubAssignmentsAsync(ct);
             return false;
         }
+
+        var template = await TemplateForAsync(school.Id, ct);
+        var storage = FileStorage();
+        var oldFiles = await StoredKeysAsync(ct);
 
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
@@ -111,92 +135,325 @@ public sealed class DemoSeed(
         }
 
         var teacher = await db.Users.SingleAsync(user => user.Email == "larare", ct);
-        var publicStudent = await db.Users.SingleAsync(user => user.Email == "elev", ct);
         var studentHash = passwordHasher.HashPassword(new User(), DemoPassword);
         var now = time.GetUtcNow();
 
         var offset = 0;
+        _uploads.Clear();
+        _template = template;
+        _withFiles = storage is not null;
         foreach (var (name, plan) in DemoContent.Classes)
         {
-            var featured = name == MarkerGroupName
-                ? publicStudent
-                : null;
+            var featured = plan.FeaturedStudent is null
+                ? null
+                : await db.Users.SingleOrDefaultAsync(user => user.Email == plan.FeaturedStudent, ct);
             BuildClass(name, plan, now, teacher, studentHash, featured, offset);
             offset += _studentsPerClass;
+        }
+
+        if (storage is not null)
+        {
+            await UploadFilesAsync(storage, ct);
         }
 
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
 
-        logger.LogInformation("Demodata skapad: {Classes}.", string.Join(", ", DemoContent.Classes.Keys));
-        await EnableGitHubAssignmentAsync(ct);
+        if (storage is not null)
+        {
+            await DeleteFilesAsync(storage, oldFiles, ct);
+        }
+
+        logger.LogInformation(
+            "Demodata skapad: {Classes}. GitHub-uppgifter: {GitHub}.",
+            string.Join(", ", DemoContent.Classes.Keys),
+            template ?? "nej, text och filer");
         return true;
     }
 
-    /// <summary>
-    /// Gör om demodatans GitHub-uppgift till en repo-uppgift, på samma sätt som när en lärare publicerar en: varje
-    /// elev får en repo-rad som bakgrundsjobbet skapar i GitHub. Mallen väljs som läraren gör, bland mallrepona i
-    /// organisationen som skolan har kopplat (eller Database:DemoTemplateRepo om den är satt). Körs vid varje start
-    /// och gör inget när uppgiften redan är en repo-uppgift, så GitHub kan kopplas efter seedningen.
-    /// </summary>
-    internal async Task<int> EnableGitHubAssignmentAsync(CancellationToken ct)
+    // Fillagringen, eller null när den inte är inställd. Då får demodatan inga bilagor eller inlämnade filer.
+    private IFileStorage? FileStorage()
     {
-        var target = await (
+        try
+        {
+            return services.GetService<IFileStorage>();
+        }
+        catch (InvalidOperationException exception)
+        {
+            logger.LogWarning(exception, "Fillagringen är inte inställd, så demodatan får inga filer.");
+            return null;
+        }
+    }
+
+    private async Task<List<string>> StoredKeysAsync(CancellationToken ct) =>
+        [
+            .. await db.Attachments.Select(row => row.StorageKey).ToListAsync(ct),
+            .. await db.SubmissionFiles.Select(row => row.StorageKey).ToListAsync(ct),
+        ];
+
+    // Laddar upp filerna i _uploads och sätter nyckeln på raden. En fil som inte går att ladda upp tas bort ur
+    // demodatan, så att ingen rad pekar på en fil som saknas.
+    private async Task UploadFilesAsync(IFileStorage storage, CancellationToken ct)
+    {
+        var assembly = typeof(DemoSeed).Assembly;
+        foreach (var (row, folder, fileName) in _uploads)
+        {
+            try
+            {
+                await using var stream = assembly.GetManifestResourceStream($"DemoFiles/{fileName}")
+                    ?? throw new InvalidOperationException($"Demofilen {fileName} saknas i bygget.");
+                var key = await storage.UploadAsync(folder, stream, FileUploadPolicy.ContentTypeFor(fileName)!, ct);
+                switch (row)
+                {
+                    case Attachment attachment:
+                        attachment.StorageKey = key;
+                        attachment.SizeBytes = stream.Length;
+                        break;
+                    case SubmissionFile file:
+                        file.StorageKey = key;
+                        file.SizeBytes = stream.Length;
+                        break;
+                }
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                logger.LogWarning(exception, "Demofilen {File} kunde inte laddas upp.", fileName);
+                db.Remove(row);
+            }
+        }
+
+        _uploads.Clear();
+    }
+
+    // Filerna från den förra demodatan. Raderna är redan borttagna, så filerna har ingen ägare kvar.
+    private async Task DeleteFilesAsync(IFileStorage storage, List<string> keys, CancellationToken ct)
+    {
+        foreach (var key in keys.Where(key => key.Length > 0))
+        {
+            try
+            {
+                await storage.DeleteAsync(key, ct);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                logger.LogWarning(exception, "En gammal demofil kunde inte tas bort.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gör om demodatans programmeringsuppgifter till repo-uppgifter när GitHub har kopplats efter seedningen, på
+    /// samma sätt som när en lärare delar ut en: varje elev, eller varje projektgrupp, får en repo-rad som
+    /// bakgrundsjobbet skapar i GitHub. Mallen väljs som läraren gör, bland mallrepona i organisationen som skolan har
+    /// kopplat (eller Database:DemoTemplateRepo). Körs vid varje start och gör inget med uppgifter som redan är
+    /// repo-uppgifter. Returnerar antalet nya repo-rader.
+    /// </summary>
+    internal async Task<int> EnableGitHubAssignmentsAsync(CancellationToken ct)
+    {
+        var wanted = DemoContent.Classes
+            .SelectMany(entry => new[] { entry.Value.Completed, entry.Value.Current, entry.Value.Upcoming }
+                .SelectMany(course => course.Weeks
+                    .SelectMany(week => week.Parts.OfType<DemoAssignment>())
+                    .Where(UsesGitHub)
+                    .Select(part => (Code: CodeFor(entry.Key, course.CodeSuffix), Part: part, course.CodeSuffix))))
+            .ToList();
+        var codes = wanted.Select(row => row.Code).Distinct().ToList();
+        var targets = await (
                 from link in db.ContentLinks
                 join course in db.Courses on link.CourseId equals course.Id
                 join content in db.Content.Include(row => row.Assignment) on link.ContentId equals content.Id
-                where course.Code == DemoContent.GitHubCourseCode
-                    && content.Title == DemoContent.GitHubAssignmentTitle
-                select new { Link = link, Content = content, course.SchoolId })
-            .FirstOrDefaultAsync(ct);
-        var spec = target?.Content.Assignment;
-        if (target is null || spec is null || spec.UsesRepo)
+                where codes.Contains(course.Code) && content.Assignment != null
+                select new { Link = link, Content = content, course.Code, course.SchoolId })
+            .ToListAsync(ct);
+        targets = targets
+            .Where(row => !row.Content.Assignment!.UsesRepo
+                && wanted.Any(item => item.Code == row.Code && item.Part.Title == row.Content.Title))
+            .ToList();
+        if (targets.Count == 0)
         {
             return 0;
         }
 
-        var template = await TemplateForAsync(target.SchoolId, ct);
+        var template = await TemplateForAsync(targets[0].SchoolId, ct);
         if (template is null)
         {
             return 0;
         }
 
-        spec.SubmissionModes = [SubmissionMode.Repo];
-        spec.TemplateRepo = template;
-        spec.RepoNamePattern = GitHubRepoPattern;
-
         var now = time.GetUtcNow();
-        var rows = await (
-                from submission in db.Submissions.Include(row => row.Repo)
-                join student in db.Users on submission.StudentId equals student.Id
-                where submission.ContentLinkId == target.Link.Id
-                orderby student.Name
-                select new { Submission = submission, Student = student })
-            .ToListAsync(ct);
-        var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var row in rows.Where(row => row.Submission.Repo is null))
+        var created = 0;
+        foreach (var target in targets)
         {
-            row.Submission.Repo = new StudentRepo
-            {
-                SubmissionId = row.Submission.Id,
-                TemplateRepo = template,
-                AssignmentTitle = target.Content.Title,
-                RepoNamePattern = spec.RepoNamePattern,
-                DesiredRepoName = GitHubRepoNaming.ForStudent(
-                    spec.RepoNamePattern, target.Content.Title, row.Student, usedNames),
-                ProvisioningState = RepoProvisioningState.Pending,
-                NextProvisioningAttemptAt = now,
-                UpdatedAt = now
-            };
+            var (_, part, suffix) = wanted.First(item =>
+                item.Code == target.Code && item.Part.Title == target.Content.Title);
+            var spec = target.Content.Assignment!;
+            ApplyHandIn(target.Content, spec, part, suffix, template);
+
+            var students = await (
+                    from groupCourse in db.GroupCourses
+                    join enrollment in db.Enrollments on groupCourse.GroupId equals enrollment.GroupId
+                    join student in db.Users on enrollment.UserId equals student.Id
+                    where groupCourse.CourseId == target.Link.CourseId && enrollment.Role == GroupRole.Student
+                    select student)
+                .ToListAsync(ct);
+            await db.Submissions.Where(row => row.ContentLinkId == target.Link.Id).Include(row => row.Repo)
+                .LoadAsync(ct);
+            created += HandOutRepos(
+                target.Link,
+                target.Content,
+                spec,
+                students.OrderBy(student => student.Email, StringComparer.Ordinal).ToList(),
+                now);
         }
 
         await db.SaveChangesAsync(ct);
         logger.LogInformation(
-            "Demodatans GitHub-uppgift använder mallen {Template}: {Count} elevrepon väntar på att skapas.",
+            "Demodatans GitHub-uppgifter använder mallen {Template}: {Count} repon väntar på att skapas.",
             template,
-            rows.Count);
-        return rows.Count;
+            created);
+        return created;
     }
+
+    private static bool UsesGitHub(DemoAssignment part) =>
+        part.HandIn is DemoHandIn.Repo or DemoHandIn.GroupRepo;
+
+    // Inlämningssätten för en del. Programmeringsuppgifter har repo och text när GitHub finns, annars text och filer.
+    private static List<SubmissionMode> ModesFor(DemoAssignment part, string? template) => part.HandIn switch
+    {
+        DemoHandIn.Repo or DemoHandIn.GroupRepo when template is not null => [SubmissionMode.Repo, SubmissionMode.Text],
+        DemoHandIn.Repo or DemoHandIn.GroupRepo => [SubmissionMode.Text, SubmissionMode.File],
+        DemoHandIn.File => [SubmissionMode.File, SubmissionMode.Text],
+        DemoHandIn.OnSite => [SubmissionMode.OnSite],
+        _ => [SubmissionMode.Text]
+    };
+
+    // Raden som säger hur eleven lämnar in, sist i uppgiftens text. OnSite och filuppgifter säger det själva.
+    private static string? HandInNote(DemoAssignment part, string? template) => part.HandIn switch
+    {
+        DemoHandIn.Repo when template is not null =>
+            "**Inlämning:** koden lämnar du i GitHub-repot som skapas åt dig. Skriv en kort beskrivning i textfältet.",
+        DemoHandIn.GroupRepo when template is not null =>
+            "**Inlämning:** gruppen arbetar i ett gemensamt GitHub-repo som skapas åt er. Var och en skriver en kort "
+            + "beskrivning av sin del i textfältet.",
+        DemoHandIn.Repo or DemoHandIn.GroupRepo =>
+            "**Inlämning:** ladda upp koden som en zip-fil och skriv en kort beskrivning i textfältet.",
+        _ => null
+    };
+
+    // Sätter inlämningssätten, GitHub-inställningarna och raden om inlämningen på en uppgift.
+    private static void ApplyHandIn(
+        Content content, AssignmentSpec spec, DemoAssignment part, string codeSuffix, string? template)
+    {
+        spec.SubmissionModes = ModesFor(part, template);
+        spec.GradeScale = part.Scale;
+        var note = HandInNote(part, template);
+        content.BodyMd = note is null
+            ? part.Body
+            : $"{part.Body.TrimEnd()}\n\n{note}";
+        if (!spec.UsesRepo)
+        {
+            return;
+        }
+
+        // Kursens förkortning först, så att samma uppgiftsnamn i två kurser inte krockar:
+        // devops-inl-mning-4-drifts-tt-appen-grupp-1.
+        var prefix = codeSuffix.ToLowerInvariant();
+        spec.TemplateRepo = template;
+        spec.WorkMode = part.HandIn == DemoHandIn.GroupRepo
+            ? RepoWorkMode.Group
+            : RepoWorkMode.Individual;
+        spec.RepoNamePattern = spec.WorkMode == RepoWorkMode.Group
+            ? $"{prefix}-{{assignmentSlug}}-{{groupSlug}}"
+            : $"{prefix}-{{assignmentSlug}}-{{githubLogin}}";
+    }
+
+    /// <summary>
+    /// Delar ut en repo-uppgift som SubmissionService.HandOutAsync gör: en inlämning per elev (de som saknas skapas
+    /// som NotStarted) och en pending repo-rad per elev, eller per projektgrupp i grupp-läge. Grupperna fylls i
+    /// elevernas ordning, fyra i taget. Inlämningarna ska vara laddade i db.Submissions.Local. Returnerar antalet nya
+    /// repo-rader.
+    /// </summary>
+    private int HandOutRepos(
+        ContentLink link, Content content, AssignmentSpec spec, IReadOnlyList<User> students, DateTimeOffset now)
+    {
+        var byStudent = db.Submissions.Local
+            .Where(row => row.ContentLinkId == link.Id)
+            .ToDictionary(row => row.StudentId);
+        var ordered = students.ToList();
+        foreach (var student in ordered.Where(student => !byStudent.ContainsKey(student.Id)))
+        {
+            var submission = new Submission { ContentLinkId = link.Id, StudentId = student.Id };
+            db.Submissions.Add(submission);
+            byStudent[student.Id] = submission;
+        }
+
+        var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var created = 0;
+        if (spec.WorkMode == RepoWorkMode.Group)
+        {
+            var chunks = ordered.Chunk(_studentsPerProjectGroup).ToList();
+            for (var index = 0; index < chunks.Count; index += 1)
+            {
+                var group = new AssignmentGroup
+                {
+                    ContentLinkId = link.Id,
+                    Name = $"Grupp {index + 1}",
+                    Position = index + 1
+                };
+                db.AssignmentGroups.Add(group);
+                foreach (var member in chunks[index])
+                {
+                    db.AssignmentGroupMembers.Add(new AssignmentGroupMember
+                    {
+                        AssignmentGroupId = group.Id,
+                        StudentId = member.Id
+                    });
+                    byStudent[member.Id].AssignmentGroupId = group.Id;
+                }
+
+                var leader = byStudent[chunks[index][0].Id];
+                if (leader.Repo is not null)
+                {
+                    continue;
+                }
+
+                leader.Repo = NewRepo(leader, content, spec, now, GitHubRepoNaming.ForGroup(
+                    spec.RepoNamePattern, content.Title, group.Name, group.Position, usedNames));
+                leader.Repo.AssignmentGroupId = group.Id;
+                created += 1;
+            }
+
+            return created;
+        }
+
+        foreach (var student in ordered)
+        {
+            var submission = byStudent[student.Id];
+            if (submission.Repo is not null)
+            {
+                continue;
+            }
+
+            submission.Repo = NewRepo(submission, content, spec, now, GitHubRepoNaming.ForStudent(
+                spec.RepoNamePattern, content.Title, student, usedNames));
+            created += 1;
+        }
+
+        return created;
+    }
+
+    private static StudentRepo NewRepo(
+        Submission submission, Content content, AssignmentSpec spec, DateTimeOffset now, string name) => new()
+        {
+            SubmissionId = submission.Id,
+            TemplateRepo = spec.TemplateRepo,
+            AssignmentTitle = content.Title,
+            RepoNamePattern = spec.RepoNamePattern,
+            DesiredRepoName = name,
+            ProvisioningState = RepoProvisioningState.Pending,
+            NextProvisioningAttemptAt = now,
+            UpdatedAt = now
+        };
 
     // Mallen ur inställningen, annars det första mallrepot i skolans kopplade organisation. Null när ingen finns.
     private async Task<string?> TemplateForAsync(Guid schoolId, CancellationToken ct)
@@ -334,7 +591,7 @@ public sealed class DemoSeed(
         }
 
         var today = DateOnly.FromDateTime(now.UtcDateTime);
-        var classStudents = new ClassStudents(students, featured);
+        var classStudents = new ClassStudents(students, featured, plan.HelpMessage);
 
         var completedStart = today.AddDays(-210);
         BuildCourse(group, teacher, classStudents, plan.Completed, CoursePhase.Completed, now,
@@ -372,7 +629,7 @@ public sealed class DemoSeed(
         db.GroupCourses.Add(new GroupCourse { GroupId = group.Id, CourseId = course.Id });
         db.CourseTeachers.Add(new CourseTeacher { CourseId = course.Id, UserId = teacher.Id });
 
-        var assignments = new List<(DemoAssignment Demo, ContentLink Link)>();
+        var assignments = new List<(DemoAssignment Demo, ContentLink Link, Content Content)>();
         var openWeek = demo.Weeks.LastOrDefault(week => OpensAt(startsOn, week) <= now);
         for (var weekIndex = 0; weekIndex < demo.Weeks.Length; weekIndex += 1)
         {
@@ -392,11 +649,12 @@ public sealed class DemoSeed(
             for (var partIndex = 0; partIndex < week.Parts.Length; partIndex += 1)
             {
                 var part = week.Parts[partIndex];
-                var link = AddPart(course, module, teacher, part, partIndex + 1, startsOn, opensAt);
+                var (link, content) = AddPart(
+                    course, module, teacher, part, demo.CodeSuffix, partIndex + 1, startsOn, opensAt);
                 links[part.Title] = link;
                 if (part is DemoAssignment assignment)
                 {
-                    assignments.Add((assignment, link));
+                    assignments.Add((assignment, link, content));
                 }
             }
 
@@ -432,6 +690,12 @@ public sealed class DemoSeed(
             }
         }
 
+        // Repo-uppgifter delas ut direkt, som när en lärare skapar dem, så att repona finns när veckan öppnar.
+        foreach (var (_, link, content) in assignments.Where(row => row.Content.Assignment!.UsesRepo))
+        {
+            HandOutRepos(link, content, content.Assignment!, students.All, now);
+        }
+
         foreach (var news in demo.News ?? [])
         {
             var content = new Content
@@ -453,21 +717,21 @@ public sealed class DemoSeed(
         }
 
         // Den som bad om hjälp innan demon: läraren ser den i inkorgen redan, och demons egen fråga hamnar överst.
-        if (phase == CoursePhase.Current && students.Featured is not null)
+        if (phase == CoursePhase.Current && students.Featured is not null && students.HelpMessage is not null)
         {
             var open = assignments.FirstOrDefault(row => row.Link.DueAt > now && row.Link.PublishAt <= now);
             if (open.Link is not null)
             {
-                AddHelpRequest(teacher, students.All[2], open.Link, now);
+                AddHelpRequest(teacher, students.All[2], open.Link, now, students.HelpMessage);
             }
         }
 
         return course;
     }
 
-    private ContentLink AddPart(
-        Course course, Module module, User teacher, DemoPart part, int position, DateOnly startsOn,
-        DateTimeOffset opensAt)
+    private (ContentLink Link, Content Content) AddPart(
+        Course course, Module module, User teacher, DemoPart part, string codeSuffix, int position,
+        DateOnly startsOn, DateTimeOffset opensAt)
     {
         var content = new Content
         {
@@ -478,15 +742,7 @@ public sealed class DemoSeed(
             Title = part.Title,
             BodyMd = part.Body,
             Status = ContentStatus.Published,
-            CreatedAt = opensAt.AddDays(-3),
-            Assignment = part is DemoAssignment
-                ? new AssignmentSpec
-                {
-                    GradeScale = GradeScale.PassFailDistinction,
-                    SubmissionModes = [SubmissionMode.Text],
-                    CompletionRule = CompletionRule.Submitted
-                }
-                : null
+            CreatedAt = opensAt.AddDays(-3)
         };
         db.Content.Add(content);
 
@@ -500,14 +756,30 @@ public sealed class DemoSeed(
         };
         if (part is DemoAssignment assignment)
         {
+            content.Assignment = new AssignmentSpec
+            {
+                ContentId = content.Id,
+                CompletionRule = CompletionRule.Submitted
+            };
+            ApplyHandIn(content, content.Assignment, assignment, codeSuffix, _template);
             link.DueAt = DeadlineOn(startsOn.AddDays(assignment.DueOnDay));
             link.ResubmitDueAt = assignment.ResubmitOnDay is null
                 ? []
                 : [DeadlineOn(startsOn.AddDays(assignment.ResubmitOnDay.Value))];
+
+            var attachments = _withFiles
+                ? assignment.Attachments ?? []
+                : [];
+            foreach (var fileName in attachments)
+            {
+                var attachment = new Attachment { ContentId = content.Id, FileName = fileName };
+                db.Attachments.Add(attachment);
+                _uploads.Add((attachment, $"content/{content.Id}", fileName));
+            }
         }
 
         db.ContentLinks.Add(link);
-        return link;
+        return (link, content);
     }
 
     // Eleverna har läst teorin i veckorna som har gått. I veckan som pågår har bara hälften gjort det, och demoeleven
@@ -553,11 +825,25 @@ public sealed class DemoSeed(
         {
             var student = students.All[index];
             var isFeatured = student == students.Featured;
-            var plan = demo.GitHub && now < dueAt
-                ? new SubmissionPlan(SubmissionStatus.NotStarted)
-                : PlanFor(phase, link, index, isFeatured, isLastAssignment, now);
 
-            var submittedAt = plan.Status == SubmissionStatus.NotStarted
+            // En projektgrupp lämnar in och bedöms tillsammans, så alla i gruppen följer gruppens första elev.
+            var planIndex = demo.HandIn == DemoHandIn.GroupRepo && _template is not null
+                ? index / _studentsPerProjectGroup * _studentsPerProjectGroup
+                : index;
+            var planFeatured = students.All[planIndex] == students.Featured;
+
+            // I repo-läge har ingen lämnat in innan deadline. Vid bedömning på plats lämnar eleven aldrig in
+            // något: läraren sätter betyget direkt, och den som inte har gjort provet än står som ej påbörjad.
+            var plan = UsesGitHub(demo) && _template is not null && now < dueAt
+                ? new SubmissionPlan(SubmissionStatus.NotStarted)
+                : PlanFor(phase, link, planIndex, planFeatured, isLastAssignment, now);
+            var onSite = demo.HandIn == DemoHandIn.OnSite;
+            if (onSite && plan.Status == SubmissionStatus.Submitted)
+            {
+                plan = plan with { Status = SubmissionStatus.NotStarted };
+            }
+
+            var submittedAt = plan.Status == SubmissionStatus.NotStarted || onSite
                 ? (DateTimeOffset?)null
                 : Earliest(
                     DaytimeAfter(dueAt, -(1 + index % 3), 14 + index % 6),
@@ -577,11 +863,26 @@ public sealed class DemoSeed(
             };
             db.Submissions.Add(submission);
 
+            var answerFiles = _withFiles && submittedAt is not null
+                ? demo.AnswerFiles ?? []
+                : [];
+            foreach (var fileName in answerFiles)
+            {
+                var file = new SubmissionFile { SubmissionId = submission.Id, FileName = fileName };
+                db.SubmissionFiles.Add(file);
+                _uploads.Add((file, $"submissions/{submission.Id}", fileName));
+            }
+
             if (plan.Status == SubmissionStatus.Graded)
             {
-                var level = LevelFor(index, assignmentIndex, isFeatured);
+                var level = LevelFor(planIndex, assignmentIndex, planFeatured);
                 var failAllowed = DaytimeAfter(lastDeadline, 2, 10) <= now;
                 if (level == GradeLevel.Fail && !failAllowed)
+                {
+                    level = GradeLevel.Pass;
+                }
+
+                if (level == GradeLevel.Distinction && demo.Scale == GradeScale.PassFail)
                 {
                     level = GradeLevel.Pass;
                 }
@@ -589,12 +890,17 @@ public sealed class DemoSeed(
                 var gradedAt = level == GradeLevel.Fail
                     ? DaytimeAfter(lastDeadline, 2, 10)
                     : Earliest(DaytimeAfter(dueAt, 3, 9 + index % 4), now.AddHours(-1));
+                var exercise = demo.Scale == GradeScale.None;
                 db.Grades.Add(new Grade
                 {
                     SubmissionId = submission.Id,
                     GradedById = teacher.Id,
-                    Level = level,
-                    Feedback = FeedbackFor(level, index),
+                    Level = exercise
+                        ? null
+                        : level,
+                    Feedback = exercise
+                        ? _exerciseFeedback[index % _exerciseFeedback.Length]
+                        : FeedbackFor(level, planIndex),
                     GradedAt = gradedAt
                 });
 
@@ -618,7 +924,7 @@ public sealed class DemoSeed(
                     SubmissionId = submission.Id,
                     GradedById = teacher.Id,
                     Level = null,
-                    Feedback = _needsWorkFeedback[index % _needsWorkFeedback.Length],
+                    Feedback = _needsWorkFeedback[planIndex % _needsWorkFeedback.Length],
                     GradedAt = Earliest(DaytimeAfter(dueAt, 3, 9 + index % 4), now.AddHours(-1))
                 });
             }
@@ -708,14 +1014,14 @@ public sealed class DemoSeed(
         _ => _passFeedback[studentIndex % _passFeedback.Length]
     };
 
-    private void AddHelpRequest(User teacher, User student, ContentLink link, DateTimeOffset now)
+    private void AddHelpRequest(User teacher, User student, ContentLink link, DateTimeOffset now, string message)
     {
         var askedAt = now.AddDays(-1);
         db.StudentHelpRequests.Add(new StudentHelpRequest
         {
             StudentId = student.Id,
             ContentLinkId = link.Id,
-            Message = "Jag får inte containern att starta i molnet. Loggen säger att porten redan används.",
+            Message = message,
             CreatedAt = askedAt,
             UpdatedAt = askedAt
         });
@@ -781,7 +1087,7 @@ public sealed class DemoSeed(
             ? first
             : second;
 
-    private sealed record ClassStudents(IReadOnlyList<User> All, User? Featured);
+    private sealed record ClassStudents(IReadOnlyList<User> All, User? Featured, string? HelpMessage);
 
     private sealed record SubmissionPlan(SubmissionStatus Status, bool PersonalDeadline = false);
 }

@@ -30,13 +30,17 @@ public record TodaySubmissionDto(
     SubmissionStatus Status,
     GradeLevel? Grade);
 
-/// <summary>Lärarens återkoppling på en inlämning. Grade är null vid komplettering.</summary>
+/// <summary>
+/// Lärarens återkoppling på en inlämning. Grade är null vid komplettering (NeedsWork) och på en övning, som bara får
+/// feedback.
+/// </summary>
 public record TodayFeedbackDto(
     Guid LinkId,
     string Title,
     Guid? CourseId,
     string? CourseTitle,
     GradeLevel? Grade,
+    bool NeedsWork,
     string Feedback,
     DateTimeOffset GradedAt);
 

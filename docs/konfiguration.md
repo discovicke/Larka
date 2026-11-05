@@ -25,7 +25,7 @@ Var miljövariablerna kommer ifrån:
 | --------------------------- | ------ | ----------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `ConnectionStrings:Default` | ja\*   | Docker-Postgres i Development | Connection string i .NET-format. I prod Supabase session pooler (IPv4).                                           |
 | `Database:SeedDemoData`     | nej    | `true` i Development          | Lägger in demokonton och kompakt demodata. Se [auth-och-behorigheter.md](auth-och-behorigheter.md#demodata-prod). |
-| `Database:DemoTemplateRepo` | nej    | tom                           | Mallrepot (`ägare/namn`) för demodatans GitHub-uppgift. Tom: första mallrepot i skolans kopplade organisation.    |
+| `Database:DemoTemplateRepo` | nej    | tom                           | Mallrepot (`ägare/namn`) för demodatans GitHub-uppgifter. Tom: första mallrepot i skolans kopplade organisation.  |
 
 \* Lokalt är standardvärdet bara dev-lösenordet till Docker-containern.
 
