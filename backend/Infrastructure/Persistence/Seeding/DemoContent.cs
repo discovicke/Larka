@@ -79,7 +79,7 @@ internal static class DemoContent
                         + "titeln saknas.",
                         14,
                         28,
-                        HandIn: DemoHandIn.Repo),
+                        HandIn: DemoHandIn.Code),
                 ]),
             new DemoWeek(
                 "Vecka 2: Data med Entity Framework Core",
@@ -116,7 +116,7 @@ internal static class DemoContent
                         + "Include så att författaren kommer med i samma fråga. Alla gamla endpoints fungerar.",
                         35,
                         49,
-                        HandIn: DemoHandIn.Repo),
+                        HandIn: DemoHandIn.Code),
                 ]),
             new DemoWeek(
                 "Vecka 3: Razor Pages och slutprojekt",
@@ -147,7 +147,7 @@ internal static class DemoContent
                         + "till inloggning med Identity, och bara den som skrev en recension kan ändra den.",
                         63,
                         null,
-                        HandIn: DemoHandIn.Repo),
+                        HandIn: DemoHandIn.Code),
                 ]),
         ]);
 
@@ -440,7 +440,7 @@ internal static class DemoContent
                         + "med try/catch.",
                         14,
                         28,
-                        HandIn: DemoHandIn.Repo),
+                        HandIn: DemoHandIn.Code),
                 ]),
             new DemoWeek(
                 "Vecka 2: Klasser och objekt",
@@ -457,7 +457,7 @@ internal static class DemoContent
                         "Account har ett privat saldo. Uttag som är större än saldot ger ett undantag.",
                         49,
                         null,
-                        HandIn: DemoHandIn.Repo),
+                        HandIn: DemoHandIn.Code),
                 ]),
         ]);
 
@@ -483,7 +483,7 @@ internal static class DemoContent
                         "Controllern svarar med ett JSON-objekt med en hälsning. Jag har ett test med MockMvc.",
                         12,
                         26,
-                        HandIn: DemoHandIn.GroupRepo),
+                        HandIn: DemoHandIn.Code),
                 ]),
             new DemoWeek(
                 "Vecka 2: Data med JPA",
@@ -500,7 +500,7 @@ internal static class DemoContent
                         "Book och Loan är entiteter med en relation. Repositoryt hittar alla lån för en bok.",
                         30,
                         null,
-                        HandIn: DemoHandIn.GroupRepo),
+                        HandIn: DemoHandIn.Code),
                 ]),
             new DemoWeek(
                 "Vecka 3: Validering och felhantering",
@@ -517,7 +517,7 @@ internal static class DemoContent
                         "Alla DTO:er har validering, och fel ger 400 med en lista över vad som saknas.",
                         50,
                         74,
-                        HandIn: DemoHandIn.GroupRepo),
+                        HandIn: DemoHandIn.Code),
                 ]),
             new DemoWeek(
                 "Vecka 4: Säkerhet",
@@ -534,7 +534,7 @@ internal static class DemoContent
                         "Inloggningen ger en JWT, och lån kräver en giltig token.",
                         70,
                         null,
-                        HandIn: DemoHandIn.GroupRepo),
+                        HandIn: DemoHandIn.Code),
                 ]),
         ],
         [
@@ -566,7 +566,7 @@ internal static class DemoContent
                         "",
                         14,
                         null,
-                        HandIn: DemoHandIn.Repo),
+                        HandIn: DemoHandIn.Code),
                 ]),
             new DemoWeek(
                 "Vecka 2: Integrationstester",
@@ -579,7 +579,7 @@ internal static class DemoContent
                         "",
                         35,
                         null,
-                        HandIn: DemoHandIn.Repo),
+                        HandIn: DemoHandIn.Code),
                 ]),
         ]);
 
@@ -908,11 +908,13 @@ internal static class DemoContent
 }
 
 // Hur eleven lämnar in. Repo och GroupRepo blir GitHub-uppgifter när skolan har GitHub kopplat och ett mallrepo
-// finns, annars text och filer. GroupRepo ger ett repo per projektgrupp. File tar emot filer och en kommentar.
-// OnSite bedöms av läraren i klassrummet, och eleven lämnar inte in något.
+// finns, annars text och filer. GroupRepo ger ett repo per projektgrupp. Bara DevOps använder GitHub, så att
+// demon skapar få repon. Code är övrig kod, som lämnas in som zip-fil och text. File tar emot filer och en
+// kommentar. OnSite bedöms av läraren i klassrummet, och eleven lämnar inte in något.
 internal enum DemoHandIn
 {
     Text,
+    Code,
     Repo,
     GroupRepo,
     File,

@@ -71,14 +71,14 @@ Datumen räknas från dagen då demodatan skapas, och reglerna i `GradingWindow`
 
 **Inlämningssätt.** Uppgifterna lämnas in på det sätt som passar arbetet:
 
-| Sorts uppgift                                             | Inlämning                                                      |
-| --------------------------------------------------------- | -------------------------------------------------------------- |
-| Programmering (`.NET25`, `JAVA25`)                        | GitHub-repo och en kort text. Utan GitHub: zip-fil och text    |
-| Grupprojekt (`.NET25_DevOps`, `JAVA25_SpBo`)              | Ett GitHub-repo per projektgrupp (två grupper med fyra elever) |
-| Ritningar, protokoll och dokument (`FIBER25`, LIA-planen) | Filer (foto, bild eller PDF) och en kommentar                  |
-| Beräkningar, tolkningar, dagbok och veckorapporter        | Text                                                           |
-| Praktiskt prov, slutbesiktning och trepartssamtal         | Bedöms på plats av läraren, eleven lämnar inte in något        |
-| Övningen i `FIBER25_NaUp`                                 | Text, med feedback men utan betyg                              |
+| Sorts uppgift                                             | Inlämning                                                                                                      |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Programmering (`.NET25`, `JAVA25`)                        | Zip-fil och en kort text                                                                                       |
+| Grupprojektet i `.NET25_DevOps`                           | Ett GitHub-repo per projektgrupp (två grupper med fyra elever) och en kort text. Utan GitHub: zip-fil och text |
+| Ritningar, protokoll och dokument (`FIBER25`, LIA-planen) | Filer (foto, bild eller PDF) och en kommentar                                                                  |
+| Beräkningar, tolkningar, dagbok och veckorapporter        | Text                                                                                                           |
+| Praktiskt prov, slutbesiktning och trepartssamtal         | Bedöms på plats av läraren, eleven lämnar inte in något                                                        |
+| Övningen i `FIBER25_NaUp`                                 | Text, med feedback men utan betyg                                                                              |
 
 Uppgifter som hänvisar till en bilaga har den: kartan över kvarteret, OTDR-kurvan, protokoll- och riskanalysmallarna och LIA-planen. De ligger i [`DemoFiles`](../backend/Infrastructure/Persistence/Seeding/DemoFiles) och laddas upp till fillagringen när demodatan skapas, tillsammans med elevernas inlämnade filer. Utan fillagring får demodatan inga filer.
 
@@ -86,7 +86,7 @@ För demon i `.NET25_DevOps` har `elev` bedömda uppgifter, en inlämning som v�
 
 För demon i `FIBER25_NaUp` har `elev-fiber` en öppen filuppgift (överlämningsdokumentet) med deadline tio dagar fram, ett installationsprotokoll som väntar på bedömning, en bedömd ritning och en övning med feedback. En annan elev har frågat om överlämningsdokumentet, så `larare` har en notis även där.
 
-**GitHub-uppgifterna.** Programmeringsuppgifterna blir repo-uppgifter när skolan har GitHub kopplat. Seedningen väljer mall som en lärare gör: det första mallrepot (inte arkiverat) i organisationen som skolan har kopplat under _Inställningar → Integrationer_. `Database:DemoTemplateRepo` (`ägare/namn`) väljer en annan mall. Uppgifterna delas ut direkt, som när en lärare skapar dem, och bakgrundsjobbet skapar repona: 56 elevrepon och 18 grupprepon. Reponamnet är kursens förkortning och uppgiftens namn, följt av elevens GitHub-namn eller gruppen, till exempel `devops-inl-mning-4-drifts-tt-appen-grupp-1`. Kopplas GitHub efter att demodatan har skapats görs uppgifterna om vid nästa start. Utan koppling eller mall lämnas de in som zip-fil och text.
+**GitHub-uppgifterna.** De fem uppgifterna i `.NET25_DevOps` blir repo-uppgifter när skolan har GitHub kopplat. Bara den kursen använder GitHub, så att demon skapar få repon. Seedningen väljer mall som en lärare gör: det första mallrepot (inte arkiverat) i organisationen som skolan har kopplat under _Inställningar → Integrationer_. `Database:DemoTemplateRepo` (`ägare/namn`) väljer en annan mall. Uppgifterna delas ut direkt, som när en lärare skapar dem, och bakgrundsjobbet skapar tio grupprepon. Reponamnet är kursens förkortning, uppgiftens namn och gruppen, till exempel `devops-inl-mning-4-drifts-tt-appen-grupp-1`. Kopplas GitHub efter att demodatan har skapats görs uppgifterna om vid nästa start. Utan koppling eller mall lämnas de in som zip-fil och text.
 
 **Ny version tar bort allt.** Demodatan har en version: klassen `.NET25` har ett fast id (`DemoSeed.MarkerGroupId`). Saknas den klassen vid start tar seedningen bort **all** undervisningsdata (klasser, kurser, innehåll, inlämningar, notiser och hjälpfrågor) och demodatans elever, och bygger sedan om demodatan. Konton, skolan, dess Microsoft-koppling och dess GitHub-installation finns kvar. Det sker bara när `Database:SeedDemoData` är `true`. Byt id:t när demodatan ska byggas om i prod.
 

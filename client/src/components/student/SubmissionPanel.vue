@@ -95,6 +95,11 @@ const submitLabel = computed(() => status.value === 'NotStarted'
 const repoSubmitLabel = computed(() => status.value === 'NeedsWork'
   ? 'Lämna in igen'
   : 'Lämna in senaste commit')
+// Med repo och text eller filer lämnar formulärets knapp in allt, både senaste commit och svaret. Då finns ingen
+// egen repo-knapp, så att eleven inte ser två knappar som gör samma sak.
+const formSubmitLabel = computed(() => hasRepo.value && status.value !== 'Submitted'
+  ? repoSubmitLabel.value
+  : submitLabel.value)
 const textTooLong = computed(() => hasText.value && isTooLong(bodyMd.value, textLimits.submissionText))
 const canSubmit = computed(() => !textTooLong.value && (hasRepo.value
   || (hasText.value && bodyMd.value.trim() !== '')
@@ -276,7 +281,7 @@ function onFilesChosen(event: Event) {
         När du lämnar in sparas senaste commit som din inlämning. Du kan lämna in igen fram till deadline.
       </p>
       <Button
-        v-if="windowState.open && !repoLocked"
+        v-if="windowState.open && !repoLocked && !formOpen"
         type="button"
         :disabled="saving"
         data-test="repo-submission-submit"
@@ -383,7 +388,7 @@ function onFilesChosen(event: Event) {
       <div class="flex flex-wrap items-center gap-2">
         <Button type="submit" :disabled="saving || !canSubmit" data-test="submission-submit">
           <PhPaperPlaneTilt/>
-          {{ submitLabel }}
+          {{ formSubmitLabel }}
         </Button>
         <Button
           v-if="editing"

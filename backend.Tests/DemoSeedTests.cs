@@ -41,6 +41,10 @@ public class DemoSeedTests(DemoSeedTests.DemoFixture fixture) : IClassFixture<De
                 {
                     services.RemoveAll<TimeProvider>();
                     services.AddSingleton<TimeProvider>(new FixedTimeProvider(_demoDay));
+
+                    // Som Supabase: strömmen är stängd när uppladdningen är klar.
+                    services.RemoveAll<IFileStorage>();
+                    services.AddSingleton<IFileStorage>(new ClosingFileStorage());
                 });
             });
             _ = Factory.Server;
@@ -448,7 +452,7 @@ public class DemoSeedTests(DemoSeedTests.DemoFixture fixture) : IClassFixture<De
         var again = await seed.EnableGitHubAssignmentsAsync(CancellationToken.None);
 
         db.ChangeTracker.Clear();
-        Assert.Equal(_individualRepos + _groupRepos, created);
+        Assert.Equal(_groupRepos, created);
         Assert.Equal(0, again);
         await AssertRepoAssignmentsAsync(db, "skolan/drifts-mall");
     }
@@ -456,10 +460,8 @@ public class DemoSeedTests(DemoSeedTests.DemoFixture fixture) : IClassFixture<De
     private const string _practicalTest = "Praktiskt prov: Svetsskarva och mät";
     private const string _exercise = "Övning: Hur mycket rör går åt?";
 
-    // Individuella repon: WeApp 3, OPJ 2 och MjTe 2 uppgifter för åtta elever. Grupprepon: DevOps 5 och SpBo 4
-    // uppgifter för två grupper.
-    private const int _individualRepos = 7 * 8;
-    private const int _groupRepos = 9 * 2;
+    // Bara DevOps har GitHub: fem uppgifter med två projektgrupper var.
+    private const int _groupRepos = 5 * 2;
 
     private static async Task AssertRepoAssignmentsAsync(AppDb db, string template)
     {
@@ -470,9 +472,16 @@ public class DemoSeedTests(DemoSeedTests.DemoFixture fixture) : IClassFixture<De
         Assert.Equal(template, devops.Template);
         Assert.Contains("GitHub-repo", devops.Body);
         Assert.DoesNotContain("zip-fil", devops.Body);
+
+        // Övrig kod lämnas in som zip-fil och text, även när GitHub finns.
+        var webApp = specs[(".NET25_WeApp", "Inlämning 1: Minimal API för en bokhylla")];
+        Assert.Equal([SubmissionMode.Text, SubmissionMode.File], webApp.Modes);
+        Assert.Contains("zip-fil", webApp.Body);
         Assert.Equal(
-            RepoWorkMode.Individual,
-            specs[(".NET25_WeApp", "Inlämning 1: Minimal API för en bokhylla")].WorkMode);
+            ["DevOps"],
+            specs.Where(pair => pair.Value.Modes.Contains(SubmissionMode.Repo))
+                .Select(pair => pair.Key.Code.Split('_')[1])
+                .Distinct());
         foreach (var spec in specs.Values.Where(spec => spec.Modes.Contains(SubmissionMode.Repo)))
         {
             Assert.Null(GitHubRepoNaming.Validate(spec.Pattern, spec.WorkMode));
@@ -487,12 +496,11 @@ public class DemoSeedTests(DemoSeedTests.DemoFixture fixture) : IClassFixture<De
             && pair.Value.Modes.Contains(SubmissionMode.Repo));
 
         var repos = await db.StudentRepos.ToListAsync();
-        Assert.Equal(_individualRepos + _groupRepos, repos.Count);
-        Assert.Equal(_groupRepos, repos.Count(repo => repo.AssignmentGroupId != null));
+        Assert.Equal(_groupRepos, repos.Count);
+        Assert.All(repos, repo => Assert.NotNull(repo.AssignmentGroupId));
         Assert.All(repos, repo => Assert.Equal(RepoProvisioningState.Pending, repo.ProvisioningState));
         Assert.Equal(repos.Count, repos.Select(repo => repo.DesiredRepoName).Distinct().Count());
         Assert.Contains(repos, repo => repo.DesiredRepoName == "devops-inl-mning-4-drifts-tt-appen-grupp-1");
-        Assert.Contains(repos, repo => repo.DesiredRepoName == "weapp-inl-mning-1-minimal-api-f-r-en-bokhylla-elev");
         Assert.All(repos, repo => Assert.Matches("^[a-z0-9-]+$", repo.DesiredRepoName!));
 
         // Varje elev i en grupp-uppgift hör till en av två grupper med fyra medlemmar.
@@ -590,6 +598,17 @@ public class DemoSeedTests(DemoSeedTests.DemoFixture fixture) : IClassFixture<De
     private sealed record TeachingResponse(List<TeachingCourse> Courses);
 
     private sealed record TeachingCourse(string Code);
+
+    private sealed class ClosingFileStorage : Backend.Infrastructure.Storage.InMemoryFileStorage, IFileStorage
+    {
+        async Task<string> IFileStorage.UploadAsync(
+            string folder, Stream content, string contentType, CancellationToken ct)
+        {
+            var key = await UploadAsync(folder, content, contentType, ct);
+            await content.DisposeAsync();
+            return key;
+        }
+    }
 
     private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
     {

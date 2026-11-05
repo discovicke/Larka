@@ -39,7 +39,7 @@ public sealed class DemoSeed(
     public const string DemoStudentDomain = "@larka.local";
 
     /// <summary>Id:t för klassen .NET25 i den här versionen av demodatan.</summary>
-    public static readonly Guid MarkerGroupId = Guid.Parse("5350d3b0-0000-4000-8000-000000000535");
+    public static readonly Guid MarkerGroupId = Guid.Parse("5400d3b0-0000-4000-8000-000000000540");
 
     private const int _studentsPerClass = 8;
 
@@ -200,18 +200,20 @@ public sealed class DemoSeed(
         {
             try
             {
+                // Storleken läses före uppladdningen, eftersom lagringen (t.ex. Supabase) stänger strömmen.
                 await using var stream = assembly.GetManifestResourceStream($"DemoFiles/{fileName}")
                     ?? throw new InvalidOperationException($"Demofilen {fileName} saknas i bygget.");
+                var size = stream.Length;
                 var key = await storage.UploadAsync(folder, stream, FileUploadPolicy.ContentTypeFor(fileName)!, ct);
                 switch (row)
                 {
                     case Attachment attachment:
                         attachment.StorageKey = key;
-                        attachment.SizeBytes = stream.Length;
+                        attachment.SizeBytes = size;
                         break;
                     case SubmissionFile file:
                         file.StorageKey = key;
-                        file.SizeBytes = stream.Length;
+                        file.SizeBytes = size;
                         break;
                 }
             }
@@ -321,7 +323,7 @@ public sealed class DemoSeed(
     private static List<SubmissionMode> ModesFor(DemoAssignment part, string? template) => part.HandIn switch
     {
         DemoHandIn.Repo or DemoHandIn.GroupRepo when template is not null => [SubmissionMode.Repo, SubmissionMode.Text],
-        DemoHandIn.Repo or DemoHandIn.GroupRepo => [SubmissionMode.Text, SubmissionMode.File],
+        DemoHandIn.Repo or DemoHandIn.GroupRepo or DemoHandIn.Code => [SubmissionMode.Text, SubmissionMode.File],
         DemoHandIn.File => [SubmissionMode.File, SubmissionMode.Text],
         DemoHandIn.OnSite => [SubmissionMode.OnSite],
         _ => [SubmissionMode.Text]
@@ -335,7 +337,7 @@ public sealed class DemoSeed(
         DemoHandIn.GroupRepo when template is not null =>
             "**Inlämning:** gruppen arbetar i ett gemensamt GitHub-repo som skapas åt er. Var och en skriver en kort "
             + "beskrivning av sin del i textfältet.",
-        DemoHandIn.Repo or DemoHandIn.GroupRepo =>
+        DemoHandIn.Repo or DemoHandIn.GroupRepo or DemoHandIn.Code =>
             "**Inlämning:** ladda upp koden som en zip-fil och skriv en kort beskrivning i textfältet.",
         _ => null
     };

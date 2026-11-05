@@ -162,13 +162,22 @@ describe('SubmissionPanel', () => {
     expect(wrapper.emitted('submitted')).toHaveLength(1)
   })
 
-  it('visar repo-inlämning även när uppgiften också tar text', async () => {
+  it('har en enda inlämningsknapp när uppgiften tar både repo och text', async () => {
     backend()
     const wrapper = await show({submissionModes: ['Repo', 'Text'], hasRepoMode: true})
 
     expect(wrapper.find('[data-test="repo-submission"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="repo-submission-submit"]').text()).toContain('Lämna in senaste commit')
+    expect(wrapper.find('[data-test="repo-submission-submit"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="submission-form"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="submission-submit"]').text()).toContain('Lämna in senaste commit')
+  })
+
+  it('har en enda knapp, Lämna in igen, när en repo- och textuppgift ska kompletteras', async () => {
+    backend([submissionOf('NeedsWork', {bodyMd: 'Första svaret'})])
+    const wrapper = await show({submissionModes: ['Repo', 'Text'], hasRepoMode: true, submissionStatus: 'NeedsWork'})
+
+    const buttons = wrapper.findAll('button').filter((button) => button.text().includes('Lämna in'))
+    expect(buttons.map((button) => button.text().trim())).toEqual(['Lämna in igen'])
   })
 
   it('visar repo-inlämning även när uppgiften också tar filer', async () => {
@@ -176,7 +185,8 @@ describe('SubmissionPanel', () => {
     const wrapper = await show({submissionModes: ['Repo', 'File'], hasRepoMode: true})
 
     expect(wrapper.find('[data-test="repo-submission"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="repo-submission-submit"]').text()).toContain('Lämna in senaste commit')
+    expect(wrapper.find('[data-test="repo-submission-submit"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="submission-submit"]').text()).toContain('Lämna in senaste commit')
     expect(wrapper.find('[data-test="submission-file-input"]').exists()).toBe(true)
   })
 

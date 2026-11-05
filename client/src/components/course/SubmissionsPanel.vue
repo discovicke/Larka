@@ -115,7 +115,7 @@ function supportCount(filterValue: Filter): number {
 
 function supportReasonClass(reason: string): string {
   return reason === 'Elevflagga'
-    ? 'border-primary/30 bg-primary/10 text-primary-foreground dark:text-primary'
+    ? 'border-primary/40 bg-primary/25 text-foreground dark:bg-primary/15 dark:text-primary'
     : 'border-warning/30 bg-warning/10 text-warning'
 }
 
