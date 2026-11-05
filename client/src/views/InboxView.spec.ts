@@ -312,6 +312,49 @@ describe('InboxView', () => {
       .toEqual(['/api/notifications/n-news/read'])
   })
 
+  it('en notis om en omnämning öppnar nyheten vid kommentaren och markerar trådens notiser som lästa', async () => {
+    backend({
+      courses: {
+        c1: [
+          testNews('l1', 'x1', 'Studiebesök', '2026-10-19T10:00:00Z', {courseId: 'c1'}),
+          testNews('l2', 'x2', 'Äldre nyhet', '2026-10-01T10:00:00Z', {courseId: 'c1'}),
+        ],
+      },
+      notifications: [
+        testNotification('n-mention', 'CommentMention', {
+          contentId: 'x2',
+          commentId: 'k1',
+          actorName: 'Bo Elev',
+          title: 'Äldre nyhet',
+          createdAt: '2026-10-21T11:20:00Z',
+        }),
+        testNotification('n-reply', 'CommentReply', {
+          contentId: 'x2',
+          commentId: 'k2',
+          title: 'Äldre nyhet',
+          createdAt: '2026-10-20T11:20:00Z',
+        }),
+      ],
+    })
+
+    const {wrapper, router} = await renderApp('/inbox')
+    expect(rowTitles(wrapper)).toContain('Bo Elev nämnde dig i en kommentar på Äldre nyhet')
+
+    await openTab(wrapper, 'Nyheter')
+    expect(rowTitles(wrapper)).toContain('Ny kommentar på Äldre nyhet')
+
+    const mention = wrapper.findAll('[data-test="notification-item"]')
+      .find((item) => item.text().includes('nämnde dig'))
+    await mention!.trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.query).toEqual({post: 'x2', comment: 'k1'})
+    expect(wrapper.find('[data-test="notification-detail"]').exists()).toBe(false)
+    expect(wrapper.find('[aria-label="Nyhet"] h1').text()).toBe('Äldre nyhet')
+    expect(requests.filter((request) => request.method === 'POST').map((request) => request.path).sort())
+      .toEqual(['/api/notifications/n-mention/read', '/api/notifications/n-reply/read'])
+  })
+
   it('öppnar betyget som ett meddelande och går till betyget först när man klickar', async () => {
     backend({notifications: [gradeNotification]})
 

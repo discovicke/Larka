@@ -3,6 +3,8 @@ import {
   PhArrowCounterClockwise,
   PhArrowLeft,
   PhArrowRight,
+  PhAt,
+  PhChatCircleText,
   PhCheckCircle,
   PhChecks,
   PhClock,
@@ -34,6 +36,7 @@ import {
   type InboxKind,
   type InboxRow,
   inboxKindOf,
+  isCommentKind,
   kindLabels,
   matchesFilter,
   notificationRow,
@@ -62,6 +65,8 @@ const kindIcons: Record<InboxKind, Component> = {
   assignment: PhExam,
   help: PhQuestion,
   personalDeadline: PhClock,
+  mention: PhAt,
+  reply: PhChatCircleText,
 }
 
 // Nyheter är blå, betyg gröna, komplettering gul. Deadlines och uppgifter har pennans gula ton.
@@ -73,6 +78,8 @@ const kindIconClasses: Record<InboxKind, string> = {
   assignment: 'bg-primary/25 text-foreground dark:bg-primary/15 dark:text-primary',
   help: 'bg-warning/10 text-warning dark:bg-warning/20',
   personalDeadline: 'bg-primary/25 text-foreground dark:bg-primary/15 dark:text-primary',
+  mention: 'bg-primary/10 text-primary dark:bg-primary/15 dark:text-primary',
+  reply: 'bg-primary/10 text-primary dark:bg-primary/15 dark:text-primary',
 }
 
 const dayHeadings = ['Idag', 'Igår', 'Tidigare'] as const
@@ -149,6 +156,10 @@ const sections = computed(() => dayHeadings
 const selectedId = computed(() => typeof route.query.post === 'string'
   ? route.query.post
   : '')
+// Kommentaren en notis om en omnämning eller ett svar gäller (?comment=). Nyheten skrollar fram till den.
+const focusCommentId = computed(() => typeof route.query.comment === 'string'
+  ? route.query.comment
+  : undefined)
 const selectedNotificationId = computed(() => typeof route.query.message === 'string'
   ? route.query.message
   : '')
@@ -220,7 +231,11 @@ function openNotification(row: InboxRow) {
   }
 
   markRowRead(row)
-  const location = {query: {message: row.notification.id}}
+  // En notis om en kommentar öppnar nyheten med kommentarerna, där svaret skrivs.
+  const contentId = row.notification.contentId
+  const location = isCommentKind(row.kind) && contentId
+    ? {query: {post: contentId, comment: row.notification.commentId ?? undefined}}
+    : {query: {message: row.notification.id}}
   void (isMobile.value
     ? router.push(location)
     : router.replace(location))
@@ -280,10 +295,15 @@ function markRowRead(row: InboxRow) {
   }
 }
 
-// Nyheten är läst när den öppnats i detaljen, oavsett om den valdes här eller via en länk (?post=).
+// Nyheten är läst när den öppnats i detaljen, oavsett om den valdes här eller via en länk (?post=). Det gäller
+// också notiserna om dess kommentarer, som syns i samma vy.
+const readWithNews = new Set<Schema<'NotificationKind'>>(['NewsPublished', 'CommentMention', 'CommentReply'])
+
 function markNewsRead(contentId: string) {
   markRead(notifications.value
-    .filter((notification) => notification.kind === 'NewsPublished' && notification.contentId === contentId)
+    .filter((notification) => readWithNews.has(notification.kind)
+      && notification.contentId === contentId
+      && notification.readAt === null)
     .map((notification) => notification.id))
 }
 
@@ -488,6 +508,7 @@ watch(status, (value) => {
             :links="selected.links"
             :targets="selected.targets"
             :course-id="selected.post.courseId ?? undefined"
+            :focus-comment-id="focusCommentId"
             @changed="load(false)"
             @deleted="afterDelete"
           />

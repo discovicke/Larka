@@ -6,7 +6,21 @@ type Notification = Schema<'NotificationDto'>
 export type InboxFilter = 'all' | 'unread' | 'grades' | 'news'
 
 /** Vad en rad i inkorgen handlar om. Nyheter kommer från flödena, resten från notiserna. */
-export type InboxKind = 'news' | 'grade' | 'needsWork' | 'deadline' | 'assignment' | 'help' | 'personalDeadline'
+export type InboxKind
+  = | 'news'
+    | 'grade'
+    | 'needsWork'
+    | 'deadline'
+    | 'assignment'
+    | 'help'
+    | 'personalDeadline'
+    | 'mention'
+    | 'reply'
+
+/** Notiser om en kommentar på en nyhet. De öppnar nyheten, inte ett eget meddelande. */
+export function isCommentKind(kind: InboxKind): boolean {
+  return kind === 'mention' || kind === 'reply'
+}
 
 export const kindLabels: Record<InboxKind, string> = {
   news: 'Nyhet',
@@ -16,6 +30,8 @@ export const kindLabels: Record<InboxKind, string> = {
   assignment: 'Ny uppgift',
   help: 'Hjälpförfrågan',
   personalDeadline: 'Ny deadline',
+  mention: 'Omnämnande',
+  reply: 'Kommentar',
 }
 
 /** Notiserna som blir egna rader. Nyhetsnotiserna visas på nyheten själv, som en oläst markering. */
@@ -26,6 +42,8 @@ const kindsByNotification: Partial<Record<Schema<'NotificationKind'>, InboxKind>
   SubmissionGraded: 'grade',
   StudentHelpRequested: 'help',
   PersonalDeadlineSet: 'personalDeadline',
+  CommentMention: 'mention',
+  CommentReply: 'reply',
 }
 
 export function inboxKindOf(notification: Notification): InboxKind | undefined {
@@ -58,6 +76,10 @@ export function notificationTitle(notification: Notification, kind: InboxKind): 
       return `${title} ska lämnas in inom ett dygn`
     case 'help':
       return `${title}: en elev har bett om hjälp`
+    case 'mention':
+      return `${notification.actorName ?? 'Någon'} nämnde dig i en kommentar på ${title}`
+    case 'reply':
+      return `Ny kommentar på ${title}`
     case 'personalDeadline':
       return notification.personalDueAt
         ? `Ny deadline för ${title}: ${formatDate(notification.personalDueAt, true)}`
@@ -87,7 +109,7 @@ export function matchesFilter(row: InboxRow, filter: InboxFilter): boolean {
     case 'grades':
       return row.kind === 'grade' || row.kind === 'needsWork'
     case 'news':
-      return row.kind === 'news'
+      return row.kind === 'news' || isCommentKind(row.kind)
     default:
       return true
   }

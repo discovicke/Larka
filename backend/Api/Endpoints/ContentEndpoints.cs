@@ -72,6 +72,11 @@ public static class ContentEndpoints
             (await service.AddCommentAsync(id, commentDto, ct)).ToHttp(comment =>
                 TypedResults.Created($"/api/content/{id}/comments", comment)));
 
+        // Vem som går att nämna (@) i en kommentar: de som får läsa innehållet.
+        contentGroup.MapGet("/{id:guid}/mentionable", async (
+            Guid id, ContentCommentService service, CancellationToken ct) =>
+            (await service.GetMentionableAsync(id, ct)).ToHttp(TypedResults.Ok));
+
         // Författaren ändrar sin kommentar. Författaren och läraren på innehållet tar bort den.
         contentGroup.MapPut("/{id:guid}/comments/{commentId:guid}", async (
             Guid id,

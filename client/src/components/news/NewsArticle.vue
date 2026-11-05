@@ -7,11 +7,13 @@ import {
   PhPushPinSlash,
   PhTrash,
 } from '@phosphor-icons/vue'
-import {computed, ref, watch} from 'vue'
+import {computed, nextTick, ref, watch} from 'vue'
 
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import MarkdownView from '@/components/editor/MarkdownView.vue'
+import CommentText from '@/components/news/CommentText.vue'
 import EditNewsDialog from '@/components/news/EditNewsDialog.vue'
+import MentionTextarea from '@/components/news/MentionTextarea.vue'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar'
 import {Button} from '@/components/ui/button'
@@ -30,7 +32,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {Skeleton} from '@/components/ui/skeleton'
-import {Textarea} from '@/components/ui/textarea'
 import TextLimitNote from '@/components/TextLimitNote.vue'
 import {useAsync} from '@/composables/useAsync'
 import {useToast} from '@/composables/useToast'
@@ -38,6 +39,7 @@ import {useCurrentUser} from '@/composables/useCurrentUser'
 import {api, type Schema} from '@/lib/api'
 import {deleteContentLink, updateContentLink} from '@/lib/contentApi'
 import {formatDate} from '@/lib/content'
+import {type MentionMap, toEditable, toStored} from '@/lib/mentions'
 import {initials} from '@/lib/person'
 import {isTooLong, textLimits} from '@/lib/textLimits'
 
@@ -47,6 +49,8 @@ const props = defineProps<{
   targets?: string[]
   // Kursen nyheten visas i. Gruppnyheter i inkorgen har ingen kurs, och då krävs en lärarroll.
   courseId?: string
+  // Kommentaren att skrolla fram till och markera, när nyheten öppnas från en notis om den.
+  focusCommentId?: string
 }>()
 
 const emit = defineEmits<{
@@ -64,7 +68,10 @@ const links = computed(() => props.links?.length
 const isPinned = computed(() => links.value.some((link) => link.isPinned))
 
 const comments = ref<Schema<'CommentDto'>[]>([])
+// Fälten visar @Namn. Vem namnen är hålls i en egen lista och läggs in i texten när den skickas.
 const commentBody = ref('')
+const commentMentions = ref<MentionMap>(new Map())
+const storedComment = computed(() => toStored(commentBody.value.trim(), commentMentions.value))
 
 const editOpen = ref(false)
 const deleteOpen = ref(false)
@@ -91,14 +98,17 @@ const {run: sendComment, loading: sending, error: sendError} = useAsync(async (b
     comments.value = [...comments.value, data]
   }
   commentBody.value = ''
+  commentMentions.value = new Map()
   showToast('Kommentaren är skickad.')
 })
-const commentTooLong = computed(() => isTooLong(commentBody.value.trim(), textLimits.comment))
+const commentTooLong = computed(() => isTooLong(storedComment.value, textLimits.comment))
 
 // Författaren ändrar sin kommentar på plats. Läraren i kursen och författaren tar bort den.
 const editingId = ref<string | null>(null)
 const editBody = ref('')
-const editTooLong = computed(() => isTooLong(editBody.value.trim(), textLimits.comment))
+const editMentions = ref<MentionMap>(new Map())
+const storedEdit = computed(() => toStored(editBody.value.trim(), editMentions.value))
+const editTooLong = computed(() => isTooLong(storedEdit.value, textLimits.comment))
 const removingComment = ref<Schema<'CommentDto'> | null>(null)
 const removeOpen = computed({
   get: () => removingComment.value !== null,
@@ -111,7 +121,7 @@ const removeOpen = computed({
 
 const {run: saveEdit, loading: savingEdit, error: editError} = useAsync(async () => {
   const commentId = editingId.value
-  const bodyMd = editBody.value.trim()
+  const bodyMd = storedEdit.value
   if (!commentId || bodyMd === '') {
     return
   }
@@ -130,7 +140,9 @@ const {run: saveEdit, loading: savingEdit, error: editError} = useAsync(async ()
 
 function startEdit(comment: Schema<'CommentDto'>) {
   editingId.value = comment.id
-  editBody.value = comment.bodyMd
+  const editable = toEditable(comment.bodyMd)
+  editBody.value = editable.text
+  editMentions.value = editable.mentions
   editError.value = ''
 }
 
@@ -153,11 +165,20 @@ async function loadComments(contentId: string) {
   const loaded = await fetchComments(contentId)
   if (loaded) {
     comments.value = loaded
+    await showFocusedComment()
   }
 }
 
+async function showFocusedComment() {
+  if (!props.focusCommentId) {
+    return
+  }
+  await nextTick()
+  document.getElementById(`comment-${props.focusCommentId}`)?.scrollIntoView({block: 'center'})
+}
+
 async function submitComment() {
-  const bodyMd = commentBody.value.trim()
+  const bodyMd = storedComment.value
   if (bodyMd === '' || commentTooLong.value) {
     return
   }
@@ -200,6 +221,13 @@ watch(() => props.post.contentId, (contentId) => {
     loadComments(contentId)
   }
 }, {immediate: true})
+
+// En ny notis om samma nyhet byter bara kommentaren, inte nyheten.
+watch(() => props.focusCommentId, () => {
+  if (!commentsLoading.value) {
+    void showFocusedComment()
+  }
+})
 
 watch(() => props.post.linkId, () => {
   actionError.value = ''
@@ -279,8 +307,14 @@ watch(() => props.post.linkId, () => {
       <ul v-else class="flex flex-col gap-4">
         <li
           v-for="comment in comments"
+          :id="`comment-${comment.id}`"
           :key="comment.id"
-          class="flex gap-3"
+          :class="[
+            'flex scroll-mt-6 gap-3 rounded-lg',
+            comment.id === focusCommentId
+              ? 'bg-primary/5 -mx-2 px-2 py-1.5 ring-1 ring-primary/20'
+              : '',
+          ]"
           data-test="comment"
         >
           <Avatar class="size-8">
@@ -335,8 +369,14 @@ watch(() => props.post.linkId, () => {
               @submit.prevent="saveEdit()"
             >
               <label class="sr-only" :for="`comment-edit-${comment.id}`">Ändra kommentaren</label>
-              <Textarea :id="`comment-edit-${comment.id}`" v-model="editBody" rows="2"/>
-              <TextLimitNote :text="editBody.trim()" :max="textLimits.comment"/>
+              <MentionTextarea
+                :id="`comment-edit-${comment.id}`"
+                v-model="editBody"
+                v-model:mentions="editMentions"
+                :content-id="post.contentId"
+                rows="2"
+              />
+              <TextLimitNote :text="storedEdit" :max="textLimits.comment"/>
               <Alert v-if="editError" variant="destructive">
                 <AlertDescription>{{ editError }}</AlertDescription>
               </Alert>
@@ -360,20 +400,22 @@ watch(() => props.post.linkId, () => {
                 </Button>
               </div>
             </form>
-            <p v-else class="text-foreground/80 whitespace-pre-line wrap-anywhere">{{ comment.bodyMd }}</p>
+            <CommentText v-else :body-md="comment.bodyMd"/>
           </div>
         </li>
       </ul>
 
       <form class="flex flex-col gap-2" @submit.prevent="submitComment">
         <label class="sr-only" for="comment-body">Skriv en kommentar</label>
-        <Textarea
+        <MentionTextarea
           id="comment-body"
           v-model="commentBody"
-          placeholder="Skriv en kommentar…"
+          v-model:mentions="commentMentions"
+          :content-id="post.contentId"
+          placeholder="Skriv en kommentar… Nämn någon med @"
           rows="2"
         />
-        <TextLimitNote :text="commentBody.trim()" :max="textLimits.comment"/>
+        <TextLimitNote :text="storedComment" :max="textLimits.comment"/>
         <div class="flex flex-wrap items-center justify-between gap-2">
           <span class="text-muted-foreground text-xs">Synlig för alla i kursen</span>
           <Button

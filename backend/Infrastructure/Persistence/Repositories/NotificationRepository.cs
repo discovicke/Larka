@@ -47,6 +47,24 @@ public class NotificationRepository(AppDb db) : INotificationRepository
             .ToListAsync(ct))
         .ToHashSet();
 
+    public async Task<HashSet<Guid>> GetNotifiedAboutCommentAsync(
+        NotificationKind kind, Guid commentId, CancellationToken ct) =>
+        (await db.Notifications
+            .Where(notification => notification.Kind == kind && notification.CommentId == commentId)
+            .Select(notification => notification.UserId)
+            .ToListAsync(ct))
+        .ToHashSet();
+
+    public async Task<HashSet<Guid>> GetUnreadNotifiedUserIdsAsync(
+        NotificationKind kind, Guid contentId, CancellationToken ct) =>
+        (await db.Notifications
+            .Where(notification => notification.Kind == kind
+                && notification.ContentId == contentId
+                && notification.ReadAt == null)
+            .Select(notification => notification.UserId)
+            .ToListAsync(ct))
+        .ToHashSet();
+
     public async Task<HashSet<(Guid UserId, DateTimeOffset DueAt)>> GetDeadlineRemindersAsync(
         Guid contentId, CancellationToken ct) =>
         (await db.Notifications
@@ -99,6 +117,12 @@ public class NotificationRepository(AppDb db) : INotificationRepository
             .Distinct().ToList();
         var submissionIds = items.Where(item => item.SubmissionId != null).Select(item => item.SubmissionId!.Value)
             .Distinct().ToList();
+
+        var actorIds = items.Where(item => item.ActorId != null).Select(item => item.ActorId!.Value)
+            .Distinct().ToList();
+        var actorNames = await db.Users
+            .Where(user => actorIds.Contains(user.Id))
+            .ToDictionaryAsync(user => user.Id, user => user.Name, ct);
 
         var titles = await db.Content
             .Where(content => contentIds.Contains(content.Id))
@@ -166,8 +190,11 @@ public class NotificationRepository(AppDb db) : INotificationRepository
                 && graded.TryGetValue(item.SubmissionId.Value, out var personalOne)
                     ? personalOne.PersonalDueAt
                     : null;
+            var actorName = item.ActorId != null && actorNames.TryGetValue(item.ActorId.Value, out var actor)
+                ? actor
+                : null;
             return new NotificationRow(
-                item, title, link?.Id, link?.CourseId, courseTitle, groupName, level, personalDueAt);
+                item, title, link?.Id, link?.CourseId, courseTitle, groupName, level, personalDueAt, actorName);
         }).ToList();
     }
 

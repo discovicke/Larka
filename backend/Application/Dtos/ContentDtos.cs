@@ -207,6 +207,9 @@ public record ContentFeedItem(
 
 public record UpdateCommentDto(string BodyMd);
 
+/// <summary>Någon som går att nämna i en kommentar: får läsa innehållet och är inte spärrad.</summary>
+public record MentionableUserDto(Guid Id, string Name, string? AvatarUrl, bool IsTeacher);
+
 /// <summary>
 /// CanEdit och CanDelete gäller den som frågar: författaren ändrar och tar bort sin egen kommentar, och läraren
 /// på innehållet tar bort vilken kommentar som helst.

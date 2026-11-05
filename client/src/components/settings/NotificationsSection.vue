@@ -16,6 +16,8 @@ const notificationRows: {id: string, label: string, kinds: NotificationKind[]}[]
   {id: 'assignments', label: 'Nya uppgifter', kinds: ['AssignmentPublished']},
   {id: 'help', label: 'Elev ber om hjälp', kinds: ['StudentHelpRequested']},
   {id: 'news', label: 'Nyheter', kinds: ['NewsPublished']},
+  {id: 'mentions', label: 'Någon nämner dig i en kommentar', kinds: ['CommentMention']},
+  {id: 'replies', label: 'Nya kommentarer där du skrivit', kinds: ['CommentReply']},
 ]
 
 const muted = ref<NotificationKind[]>([])

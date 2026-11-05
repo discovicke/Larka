@@ -6,7 +6,7 @@ using Backend.Domain.Enums;
 
 namespace Backend.Application.Services;
 
-// Notiser till användarna: skapas när något publiceras eller bedöms, och läses i inkorgen.
+// Notiser till användarna: skapas när något publiceras, bedöms eller kommenteras, och läses i inkorgen.
 // Metoderna som skapar notiser (Notify...) sparar inte själva. Anroparen sparar i samma transaktion som
 // ändringen som gav notisen. CreateScheduledAsync, som jobbet anropar, sparar däremot själv.
 // En nyhet eller uppgift ger högst en notis per användare (NewsPublished, AssignmentPublished), och en påminnelse
@@ -99,6 +99,70 @@ public class NotificationService(
     }
 
     /// <summary>
+    /// De som får läsa innehållet och inte är spärrade: medlemmarna där en länk syns och lärarna i länkarnas
+    /// kurser, också innan innehållet syns för eleverna. Det är dem en kommentar kan nämna.
+    /// </summary>
+    public async Task<List<User>> GetReadersAsync(Content content, CancellationToken ct)
+    {
+        var links = await notifications.GetLinksAsync(content.Id, ct);
+        var readers = await VisibleToAsync(content, links, time.GetUtcNow(), ct);
+        foreach (var courseId in links.Where(link => link.CourseId is not null).Select(link => link.CourseId!.Value)
+                     .Distinct())
+        {
+            readers.UnionWith(await notifications.GetCourseTeacherIdsAsync(courseId, ct));
+        }
+
+        return await users.GetActiveAsync(readers, ct);
+    }
+
+    /// <summary>
+    /// Notiser om en ny eller ändrad kommentar. De som nämns i den (CommentMention) och får läsa innehållet får en
+    /// notis, utom den som skrev. Vid en ändring (previousBody satt) får bara de som lagts till i ändringen en.
+    /// En ny kommentar ger också innehållets författare och de som kommenterat förut (threadIds) en CommentReply,
+    /// men bara om de inte redan har en oläst om samma innehåll, så att en livlig tråd blir en rad i inkorgen.
+    /// </summary>
+    public async Task NotifyCommentAsync(
+        Content content,
+        Comment comment,
+        string? previousBody,
+        IReadOnlyCollection<Guid> threadIds,
+        CancellationToken ct)
+    {
+        var mentioned = Mentions.UserIdsIn(comment.BodyMd);
+        var isNew = previousBody is null;
+        if (mentioned.Count == 0 && !isNew)
+        {
+            return;
+        }
+
+        var readers = (await GetReadersAsync(content, ct)).Select(user => user.Id).ToHashSet();
+        var now = time.GetUtcNow();
+
+        var mentionRecipients = mentioned.Where(readers.Contains).ToHashSet();
+        mentionRecipients.Remove(comment.AuthorId);
+        mentionRecipients.ExceptWith(Mentions.UserIdsIn(previousBody));
+        mentionRecipients.ExceptWith(
+            await notifications.GetNotifiedAboutCommentAsync(NotificationKind.CommentMention, comment.Id, ct));
+        mentionRecipients.ExceptWith(await MutedAmongAsync(mentionRecipients, NotificationKind.CommentMention, ct));
+        notifications.AddRange(mentionRecipients.Select(userId =>
+            CommentNotification(userId, NotificationKind.CommentMention, content, comment, now)));
+
+        if (!isNew)
+        {
+            return;
+        }
+
+        var replyRecipients = threadIds.Append(content.AuthorId).Where(readers.Contains).ToHashSet();
+        replyRecipients.Remove(comment.AuthorId);
+        replyRecipients.ExceptWith(mentioned);
+        replyRecipients.ExceptWith(
+            await notifications.GetUnreadNotifiedUserIdsAsync(NotificationKind.CommentReply, content.Id, ct));
+        replyRecipients.ExceptWith(await MutedAmongAsync(replyRecipients, NotificationKind.CommentReply, ct));
+        notifications.AddRange(replyRecipients.Select(userId =>
+            CommentNotification(userId, NotificationKind.CommentReply, content, comment, now)));
+    }
+
+    /// <summary>
     /// Det som sker på en klocka: publiceringar vars tid passerat sedan förra gången, och påminnelser till elever
     /// som har en deadline kvar att lämna in till inom 24 timmar (huvud, komplettering eller egen). Går att köra när som helst och hur ofta som
     /// helst, eftersom det som redan har en notis hoppas över. Returnerar antal nya notiser.
@@ -170,22 +234,7 @@ public class NotificationService(
         }
 
         var now = time.GetUtcNow();
-        var recipients = new HashSet<Guid>();
-        foreach (var link in links)
-        {
-            if (ContentVisibility.IsVisible(content, link, now) && await IsModuleOpenAsync(link, now, ct))
-            {
-                // Kursens lärare är de som står i kursen, inte lärarna i klassen. En länk till bara en grupp, utan
-                // kurs, når gruppens lärare som förut.
-                var groupIds = await GroupIdsAsync(link, ct);
-                recipients.UnionWith(await notifications.GetMemberIdsAsync(groupIds, link.CourseId is null, ct));
-                if (link.CourseId is not null)
-                {
-                    recipients.UnionWith(await notifications.GetCourseTeacherIdsAsync(link.CourseId.Value, ct));
-                }
-            }
-        }
-
+        var recipients = await VisibleToAsync(content, links, now, ct);
         recipients.Remove(content.AuthorId);
         recipients.ExceptWith(await notifications.GetNotifiedUserIdsAsync(kind.Value, content.Id, ct));
         recipients.ExceptWith(await MutedAmongAsync(recipients, kind.Value, ct));
@@ -257,6 +306,40 @@ public class NotificationService(
         return created.Count;
     }
 
+    // Medlemmarna där någon av länkarna syns för eleverna nu. Kursens lärare är de som står i kursen, inte lärarna
+    // i klassen. En länk till bara en grupp, utan kurs, når gruppens lärare.
+    private async Task<HashSet<Guid>> VisibleToAsync(
+        Content content, IReadOnlyList<ContentLink> links, DateTimeOffset now, CancellationToken ct)
+    {
+        var recipients = new HashSet<Guid>();
+        foreach (var link in links)
+        {
+            if (ContentVisibility.IsVisible(content, link, now) && await IsModuleOpenAsync(link, now, ct))
+            {
+                var groupIds = await GroupIdsAsync(link, ct);
+                recipients.UnionWith(await notifications.GetMemberIdsAsync(groupIds, link.CourseId is null, ct));
+                if (link.CourseId is not null)
+                {
+                    recipients.UnionWith(await notifications.GetCourseTeacherIdsAsync(link.CourseId.Value, ct));
+                }
+            }
+        }
+
+        return recipients;
+    }
+
+    private static Notification CommentNotification(
+        Guid userId, NotificationKind kind, Content content, Comment comment, DateTimeOffset now) =>
+        new()
+        {
+            UserId = userId,
+            Kind = kind,
+            ContentId = content.Id,
+            CommentId = comment.Id,
+            ActorId = comment.AuthorId,
+            CreatedAt = now
+        };
+
     // En länk till en grupp gäller gruppen (även med kurs). En länk bara till en kurs gäller alla grupper som läser den.
     private async Task<List<Guid>> GroupIdsAsync(ContentLink link, CancellationToken ct) =>
         link.GroupId is not null
@@ -304,5 +387,7 @@ public class NotificationService(
             row.Level,
             row.Notification.CreatedAt,
             row.Notification.ReadAt,
-            row.PersonalDueAt);
+            row.PersonalDueAt,
+            row.Notification.CommentId,
+            row.ActorName);
 }

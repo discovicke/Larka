@@ -3,6 +3,7 @@ using Backend.Application.Dtos;
 using Backend.Application.Files;
 using Backend.Application.Results;
 using Backend.Domain.Entities;
+using Backend.Domain.Enums;
 
 namespace Backend.Application.Services;
 
@@ -13,6 +14,7 @@ public class ContentCommentService(
     IContentRepository contents,
     IUserRepository users,
     ContentAccess access,
+    NotificationService notifications,
     IUnitOfWork unitOfWork,
     ICurrentUser currentUser)
 {
@@ -41,6 +43,31 @@ public class ContentCommentService(
             .ToList();
     }
 
+    /// <summary>
+    /// De som går att nämna i en kommentar på innehållet, i namnordning, utan den som frågar. NotFound om
+    /// innehållet inte finns eller användaren inte får läsa det.
+    /// </summary>
+    public async Task<ServiceResult<List<MentionableUserDto>>> GetMentionableAsync(
+        Guid contentId, CancellationToken ct)
+    {
+        var content = await contents.GetAsync(contentId, ct);
+        if (content is null || !await access.MayReadAsync(content, ct))
+        {
+            return ServiceResult<List<MentionableUserDto>>.NotFound("content not found");
+        }
+
+        var readers = await notifications.GetReadersAsync(content, ct);
+        return ServiceResult<List<MentionableUserDto>>.Ok(readers
+            .Where(user => user.Id != currentUser.UserId)
+            .OrderBy(user => user.Name, StringComparer.Create(new System.Globalization.CultureInfo("sv-SE"), true))
+            .Select(user => new MentionableUserDto(
+                user.Id,
+                user.Name,
+                AvatarPolicy.UrlFor(user.Id, user.AvatarKey),
+                user.Role == UserRole.Teacher))
+            .ToList());
+    }
+
     /// <summary>NotFound om innehållet inte finns eller användaren inte får läsa det.</summary>
     public async Task<ServiceResult<CommentDto>> AddCommentAsync(
         Guid contentId,
@@ -59,8 +86,13 @@ public class ContentCommentService(
             return ServiceResult<CommentDto>.Invalid(bodyError);
         }
 
+        // De som skrivit i tråden före den här kommentaren får veta att den kommit.
+        var threadIds = (await contents.GetCommentsAsync(contentId, ct))
+            .Select(earlier => earlier.AuthorId)
+            .ToHashSet();
         var comment = new Comment { ContentId = contentId, AuthorId = currentUser.UserId, BodyMd = dto.BodyMd.Trim() };
         contents.AddComment(comment);
+        await notifications.NotifyCommentAsync(content, comment, previousBody: null, threadIds, ct);
         await unitOfWork.SaveChangesAsync(ct);
         return ServiceResult<CommentDto>.Ok(await ToDtoForAuthorAsync(comment, ct));
     }
@@ -89,7 +121,9 @@ public class ContentCommentService(
             return ServiceResult<CommentDto>.Invalid(bodyError);
         }
 
+        var previousBody = comment.BodyMd;
         comment.BodyMd = dto.BodyMd.Trim();
+        await notifications.NotifyCommentAsync(content, comment, previousBody, [], ct);
         await unitOfWork.SaveChangesAsync(ct);
         return ServiceResult<CommentDto>.Ok(await ToDtoForAuthorAsync(comment, ct));
     }

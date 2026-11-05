@@ -1,0 +1,81 @@
+﻿using System;
+using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace Backend.Infrastructure.Persistence.Migrations
+{
+    /// <inheritdoc />
+    public partial class AddCommentNotifications : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.AddColumn<Guid>(
+                name: "ActorId",
+                table: "Notifications",
+                type: "uuid",
+                nullable: true);
+
+            migrationBuilder.AddColumn<Guid>(
+                name: "CommentId",
+                table: "Notifications",
+                type: "uuid",
+                nullable: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Notifications_ActorId",
+                table: "Notifications",
+                column: "ActorId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Notifications_CommentId",
+                table: "Notifications",
+                column: "CommentId");
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_Notifications_Comments_CommentId",
+                table: "Notifications",
+                column: "CommentId",
+                principalTable: "Comments",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.Cascade);
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_Notifications_Users_ActorId",
+                table: "Notifications",
+                column: "ActorId",
+                principalTable: "Users",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.SetNull);
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropForeignKey(
+                name: "FK_Notifications_Comments_CommentId",
+                table: "Notifications");
+
+            migrationBuilder.DropForeignKey(
+                name: "FK_Notifications_Users_ActorId",
+                table: "Notifications");
+
+            migrationBuilder.DropIndex(
+                name: "IX_Notifications_ActorId",
+                table: "Notifications");
+
+            migrationBuilder.DropIndex(
+                name: "IX_Notifications_CommentId",
+                table: "Notifications");
+
+            migrationBuilder.DropColumn(
+                name: "ActorId",
+                table: "Notifications");
+
+            migrationBuilder.DropColumn(
+                name: "CommentId",
+                table: "Notifications");
+        }
+    }
+}

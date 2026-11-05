@@ -37,3 +37,26 @@ describe('notis om personlig deadline', () => {
     expect(notificationTitle(personalDeadline(null), 'personalDeadline')).toBe('Ny deadline för Labb 1')
   })
 })
+
+describe('notiser om kommentarer', () => {
+  function commentNotification(
+    kind: 'CommentMention' | 'CommentReply',
+    actorName: string | null,
+  ): Schema<'NotificationDto'> {
+    return {...personalDeadline(null), kind, title: 'Studiebesök', commentId: 'k1', actorName}
+  }
+
+  it('blir egna rader', () => {
+    expect(inboxKindOf(commentNotification('CommentMention', 'Bo Elev'))).toBe('mention')
+    expect(inboxKindOf(commentNotification('CommentReply', 'Bo Elev'))).toBe('reply')
+  })
+
+  it('säger vem som nämnde en och var', () => {
+    expect(notificationTitle(commentNotification('CommentMention', 'Bo Elev'), 'mention'))
+      .toBe('Bo Elev nämnde dig i en kommentar på Studiebesök')
+    expect(notificationTitle(commentNotification('CommentMention', null), 'mention'))
+      .toBe('Någon nämnde dig i en kommentar på Studiebesök')
+    expect(notificationTitle(commentNotification('CommentReply', 'Bo Elev'), 'reply'))
+      .toBe('Ny kommentar på Studiebesök')
+  })
+})

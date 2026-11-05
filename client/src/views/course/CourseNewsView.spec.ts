@@ -76,6 +76,15 @@ function backend(posts: unknown[], comments: Record<string, unknown[]> = {}) {
       const sentBody = body as {bodyMd: string}
       return {status: 200, body: comment(oneComment[2]!, oneComment[1]!, 'u1', sentBody.bodyMd, {canEdit: true, canDelete: true})}
     }
+    if (/^\/api\/content\/[^/]+\/mentionable$/.test(path)) {
+      return {
+        status: 200,
+        body: [
+          {id: '00000000-0000-0000-0000-0000000000b2', name: 'Bo Elev', avatarUrl: null, isTeacher: false},
+          {id: '00000000-0000-0000-0000-0000000000c3', name: 'Cecilia Berg', avatarUrl: null, isTeacher: true},
+        ],
+      }
+    }
     const withComments = path.match(/^\/api\/content\/([^/]+)\/comments$/)
     if (withComments) {
       const contentId = withComments[1]
@@ -298,6 +307,98 @@ describe('CourseNewsView', () => {
     expect(wrapper.findAll('[data-test="comment"]')).toHaveLength(2)
     expect(wrapper.text()).toContain('Bra jobbat!')
     expect((wrapper.find('#comment-body').element as HTMLTextAreaElement).value).toBe('')
+  })
+
+  it('@ öppnar en lista att nämna någon ur, och omnämnandet skickas med id', async () => {
+    backend([pinned])
+
+    const {wrapper} = await renderApp('/courses/c1/news')
+
+    const field = wrapper.find('#comment-body')
+    await field.setValue('Hej @')
+    await flushPromises()
+    expect(wrapper.findAll('[data-test="mention-option"]').map((option) => option.find('.truncate').text()))
+      .toEqual(['Bo Elev', 'Cecilia Berg'])
+
+    await field.setValue('Hej @ber')
+    await flushPromises()
+    expect(wrapper.findAll('[data-test="mention-option"]').map((option) => option.find('.truncate').text()))
+      .toEqual(['Cecilia Berg'])
+    expect(wrapper.find('[data-test="mention-option"]').text()).toContain('Lärare')
+
+    await field.trigger('keydown', {key: 'Enter'})
+    await flushPromises()
+    expect((field.element as HTMLTextAreaElement).value).toBe('Hej @Cecilia Berg ')
+    expect(wrapper.find('[data-test="mention-list"]').exists()).toBe(false)
+
+    await field.setValue('Hej @Cecilia Berg kan du titta?')
+    await wrapper.find('section[aria-labelledby="comments-heading"] form').trigger('submit')
+    await flushPromises()
+
+    expect(sent('POST', '/api/content/x2/comments')).toEqual({
+      bodyMd: 'Hej @[Cecilia Berg](00000000-0000-0000-0000-0000000000c3) kan du titta?',
+    })
+    expect(wrapper.find('[data-test="comment-mention"]').text()).toBe('@Cecilia Berg')
+  })
+
+  it('pilarna väljer i listan och Escape stänger den utan att välja', async () => {
+    backend([pinned])
+
+    const {wrapper} = await renderApp('/courses/c1/news')
+
+    const field = wrapper.find('#comment-body')
+    await field.setValue('@')
+    await flushPromises()
+    await field.trigger('keydown', {key: 'ArrowDown'})
+    expect(wrapper.find('[aria-selected="true"]').text()).toContain('Cecilia Berg')
+    expect(field.attributes('aria-activedescendant')).toBe(wrapper.find('[aria-selected="true"]').attributes('id'))
+
+    await field.trigger('keydown', {key: 'Escape'})
+    expect(wrapper.find('[data-test="mention-list"]').exists()).toBe(false)
+    expect((field.element as HTMLTextAreaElement).value).toBe('@')
+  })
+
+  it('en e-postadress eller ett namn som skrivits om blir ingen omnämning', async () => {
+    backend([pinned])
+
+    const {wrapper} = await renderApp('/courses/c1/news')
+
+    const field = wrapper.find('#comment-body')
+    await field.setValue('Mejla bo@skolan.se')
+    await flushPromises()
+    expect(wrapper.find('[data-test="mention-list"]').exists()).toBe(false)
+
+    await field.setValue('@bo')
+    await flushPromises()
+    await field.trigger('keydown', {key: 'Enter'})
+    await field.setValue('@Bosse hej')
+    await wrapper.find('section[aria-labelledby="comments-heading"] form').trigger('submit')
+    await flushPromises()
+
+    expect(sent('POST', '/api/content/x2/comments')).toEqual({bodyMd: '@Bosse hej'})
+  })
+
+  it('visar omnämningar som namn och behåller dem när kommentaren ändras', async () => {
+    const token = '@[Bo Elev](00000000-0000-0000-0000-0000000000b2)'
+    backend([pinned], {x2: [comment('k1', 'x2', 'u1', `Tack ${token}!`, {canEdit: true, canDelete: true})]})
+
+    const {wrapper} = await renderApp('/courses/c1/news')
+
+    expect(wrapper.find('[data-test="comment"]').text()).toContain('Tack @Bo Elev!')
+    expect(wrapper.find('[data-test="comment"]').text()).not.toContain('0000')
+
+    await wrapper.find('[data-test="comment-menu"]').trigger('keydown', {key: 'Enter'})
+    await flushPromises()
+    newsAction('Redigera').click()
+    await flushPromises()
+    const field = wrapper.find('[data-test="comment-edit-form"] textarea')
+    expect((field.element as HTMLTextAreaElement).value).toBe('Tack @Bo Elev!')
+
+    await field.setValue('Tack igen @Bo Elev!')
+    await wrapper.find('[data-test="comment-edit-form"]').trigger('submit')
+    await flushPromises()
+
+    expect(sent('PUT', '/api/content/x2/comments/k1')).toEqual({bodyMd: `Tack igen ${token}!`})
   })
 
   it('säger till när kommentaren är för lång och skickar den inte', async () => {

@@ -15,7 +15,8 @@ public record NotificationRow(
     string? CourseTitle,
     string? GroupName,
     GradeLevel? Level,
-    DateTimeOffset? PersonalDueAt = null);
+    DateTimeOffset? PersonalDueAt = null,
+    string? ActorName = null);
 
 public interface INotificationRepository
 {
@@ -32,6 +33,12 @@ public interface INotificationRepository
 
     /// <summary>Användarna som redan har en notis av den här sorten om innehållet.</summary>
     Task<HashSet<Guid>> GetNotifiedUserIdsAsync(NotificationKind kind, Guid contentId, CancellationToken ct);
+
+    /// <summary>Användarna som redan har en notis av den här sorten om kommentaren.</summary>
+    Task<HashSet<Guid>> GetNotifiedAboutCommentAsync(NotificationKind kind, Guid commentId, CancellationToken ct);
+
+    /// <summary>Användarna som har en oläst notis av den här sorten om innehållet.</summary>
+    Task<HashSet<Guid>> GetUnreadNotifiedUserIdsAsync(NotificationKind kind, Guid contentId, CancellationToken ct);
 
     /// <summary>Påminnelserna (DeadlineSoon) om innehållet: vem som fått en och för vilken deadline.</summary>
     Task<HashSet<(Guid UserId, DateTimeOffset DueAt)>> GetDeadlineRemindersAsync(Guid contentId, CancellationToken ct);

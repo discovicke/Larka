@@ -11,6 +11,10 @@ public class Notification
     public Guid? ContentId { get; set; }
     public Guid? SubmissionId { get; set; }
 
+    // Kommentaren och den som skrev den, på notiser om kommentarer (CommentMention, CommentReply). Null för andra slag.
+    public Guid? CommentId { get; set; }
+    public Guid? ActorId { get; set; }
+
     // Deadlinen en påminnelse (DeadlineSoon) gäller, så att eleven påminns en gång per deadline. Null för andra slag.
     public DateTimeOffset? DueAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;

@@ -14,6 +14,9 @@ public interface IUserRepository
     /// <summary>Profilbildernas adresser, per id. Användare utan bild saknas i resultatet.</summary>
     Task<Dictionary<Guid, string>> GetAvatarUrlsAsync(IReadOnlyCollection<Guid> userIds, CancellationToken ct);
 
+    /// <summary>Användarna som inte är spärrade, bland id:na.</summary>
+    Task<List<User>> GetActiveAsync(IReadOnlyCollection<Guid> userIds, CancellationToken ct);
+
     Task<User?> GetAsync(Guid id, CancellationToken ct);
     Task<User?> GetByEmailAsync(string email, CancellationToken ct);
 

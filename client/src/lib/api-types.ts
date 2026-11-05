@@ -5294,6 +5294,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/content/{id}/mentionable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MentionableUserDto"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/content/{id}/comments/{commentId}": {
         parameters: {
             query?: never;
@@ -7323,6 +7387,14 @@ export interface components {
             groupId: string;
             role: components["schemas"]["GroupRole"];
         };
+        /** @description Någon som går att nämna i en kommentar: får läsa innehållet och är inte spärrad. */
+        MentionableUserDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            avatarUrl: null | string;
+            isTeacher: boolean;
+        };
         /** @description ID-tokenet som klienten fick av Microsoft (MSAL). */
         MicrosoftLoginDto: {
             idToken: string;
@@ -7411,6 +7483,7 @@ export interface components {
         /**
          * @description En notis i inkorgen. Title är innehållets titel (null om innehållet är borttaget). CourseTitle eller
          *     GroupName säger var det hände. Level finns på betygsnotiser och PersonalDueAt på notiser om en personlig deadline.
+         *     CommentId och ActorName (den som skrev) finns på notiser om kommentarer.
          */
         NotificationDto: {
             /** Format: uuid */
@@ -7434,9 +7507,12 @@ export interface components {
             readAt: null | string;
             /** Format: date-time */
             personalDueAt?: null | string;
+            /** Format: uuid */
+            commentId?: null | string;
+            actorName?: null | string;
         };
         /** @enum {unknown} */
-        NotificationKind: "NewsPublished" | "AssignmentPublished" | "DeadlineSoon" | "SubmissionNeedsWork" | "SubmissionGraded" | "StudentHelpRequested" | "PersonalDeadlineSet";
+        NotificationKind: "NewsPublished" | "AssignmentPublished" | "DeadlineSoon" | "SubmissionNeedsWork" | "SubmissionGraded" | "StudentHelpRequested" | "PersonalDeadlineSet" | "CommentMention" | "CommentReply";
         /** @description De senaste notiserna, och antalet olästa i alla (inte bara de som skickas med). */
         NotificationListDto: {
             items: components["schemas"]["NotificationDto"][];
@@ -8072,7 +8148,7 @@ export const gradeScaleValues: ReadonlyArray<FlattenedDeepRequired<components>["
 export const groupRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GroupRole"]> = ["Student", "Teacher"];
 export const groupTypeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GroupType"]> = ["Class", "Committee", "Other"];
 export const handInClosedReasonValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["HandInClosedReason"]> = ["Locked", "Closed"];
-export const notificationKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationKind"]> = ["NewsPublished", "AssignmentPublished", "DeadlineSoon", "SubmissionNeedsWork", "SubmissionGraded", "StudentHelpRequested", "PersonalDeadlineSet"];
+export const notificationKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationKind"]> = ["NewsPublished", "AssignmentPublished", "DeadlineSoon", "SubmissionNeedsWork", "SubmissionGraded", "StudentHelpRequested", "PersonalDeadlineSet", "CommentMention", "CommentReply"];
 export const repoProvisioningStateValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RepoProvisioningState"]> = ["Pending", "Creating", "Ready", "Failed"];
 export const repoWorkModeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RepoWorkMode"]> = ["Individual", "Group"];
 export const studyPlanCourseStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["StudyPlanCourseStatus"]> = ["Upcoming", "Ongoing", "Completed"];

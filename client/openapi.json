@@ -5190,6 +5190,69 @@
         }
       }
     },
+    "/api/content/{id}/mentionable": {
+      "get": {
+        "tags": [
+          "Content"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MentionableUserDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/content/{id}/comments/{commentId}": {
       "put": {
         "tags": [
@@ -8868,6 +8931,34 @@
           }
         }
       },
+      "MentionableUserDto": {
+        "required": [
+          "id",
+          "name",
+          "avatarUrl",
+          "isTeacher"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "isTeacher": {
+            "type": "boolean"
+          }
+        },
+        "description": "Någon som går att nämna i en kommentar: får läsa innehållet och är inte spärrad."
+      },
       "MicrosoftLoginDto": {
         "required": [
           "idToken"
@@ -9250,9 +9341,22 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "commentId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "actorName": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         },
-        "description": "En notis i inkorgen. Title är innehållets titel (null om innehållet är borttaget). CourseTitle eller\nGroupName säger var det hände. Level finns på betygsnotiser och PersonalDueAt på notiser om en personlig deadline."
+        "description": "En notis i inkorgen. Title är innehållets titel (null om innehållet är borttaget). CourseTitle eller\nGroupName säger var det hände. Level finns på betygsnotiser och PersonalDueAt på notiser om en personlig deadline.\nCommentId och ActorName (den som skrev) finns på notiser om kommentarer."
       },
       "NotificationKind": {
         "enum": [
@@ -9262,7 +9366,9 @@
           "SubmissionNeedsWork",
           "SubmissionGraded",
           "StudentHelpRequested",
-          "PersonalDeadlineSet"
+          "PersonalDeadlineSet",
+          "CommentMention",
+          "CommentReply"
         ]
       },
       "NotificationListDto": {

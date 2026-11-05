@@ -24,6 +24,9 @@ public class UserRepository(AppDb db) : IUserRepository
     public Task<Dictionary<Guid, string>> GetNamesAsync(IReadOnlyCollection<Guid> userIds, CancellationToken ct) =>
         db.Users.Where(user => userIds.Contains(user.Id)).ToDictionaryAsync(user => user.Id, user => user.Name, ct);
 
+    public Task<List<User>> GetActiveAsync(IReadOnlyCollection<Guid> userIds, CancellationToken ct) =>
+        db.Users.Where(user => userIds.Contains(user.Id) && user.DeactivatedAt == null).ToListAsync(ct);
+
     public async Task<Dictionary<Guid, string>> GetAvatarUrlsAsync(
         IReadOnlyCollection<Guid> userIds, CancellationToken ct) =>
         (await db.Users
