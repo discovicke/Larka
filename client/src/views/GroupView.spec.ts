@@ -5,6 +5,7 @@ import DatePicker from '@/components/DatePicker.vue'
 import {mockApi, requests, sent} from '@/test/mockApi'
 import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
+import {chooseOption, selectOptions} from '@/test/select'
 
 const classGroup = {id: 'g1', schoolId: 's1', type: 'Class', name: 'TE22A'}
 const committee = {id: 'g2', schoolId: 's1', type: 'Committee', name: 'Elevrådet'}
@@ -357,11 +358,8 @@ describe('GroupView', () => {
       expect(options.some((text) => text?.includes('Nils Ny'))).toBe(true)
 
       // Bara lärare kan vara lärare i gruppen.
-      const role = modal().querySelector('[data-test="member-role-select"]') as HTMLSelectElement
-      expect([...role.options].map((option) => option.value)).toEqual(['Teacher', 'Student'])
-      role.value = 'Teacher'
-      role.dispatchEvent(new Event('change'))
-      await flushPromises()
+      expect(await selectOptions('[data-test="member-role-select"]')).toEqual(['Lärare', 'Elev'])
+      await chooseOption('[data-test="member-role-select"]', 'Lärare')
       const teacherOptions = [...modal().querySelectorAll('[data-test="member-user-option"]')]
         .map((option) => option.textContent?.trim())
       expect(teacherOptions.some((text) => text?.includes('Nils Ny'))).toBe(false)
@@ -400,10 +398,9 @@ describe('GroupView', () => {
     }
 
     function chooseRole(value: string) {
-      const select = modal().querySelector('[data-test="change-role-select"]') as HTMLSelectElement
-      select.value = value
-      select.dispatchEvent(new Event('change'))
-      return flushPromises()
+      return chooseOption('[data-test="change-role-select"]', value === 'Teacher'
+        ? 'Lärare'
+        : 'Elev')
     }
 
     it('visar bara namnen och en meny per medlem', async () => {
@@ -517,11 +514,8 @@ describe('GroupView', () => {
       expect(wrapper.text()).toContain('Klassen har inga kurser ännu.')
     })
 
-    function pick(element: Element | null, value: string) {
-      const select = element as HTMLSelectElement
-      select.value = value
-      select.dispatchEvent(new Event('change'))
-      return flushPromises()
+    function pick(trigger: string, label: string) {
+      return chooseOption(trigger, label)
     }
 
     function type(selector: string, value: string) {
@@ -574,10 +568,10 @@ describe('GroupView', () => {
 
       await wrapper.find('[data-test="edit-teachers"]').trigger('click')
       await flushPromises()
-      const options = [...modal().querySelectorAll('[data-test="add-teacher-select"] option')]
+      const options = await selectOptions('[data-test="add-teacher-select"]')
       // Lars undervisar redan, eleverna är inga lärare och admin undervisar aldrig, inte heller admin själv.
-      expect(options.map((option) => (option as HTMLOptionElement).value)).toEqual(['', 'u6'])
-      await pick(modal().querySelector('[data-test="add-teacher-select"]'), 'u6')
+      expect(options).toEqual(['Tina Tränare · tina@example.com'])
+      await pick('[data-test="add-teacher-select"]', 'Tina Tränare · tina@example.com')
       await click(modal().querySelector('[data-test="add-teacher"]'))
 
       expect(sent('POST', '/api/courses/c1/teachers')).toEqual({userId: 'u6'})
@@ -619,7 +613,7 @@ describe('GroupView', () => {
       await flushPromises()
       await click(modal().querySelector('[data-test="replace-teacher"]'))
       expect(modal().textContent).toContain('Ersätt Lars Lärare med')
-      await pick(modal().querySelector('[data-test="add-teacher-select"]'), 'u6')
+      await pick('[data-test="add-teacher-select"]', 'Tina Tränare · tina@example.com')
       await click(modal().querySelector('[data-test="add-teacher"]'))
 
       expect(requests.filter((request) => request.method !== 'GET').map((request) => `${request.method} ${request.path}`))

@@ -96,8 +96,12 @@ function backend(options: {
   bodyMd?: string
   part?: typeof assignment | Record<string, unknown>
   modes?: string[]
+  attachments?: unknown[]
 } = {}) {
   mockApi((method, path) => {
+    if (path === '/api/content/x1/attachments') {
+      return {status: 200, body: options.attachments ?? []}
+    }
     if (method === 'POST' && path === '/api/links/l1/repos/refresh') {
       return {status: 204}
     }
@@ -194,6 +198,26 @@ describe('PartView', () => {
     expect(state).toContain('Inlämnade3 av 4')
     expect(state).toContain('Att bedöma1')
     expect(wrapper.find('section[aria-label="Elever"]').exists()).toBe(false)
+  })
+
+  it('visar bifogade filer under innehållet, utan att gå att ändra', async () => {
+    backend({attachments: [{id: 'a1', fileName: 'mall.docx', sizeBytes: 2048, url: 'https://files.example/mall.docx'}]})
+
+    const {wrapper} = await renderApp('/courses/c1/parts/l1')
+
+    const files = wrapper.find('[data-test="attachments"]')
+    expect(files.find('a').text()).toBe('mall.docx')
+    expect(files.find('a').attributes('href')).toBe('https://files.example/mall.docx')
+    expect(files.find('button').exists()).toBe(false)
+  })
+
+  it('visar ingen filruta när delen saknar bilagor', async () => {
+    backend()
+
+    const {wrapper} = await renderApp('/courses/c1/parts/l1')
+
+    expect(wrapper.find('[data-test="part-content"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="attachments"]').exists()).toBe(false)
   })
 
   it('Bedöm-knappen och fliken öppnar inlämningarna', async () => {

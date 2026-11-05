@@ -15,7 +15,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {useAsync} from '@/composables/useAsync'
 import {api, type Schema} from '@/lib/api'
 import {countLabel, formatDate, partOf} from '@/lib/content'
@@ -311,43 +319,52 @@ watch(open, (isOpen) => {
                       </div>
 
                       <div v-if="!preview" class="mt-3 flex flex-wrap items-center gap-2">
-                        <NativeSelect
-                          size="sm"
-                          :aria-label="`Lägg till låsning för ${row.node.title}`"
+                        <Select
                           :model-value="picked[row.node.linkId] ?? ''"
                           @update:model-value="addBlocker(row.node, $event)"
                         >
-                          <NativeSelectOption value="">Lägg till låsning…</NativeSelectOption>
-                          <template
-                            v-for="(candidateStage, candidateIndex) in stages"
-                            :key="candidateIndex"
+                          <SelectTrigger
+                            size="sm"
+                            :aria-label="`Lägg till låsning för ${row.node.title}`"
                           >
-                            <optgroup
-                              v-if="candidatesIn(candidateStage, row.node).length > 0"
-                              :label="stageLabel(candidateIndex)"
+                            <SelectValue placeholder="Lägg till låsning…"/>
+                          </SelectTrigger>
+                          <SelectContent position="popper">
+                            <template
+                              v-for="(candidateStage, candidateIndex) in stages"
+                              :key="candidateIndex"
                             >
-                              <NativeSelectOption
-                                v-for="candidate in candidatesIn(candidateStage, row.node)"
-                                :key="candidate.linkId"
-                                :value="candidate.linkId"
-                              >
-                                {{ candidate.title }}
-                              </NativeSelectOption>
-                            </optgroup>
-                          </template>
-                        </NativeSelect>
+                              <SelectGroup v-if="candidatesIn(candidateStage, row.node).length > 0">
+                                <SelectLabel>{{ stageLabel(candidateIndex) }}</SelectLabel>
+                                <SelectItem
+                                  v-for="candidate in candidatesIn(candidateStage, row.node)"
+                                  :key="candidate.linkId"
+                                  :value="candidate.linkId"
+                                >
+                                  {{ candidate.title }}
+                                </SelectItem>
+                              </SelectGroup>
+                            </template>
+                          </SelectContent>
+                        </Select>
 
                         <template v-if="isSubmission(row.part)">
                           <span class="text-muted-foreground text-xs">Räknas som klar</span>
-                          <NativeSelect
-                            size="sm"
-                            :aria-label="`När ${row.node.title} räknas som klar`"
+                          <Select
                             :model-value="rules[row.node.linkId] ?? 'Submitted'"
                             @update:model-value="setRule(row.node.linkId, $event)"
                           >
-                            <NativeSelectOption value="Submitted">Inlämnad räcker</NativeSelectOption>
-                            <NativeSelectOption value="Approved">Godkänd krävs</NativeSelectOption>
-                          </NativeSelect>
+                            <SelectTrigger
+                              size="sm"
+                              :aria-label="`När ${row.node.title} räknas som klar`"
+                            >
+                              <SelectValue/>
+                            </SelectTrigger>
+                            <SelectContent position="popper">
+                              <SelectItem value="Submitted">Inlämnad räcker</SelectItem>
+                              <SelectItem value="Approved">Godkänd krävs</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </template>
                       </div>
 

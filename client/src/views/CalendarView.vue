@@ -15,7 +15,7 @@ import {RouterLink, type RouteLocationRaw} from 'vue-router'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Button} from '@/components/ui/button'
 import {Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle} from '@/components/ui/empty'
-import {NativeSelect} from '@/components/ui/native-select'
+import {Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue} from '@/components/ui/select'
 import {Skeleton} from '@/components/ui/skeleton'
 import {useAsync} from '@/composables/useAsync'
 import {useCourses} from '@/composables/useCourses'
@@ -199,13 +199,27 @@ watch([view, anchor], load, {immediate: true})
 
       <div class="ml-auto flex flex-wrap gap-2">
         <label for="calendar-course" class="sr-only">Kurs</label>
-        <NativeSelect id="calendar-course" v-model="courseFilter" size="sm">
-          <option value="all">Alla kurser</option>
-          <option v-for="course in splitCourses.current" :key="course.id" :value="course.id">{{ course.title }}</option>
-          <optgroup v-if="splitCourses.finished.length" label="Avslutade">
-            <option v-for="course in splitCourses.finished" :key="course.id" :value="course.id">{{ course.title }}</option>
-          </optgroup>
-        </NativeSelect>
+        <Select v-model="courseFilter">
+          <SelectTrigger
+            id="calendar-course"
+            size="sm"
+            class="min-w-44"
+            data-test="calendar-course"
+          >
+            <SelectValue/>
+          </SelectTrigger>
+          <SelectContent position="popper" align="end">
+            <SelectItem value="all">Alla kurser</SelectItem>
+            <SelectItem v-for="course in splitCourses.current" :key="course.id" :value="course.id">{{ course.title }}</SelectItem>
+            <template v-if="splitCourses.finished.length">
+              <SelectSeparator/>
+              <SelectGroup>
+                <SelectLabel>Avslutade</SelectLabel>
+                <SelectItem v-for="course in splitCourses.finished" :key="course.id" :value="course.id">{{ course.title }}</SelectItem>
+              </SelectGroup>
+            </template>
+          </SelectContent>
+        </Select>
 
         <div role="tablist" class="bg-muted flex rounded-[7px] p-[3px]">
           <button

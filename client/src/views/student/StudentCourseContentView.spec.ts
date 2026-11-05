@@ -142,8 +142,11 @@ function week(content: StudentItem[], overrides: Record<string, unknown> = {}) {
   }
 }
 
-function backend(content: StudentItem[], gitHubLogin: string | null = null) {
+function backend(content: StudentItem[], gitHubLogin: string | null = null, attachments: unknown[] = []) {
   mockApi((method, path) => {
+    if (path === '/api/content/x1/attachments') {
+      return {status: 200, body: attachments}
+    }
     if (path === '/api/me') {
       return {status: 200, body: meAs('Student', ['c1'], 'Anna Elev', gitHubLogin)}
     }
@@ -266,6 +269,15 @@ describe('StudentCourseContentView', () => {
     const detail = wrapper.find('[data-test="student-detail"]')
     expect(detail.find('[data-test="student-back"]').exists()).toBe(true)
     expect(detail.text()).not.toContain('/')
+  })
+
+  it('visar lärarens bifogade filer i delen', async () => {
+    backend([theory], null, [{id: 'a1', fileName: 'mall.docx', sizeBytes: 2048, url: 'https://files.example/mall.docx'}])
+    const {wrapper} = await renderApp('/courses/c1/content?del=l1')
+
+    const files = wrapper.find('[data-test="student-detail"] [data-test="attachments"]')
+    expect(files.find('a').text()).toBe('mall.docx')
+    expect(files.find('button').exists()).toBe(false)
   })
 
   it('visar Klar bara i statuspanelen i detaljvyn, inte också i huvudet', async () => {

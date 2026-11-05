@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {Field, FieldDescription, FieldError, FieldLabel} from '@/components/ui/field'
 import {Input} from '@/components/ui/input'
-import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select'
 import {type CreateUserForm} from '@/composables/useCreateUserForm'
 import {type Schema} from '@/lib/api'
 import {userRoles} from '@/lib/userRoles'
@@ -55,16 +55,16 @@ const roleOptions = userRoles.filter((option) => props.roles.includes(option.val
   </Field>
   <Field v-if="roleOptions.length > 1">
     <FieldLabel for="new-user-role">Roll i skolan</FieldLabel>
-    <NativeSelect
-      id="new-user-role"
-      v-model="form.role"
-      class="w-full"
-      data-test="new-user-role"
-    >
-      <NativeSelectOption v-for="option in roleOptions" :key="option.value" :value="option.value">
-        {{ option.label }}
-      </NativeSelectOption>
-    </NativeSelect>
+    <Select v-model="form.role">
+      <SelectTrigger id="new-user-role" class="w-full" data-test="new-user-role">
+        <SelectValue/>
+      </SelectTrigger>
+      <SelectContent position="popper">
+        <SelectItem v-for="option in roleOptions" :key="option.value" :value="option.value">
+          {{ option.label }}
+        </SelectItem>
+      </SelectContent>
+    </Select>
   </Field>
   <p v-if="microsoftSignIn" class="text-muted-foreground text-sm" data-test="new-user-microsoft">
     Hen loggar in med skolans Microsoft-konto, med samma e-postadress.

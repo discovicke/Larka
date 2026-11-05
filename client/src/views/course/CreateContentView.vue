@@ -20,7 +20,7 @@ import {Button} from '@/components/ui/button'
 import {Checkbox} from '@/components/ui/checkbox'
 import {Field, FieldError, FieldLabel} from '@/components/ui/field'
 import {Input} from '@/components/ui/input'
-import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select'
 import {Skeleton} from '@/components/ui/skeleton'
 import {useAssignmentGitHub} from '@/composables/useAssignmentGitHub'
 import {useCurrentUser} from '@/composables/useCurrentUser'
@@ -388,20 +388,20 @@ async function save(status: Schema<'ContentStatus'> = 'Published') {
           </li>
         </ul>
         <div class="flex flex-wrap items-center gap-2">
-          <NativeSelect v-model="relatedSelection" class="min-w-0 flex-1" data-test="related-select">
-            <NativeSelectOption value="">
-              {{ relatedOptions.length === 0
-                ? 'Inga fler teoridelar att lägga till'
-                : 'Välj teoridel…' }}
-            </NativeSelectOption>
-            <NativeSelectOption
-              v-for="option in relatedOptions"
-              :key="option.linkId"
-              :value="option.linkId"
-            >
-              {{ option.label }}
-            </NativeSelectOption>
-          </NativeSelect>
+          <Select v-model="relatedSelection">
+            <SelectTrigger class="min-w-0 flex-1" data-test="related-select">
+              <SelectValue
+                :placeholder="relatedOptions.length === 0
+                  ? 'Inga fler teoridelar att lägga till'
+                  : 'Välj teoridel…'"
+              />
+            </SelectTrigger>
+            <SelectContent position="popper">
+              <SelectItem v-for="option in relatedOptions" :key="option.linkId" :value="option.linkId">
+                {{ option.label }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
           <Button
             type="button"
             variant="outline"
@@ -432,15 +432,15 @@ async function save(status: Schema<'ContentStatus'> = 'Published') {
 
         <Field>
           <FieldLabel for="repo-work-mode">Arbetssätt</FieldLabel>
-          <NativeSelect
-            id="repo-work-mode"
-            v-model="form.workMode"
-            :disabled="isEditing"
-            data-test="repo-work-mode"
-          >
-            <NativeSelectOption value="Individual">Individuella repon</NativeSelectOption>
-            <NativeSelectOption value="Group">Grupprepon</NativeSelectOption>
-          </NativeSelect>
+          <Select v-model="form.workMode" :disabled="isEditing">
+            <SelectTrigger id="repo-work-mode" class="w-full" data-test="repo-work-mode">
+              <SelectValue/>
+            </SelectTrigger>
+            <SelectContent position="popper">
+              <SelectItem value="Individual">Individuella repon</SelectItem>
+              <SelectItem value="Group">Grupprepon</SelectItem>
+            </SelectContent>
+          </Select>
           <p v-if="isEditing" class="text-muted-foreground text-xs">
             Arbetssätt och gruppindelning kan inte ändras efter att uppgiften skapats.
           </p>
@@ -465,29 +465,30 @@ async function save(status: Schema<'ContentStatus'> = 'Published') {
           <p v-if="templatesLoading" class="text-muted-foreground text-[13px]" data-test="template-loading">
             Laddar mallrepon…
           </p>
-          <NativeSelect
-            id="template-repo"
+          <Select
             v-model="form.templateRepo"
-            class="w-full font-mono text-[13px]"
-            :aria-invalid="!!errors.templateRepo"
             :disabled="templatesLoading || templateOptions.length === 0"
-            data-test="template-select"
           >
-            <NativeSelectOption value="">
-              {{ templatesLoading
-                ? 'Laddar mallrepon…'
-                : templateOptions.length === 0
-                  ? 'Inga mallrepon hittades'
-                  : 'Välj mallrepo…' }}
-            </NativeSelectOption>
-            <NativeSelectOption
-              v-for="option in templateOptions"
-              :key="option.value"
-              :value="option.value"
+            <SelectTrigger
+              id="template-repo"
+              class="w-full font-mono text-[13px]"
+              :aria-invalid="!!errors.templateRepo"
+              data-test="template-select"
             >
-              {{ option.label }}
-            </NativeSelectOption>
-          </NativeSelect>
+              <SelectValue
+                :placeholder="templatesLoading
+                  ? 'Laddar mallrepon…'
+                  : templateOptions.length === 0
+                    ? 'Inga mallrepon hittades'
+                    : 'Välj mallrepo…'"
+              />
+            </SelectTrigger>
+            <SelectContent position="popper">
+              <SelectItem v-for="option in templateOptions" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
           <FieldError v-if="errors.templateRepo">{{ errors.templateRepo }}</FieldError>
           <p v-if="templatesError" class="text-destructive text-xs" data-test="template-error">
             {{ templatesError }}

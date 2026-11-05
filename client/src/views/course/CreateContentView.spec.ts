@@ -5,6 +5,7 @@ import {type Handler, mockApi, requests, sent} from '@/test/mockApi'
 import {meAs} from '@/test/me'
 import {clickDay, closePicker, openPicker, pickDateTime} from '@/test/datePicker'
 import {renderApp} from '@/test/renderApp'
+import {chooseOption, selectOptions} from '@/test/select'
 
 const course = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps'}
 const week = {
@@ -281,7 +282,7 @@ describe('CreateContentView', () => {
 
     await wrapper.find('#part-Submission').trigger('click')
 
-    expect(wrapper.findAll('#grade-scale option').map((option) => option.text())).toEqual(['Icke godkänd / Godkänd', 'Icke godkänd / Godkänd / Väl godkänd'])
+    expect(await selectOptions('#grade-scale')).toEqual(['Icke godkänd / Godkänd', 'Icke godkänd / Godkänd / Väl godkänd'])
     expect(wrapper.text()).toContain('Hur lämnar eleven in?')
   })
 
@@ -295,11 +296,11 @@ describe('CreateContentView', () => {
 
     const select = wrapper.find('[data-test="template-select"]')
     expect(select.exists()).toBe(true)
-    expect(select.findAll('option').map((option) => option.text())).toContain(
+    expect(await selectOptions('[data-test="template-select"]')).toContain(
       'edugrade-net25/mall-lab2',
     )
 
-    await select.setValue('edugrade-net25/mall-lab2')
+    await chooseOption('[data-test="template-select"]', 'edugrade-net25/mall-lab2')
     await flushPromises()
 
     expect(wrapper.find('[data-test="template-commit"]').text()).toContain('Template update')
@@ -362,7 +363,7 @@ describe('CreateContentView', () => {
     await wrapper.find('#part-Submission').trigger('click')
     expect(wrapper.find('[data-test="related-content"]').exists()).toBe(true)
 
-    await wrapper.find('[data-test="related-select"]').setValue('l9')
+    await chooseOption('[data-test="related-select"]', /Teori om pipelines/)
     await wrapper.find('[data-test="related-add"]').trigger('click')
 
     expect(wrapper.find('[data-test="related-list"]').text()).toContain('Teori om pipelines')

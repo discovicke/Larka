@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog'
 import {Field, FieldDescription, FieldError, FieldGroup, FieldLabel} from '@/components/ui/field'
 import {Input} from '@/components/ui/input'
-import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select'
 import {useAsync} from '@/composables/useAsync'
 import {api, unwrap, type Schema} from '@/lib/api'
 import {classCodeFromName} from '@/lib/classCode'
@@ -128,16 +128,16 @@ async function save() {
           </Field>
           <Field v-if="isEdit || !isClass">
             <FieldLabel for="group-type">Typ</FieldLabel>
-            <NativeSelect
-              id="group-type"
-              v-model="form.type"
-              class="w-full"
-              data-test="group-type"
-            >
-              <NativeSelectOption v-for="[value, label] in typeOptions" :key="value" :value="value">
-                {{ label }}
-              </NativeSelectOption>
-            </NativeSelect>
+            <Select v-model="form.type">
+              <SelectTrigger id="group-type" class="w-full" data-test="group-type">
+                <SelectValue/>
+              </SelectTrigger>
+              <SelectContent position="popper">
+                <SelectItem v-for="[value, label] in typeOptions" :key="value" :value="value">
+                  {{ label }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </Field>
         </FieldGroup>
 

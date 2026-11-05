@@ -4,6 +4,7 @@ import {describe, expect, it} from 'vitest'
 import {mockApi, requests, sent} from '@/test/mockApi'
 import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
+import {chooseOption} from '@/test/select'
 
 const me = {id: 'u-me', schoolId: 's1', name: 'Anna Lärare', email: 'anna@example.com', role: 'Admin'}
 const elev = {
@@ -66,11 +67,10 @@ async function openChangeRole(wrapper: Awaited<ReturnType<typeof renderApp>>['wr
   await click(document.querySelector('[data-test="row-change-role"]'))
 }
 
+const roleLabel: Record<string, string> = {Student: 'Elev', Teacher: 'Lärare', Admin: 'Admin'}
+
 async function chooseRole(value: string) {
-  const select = dialog().querySelector('[data-test="user-role"]') as HTMLSelectElement
-  select.value = value
-  select.dispatchEvent(new Event('change'))
-  await flushPromises()
+  await chooseOption('[data-test="user-role"]', roleLabel[value])
 }
 
 describe('UsersView', () => {
@@ -207,10 +207,7 @@ describe('UsersView', () => {
         input.value = value
         input.dispatchEvent(new Event('input'))
       }
-      const select = dialog().querySelector('[data-test="new-user-role"]') as HTMLSelectElement
-      select.value = role
-      select.dispatchEvent(new Event('change'))
-      await flushPromises()
+      await chooseOption('[data-test="new-user-role"]', roleLabel[role])
       await click(dialog().querySelector('[data-test="confirm-create-user"]'))
     }
 

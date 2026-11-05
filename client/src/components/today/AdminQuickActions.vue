@@ -22,7 +22,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {FieldLabel} from '@/components/ui/field'
-import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select'
 import {useCourses} from '@/composables/useCourses'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {api, errorMessage, unwrap, type Schema} from '@/lib/api'
@@ -212,23 +212,22 @@ function teachersChanged(_courseId: string, teachers: Schema<'CourseTeacherDto'>
 
         <div class="flex flex-col gap-1.5">
           <FieldLabel for="quick-course-group">Klass eller grupp</FieldLabel>
-          <NativeSelect
-            id="quick-course-group"
-            v-model="selectedGroupId"
-            :disabled="groupsLoading"
-            data-test="quick-course-group"
-          >
-            <NativeSelectOption value="">
-              {{ groupsLoading
-                ? 'Hämtar…'
-                : groupOptions.length === 0
-                  ? 'Det finns inga klasser eller grupper'
-                  : 'Välj klass eller grupp…' }}
-            </NativeSelectOption>
-            <NativeSelectOption v-for="group in groupOptions" :key="group.id" :value="group.id">
-              {{ group.name }} ({{ groupTypeLabels[group.type] }})
-            </NativeSelectOption>
-          </NativeSelect>
+          <Select v-model="selectedGroupId" :disabled="groupsLoading">
+            <SelectTrigger id="quick-course-group" class="w-full" data-test="quick-course-group">
+              <SelectValue
+                :placeholder="groupsLoading
+                  ? 'Hämtar…'
+                  : groupOptions.length === 0
+                    ? 'Det finns inga klasser eller grupper'
+                    : 'Välj klass eller grupp…'"
+              />
+            </SelectTrigger>
+            <SelectContent position="popper">
+              <SelectItem v-for="group in groupOptions" :key="group.id" :value="group.id">
+                {{ group.name }} ({{ groupTypeLabels[group.type] }})
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <Alert v-if="groupsError" variant="destructive">
@@ -253,18 +252,18 @@ function teachersChanged(_courseId: string, teachers: Schema<'CourseTeacherDto'>
 
         <div class="flex flex-col gap-1.5">
           <FieldLabel for="quick-teacher-course">Kurs</FieldLabel>
-          <NativeSelect
-            id="quick-teacher-course"
-            v-model="selectedCourseId"
-            data-test="quick-teacher-course"
-          >
-            <NativeSelectOption value="">Välj kurs…</NativeSelectOption>
-            <NativeSelectOption v-for="course in courseOptions" :key="course.id" :value="course.id">
-              {{ course.title }} ({{ course.code }}){{ noTeacherIds.has(course.id)
-                ? ', saknar lärare'
-                : '' }}
-            </NativeSelectOption>
-          </NativeSelect>
+          <Select v-model="selectedCourseId">
+            <SelectTrigger id="quick-teacher-course" class="w-full" data-test="quick-teacher-course">
+              <SelectValue placeholder="Välj kurs…"/>
+            </SelectTrigger>
+            <SelectContent position="popper">
+              <SelectItem v-for="course in courseOptions" :key="course.id" :value="course.id">
+                {{ course.title }} ({{ course.code }}){{ noTeacherIds.has(course.id)
+                  ? ', saknar lärare'
+                  : '' }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <Alert v-if="teacherError" variant="destructive">

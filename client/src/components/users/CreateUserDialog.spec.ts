@@ -4,6 +4,7 @@ import {afterEach, describe, expect, it} from 'vitest'
 import CreateUserDialog from '@/components/users/CreateUserDialog.vue'
 import {type Schema} from '@/lib/api'
 import {mockApi, requests, sent} from '@/test/mockApi'
+import {chooseOption, selectOptions} from '@/test/select'
 
 // Dialogen portas till body, så den måste tas bort mellan testerna.
 const mounted: VueWrapper[] = []
@@ -52,9 +53,7 @@ async function fill(values: {name?: string, email?: string, password?: string, r
     }
   }
   if (values.role) {
-    const select = field<HTMLSelectElement>('new-user-role')!
-    select.value = values.role
-    select.dispatchEvent(new Event('change'))
+    await chooseOption('[data-test="new-user-role"]', {Student: 'Elev', Teacher: 'Lärare', Admin: 'Admin'}[values.role] ?? values.role)
   }
   await flushPromises()
 }
@@ -68,9 +67,8 @@ describe('CreateUserDialog', () => {
   it('erbjuder alla skolroller, med Elev förvald', async () => {
     await openDialog()
 
-    const select = field<HTMLSelectElement>('new-user-role')!
-    expect([...select.options].map((option) => option.textContent?.trim())).toEqual(['Elev', 'Lärare', 'Admin'])
-    expect(select.value).toBe('Student')
+    expect(field('new-user-role')!.textContent?.trim()).toBe('Elev')
+    expect(await selectOptions('[data-test="new-user-role"]')).toEqual(['Elev', 'Lärare', 'Admin'])
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Ny användare')
   })
 

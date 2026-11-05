@@ -4,6 +4,7 @@ import {describe, expect, it} from 'vitest'
 import {mockApi, sent} from '@/test/mockApi'
 import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
+import {chooseOption, selectOptions} from '@/test/select'
 
 const course = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps'}
 
@@ -95,15 +96,12 @@ function row(linkId: string): HTMLElement {
   return document.querySelector(`[data-test="roadmap-part-${linkId}"]`) as HTMLElement
 }
 
-function selects(linkId: string): HTMLSelectElement[] {
-  return [...row(linkId).querySelectorAll('select')]
+function selects(linkId: string): HTMLElement[] {
+  return [...row(linkId).querySelectorAll<HTMLElement>('[role="combobox"]')]
 }
 
-async function choose(linkId: string, index: number, value: string) {
-  const select = selects(linkId)[index]
-  select.value = value
-  select.dispatchEvent(new Event('change'))
-  await flushPromises()
+async function choose(linkId: string, index: number, label: string) {
+  await chooseOption(selects(linkId)[index], label)
 }
 
 function saveButton(): HTMLButtonElement {
@@ -129,7 +127,7 @@ describe('RoadmapDialog', () => {
     backend([theory, submission, exercise, draft])
     await openRoadmap()
 
-    await choose('l2', 1, 'Approved')
+    await choose('l2', 1, 'Godkänd krävs')
     saveButton().click()
     await flushPromises()
 
@@ -148,7 +146,7 @@ describe('RoadmapDialog', () => {
     backend([theory, submission, exercise, draft])
     await openRoadmap()
 
-    await choose('l3', 0, 'l2')
+    await choose('l3', 0, 'Inlämning')
     saveButton().click()
     await flushPromises()
 
@@ -166,7 +164,7 @@ describe('RoadmapDialog', () => {
     backend([theory, submission])
     await openRoadmap()
 
-    await choose('l1', 0, 'l2')
+    await choose('l1', 0, 'Inlämning')
 
     const warning = document.querySelector('[data-test="roadmap-cycle"]')
     expect(warning?.textContent).toContain('Teori A → Inlämning → Teori A')
@@ -230,7 +228,7 @@ describe('RoadmapDialog', () => {
     await openRoadmap()
 
     expect(row('l5').textContent).toContain('Nyheter kan inte ingå i roadmapen')
-    const candidates = [...selects('l1')[0].options].map((option) => option.value)
-    expect(candidates).not.toContain('l5')
+    const candidates = await selectOptions(selects('l1')[0])
+    expect(candidates).not.toContain('Nyhet')
   })
 })

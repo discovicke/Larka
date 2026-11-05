@@ -18,7 +18,7 @@ import {
   FieldTitle,
 } from '@/components/ui/field'
 import {Input} from '@/components/ui/input'
-import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select'
 import {RadioGroup, RadioGroupItem} from '@/components/ui/radio-group'
 import TextLimitNote from '@/components/TextLimitNote.vue'
 import type {Schema} from '@/lib/api'
@@ -178,11 +178,16 @@ function toggleMode(mode: Schema<'SubmissionMode'>, checked: boolean) {
       </div>
       <Field v-if="isGraded(form)">
         <FieldLabel for="grade-scale">Betygsskala</FieldLabel>
-        <NativeSelect id="grade-scale" v-model="form.gradeScale" class="w-full">
-          <NativeSelectOption v-for="scale in gradeScales" :key="scale.value" :value="scale.value">
-            {{ scale.label }}
-          </NativeSelectOption>
-        </NativeSelect>
+        <Select v-model="form.gradeScale">
+          <SelectTrigger id="grade-scale" class="w-full">
+            <SelectValue/>
+          </SelectTrigger>
+          <SelectContent position="popper">
+            <SelectItem v-for="scale in gradeScales" :key="scale.value" :value="scale.value">
+              {{ scale.label }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
       </Field>
     </div>
   </section>

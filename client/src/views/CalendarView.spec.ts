@@ -4,6 +4,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import type {Schema} from '@/lib/api'
 import {mockApi, respond} from '@/test/mockApi'
 import {meAs} from '@/test/me'
+import {chooseOption, closeSelect, openSelect, optionTexts, selectOptions} from '@/test/select'
 import {renderApp} from '@/test/renderApp'
 
 const devops: Schema<'CourseDto'> = {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps', description: '', points: null, startsOn: null, endsOn: null}
@@ -195,24 +196,22 @@ describe('CalendarView', () => {
       {...devops, startsOn: '2020-01-01', endsOn: '2020-06-01'},
       databases,
     ]})
-    const {wrapper} = await renderApp('/calendar')
+    await renderApp('/calendar')
 
-    const select = wrapper.find('#calendar-course')
-    expect(select.findAll('option').map((option) => option.text()))
-      .toEqual(['Alla kurser', 'Databaser', 'DevOps'])
-    expect(select.find('optgroup').attributes('label')).toBe('Avslutade')
-    expect(select.findAll('optgroup option').map((option) => option.text())).toEqual(['DevOps'])
+    const listbox = await openSelect('#calendar-course')
+    expect(optionTexts(listbox)).toEqual(['Alla kurser', 'Databaser', 'DevOps'])
+    const group = listbox.querySelector('[role="group"]') as HTMLElement
+    expect(group.textContent).toContain('Avslutade')
+    expect(optionTexts(group)).toEqual(['DevOps'])
+    await closeSelect()
   })
 
   it('filtrerar bort andra kurser med kursväljaren', async () => {
     backend({calendar: thisWeek})
     const {wrapper} = await renderApp('/calendar')
 
-    const select = wrapper.find('#calendar-course')
-    expect(select.findAll('option').map((option) => option.text()))
-      .toEqual(['Alla kurser', 'DevOps', 'Databaser'])
-    await select.setValue('c1')
-    await flushPromises()
+    expect(await selectOptions('#calendar-course')).toEqual(['Alla kurser', 'DevOps', 'Databaser'])
+    await chooseOption('#calendar-course', 'DevOps')
 
     expect(chipTexts(wrapper, '2026-10-21')).toHaveLength(0)
     expect(chipTexts(wrapper, '2026-10-23')).toHaveLength(1)

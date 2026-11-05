@@ -15,6 +15,7 @@ import {useRoute} from 'vue-router'
 import GitHubAssignmentBlock from '@/components/GitHubAssignmentBlock.vue'
 import RelatedMaterial from '@/components/student/RelatedMaterial.vue'
 import StudentHelpButton from '@/components/StudentHelpButton.vue'
+import AttachmentList from '@/components/course/AttachmentList.vue'
 import MarkdownView from '@/components/editor/MarkdownView.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import SubmissionPanel from '@/components/student/SubmissionPanel.vue'
@@ -269,6 +270,8 @@ function handInOf(item: Schema<'StudentContentItem'>): string {
               </li>
             </ul>
           </section>
+
+          <AttachmentList :content-id="part.contentId" :can-manage="false" class="max-w-[68ch]"/>
         </template>
 
         <RelatedMaterial :links="part.relatedLinks ?? []"/>

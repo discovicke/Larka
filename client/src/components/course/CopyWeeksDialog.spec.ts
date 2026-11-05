@@ -4,6 +4,7 @@ import {describe, expect, it} from 'vitest'
 import {mockApi, requests, sent} from '@/test/mockApi'
 import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
+import {chooseOption, selectOptions} from '@/test/select'
 
 const courses = [
   {id: 'c1', schoolId: 's1', code: 'DEVOPS', title: 'DevOps HT26'},
@@ -77,18 +78,15 @@ async function openDialog() {
   return wrapper
 }
 
-async function chooseSource(id: string) {
-  const select = dialog().querySelector('select') as HTMLSelectElement
-  select.value = id
-  select.dispatchEvent(new Event('change'))
-  await flushPromises()
+async function chooseSource(title = 'DevOps HT25') {
+  await chooseOption('[data-test="copy-source"]', new RegExp(title))
 }
 
 describe('CopyWeeksDialog', () => {
   it('Välj alla markerar alla veckor', async () => {
     backend()
     await openDialog()
-    await chooseSource('c2')
+    await chooseSource()
 
     ;(dialog().querySelector('[data-test="copy-all"]') as HTMLElement).click()
     await flushPromises()
@@ -101,16 +99,16 @@ describe('CopyWeeksDialog', () => {
     backend()
     await openDialog()
 
-    const options = [...dialog().querySelectorAll('option')].map((option) => option.textContent?.trim())
+    const options = await selectOptions('[data-test="copy-source"]')
 
-    expect(options).toHaveLength(2)
-    expect(options[1]).toContain('DevOps HT25')
+    expect(options).toHaveLength(1)
+    expect(options[0]).toContain('DevOps HT25')
   })
 
   it('listar källkursens veckor med antal delar och räknar ihop vad som kopieras', async () => {
     backend()
     await openDialog()
-    await chooseSource('c2')
+    await chooseSource()
 
     expect(dialog().textContent).toContain('Vecka 1')
     expect(dialog().textContent).toContain('4 delar')
@@ -128,7 +126,7 @@ describe('CopyWeeksDialog', () => {
   it('skickar de valda veckorna och visar resultatet', async () => {
     backend()
     const wrapper = await openDialog()
-    await chooseSource('c2')
+    await chooseSource()
     checkbox('s1').click()
     checkbox('s3').click()
     await flushPromises()
@@ -148,7 +146,7 @@ describe('CopyWeeksDialog', () => {
   it('kan inte kopiera innan en vecka är vald', async () => {
     backend()
     await openDialog()
-    await chooseSource('c2')
+    await chooseSource()
 
     const button = dialog().querySelector('[data-test="confirm-copy"]') as HTMLButtonElement
 

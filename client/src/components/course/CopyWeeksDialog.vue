@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {FieldLabel} from '@/components/ui/field'
-import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select'
 import {useCourses} from '@/composables/useCourses'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {useAsync} from '@/composables/useAsync'
@@ -125,17 +125,16 @@ async function copy() {
           </DialogDescription>
         </DialogHeader>
 
-        <NativeSelect
-          v-model="sourceId"
-          class="w-full"
-          aria-label="Välj kurs"
-          data-test="copy-source"
-        >
-          <NativeSelectOption value="">Välj kurs…</NativeSelectOption>
-          <NativeSelectOption v-for="course in sources" :key="course.id" :value="course.id">
-            {{ sourceLabel(course) }}
-          </NativeSelectOption>
-        </NativeSelect>
+        <Select v-model="sourceId">
+          <SelectTrigger class="w-full" aria-label="Välj kurs" data-test="copy-source">
+            <SelectValue placeholder="Välj kurs…"/>
+          </SelectTrigger>
+          <SelectContent position="popper">
+            <SelectItem v-for="course in sources" :key="course.id" :value="course.id">
+              {{ sourceLabel(course) }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
         <p v-if="sources.length === 0" class="text-muted-foreground text-sm">
           Du undervisar inte i någon annan kurs att kopiera från.
         </p>

@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {FieldLabel} from '@/components/ui/field'
-import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select'
 import {useAsync} from '@/composables/useAsync'
 import {api, errorMessage, type Schema} from '@/lib/api'
 import {addCourseTeacher} from '@/lib/coursesApi'
@@ -199,22 +199,20 @@ async function remove(teacher: Schema<'CourseTeacherDto'>) {
               : 'Lägg till lärare' }}
           </FieldLabel>
           <div class="flex min-w-0 gap-2">
-            <NativeSelect
-              id="add-teacher"
-              v-model="userId"
-              class="w-full min-w-0"
-              :disabled="loading || busy !== ''"
-              data-test="add-teacher-select"
-            >
-              <NativeSelectOption value="">
-                {{ candidates.length === 0 && !loading
-                  ? 'Inga fler lärare finns'
-                  : 'Välj lärare…' }}
-              </NativeSelectOption>
-              <NativeSelectOption v-for="user in candidates" :key="user.id" :value="user.id">
-                {{ user.name }} · {{ user.email }}
-              </NativeSelectOption>
-            </NativeSelect>
+            <Select v-model="userId" :disabled="loading || busy !== ''">
+              <SelectTrigger id="add-teacher" class="w-full min-w-0" data-test="add-teacher-select">
+                <SelectValue
+                  :placeholder="candidates.length === 0 && !loading
+                    ? 'Inga fler lärare finns'
+                    : 'Välj lärare…'"
+                />
+              </SelectTrigger>
+              <SelectContent position="popper">
+                <SelectItem v-for="user in candidates" :key="user.id" :value="user.id">
+                  {{ user.name }} · {{ user.email }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
             <Button
               type="button"
               :disabled="userId === '' || busy !== ''"

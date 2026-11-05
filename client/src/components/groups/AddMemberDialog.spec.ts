@@ -3,6 +3,7 @@ import {afterEach, describe, expect, it, vi} from 'vitest'
 
 import AddMemberDialog from '@/components/groups/AddMemberDialog.vue'
 import {mockApi, requests, sent} from '@/test/mockApi'
+import {chooseOption} from '@/test/select'
 
 const users = [
   {id: 'u1', schoolId: 's1', name: 'Siv Student', email: 'siv@example.com', role: 'Student'},
@@ -43,10 +44,7 @@ async function openDialog(status = 201, createStatus = 201) {
 const field = (name: string) => document.querySelector(`[data-test="${name}"]`) as HTMLSelectElement
 
 async function choose(name: string, value: string) {
-  const element = field(name)
-  element.value = value
-  element.dispatchEvent(new Event('change'))
-  await flushPromises()
+  await chooseOption(`[data-test="${name}"]`, {Student: 'Elev', Teacher: 'Lärare', Admin: 'Admin'}[value] ?? value)
 }
 
 // Användarna i listan under sökfältet, och ett klick på en av dem.
@@ -62,7 +60,7 @@ describe('AddMemberDialog', () => {
     await openDialog()
 
     expect(shown()).toEqual(['u2'])
-    expect(field('member-role-select').value).toBe('Student')
+    expect(field('member-role-select').textContent?.trim()).toBe('Elev')
     expect(field('confirm-add-member').hasAttribute('disabled')).toBe(true)
   })
 

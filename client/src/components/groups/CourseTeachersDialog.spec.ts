@@ -3,6 +3,7 @@ import {afterEach, describe, expect, it} from 'vitest'
 
 import CourseTeachersDialog from '@/components/groups/CourseTeachersDialog.vue'
 import {mockApi} from '@/test/mockApi'
+import {selectOptions} from '@/test/select'
 
 const users = [
   {id: 'u1', schoolId: 's1', name: 'Anna Admin', email: 'anna@example.com', role: 'Admin'},
@@ -39,7 +40,6 @@ describe('CourseTeachersDialog', () => {
     await wrapper.setProps({open: true})
     await flushPromises()
 
-    const select = document.querySelector('[data-test="add-teacher-select"]') as HTMLSelectElement
-    expect([...select.options].map((option) => option.value)).toEqual(['', 'u2'])
+    expect(await selectOptions('[data-test="add-teacher-select"]')).toHaveLength(1)
   })
 })

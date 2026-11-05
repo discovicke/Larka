@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {Label} from '@/components/ui/label'
-import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select'
 import {useAsync} from '@/composables/useAsync'
 import {type Schema} from '@/lib/api'
 import {userRoles} from '@/lib/userRoles'
@@ -57,11 +57,16 @@ const {run: save, loading: saving, error} = useAsync(async () => {
 
         <div class="flex flex-col gap-2">
           <Label for="user-role">Roll</Label>
-          <NativeSelect id="user-role" v-model="role" data-test="user-role">
-            <NativeSelectOption v-for="option in userRoles" :key="option.value" :value="option.value">
-              {{ option.label }}
-            </NativeSelectOption>
-          </NativeSelect>
+          <Select v-model="role">
+            <SelectTrigger id="user-role" class="w-full" data-test="user-role">
+              <SelectValue/>
+            </SelectTrigger>
+            <SelectContent position="popper">
+              <SelectItem v-for="option in userRoles" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <p v-if="user.role === 'Teacher' && role !== 'Teacher'" class="text-muted-foreground text-sm" data-test="demote-note">

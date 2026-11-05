@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {FieldLabel} from '@/components/ui/field'
-import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select'
 import {errorMessage, type Schema} from '@/lib/api'
 import {groupRoles} from '@/lib/groupRoles'
 import {changeMemberRole} from '@/lib/groupsApi'
@@ -68,17 +68,16 @@ async function save() {
 
         <div class="flex min-w-0 flex-col gap-1.5">
           <FieldLabel for="change-role">Roll</FieldLabel>
-          <NativeSelect
-            id="change-role"
-            v-model="role"
-            class="w-full"
-            :disabled="saving"
-            data-test="change-role-select"
-          >
-            <NativeSelectOption v-for="option in groupRoles" :key="option.value" :value="option.value">
-              {{ option.label }}
-            </NativeSelectOption>
-          </NativeSelect>
+          <Select v-model="role" :disabled="saving">
+            <SelectTrigger id="change-role" class="w-full" data-test="change-role-select">
+              <SelectValue/>
+            </SelectTrigger>
+            <SelectContent position="popper">
+              <SelectItem v-for="option in groupRoles" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <Alert v-if="error" variant="destructive">

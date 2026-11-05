@@ -11,7 +11,7 @@ import StudentOverviewDialog from '@/components/groups/StudentOverviewDialog.vue
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card'
 import {Empty, EmptyDescription, EmptyHeader, EmptyTitle} from '@/components/ui/empty'
-import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select'
 import {Skeleton} from '@/components/ui/skeleton'
 import {useAsync} from '@/composables/useAsync'
 import {errorMessage, type Schema} from '@/lib/api'
@@ -27,6 +27,14 @@ const groupsLoading = ref(true)
 const groupsError = ref('')
 const selectedGroupId = ref('')
 const selectedCourseId = ref('')
+const courseChoice = computed({
+  get: () => selectedCourseId.value || 'all',
+  set: (value: string) => {
+    selectedCourseId.value = value === 'all'
+      ? ''
+      : value
+  },
+})
 const analytics = ref<GroupAnalytics | null>(null)
 const selectedStudent = ref<Schema<'GroupMemberDto'> | null>(null)
 const studentOpen = ref(false)
@@ -183,31 +191,32 @@ onMounted(loadGroups)
       </div>
 
       <div class="flex flex-wrap items-center gap-2">
-        <NativeSelect
-          v-model="selectedGroupId"
-          class="w-[170px]"
-          aria-label="Välj klass"
-          :disabled="groupsLoading || classes.length === 0"
-          data-test="analytics-group"
-        >
-          <NativeSelectOption v-if="classes.length === 0" value="">Inga klasser</NativeSelectOption>
-          <NativeSelectOption v-for="group in classes" :key="group.id" :value="group.id">
-            {{ group.name }}
-          </NativeSelectOption>
-        </NativeSelect>
+        <Select v-model="selectedGroupId" :disabled="groupsLoading || classes.length === 0">
+          <SelectTrigger class="w-[170px]" aria-label="Välj klass" data-test="analytics-group">
+            <SelectValue
+              :placeholder="classes.length === 0
+                ? 'Inga klasser'
+                : 'Välj klass…'"
+            />
+          </SelectTrigger>
+          <SelectContent position="popper">
+            <SelectItem v-for="group in classes" :key="group.id" :value="group.id">
+              {{ group.name }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
 
-        <NativeSelect
-          v-model="selectedCourseId"
-          class="w-[220px]"
-          aria-label="Välj kurs"
-          :disabled="!analytics || courses.length === 0"
-          data-test="analytics-course"
-        >
-          <NativeSelectOption value="">Alla kurser</NativeSelectOption>
-          <NativeSelectOption v-for="course in courses" :key="course.courseId" :value="course.courseId">
-            {{ course.title }} ({{ course.code }}) — {{ courseStatusLabel(course) }}
-          </NativeSelectOption>
-        </NativeSelect>
+        <Select v-model="courseChoice" :disabled="!analytics || courses.length === 0">
+          <SelectTrigger class="w-[220px]" aria-label="Välj kurs" data-test="analytics-course">
+            <SelectValue/>
+          </SelectTrigger>
+          <SelectContent position="popper">
+            <SelectItem value="all">Alla kurser</SelectItem>
+            <SelectItem v-for="course in courses" :key="course.courseId" :value="course.courseId">
+              {{ course.title }} ({{ course.code }}) — {{ courseStatusLabel(course) }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
       </div>
     </div>
 

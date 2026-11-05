@@ -52,7 +52,7 @@ const total = computed(() => tabs.reduce((sum, tab) => sum + byTab.value[tab.val
 
 function tabClass(value: GradingTab) {
   return activeTab.value === value
-    ? 'bg-foreground text-background hover:bg-foreground/90 hover:text-background'
+    ? 'bg-foreground text-background hover:bg-foreground/90 hover:text-background dark:bg-foreground dark:border-foreground dark:hover:bg-foreground/90'
     : ''
 }
 

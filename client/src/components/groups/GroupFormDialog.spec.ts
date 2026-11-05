@@ -5,6 +5,7 @@ import GroupFormDialog from './GroupFormDialog.vue'
 
 import type {Schema} from '@/lib/api'
 import {mockApi, requests, sent} from '@/test/mockApi'
+import {chooseOption, selectOptions} from '@/test/select'
 
 enableAutoUnmount(afterEach)
 
@@ -50,8 +51,7 @@ describe('GroupFormDialog', () => {
     await render(undefined, 'group')
 
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Ny grupp')
-    expect([...field('group-type').querySelectorAll('option')].map((option) => option.textContent?.trim()))
-      .toEqual(['Kommitté', 'Grupp'])
+    expect(await selectOptions('[data-test="group-type"]')).toEqual(['Kommitté', 'Grupp'])
     expect(field('save-group').textContent?.trim()).toBe('Skapa grupp')
   })
 
@@ -71,7 +71,7 @@ describe('GroupFormDialog', () => {
     const wrapper = await render(undefined, 'group')
 
     await type('group-name', '  NET26 ')
-    await type('group-type', 'Committee', 'change')
+    await chooseOption('[data-test="group-type"]', 'Kommitté')
     await submit()
 
     expect(sent('POST', '/api/groups')).toEqual({
@@ -86,7 +86,7 @@ describe('GroupFormDialog', () => {
     const wrapper = await render(existing)
 
     expect(field('group-name').value).toBe('NET25')
-    expect(field('group-type').value).toBe('Class')
+    expect(field('group-type').textContent?.trim()).toBe('Klass')
 
     await type('group-name', 'NET25B')
     await submit()

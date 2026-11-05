@@ -5,7 +5,7 @@ import {computed, ref, watch} from 'vue'
 import {Button} from '@/components/ui/button'
 import {FieldError} from '@/components/ui/field'
 import {Input} from '@/components/ui/input'
-import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select'
 import type {Schema} from '@/lib/api'
 import type {GroupForm} from '@/lib/createContent'
 
@@ -183,21 +183,25 @@ function removeGroup(index: number) {
           {{ student.name }}
           <span class="text-muted-foreground">· {{ student.email }}</span>
         </span>
-        <NativeSelect
+        <Select
           :model-value="String(groupIndexOf(student.id))"
-          :aria-label="`Grupp för ${student.name}`"
-          data-test="student-group"
           @update:model-value="moveStudent(student.id, Number($event))"
         >
-          <NativeSelectOption value="-1">Inte tilldelad</NativeSelectOption>
-          <NativeSelectOption
-            v-for="(group, index) in groups"
-            :key="index"
-            :value="String(index)"
+          <SelectTrigger
+            size="sm"
+            class="w-full"
+            :aria-label="`Grupp för ${student.name}`"
+            data-test="student-group"
           >
-            {{ group.name || `Grupp ${index + 1}` }}
-          </NativeSelectOption>
-        </NativeSelect>
+            <SelectValue/>
+          </SelectTrigger>
+          <SelectContent position="popper">
+            <SelectItem value="-1">Inte tilldelad</SelectItem>
+            <SelectItem v-for="(group, index) in groups" :key="index" :value="String(index)">
+              {{ group.name || `Grupp ${index + 1}` }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
       </div>
     </div>
 

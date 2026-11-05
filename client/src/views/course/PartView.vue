@@ -3,6 +3,7 @@ import {PhUsersThree} from '@phosphor-icons/vue'
 import {computed, onMounted, onUnmounted, ref, watch} from 'vue'
 import {RouterLink, useRoute, useRouter} from 'vue-router'
 
+import AttachmentList from '@/components/course/AttachmentList.vue'
 import SubmissionsPanel from '@/components/course/SubmissionsPanel.vue'
 import MarkdownView from '@/components/editor/MarkdownView.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -327,6 +328,8 @@ watch([courseId, linkId], () => {
               <li v-for="entry in checklist.items" :key="entry.index">{{ entry.text }}</li>
             </ul>
           </section>
+
+          <AttachmentList :content-id="part.contentId" :can-manage="false" class="max-w-[68ch]"/>
         </div>
 
         <aside class="max-lg:order-first">

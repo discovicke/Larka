@@ -3,6 +3,7 @@ import {describe, expect, it} from 'vitest'
 
 import type {Schema} from '@/lib/api'
 import type {GroupForm} from '@/lib/createContent'
+import {chooseOption} from '@/test/select'
 
 import AssignmentGroupEditor from './AssignmentGroupEditor.vue'
 
@@ -20,6 +21,7 @@ const groups: GroupForm[] = [
 function mountEditor(modelValue: GroupForm[] = groups) {
   return mount(AssignmentGroupEditor, {
     props: {students, modelValue},
+    attachTo: document.body,
   })
 }
 
@@ -43,7 +45,7 @@ describe('AssignmentGroupEditor', () => {
   it('flyttar en elev till en annan grupp', async () => {
     const wrapper = mountEditor()
     const selects = wrapper.findAll('[data-test="student-group"]')
-    await selects[0].setValue('1')
+    await chooseOption(selects[0].element, 'Grupp 2')
 
     const emitted = lastEmitted(wrapper)
     expect(emitted[0].studentIds).toEqual(['s2'])

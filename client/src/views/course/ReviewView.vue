@@ -556,18 +556,18 @@ watch([courseId, linkId, submissionId], () => {
                 type="button"
                 role="radio"
                 :aria-checked="level === option"
-                class="h-11 rounded-[7px] border bg-background flex flex-col items-center justify-center leading-tight"
+                class="h-11 rounded-[7px] border flex flex-col items-center justify-center leading-tight"
                 :class="level === option
                   ? 'bg-primary text-primary-foreground border-primary'
-                  : ''"
+                  : 'bg-background'"
                 @click="chooseLevel(option)"
               >
                 <span class="font-bold" aria-hidden="true">{{ gradeLabel(option) }}</span>
                 <span
-                  class="text-[11px] text-muted-foreground"
+                  class="text-[11px]"
                   :class="level === option
                     ? 'text-primary-foreground/80'
-                    : ''"
+                    : 'text-muted-foreground'"
                 >{{ gradeName(option) }}</span>
               </button>
             </div>

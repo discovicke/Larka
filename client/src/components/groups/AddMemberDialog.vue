@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {FieldLabel} from '@/components/ui/field'
-import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select'
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select'
 import {useAsync} from '@/composables/useAsync'
 import {useCreateUserForm} from '@/composables/useCreateUserForm'
 import {errorMessage, type Schema} from '@/lib/api'
@@ -173,16 +173,16 @@ async function addToGroup(user: Schema<'UserDto'> | null | undefined) {
 
         <div class="flex min-w-0 flex-col gap-1.5">
           <FieldLabel for="member-role">Roll</FieldLabel>
-          <NativeSelect
-            id="member-role"
-            v-model="role"
-            class="w-full"
-            data-test="member-role-select"
-          >
-            <NativeSelectOption v-for="option in roleOptions" :key="option.value" :value="option.value">
-              {{ option.label }}
-            </NativeSelectOption>
-          </NativeSelect>
+          <Select v-model="role">
+            <SelectTrigger id="member-role" class="w-full" data-test="member-role-select">
+              <SelectValue/>
+            </SelectTrigger>
+            <SelectContent position="popper">
+              <SelectItem v-for="option in roleOptions" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <Alert v-if="error" variant="destructive">
