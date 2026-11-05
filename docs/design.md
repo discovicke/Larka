@@ -4,7 +4,7 @@ Mockupen för hela frontend: [Mockup](https://claude.ai/artifact/PPjCF4Rnekzyfrv
 
 Den täcker inloggning, startsida, kurssida (innehåll, nyheter, diskussion, om/personal), uppgiftssida med valfri GitHub-inlämning, notiser, kalender, material, studieplan och betyg, LIA, profil och inställningar, mobilvyer, lärarvyer (kursredigering, skapa uppgift, inlämningar, bedömning, avbockning på plats) och admin-integrationer.
 
-Bygger på vår shadcn-vue-setup i `client/`: färgpaletten Lärka (tavelgrön och blyertsgul), radie 0.45rem, typsnitten Inter och Roboto, Phosphor-ikoner.
+Bygger på vår shadcn-vue-setup i `client/`: färgpaletten Lärka (tavelgrön och volt), radie 0.45rem, typsnitten Inter och Roboto, Phosphor-ikoner.
 
 Varumärket, logon och tonen står i [varumarke.md](varumarke.md).
 
@@ -20,10 +20,12 @@ Färg betyder något. Varje steg har sin egen token, och vi blandar dem inte:
 - **Ny / info:** `info` och `link` (oläst-prick, antal olästa, nyheter, länkar, inlämnat och schemalagt som väntar på någon annan).
 - **Klart:** `success` (eleven har gjort klart något, godkänt). För statusmärken gäller tabellen under Status.
 - **Ditt drag:** `primary` (primär handling, antal "Att bedöma", framsteg).
-- **Snart:** `warning` (deadline inom 48 h, saknad inställning). Orange i mörkt läge så att den inte liknar primärgult.
+- **Snart:** `warning` (deadline inom 48 h, saknad inställning). Ockra i mörkt läge så att den inte liknar volten.
 - **Allvarligt:** `destructive` (försenat, komplettera, IG/misslyckat, fel, radera).
 
-Logons gula linje är bara varumärke och används aldrig för status.
+Logons voltlinje är bara varumärke och används aldrig för status.
+
+Volt är en signaturfärg. Ljust läge använder en Gentelella-inspirerad palett: varm off-white, tavelgrön som funktionell färg och dämpade statusfärger. Sidomenyn och mörkt läge är oförändrade; där är volten fortfarande funktionell. Mot papper har volten ungefär 1,1:1 i kontrast och används därför inte som tunn fill i ljust läge. I diagram är VG gult (`#F59F00`) i ljust läge och volt i mörkt.
 
 Aktiv menypunkt i sidomenyn är "krita": kritvit fyllning med tavelgrön text i ljust läge, 14 % kritvit med vit text i mörkt. Hover och tryck är en svag ton av förgrundsfärgen, så att bara den aktuella sidan får krita.
 
@@ -37,7 +39,7 @@ Statusmärken (pills) visar läget hos något, och bara det. Alla lägen finns p
 2. **Normala lägen är tysta.** Ett läge som inte kräver något (Pågår, Utkast, Publicerad) är en kontur utan färg. Färg används bara för det som behöver uppmärksamhet.
 3. **Märken är till för lägen.** Fakta som betygsskala och inlämningssätt är vanlig text (till exempel i metaraden under rubriken), inte märken. Ett datum som inte är nära är också text.
 4. **Färgen har en betydelse var.** Ingen ton får användas för något annat än sin betydelse.
-5. **Betygsstämplarna IG, G och VG** behåller sina egna varianter (`gradeFail`, `gradePass`, `gradeDistinction`) och ingår inte i statussystemet.
+5. **Betygsstämplarna IG, G och VG** behåller sina egna varianter (`gradeFail`, `gradePass`, `gradeDistinction`) och ingår inte i statussystemet. De använder statusfärgerna: G grön kontur, VG gul fyllning i ljust läge (volt i mörkt) och IG grå kontur.
 
 ### Toner
 

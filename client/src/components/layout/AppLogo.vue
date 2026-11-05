@@ -7,7 +7,7 @@ const props = defineProps<{class?: HTMLAttributes['class']}>()
 </script>
 
 <template>
-  <!-- Lärkas märke: ett kritvitt ä med blyertsgul linje under. Det står utan platta, eftersom ytorna i appen där det visas redan är tavlan. Samma färger i båda teman. -->
+  <!-- Lärkas märke: ett kritvitt ä med volt linje under. Det står utan platta, eftersom ytorna i appen där det visas redan är tavlan. Samma färger i båda teman. -->
   <svg
     viewBox="7 7 50 50"
     role="img"
@@ -20,7 +20,7 @@ const props = defineProps<{class?: HTMLAttributes['class']}>()
         cy="40"
         r="11.5"
         fill="none"
-        stroke="#e6ece6"
+        stroke="#edf2e9"
         stroke-width="7"
       />
       <rect
@@ -28,19 +28,19 @@ const props = defineProps<{class?: HTMLAttributes['class']}>()
         y="25"
         width="7"
         height="30"
-        fill="#e6ece6"
+        fill="#edf2e9"
       />
       <circle
         cx="23"
         cy="17.6"
         r="4.2"
-        fill="#e6ece6"
+        fill="#edf2e9"
       />
       <circle
         cx="36"
         cy="17.6"
         r="4.2"
-        fill="#e6ece6"
+        fill="#edf2e9"
       />
       <rect
         x="14"
@@ -48,7 +48,7 @@ const props = defineProps<{class?: HTMLAttributes['class']}>()
         width="30"
         height="5"
         rx="1"
-        fill="#f5c33b"
+        fill="#dfff00"
       />
     </g>
   </svg>

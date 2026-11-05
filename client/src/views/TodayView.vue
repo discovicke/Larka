@@ -166,10 +166,13 @@ function gradeTileName(item: Feedback): string {
 
 function gradeTileClass(item: Feedback): string {
   if (item.grade === 'Fail') {
-    return 'bg-destructive/10 text-destructive dark:bg-destructive/20'
+    return 'bg-grade-fail/10 text-grade-fail dark:bg-grade-fail/20'
+  }
+  if (item.grade === 'Distinction') {
+    return 'bg-primary/25 text-foreground dark:bg-primary/15 dark:text-primary'
   }
   return item.grade
-    ? 'bg-success/10 text-success dark:bg-success/20'
+    ? 'bg-grade-pass/10 text-grade-pass dark:bg-grade-pass/20'
     : 'bg-destructive/10 text-destructive dark:bg-destructive/20'
 }
 

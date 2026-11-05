@@ -31,6 +31,10 @@
   --color-warning: var(--warning);
   --color-info: var(--info);
   --color-link: var(--link);
+  --color-grade-pass: var(--grade-pass);
+  --color-grade-distinction: var(--grade-distinction);
+  --color-grade-distinction-foreground: var(--grade-distinction-foreground);
+  --color-grade-fail: var(--grade-fail);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -53,84 +57,103 @@
 
 :root {
   color-scheme: light;
-  /* Lärka ljust: häftespapper < kort. Sidomenyn är tavelgrön, primärfärgen blyertsgul. */
-  --background: #f7f8f4;
-  --foreground: #17201c;
-  --card: #ffffff;
-  --card-foreground: #17201c;
-  --popover: #ffffff;
-  --popover-foreground: #17201c;
-  --primary: #f5c33b;
-  --primary-foreground: #1e3a32;
-  --secondary: #e9eee7;
-  --secondary-foreground: #1e3a32;
-  --muted: #eef1ea;
-  --muted-foreground: #5b6862;
-  --accent: #e4ece6;
-  --accent-foreground: #1e3a32;
-  --destructive: #c23b2e;
-  --border: #dce3dd;
-  --input: #cbd5ce;
-  --ring: #1e3a32;
-  --success: #2f7a55;
-  --warning: #8a5d0f;
-  --info: #2b4c8c;
-  --link: #2b4c8c;
-  --chart-1: #1e3a32;
-  --chart-2: #f5c33b;
-  --chart-3: #2b4c8c;
-  --chart-4: #d2483a;
-  --chart-5: #8fa89b;
+  /* Lärka ljust: Gentelella-inspirerad palett. Varm off-white behålls, teal är accent,
+     och statusfärgerna är dämpade. Sidomenyn och mörkt läge är oförändrade. */
+  --background: #f8f8f3;
+  --foreground: #1a2332;
+  --card: #fdfdf9;
+  --card-foreground: #1a2332;
+  --popover: #fefefb;
+  --popover-foreground: #1a2332;
+  --primary: #1a4d2e;
+  --primary-foreground: #f8f9f2;
+  --secondary: #eceee2;
+  --secondary-foreground: #1a2332;
+  --muted: #eeefe6;
+  --muted-foreground: #5b665f;
+  --accent: #eaf0dd;
+  --accent-foreground: #1a4d2e;
+  --destructive: #d63939;
+  --border: #e6e7eb;
+  --input: #cbd0d6;
+  --ring: #1a4d2e;
+  --success: #218838;
+  --warning: #b45309;
+  --info: #ae3ec9;
+  --link: #0f766e;
+  --grade-pass: #218838;
+  --grade-distinction: #f59f00;
+  --grade-distinction-foreground: #1a2332;
+  --grade-fail: #64748b;
+  --chart-1: #2fb344;
+  --chart-2: #f59f00;
+  --chart-3: #ae3ec9;
+  --chart-4: #64748b;
+  --chart-5: #a8a296;
   --radius: 0.45rem;
-  --sidebar: #1e3a32;
-  --sidebar-foreground: #e6ece6;
-  --sidebar-primary: #f5c33b;
-  --sidebar-primary-foreground: #1e3a32;
-  --sidebar-accent: #e6ece6;
-  --sidebar-accent-foreground: #1e3a32;
-  --sidebar-border: #2a4a40;
-  --sidebar-ring: #f5c33b;
+  --sidebar: #1a4d2e;
+  --sidebar-foreground: #edf2e9;
+  --sidebar-primary: #dfff00;
+  --sidebar-primary-foreground: #1a4d2e;
+  --sidebar-accent: #edf2e9;
+  --sidebar-accent-foreground: #1a4d2e;
+  --sidebar-border: #2c6042;
+  --sidebar-ring: #dfff00;
 }
 
 .dark {
   color-scheme: dark;
-  /* Lärka mörkt: grafit, arbetsyta < kort. Gult bara för det som ska göras. */
-  --background: #121413;
-  --foreground: #ecefec;
-  --card: #1a1d1c;
-  --card-foreground: #ecefec;
-  --popover: #1f2321;
-  --popover-foreground: #ecefec;
-  --primary: #f5c33b;
-  --primary-foreground: #1e3a32;
-  --secondary: #262b29;
-  --secondary-foreground: #ecefec;
-  --muted: #252a28;
-  --muted-foreground: #a3aba7;
-  --accent: #262b29;
-  --accent-foreground: #ecefec;
-  --destructive: #f28b7e;
-  --border: rgb(236 239 236 / 10%);
-  --input: rgb(236 239 236 / 15%);
-  --ring: #f5c33b;
-  --success: #6cc495;
-  --warning: #f0a35e;
-  --info: #9dbcf0;
-  --link: #9dbcf0;
-  --chart-1: #f5c33b;
-  --chart-2: #8fa89b;
-  --chart-3: #9dbcf0;
-  --chart-4: #f28b7e;
-  --chart-5: #ecefec;
+  /* Lärka mörkt: nästan svart tavelgrön bas. Volten är den enda starka accenten. */
+  --background: #0d1510;
+  --foreground: #edf2e9;
+  --card: #14201a;
+  --card-foreground: #edf2e9;
+  --popover: #19261f;
+  --popover-foreground: #edf2e9;
+  --primary: #dfff00;
+  --primary-foreground: #12251a;
+  --secondary: #21302a;
+  --secondary-foreground: #edf2e9;
+  --muted: #1e2b24;
+  --muted-foreground: #a8b4ab;
+  --accent: #283a30;
+  --accent-foreground: #edf2e9;
+  --destructive: #f87171;
+  --border: rgb(237 242 233 / 12%);
+  --input: rgb(237 242 233 / 18%);
+  --ring: #dfff00;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --info: #c084fc;
+  --link: #5eead4;
+  --grade-pass: #4ade80;
+  --grade-distinction: #dfff00;
+  --grade-distinction-foreground: #1a4d2e;
+  --grade-fail: #94a3b8;
+  --chart-1: #4ade80;
+  --chart-2: #dfff00;
+  --chart-3: #c084fc;
+  --chart-4: #94a3b8;
+  --chart-5: #64748b;
   /* Samma tavelgröna sidomeny som i ljust läge, fast mörkare, så att mörkt läge inte blir helt svart. */
-  --sidebar: #142822;
-  --sidebar-foreground: #e6ece6;
-  --sidebar-primary: #f5c33b;
-  --sidebar-primary-foreground: #1e3a32;
-  --sidebar-accent: rgb(230 236 230 / 14%);
+  --sidebar: #123823;
+  --sidebar-foreground: #edf2e9;
+  --sidebar-primary: #dfff00;
+  --sidebar-primary-foreground: #12251a;
+  --sidebar-accent: rgb(237 242 233 / 14%);
   --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #21403a;
-  --sidebar-ring: #f5c33b;
+  --sidebar-border: #235138;
+  --sidebar-ring: #dfff00;
+}
+
+/* Unovis känner inte igen appens .dark-klass och behåller då sin ljusa donutbakgrund,
+   vilket syns som vita kanter mellan segmenten. Låt den följa kortets färg i stället. */
+html:root {
+  --vis-donut-background-color: var(--card);
+  --vis-donut-segment-stroke-color: var(--card);
+  --vis-donut-segment-stroke-width: 0;
+  --vis-donut-central-label-text-color: var(--foreground);
+  --vis-donut-central-sub-label-text-color: var(--muted-foreground);
 }
 
 @layer base {

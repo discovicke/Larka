@@ -16,7 +16,7 @@ const total = computed(() => data.value.reduce((sum, item) => sum + item.count, 
 </script>
 
 <template>
-  <ChartContainer :config="config" class="mx-auto aspect-square max-h-[260px]">
+  <ChartContainer v-if="total > 0" :config="config" class="mx-auto h-[260px] w-[260px] max-w-full">
     <VisSingleContainer :data="data" :height="260">
       <VisDonut
         :value="(item: ChartDatum) => item.count"
@@ -29,7 +29,7 @@ const total = computed(() => data.value.reduce((sum, item) => sum + item.count, 
     </VisSingleContainer>
     <ChartLegendContent name-key="label"/>
   </ChartContainer>
-  <p v-if="total === 0" class="text-muted-foreground text-center text-sm">
+  <p v-else class="text-muted-foreground py-16 text-center text-sm">
     Inga uppgifter att bedöma än.
   </p>
 </template>

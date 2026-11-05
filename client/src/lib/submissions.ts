@@ -24,7 +24,7 @@ export function gradeLabel(level: Schema<'GradeLevel'>): string {
   return gradeLabels[level]
 }
 
-/** Badge-varianten för betygsstämpeln: G och VG i grönt, IG i rött. */
+/** Badge-varianten för betygsstämpeln: G i grönt, VG i gult i ljust läge (volt i mörkt) och IG i grått. */
 export function gradeBadgeVariant(level: Schema<'GradeLevel'>): 'gradePass' | 'gradeDistinction' | 'gradeFail' {
   if (level === 'Distinction') {
     return 'gradeDistinction'

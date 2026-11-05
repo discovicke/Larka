@@ -72,8 +72,10 @@ function courseGradeText(course: StudyPlanCourse): string {
 function assignmentStatusClass(assignment: StudyPlanAssignment): string {
   if (assignment.status === 'Graded' && assignment.grade) {
     return assignment.grade === 'Fail'
-      ? 'text-destructive font-semibold'
-      : 'text-success font-semibold'
+      ? 'text-grade-fail font-semibold'
+      : assignment.grade === 'Distinction'
+        ? 'text-grade-distinction font-semibold'
+        : 'text-grade-pass font-semibold'
   }
   return 'text-muted-foreground'
 }

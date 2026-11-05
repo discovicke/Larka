@@ -44,7 +44,7 @@ async function connect() {
     class="border-primary/20 bg-primary/5 flex flex-wrap items-center gap-3 rounded-xl border p-3.5"
     data-test="github-onboarding"
   >
-    <span class="bg-primary/10 text-primary grid size-9 shrink-0 place-items-center rounded-lg">
+    <span class="bg-primary/10 text-primary-foreground dark:text-primary grid size-9 shrink-0 place-items-center rounded-lg">
       <PhGithubLogo class="size-5"/>
     </span>
     <div class="flex min-w-0 flex-1 flex-col gap-0.5">

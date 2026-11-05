@@ -49,15 +49,17 @@ export interface ChartDatum {
   color: string
 }
 
+// Diagrammen följer betygsstämplarna: G Gentelella-grönt, VG gult i ljust läge och volt i mörkt, IG grått.
+// Försenat är rött, lila betyder "väntar på någon annan" och "Ej bedömt" ligger nära bakgrunden.
 export const chartColors = {
-  fail: 'var(--destructive)',
-  pass: 'var(--success)',
-  distinction: 'var(--info)',
-  ungraded: 'var(--chart-5)',
+  fail: 'var(--grade-fail)',
+  pass: 'var(--chart-1)',
+  distinction: 'var(--grade-distinction)',
+  ungraded: 'var(--muted)',
   submitted: 'var(--info)',
   needsWork: 'var(--warning)',
-  missing: 'var(--destructive)',
-  overdue: 'var(--chart-5)',
+  missing: 'var(--grade-fail)',
+  overdue: 'var(--destructive)',
   notStarted: 'var(--chart-5)',
 }
 

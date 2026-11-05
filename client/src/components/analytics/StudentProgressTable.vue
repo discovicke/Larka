@@ -94,11 +94,11 @@ const visibleRows = computed(() => {
               </td>
               <td class="px-3 py-2.5 whitespace-nowrap">
                 <div class="flex items-center gap-3">
-                  <span class="text-success">{{ row.passCount }} G</span>
-                  <span class="text-info">{{ row.distinctionCount }} VG</span>
+                  <span class="text-grade-pass">{{ row.passCount }} G</span>
+                  <span class="text-grade-distinction">{{ row.distinctionCount }} VG</span>
                   <span
                     :class="row.failCount > 0
-                      ? 'text-destructive font-semibold'
+                      ? 'text-grade-fail font-semibold'
                       : 'text-muted-foreground'"
                     :title="row.autoFailCount > 0
                       ? `${row.autoFailCount} automatiskt IG utan inlämning`

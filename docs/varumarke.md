@@ -37,13 +37,15 @@ Fasta ord: _del_ (lektion, uppgift eller nyhet i en kurs), _vecka_, _kurs_, _kla
 
 ## Färg
 
-Varje färg kommer från ett svenskt klassrum: tavelgrön, blyertsgul, bläckblå, marginalröd, häftespapper, kritvit. Ljust läge är papper, mörkt läge är neutral grafit. Sidomenyn är tavelgrön i båda lägena, mörkare i mörkt.
+Tavelgrön och volt är varumärkets signatur och lever i sidomenyn, logon och mörkt läge. Ljust läge använder en neutral SaaS-palett: slate-ytor, indigo som primärfärg och dämpade statusfärger. Sidomenyn är tavelgrön i båda lägena, mörkare i mörkt.
+
+Volt är en signaturfärg. Ljust läge använder en Gentelella-inspirerad palett med varm off-white, tavelgrön som funktionell färg och dämpade statusfärger; sidomenyn och mörkt läge behåller tavelgrön och volt.
 
 Använd alltid tokens. Hårdkodade Tailwind-färger som `emerald-500` eller `amber-50` hör inte hemma i vyerna.
 
 Vad varje färg betyder står under [Färg med avsikt](design.md#färg-med-avsikt) i design.md.
 
-Logons gula linje är bara varumärke. Den betyder aldrig något i gränssnittet. Marginalröd finns inte i logon, eftersom röd betyder fel.
+Logons voltlinje är bara varumärke. Den betyder aldrig något i gränssnittet. Volten är en accent, inte en statusfärg.
 
 ## Typografi
 
@@ -59,7 +61,7 @@ Inga vänsterkanter eller färgade insidor på rundade rader och kort. Det är e
 
 ## Logo
 
-Logon är ett kritvitt geometriskt ä med en blyertsgul linje under, på en tavelgrön platta. Det är blyertsunderstrykningen från gränssnittet: pennans spår i stället för en bild av en penna. Ordmärket skrivs med gemener, lärka, med samma linje under _lär_. Luft runt märket är minst en fjärdedel av plattans bredd.
+Logon är ett kritvitt geometriskt ä med en volt linje under, på en tavelgrön platta. Det är voltunderstrykningen från gränssnittet: pennans spår i stället för en bild av en penna. Ordmärket skrivs med gemener, lärka, med samma linje under _lär_. Luft runt märket är minst en fjärdedel av plattans bredd.
 
 | Fil                                                               | Används för                                                   |
 | ----------------------------------------------------------------- | ------------------------------------------------------------- |
@@ -72,7 +74,7 @@ Logon är ett kritvitt geometriskt ä med en blyertsgul linje under, på en tave
 
 Rita aldrig om märket: det är optiskt centrerat, och ett ä som ser rätt ut i ett försök är sällan centrerat. I appen är det `AppLogo.vue`, utan platta, eftersom sidomenyn och inloggningens panel redan är tavlan.
 
-Den gula linjen är svag på vitt. Ordmärket får aldrig bero på den för att gå att läsa.
+Den voltfärgade linjen är svag på vitt. Ordmärket får aldrig bero på den för att gå att läsa.
 
 ## Ikoner
 
@@ -84,7 +86,7 @@ Phosphor via `@phosphor-icons/vue`, i vikten regular, `size-4` som standard. Iko
 | --------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------- |
 | Betygsstämpeln                    | I appen                | IG, G och VG som en lätt sned stämpel. Badge-varianterna `gradeFail`, `gradePass` och `gradeDistinction`. |
 | Krita                             | I appen                | Aktiv menypunkt är kritvit. Kritvit fyllning i ljust läge, 14 % kritvit i mörkt.                          |
-| Blyertsunderstrykning             | I appen                | Gul understrykning på viktiga ord i en uppgift, en per stycke. Samma linje som i logon.                   |
+| Voltunderstrykning                | I appen                | Volt understrykning på viktiga ord i en uppgift, en per stycke. Samma linje som i logon.                  |
 | Marginallinje och linjerat papper | Bara på presentationer | Skulle kräva nya former i appen.                                                                          |
 
 ## Komponenter

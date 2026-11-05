@@ -17,9 +17,9 @@ export const badgeVariants = cva(
         outline: 'border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground',
         ghost: 'hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50',
         link: 'text-link underline-offset-4 hover:underline',
-        gradePass: 'font-heading h-7 min-w-7 -rotate-6 border-2 border-current bg-transparent px-1.5 text-sm font-bold text-success',
-        gradeDistinction: 'font-heading h-7 min-w-7 -rotate-6 border-2 border-success bg-success px-1.5 text-sm font-bold text-white dark:text-background',
-        gradeFail: 'font-heading h-7 min-w-7 -rotate-6 border-2 border-current bg-transparent px-1.5 text-sm font-bold text-destructive',
+        gradePass: 'font-heading h-7 min-w-7 -rotate-6 border-2 border-current bg-transparent px-1.5 text-sm font-bold text-grade-pass',
+        gradeDistinction: 'font-heading h-7 min-w-7 -rotate-6 border-2 border-grade-distinction bg-grade-distinction px-1.5 text-sm font-bold text-grade-distinction-foreground',
+        gradeFail: 'font-heading h-7 min-w-7 -rotate-6 border-2 border-current bg-transparent px-1.5 text-sm font-bold text-grade-fail',
       },
     },
     defaultVariants: {

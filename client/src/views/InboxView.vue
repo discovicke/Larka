@@ -66,7 +66,7 @@ const kindIcons: Record<InboxKind, Component> = {
 
 // Nyheter är blå, betyg gröna, komplettering gul. Deadlines och uppgifter har pennans gula ton.
 const kindIconClasses: Record<InboxKind, string> = {
-  news: 'bg-info/10 text-info dark:bg-info/20',
+  news: 'bg-primary/10 text-primary dark:bg-primary/15 dark:text-primary',
   grade: 'bg-success/10 text-success dark:bg-success/20',
   needsWork: 'bg-warning/10 text-warning dark:bg-warning/20',
   deadline: 'bg-primary/25 text-foreground dark:bg-primary/15 dark:text-primary',

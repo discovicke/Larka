@@ -221,8 +221,8 @@ function courseLabel(course: SidebarCourse): string {
               v-if="item.count"
               class="rounded-full"
               :class="item.unread
-                ? 'bg-info text-white dark:text-background peer-hover/menu-button:text-white dark:peer-hover/menu-button:text-background peer-data-active/menu-button:text-white dark:peer-data-active/menu-button:text-background'
-                : 'bg-primary text-primary-foreground peer-hover/menu-button:text-primary-foreground peer-data-active/menu-button:text-primary-foreground'"
+                ? 'bg-sidebar-primary text-sidebar-primary-foreground peer-hover/menu-button:text-sidebar-primary-foreground peer-data-active/menu-button:text-sidebar-primary-foreground'
+                : 'bg-sidebar-primary text-sidebar-primary-foreground peer-hover/menu-button:text-sidebar-primary-foreground peer-data-active/menu-button:text-sidebar-primary-foreground'"
             >
               {{ item.count }}
             </SidebarMenuBadge>
@@ -241,7 +241,7 @@ function courseLabel(course: SidebarCourse): string {
               class="group-data-[collapsible=icon]:justify-center"
             >
               <RouterLink :to="{name: 'course-content', params: {courseId: course.id}}">
-                <span class="bg-primary size-2 shrink-0 rounded-[2px]"/>
+                <span class="bg-sidebar-primary size-2 shrink-0 rounded-[2px]"/>
                 <span class="truncate group-data-[collapsible=icon]:hidden">{{ courseLabel(course) }}</span>
               </RouterLink>
             </SidebarMenuButton>
@@ -267,7 +267,7 @@ function courseLabel(course: SidebarCourse): string {
                   class="group-data-[collapsible=icon]:justify-center"
                 >
                   <RouterLink :to="{name: 'course-content', params: {courseId: course.id}}">
-                    <span class="bg-primary size-2 shrink-0 rounded-[2px]"/>
+                    <span class="bg-sidebar-primary size-2 shrink-0 rounded-[2px]"/>
                     <span class="truncate group-data-[collapsible=icon]:hidden">{{ courseLabel(course) }}</span>
                   </RouterLink>
                 </SidebarMenuButton>

@@ -1,18 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="-1 -77 212.5 94">
-  <path d="M5.75 -76V-17C5.75 -9 9.5 -5.75 16.5 -5.75" fill="none" stroke="#1e3a32" stroke-width="11.5"/>
+  <path d="M5.75 -76V-17C5.75 -9 9.5 -5.75 16.5 -5.75" fill="none" stroke="#1a4d2e" stroke-width="11.5"/>
   <g transform="translate(5 0)">
-  <circle cx="42.5" cy="-23" r="17.25" fill="none" stroke="#1e3a32" stroke-width="11.5"/>
-  <rect x="54" y="-46" width="11.5" height="46" fill="#1e3a32"/>
-  <circle cx="33.5" cy="-57.5" r="6.1" fill="#1e3a32"/>
-  <circle cx="53" cy="-57.5" r="6.1" fill="#1e3a32"/>
-  <rect x="76" y="-46" width="11.5" height="46" fill="#1e3a32"/>
-  <path d="M81.75 -18C81.75 -33 89 -40 102 -40" fill="none" stroke="#1e3a32" stroke-width="11.5"/>
+  <circle cx="42.5" cy="-23" r="17.25" fill="none" stroke="#1a4d2e" stroke-width="11.5"/>
+  <rect x="54" y="-46" width="11.5" height="46" fill="#1a4d2e"/>
+  <circle cx="33.5" cy="-57.5" r="6.1" fill="#1a4d2e"/>
+  <circle cx="53" cy="-57.5" r="6.1" fill="#1a4d2e"/>
+  <rect x="76" y="-46" width="11.5" height="46" fill="#1a4d2e"/>
+  <path d="M81.75 -18C81.75 -33 89 -40 102 -40" fill="none" stroke="#1a4d2e" stroke-width="11.5"/>
   </g>
   <g transform="translate(8 0)">
-  <rect x="110" y="-76" width="11.5" height="76" fill="#1e3a32"/>
-  <path d="M121.5 -20.5L136.5 -46H150.5L133.6 -20.5L152 0H137.8L121.5 -17Z" fill="#1e3a32"/>
-  <circle cx="179.5" cy="-23" r="17.25" fill="none" stroke="#1e3a32" stroke-width="11.5"/>
-  <rect x="191" y="-46" width="11.5" height="46" fill="#1e3a32"/>
+  <rect x="110" y="-76" width="11.5" height="76" fill="#1a4d2e"/>
+  <path d="M121.5 -20.5L136.5 -46H150.5L133.6 -20.5L152 0H137.8L121.5 -17Z" fill="#1a4d2e"/>
+  <circle cx="179.5" cy="-23" r="17.25" fill="none" stroke="#1a4d2e" stroke-width="11.5"/>
+  <rect x="191" y="-46" width="11.5" height="46" fill="#1a4d2e"/>
   </g>
-  <rect x="0" y="9" width="106.5" height="7" rx="1.4" fill="#f5c33b"/>
+  <rect x="0" y="9" width="106.5" height="7" rx="1.4" fill="#dfff00"/>
 </svg>

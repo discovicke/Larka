@@ -3,7 +3,7 @@ import {VisAxis, VisGroupedBar, VisXYContainer} from '@unovis/vue'
 import {computed} from 'vue'
 
 import {ChartContainer, type ChartConfig} from '@/components/ui/chart'
-import {chartColors, statusDistribution, type AnalyticsSummary, type ChartDatum} from '@/lib/analytics'
+import {statusDistribution, type AnalyticsSummary, type ChartDatum} from '@/lib/analytics'
 
 const props = defineProps<{summary: AnalyticsSummary}>()
 
@@ -20,6 +20,11 @@ function xValue(_item: ChartDatum, index: number): number {
 function xLabel(value: number): string {
   return data.value[Math.round(value)]?.label ?? ''
 }
+
+// Varje stapel får sin egen statusfärg i stället för en gemensam blå.
+function barColor(item: ChartDatum): string {
+  return item.color
+}
 </script>
 
 <template>
@@ -29,7 +34,7 @@ function xLabel(value: number): string {
         <VisGroupedBar
           :x="xValue"
           :y="[(item: ChartDatum) => item.count]"
-          :color="[chartColors.submitted]"
+          :color="barColor"
           :rounded-corners="3"
           :bar-min-height="2"
           bar-padding="0.18"
