@@ -125,6 +125,12 @@ async function clearSetupQuery() {
   }
 }
 
+async function startInstallation() {
+  const link = await fetchGitHubInstallUrl()
+  sessionStorage.setItem(installStateKey, link.state)
+  window.location.href = link.url
+}
+
 function connect() {
   if (!github.value) {
     return
@@ -136,10 +142,12 @@ function connect() {
       return connectGitHub()
     }
 
-    const link = await fetchGitHubInstallUrl()
-    sessionStorage.setItem(installStateKey, link.state)
-    window.location.href = link.url
+    await startInstallation()
   })
+}
+
+function reinstall() {
+  void runAction(startInstallation)
 }
 
 function disconnect() {
@@ -283,6 +291,19 @@ onMounted(async () => {
             : github.installationId > 0
               ? 'Återanslut'
               : 'Anslut GitHub' }}
+        </Button>
+        <Button
+          v-if="github.configured
+            && !github.connected
+            && github.installationId > 0
+            && !github.usingLegacyInstallation"
+          variant="outline"
+          size="sm"
+          :disabled="githubLoading || missingSettings.length > 0"
+          data-test="github-reinstall"
+          @click="reinstall"
+        >
+          Installera om
         </Button>
         <Button
           v-if="manageGitHubUrl"

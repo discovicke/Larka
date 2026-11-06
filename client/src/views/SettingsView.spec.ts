@@ -297,6 +297,32 @@ describe('SettingsView', () => {
     expect(sessionStorage.getItem('github_install_state')).toBe('state-1')
   })
 
+  it('kan installera om när den sparade installationen är borta', async () => {
+    settingsBackend('Admin', {
+      ...connectedGitHub,
+      connected: false,
+      enabled: false,
+      accountLogin: null,
+      error: 'Installationen finns inte längre på GitHub. Installera appen igen.',
+    })
+
+    const {wrapper} = await mountSettings()
+    await flushPromises()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="github-status"]').text()).toBe('Inte ansluten')
+    expect(wrapper.find('[data-test="github-connect"]').text()).toContain('Återanslut')
+    const reinstallButton = wrapper.find('[data-test="github-reinstall"]')
+    expect(reinstallButton.exists()).toBe(true)
+
+    await reinstallButton.trigger('click')
+    await flushPromises()
+
+    expect(requests.some((request) =>
+      request.method === 'GET' && request.path === '/api/integrations/github/install')).toBe(true)
+    expect(sessionStorage.getItem('github_install_state')).toBe('state-1')
+  })
+
   it('erbjuder koppling när skolan bara använder legacy-installationen', async () => {
     settingsBackend('Admin', {
       ...connectedGitHub,

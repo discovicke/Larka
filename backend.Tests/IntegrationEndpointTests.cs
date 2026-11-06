@@ -306,6 +306,47 @@ public class IntegrationEndpointTests(TestWebApplicationFactory factory)
         Assert.Contains("finns inte längre", await response.Content.ReadAsStringAsync());
     }
 
+    [Fact]
+    public async Task Status_AfterAppIsUninstalledOnGitHub_AllowsANewInstallation()
+    {
+        await ResetAsync();
+        var link = await GetInstallLinkAsync();
+        await _client.PostAsJsonAsync("/api/integrations/github/connect", new
+        {
+            installationId = 5678,
+            state = link.State
+        });
+
+        var github = Assert.IsType<TestGitHubAppService>(
+            factory.Services.GetRequiredService<IGitHubAppService>());
+        github.InstallationException = new GitHubApiException(
+            HttpStatusCode.NotFound, """{"message":"Not Found"}""");
+
+        var status = await _client.GetFromJsonAsync<GitHubStatusResponse>(
+            "/api/integrations/github");
+        Assert.NotNull(status);
+        Assert.False(status.Connected);
+        Assert.Equal(0, status.InstallationId);
+        Assert.Contains("finns inte längre", status.Error);
+
+        // Efter ominstallation på GitHub ska en helt ny installation kunna kopplas.
+        github.InstallationException = null;
+        github.Installation = new GitHubInstallation(
+            9999, "skol-org", "Organization", 1234, TestGitHubAppService.FullPermissions);
+        var newLink = await GetInstallLinkAsync();
+        var response = await _client.PostAsJsonAsync("/api/integrations/github/connect", new
+        {
+            installationId = 9999,
+            state = newLink.State
+        });
+
+        response.EnsureSuccessStatusCode();
+        var reconnected = await response.Content.ReadFromJsonAsync<GitHubStatusResponse>();
+        Assert.NotNull(reconnected);
+        Assert.True(reconnected.Connected);
+        Assert.Equal(9999, reconnected.InstallationId);
+    }
+
     private async Task<InstallLinkResponse> GetInstallLinkAsync()
     {
         var link = await _client.GetFromJsonAsync<InstallLinkResponse>("/api/integrations/github/install");

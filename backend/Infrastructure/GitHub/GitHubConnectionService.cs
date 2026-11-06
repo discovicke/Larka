@@ -111,12 +111,20 @@ public sealed class GitHubConnectionService(
 
         if (saved is not null)
         {
-            var (installation, error) = await VerifyAsync(saved.InstallationId, saved.Org, ct);
+            var (installation, error, installationMissing) = await VerifyAsync(
+                saved.InstallationId, saved.Org, ct);
             if (error is null && installation is not null)
             {
                 saved.Org = installation.AccountLogin;
                 saved.LastVerifiedAt = time.GetUtcNow();
                 saved.Connected = true;
+                await unitOfWork.SaveChangesAsync(ct);
+            }
+            else if (installationMissing)
+            {
+                // Appen är avinstallerad på GitHub. Nollställ den döda installationen så att admin
+                // kan starta en ny installation i stället för att återansluta till ett ID som inte finns.
+                ClearInstallation(saved);
                 await unitOfWork.SaveChangesAsync(ct);
             }
 
@@ -134,7 +142,7 @@ public sealed class GitHubConnectionService(
         // Dev-fallback tills skolan har kopplat via Inställningar. Kan tas bort senare.
         if (_options.HasLegacyInstallation)
         {
-            var (installation, error) = await VerifyAsync(
+            var (installation, error, _) = await VerifyAsync(
                 _options.InstallationId, _options.Org, ct);
             return Status(
                 _options.InstallationId,
@@ -173,11 +181,21 @@ public sealed class GitHubConnectionService(
             return Status(0, "", false, null, null, "Installations-ID saknas.", MissingSettings);
         }
 
-        var (installation, error) = await VerifyAsync(installationId, "", ct);
+        var (installation, error, installationMissing) = await VerifyAsync(installationId, "", ct);
         if (error is not null || installation is null)
         {
+            if (installationMissing)
+            {
+                // Även en återanslutning kan träffa en installation som tagits bort på GitHub.
+                // Rensa då den sparade raden så att klienten kan erbjuda en ny installation.
+                await ClearMissingInstallationAsync(schoolId, installationId, ct);
+            }
+
+            var statusInstallationId = installationMissing
+                ? 0
+                : installationId;
             return Status(
-                installationId,
+                statusInstallationId,
                 "",
                 false,
                 installation?.AccountLogin,
@@ -323,7 +341,28 @@ public sealed class GitHubConnectionService(
         await unitOfWork.SaveChangesAsync(ct);
     }
 
-    private async Task<(GitHubInstallation? Installation, string? Error)> VerifyAsync(
+    private async Task ClearMissingInstallationAsync(
+        Guid schoolId, long installationId, CancellationToken ct)
+    {
+        var saved = await installations.GetForSchoolAsync(schoolId, ct);
+        if (saved is null || saved.InstallationId != installationId)
+        {
+            return;
+        }
+
+        ClearInstallation(saved);
+        await unitOfWork.SaveChangesAsync(ct);
+    }
+
+    private void ClearInstallation(SchoolGitHubInstallation saved)
+    {
+        saved.InstallationId = 0;
+        saved.Connected = false;
+        saved.Enabled = false;
+        saved.DisconnectedAt = time.GetUtcNow();
+    }
+
+    private async Task<(GitHubInstallation? Installation, string? Error, bool NotFound)> VerifyAsync(
         long installationId, string expectedOrg, CancellationToken ct)
     {
         try
@@ -334,7 +373,7 @@ public sealed class GitHubConnectionService(
             if (!string.Equals(
                 installation.AccountType, "Organization", StringComparison.OrdinalIgnoreCase))
             {
-                return (installation, "GitHub-appen måste vara installerad på en organisation.");
+                return (installation, "GitHub-appen måste vara installerad på en organisation.", false);
             }
 
             if (!string.IsNullOrWhiteSpace(expectedOrg)
@@ -343,7 +382,8 @@ public sealed class GitHubConnectionService(
             {
                 return (
                     installation,
-                    $"Installationen tillhör {installation.AccountLogin}, inte {expectedOrg}.");
+                    $"Installationen tillhör {installation.AccountLogin}, inte {expectedOrg}.",
+                    false);
             }
 
             var missingPermissions = RequiredPermissionsMissing(installation.Permissions);
@@ -351,23 +391,26 @@ public sealed class GitHubConnectionService(
             {
                 return (
                     installation,
-                    "Installationen saknar behörigheter: " + string.Join(", ", missingPermissions) + ".");
+                    "Installationen saknar behörigheter: " + string.Join(", ", missingPermissions) + ".",
+                    false);
             }
 
-            return (installation, null);
+            return (installation, null, false);
         }
         catch (GitHubApiException exception)
         {
+            var notFound = exception.StatusCode == HttpStatusCode.NotFound;
             // GitHubs eget felmeddelande är säkert att visa och hjälper admin att se t.ex. 401/404.
-            return (null, exception.StatusCode == HttpStatusCode.NotFound
+            var message = notFound
                 ? "Installationen finns inte längre på GitHub. Installera appen igen."
-                : exception.Message);
+                : exception.Message;
+            return (null, message, notFound);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             // Undvik att läcka sökvägar eller annan intern konfiguration till klienten.
             logger.LogWarning(exception, "Could not verify the GitHub installation");
-            return (null, "Kunde inte verifiera GitHub-anslutningen. Kontrollera serverns konfiguration.");
+            return (null, "Kunde inte verifiera GitHub-anslutningen. Kontrollera serverns konfiguration.", false);
         }
     }
 

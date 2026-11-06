@@ -71,6 +71,67 @@ public class GitHubConnectionServiceTests
     }
 
     [Fact]
+    public async Task GetStatus_WhenSavedInstallationIsGone_ClearsItSoAReinstallIsPossible()
+    {
+        var github = new TestGitHubAppService
+        {
+            InstallationException = new GitHubApiException(
+                HttpStatusCode.NotFound, """{"message":"Not Found"}""")
+        };
+        var repository = new FakeInstallationRepository();
+        repository.Add(new SchoolGitHubInstallation
+        {
+            SchoolId = _schoolId,
+            InstallationId = 178202846,
+            Org = "EduEdugrade-Sandbox",
+            Connected = true,
+            Enabled = true
+        });
+        var service = CreateService(github, ConfiguredOptions(), repository);
+
+        var status = await service.GetStatusAsync(_schoolId, CancellationToken.None);
+
+        Assert.False(status.Connected);
+        Assert.False(status.Enabled);
+        Assert.Equal(0, status.InstallationId);
+        Assert.Contains("finns inte längre", status.Error);
+        var saved = await repository.GetForSchoolAsync(_schoolId, CancellationToken.None);
+        Assert.NotNull(saved);
+        Assert.Equal(0, saved.InstallationId);
+        Assert.False(saved.Connected);
+        Assert.False(saved.Enabled);
+        Assert.Equal(_now, saved.DisconnectedAt);
+    }
+
+    [Fact]
+    public async Task ReconnectAsync_WhenSavedInstallationIsGone_ClearsItSoAReinstallIsPossible()
+    {
+        var github = new TestGitHubAppService
+        {
+            InstallationException = new GitHubApiException(
+                HttpStatusCode.NotFound, """{"message":"Not Found"}""")
+        };
+        var repository = new FakeInstallationRepository();
+        repository.Add(new SchoolGitHubInstallation
+        {
+            SchoolId = _schoolId,
+            InstallationId = 178202846,
+            Org = "EduEdugrade-Sandbox",
+            Connected = false
+        });
+        var service = CreateService(github, ConfiguredOptions(), repository);
+
+        var status = await service.ReconnectAsync(_schoolId, CancellationToken.None);
+
+        Assert.False(status.Connected);
+        Assert.Equal(0, status.InstallationId);
+        Assert.Contains("finns inte längre", status.Error);
+        var saved = await repository.GetForSchoolAsync(_schoolId, CancellationToken.None);
+        Assert.NotNull(saved);
+        Assert.Equal(0, saved.InstallationId);
+    }
+
+    [Fact]
     public async Task ConnectAsync_VerifiesAndSavesInstallation()
     {
         var github = new TestGitHubAppService
