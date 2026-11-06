@@ -1,5 +1,4 @@
 import {type Schema} from '@/lib/api'
-import {gradeLabel, levelsFor} from '@/lib/submissions'
 import {fetchCourseModules} from '@/lib/modulesApi'
 import {fetchLinkSubmissions} from '@/lib/submissionsApi'
 
@@ -43,7 +42,8 @@ export async function fetchAssignmentRows(courses: Schema<'CourseDto'>[]): Promi
   const assignments = moduleResults.flatMap((weeks, index) => {
     const course = courses[index]
     return weeks.flatMap((week) => week.content
-      .filter((item) => item.type === 'Assignment')
+      // En övning (utan betygsskala) får bara feedback när läraren vill och står inte i Att bedöma.
+      .filter((item) => item.type === 'Assignment' && item.gradeScale != null && item.gradeScale !== 'None')
       .map((item) => ({course, item})))
   })
 
@@ -139,7 +139,7 @@ export interface DeadlineLine {
 
 /** Raden under uppgiftens rubrik: var uppgiften står mot deadlinerna. */
 export function deadlineLine(
-  group: Pick<GradingGroup, 'dueAt' | 'resubmitDueAt' | 'gradeScale'>,
+  group: Pick<GradingGroup, 'dueAt' | 'resubmitDueAt'>,
   now = new Date(),
 ): DeadlineLine {
   if (!group.dueAt) {
@@ -159,13 +159,7 @@ export function deadlineLine(
     .reduce((latest, value) => new Date(value) > new Date(latest)
       ? value
       : latest)
-  const passing = levelsFor(group.gradeScale)
-    .filter((level) => level !== 'Fail')
-    .map((level) => gradeLabel(level))
-  const allowed = passing.length > 0
-    ? `${passing.join(', ')} eller IG`
-    : 'G, VG eller IG'
-  return {text: `Sista deadline passerad ${shortDate(lastDeadline)} · bara ${allowed}`, last: true}
+  return {text: `Sista deadline ${shortDate(lastDeadline)} har passerat`, last: true}
 }
 
 /**

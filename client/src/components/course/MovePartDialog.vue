@@ -69,8 +69,8 @@ const {run: move, loading: saving, error} = useAsync(async () => {
 
 <template>
   <Dialog v-model:open="open">
-    <DialogContent>
-      <form class="flex flex-col gap-4" @submit.prevent="move">
+    <DialogContent class="sm:max-w-md">
+      <form class="flex min-w-0 flex-col gap-4" @submit.prevent="move">
         <DialogHeader>
           <DialogTitle>Flytta {{ item.title }}</DialogTitle>
           <DialogDescription>
@@ -116,6 +116,7 @@ const {run: move, loading: saving, error} = useAsync(async () => {
           v-if="targets.length > 0"
           v-model="targetId"
           aria-label="Välj målvecka"
+          class="min-w-0"
         >
           <FieldLabel
             v-for="target in targets"

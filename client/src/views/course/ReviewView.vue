@@ -75,6 +75,8 @@ const needsWorkAllowed = computed(() => deadline.value?.allowsNeedsWork ?? true)
 // Sista deadline har passerat utan inlämning eller komplettering: eleven har automatiskt IG.
 const autoFail = computed(() => deadline.value?.autoFail === true)
 const allLevels = computed(() => levelsFor(assignment.value?.gradeScale ?? null))
+// En övning har ingen betygsskala och står inte i Att bedöma. Kön går bara genom övningens egna inlämningar.
+const isExercise = computed(() => assignment.value?.gradeScale === 'None')
 const levels = computed(() => allLevels.value.filter((option) => option !== 'Fail' || failAllowed.value))
 const failHidden = computed(() => allLevels.value.length > levels.value.length)
 const hasGrades = computed(() => allLevels.value.length > 0)
@@ -91,6 +93,9 @@ const next = computed(() => submission.value && inQueue.value
   ? nextInQueue(queue.value, submission.value)
   : null)
 const remaining = computed(() => queue.value.filter((candidate) => candidate.status === 'Submitted').length)
+const remainingLabel = computed(() => isExercise.value
+  ? `${remaining.value} kvar utan feedback`
+  : `${remaining.value} kvar att bedöma`)
 // IG måste motiveras, så sparaknappen väntar på en kommentar.
 const needsComment = computed(() => level.value === 'Fail' && !feedback.value.trim())
 const feedbackTooLong = computed(() => isTooLong(feedback.value, textLimits.feedback))
@@ -244,7 +249,7 @@ const {run: save, loading: saving, error: saveError} = useAsync(async (body: Sch
       return
     }
 
-    if (!inQueue.value) {
+    if (!inQueue.value || isExercise.value) {
       await router.push({name: 'assignment-submissions', params: {courseId: courseId.value, linkId: linkId.value}})
       return
     }
@@ -271,7 +276,7 @@ async function fetchGradableRows(): Promise<GradingRow[]> {
 // Slår upp vart Spara leder när det inte finns fler i den här uppgiftens kö.
 watch([loading, coursesStatus, inQueue, next], async () => {
   otherRow.value = null
-  if (loading.value || coursesStatus.value === 'loading' || !inQueue.value || next.value) {
+  if (loading.value || coursesStatus.value === 'loading' || !inQueue.value || next.value || isExercise.value) {
     return
   }
   const lookedUpFor = submissionId.value
@@ -626,7 +631,7 @@ watch([courseId, linkId, submissionId], () => {
               Eleven ser betyget och kommentaren direkt.
             </p>
             <p v-if="inQueue" class="text-sm font-medium" data-test="review-remaining">
-              {{ remaining }} kvar att bedöma
+              {{ remainingLabel }}
             </p>
             <p v-if="needsComment" class="text-muted-foreground text-[13px]" data-test="review-fail-hint">
               Skriv en kommentar som förklarar varför eleven får IG.

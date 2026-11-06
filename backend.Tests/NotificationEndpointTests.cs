@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Backend.Application.Abstractions;
 using Backend.Application.Services;
 using Backend.Domain.Entities;
 using Backend.Domain.Enums;
@@ -53,6 +54,57 @@ public class NotificationEndpointTests(TestWebApplicationFactory factory) : ICla
         Assert.Single((await ListForAsync(setup.OtherStudentId)).Items);
         Assert.Single((await ListForAsync(setup.TeacherId)).Items);
         Assert.Empty((await ListForAsync(PlaceholderIds.UserId)).Items);
+    }
+
+    // #545: förfrågan och jobbet kan skriva samma notis samtidigt. Databasen stoppar den andra.
+    [Fact]
+    public async Task Database_RejectsASecondPublishNotification_ForTheSameUserAndContent()
+    {
+        var setup = await AddSetupAsync();
+        var created = await CreateAsync(News("En gång"), new { groupId = setup.GroupId });
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+        db.Notifications.Add(new Notification
+        {
+            UserId = setup.StudentId,
+            Kind = NotificationKind.NewsPublished,
+            ContentId = created.Content.Id
+        });
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+    }
+
+    // #545: om jobbet hann först sparas resten av ändringen ändå, och dubbletten släpps.
+    [Fact]
+    public async Task SaveWithADuplicateNotification_KeepsTheOtherChanges_AndDropsTheDuplicate()
+    {
+        var setup = await AddSetupAsync();
+        var created = await CreateAsync(News("Samtidigt"), new { groupId = setup.GroupId });
+        var outsider = await AddUserOutsideAsync();
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDb>();
+            db.Notifications.AddRange(
+                new Notification
+                {
+                    UserId = setup.StudentId,
+                    Kind = NotificationKind.NewsPublished,
+                    ContentId = created.Content.Id
+                },
+                new Notification
+                {
+                    UserId = outsider,
+                    Kind = NotificationKind.NewsPublished,
+                    ContentId = created.Content.Id
+                });
+
+            await scope.ServiceProvider.GetRequiredService<IUnitOfWork>().SaveChangesAsync(CancellationToken.None);
+        }
+
+        Assert.Single((await ListForAsync(setup.StudentId)).Items);
+        Assert.Single((await ListForAsync(outsider)).Items);
     }
 
     [Fact]

@@ -4,7 +4,6 @@ import type {Component} from 'vue'
 import type {Schema} from '@/lib/api'
 import {formatDate, partOf} from '@/lib/content'
 import {deadlineStatusKey, partStatusKey, statuses, toneTextClasses} from '@/lib/status'
-import {gradeScaleName} from '@/lib/submissions'
 
 type Item = Schema<'StudentContentItem'>
 type Module = Schema<'StudentModuleWithContentDto'>
@@ -134,10 +133,6 @@ export function openableParts(modules: Module[]): {part: Item, module: Module}[]
       .map((part) => ({part, module})))
 }
 
-export function gradeScaleLabel(scale: Schema<'GradeScale'> | null): string | null {
-  return gradeScaleName(scale) || null
-}
-
 // Etiketten, ikonen och färgen kommer från samma läge (lib/status.ts), så de kan inte skilja sig åt.
 export function statusKey(item: Item) {
   return partStatusKey({...item, autoFail: hasAutoFail(item)})
@@ -160,14 +155,8 @@ export function statusHeading(item: Item): string {
   return statuses[statusKey(item)].label
 }
 
-export function dueLabel(item: Item): string {
-  return item.dueAt
-    ? `Deadline ${formatDate(item.dueAt, true)}`
-    : ''
-}
-
 // Samma tidpunkt, oavsett hur backend skrivit tidszonen.
-function sameInstant(first: string, second: string): boolean {
+export function sameInstant(first: string, second: string): boolean {
   return new Date(first).getTime() === new Date(second).getTime()
 }
 
@@ -185,39 +174,33 @@ export function nextDueKind(item: Item): 'main' | 'personal' | 'resubmit' {
     : 'resubmit'
 }
 
+/** Rubriken för deadlinen som gäller nu, se nextDueKind. */
+export const dueHeadings = {main: 'Deadline', personal: 'Din deadline', resubmit: 'Kompletteringsdeadline'} as const
+
+/** Datumet för deadlinen som gäller nu, eller null om delen saknar deadline. */
+export function nextDueAt(item: Item): string | null {
+  if (!item.dueAt) {
+    return null
+  }
+  return nextDueKind(item) === 'main'
+    ? item.dueAt
+    : item.deadline!.nextDeadline!
+}
+
 /**
  * Deadlinen bredvid läget (dueStatus), så att datumet och "Deadline snart" gäller samma deadline. Har
  * huvuddeadlinen passerat och eleven har en deadline kvar visas den: "Din deadline …" eller
  * "Kompletteringsdeadline …".
  */
 export function nextDueLabel(item: Item): string {
-  const next = item.deadline?.nextDeadline
-  switch (nextDueKind(item)) {
-    case 'personal':
-      return `Din deadline ${formatDate(next!, true)}`
-    case 'resubmit':
-      return `Kompletteringsdeadline ${formatDate(next!, true)}`
-    default:
-      return dueLabel(item)
-  }
-}
-
-/** "Kompletteringar: 15 nov 23:59, 29 nov 23:59", tom om delen saknar kompletteringsdeadlines. */
-export function resubmitLabel(item: Pick<Item, 'resubmitDueAt'>): string {
-  return item.resubmitDueAt.length > 0
-    ? `Kompletteringar: ${item.resubmitDueAt.map((value) => formatDate(value, true)).join(', ')}`
-    : ''
-}
-
-/** "Din deadline: 20 nov 23:59", tom om läraren inte gett eleven en egen deadline. */
-export function personalDueLabel(item: Pick<Item, 'personalDueAt'>): string {
-  return item.personalDueAt
-    ? `Din deadline: ${formatDate(item.personalDueAt, true)}`
+  const due = nextDueAt(item)
+  return due
+    ? `${dueHeadings[nextDueKind(item)]} ${formatDate(due, true)}`
     : ''
 }
 
 // Klar eller inlämnad är inte försenad, så deadlinen får inget läge då.
-function isDone(item: Item): boolean {
+export function isDone(item: Item): boolean {
   return item.isCompleted || item.submissionStatus === 'Submitted' || item.submissionStatus === 'Graded'
 }
 

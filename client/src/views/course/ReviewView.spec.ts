@@ -329,6 +329,24 @@ describe('ReviewView', () => {
     expect(wrapper.text()).toContain('Uppgiften har inget betyg, bara återkoppling.')
   })
 
+  it('en övning står inte i Att bedöma: efter sista feedbacken går läraren tillbaka till övningens inlämningar', async () => {
+    backend({scale: 'None', queue: [baseSubmission, queued('s4', 'Cecilia Dahl', 'Graded')]})
+
+    const {wrapper, router} = await renderApp('/courses/c1/assignments/l1/submissions/s1')
+    await flushPromises()
+
+    expect(text(wrapper.find('[data-test="review-remaining"]'))).toBe('1 kvar utan feedback')
+    expect(text(wrapper.find('[data-test="review-save"]'))).toBe('Spara och tillbaka')
+
+    await wrapper.find('#feedback').setValue('Snygg uträkning')
+    await wrapper.find('[data-test="review-save"]').trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('part')
+    expect(router.currentRoute.value.query.tab).toBe('inlamningar')
+  })
+
   it('kräver ett betyg innan bedömningen publiceras', async () => {
     backend()
 

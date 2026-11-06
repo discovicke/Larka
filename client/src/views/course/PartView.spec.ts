@@ -188,8 +188,14 @@ describe('PartView', () => {
     const {wrapper} = await renderApp('/courses/c1/parts/l1')
 
     expect(wrapper.find('h1').text()).toBe('Release-pipeline')
-    expect(text(wrapper.find('[data-test="part-facts"]')))
-      .toMatch(/^Inlämning · Vecka 4 · Deadline fre 23 okt \d\d:59 · Betygsskala Icke godkänd \/ Godkänd \/ Väl godkänd · Lämnas in som text, GitHub-repo$/)
+    expect(text(wrapper.find('[data-test="part-eyebrow"]'))).toBe('Inlämning·Vecka 4')
+    // Under titeln står bara deadlinen. Övriga fakta står i panelen Läge.
+    expect(text(wrapper.find('[data-test="fact-due"]'))).toMatch(/^Deadline fre 23 okt \d\d:59passerad$/)
+    const facts = wrapper.find('[data-test="part-state"] [data-test="part-facts"]')
+    expect(text(facts.find('[data-test="fact-handin"]'))).toBe('Lämnas inText, GitHub-repo')
+    expect(text(facts.find('[data-test="fact-scale"]'))).toBe('BedömsIG / G / VG')
+    expect(facts.find('[data-test="fact-scale"] dd').attributes('title')).toBe('Icke godkänd / Godkänd / Väl godkänd')
+    expect(facts.find('[data-test="fact-resubmit"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="part-content"]').text()).toContain('länken')
     expect(wrapper.find('[data-test="edit-part"]').attributes('href'))
       .toBe('/courses/c1/modules/m1/content/l1/edit')
@@ -308,6 +314,20 @@ describe('PartView', () => {
       'Elevflagga 0',
     ])
     expect(wrapper.text()).toContain('Visar 4 av 4 elever')
+  })
+
+  it('en övning har inget att bedöma: filtret heter Inlämnat och knappen Ge feedback', async () => {
+    backend({part: {...assignment, gradeScale: 'None'}})
+
+    const {wrapper} = await renderApp('/courses/c1/parts/l1')
+    expect(text(wrapper.find('[data-test="part-state"]'))).not.toContain('Att bedöma')
+
+    const panel = (await renderApp('/courses/c1/assignments/l1')).wrapper
+    const filters = panel.findAll('section[aria-label="Elever"] [role="tab"]').map(text)
+    expect(filters).toContain('Inlämnat 1')
+    expect(filters).not.toContain('Att bedöma 1')
+    expect(panel.text()).toContain('Ge feedback')
+    expect(panel.findAll('a').map(text)).not.toContain('Bedöm')
   })
 
   it('sorterar inlämnade först och visar status, filer, tester och betyg', async () => {

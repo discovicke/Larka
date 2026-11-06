@@ -37,7 +37,7 @@ Statusmärken (pills) visar läget hos något, och bara det. Alla lägen finns p
 
 1. **Ett läge visas på ett ställe per sida.** Står läget redan i en statusruta, rubrik eller rad ska det inte upprepas som märke i sidhuvudet, i listan eller i en panel bredvid.
 2. **Normala lägen är tysta.** Ett läge som inte kräver något (Pågår, Utkast, Publicerad) är en kontur utan färg. Färg används bara för det som behöver uppmärksamhet.
-3. **Märken är till för lägen.** Fakta som betygsskala och inlämningssätt är vanlig text (till exempel i metaraden under rubriken), inte märken. Ett datum som inte är nära är också text.
+3. **Märken är till för lägen.** Fakta som betygsskala och inlämningssätt är vanlig text (till exempel i faktalistan i delens panel), inte märken. Ett datum som inte är nära är också text.
 4. **Färgen har en betydelse var.** Ingen ton får användas för något annat än sin betydelse.
 5. **Betygsstämplarna IG, G och VG** behåller sina egna varianter (`gradeFail`, `gradePass`, `gradeDistinction`) och ingår inte i statussystemet. De använder statusfärgerna: G grön kontur, VG gul fyllning i ljust läge (volt i mörkt) och IG grå kontur.
 

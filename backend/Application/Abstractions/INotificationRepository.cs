@@ -28,9 +28,6 @@ public interface INotificationRepository
     /// <summary>Lärarna i kursen.</summary>
     Task<List<Guid>> GetCourseTeacherIdsAsync(Guid courseId, CancellationToken ct);
 
-    /// <summary>Eleverna i grupperna.</summary>
-    Task<List<Guid>> GetStudentIdsAsync(IReadOnlyCollection<Guid> groupIds, CancellationToken ct);
-
     /// <summary>Användarna som redan har en notis av den här sorten om innehållet.</summary>
     Task<HashSet<Guid>> GetNotifiedUserIdsAsync(NotificationKind kind, Guid contentId, CancellationToken ct);
 

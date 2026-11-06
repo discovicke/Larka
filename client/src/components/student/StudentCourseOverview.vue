@@ -20,7 +20,6 @@ import type {Schema} from '@/lib/api'
 import {countLabel, formatDate, partOf} from '@/lib/content'
 import {
   dueStatus,
-  gradeScaleLabel,
   isAvailable,
   isFinished,
   isModuleComplete,
@@ -105,13 +104,6 @@ function moduleProgress(module: Schema<'StudentModuleWithContentDto'>): {done: n
 
 function moduleDefaultOpen(module: Schema<'StudentModuleWithContentDto'>): boolean {
   return module.id === activeModuleId.value
-}
-
-function detailsOf(item: Schema<'StudentContentItem'>): string {
-  const scale = gradeScaleLabel(item.gradeScale)
-  return scale
-    ? `${kindOf(item)} · ${scale}`
-    : kindOf(item)
 }
 
 // Märket i raden bara för uppgifter med inlämning, och inte för Att göra eller Låst: de visas av ikonen.
@@ -264,7 +256,7 @@ function rowBadge(item: Schema<'StudentContentItem'>) {
                       >
                         {{ item.title }}
                       </span>
-                      <span class="text-muted-foreground text-[12px]">{{ detailsOf(item) }}</span>
+                      <span class="text-muted-foreground text-[12px]">{{ kindOf(item) }}</span>
                     </span>
                     <span class="hidden items-center gap-2 sm:flex">
                       <StatusBadge v-if="rowBadge(item)" :status="rowBadge(item)!"/>

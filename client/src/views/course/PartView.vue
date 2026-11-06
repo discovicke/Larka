@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import {PhUsersThree} from '@phosphor-icons/vue'
+import {PhCalendarBlank, PhUsersThree} from '@phosphor-icons/vue'
 import {computed, onMounted, onUnmounted, ref, watch} from 'vue'
 import {RouterLink, useRoute, useRouter} from 'vue-router'
 
 import AttachmentList from '@/components/course/AttachmentList.vue'
+import PartFacts, {type PartFact} from '@/components/course/PartFacts.vue'
 import SubmissionsPanel from '@/components/course/SubmissionsPanel.vue'
 import MarkdownView from '@/components/editor/MarkdownView.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -21,7 +22,8 @@ import {formatDate, partOf} from '@/lib/content'
 import {fetchContent, setContentStatus} from '@/lib/contentApi'
 import {fetchCourseModules} from '@/lib/modulesApi'
 import {buildRows, countToGrade} from '@/lib/submissionRows'
-import {gradeScaleName, handInLabel} from '@/lib/submissions'
+import {gradeScaleName, gradeScaleShort, handInLabel} from '@/lib/submissions'
+import {relativeText} from '@/lib/today'
 import {fetchLinkSubmissions} from '@/lib/submissionsApi'
 
 // Delens sida för den som inte är elev: läraren och admin läser delen här och går vidare till
@@ -57,6 +59,8 @@ const tab = computed(() => route.query.tab === 'inlamningar' && hasSubmissions.v
   : 'content')
 
 const toGrade = computed(() => countToGrade(buildRows(submissions.value)))
+// En övning har ingen betygsskala. Läraren kan ge feedback men har inget att bedöma.
+const isExercise = computed(() => part.value?.gradeScale === 'None')
 // Samma tal som i veckans lista: nämnaren är eleverna som delen delas ut till, inte bara de som har en inlämning.
 // Den som inte har börjat har ingen inlämning, så listan räcker inte som nämnare.
 const handedIn = computed(() => part.value?.submittedCount
@@ -67,37 +71,32 @@ const handedInLabel = computed(() => `${handedIn.value} av ${part.value?.student
 
 const checklist = computed(() => parseChecklist(content.value?.bodyMd ?? ''))
 
-const facts = computed(() => {
+// Under titeln står bara deadlinen. Inlämningssätt, betygsskala och kompletteringar står i panelen Läge.
+const due = computed(() => {
+  const dueAt = part.value?.dueAt
+  return dueAt
+    ? {date: formatDate(dueAt, true), relative: relativeText(dueAt, new Date())}
+    : null
+})
+
+const facts = computed<PartFact[]>(() => {
   const item = part.value
   if (!item) {
-    return ''
+    return []
   }
   const handIn = handInLabel(content.value?.assignment?.submissionModes ?? [])
   return [
-    partOf(item).label,
-    weekTitle.value,
-    item.dueAt
-      ? `Deadline ${formatDate(item.dueAt, true)}`
-      : '',
-    item.resubmitDueAt.length > 0
-      ? `Kompletteringar ${item.resubmitDueAt.map((value) => formatDate(value, true)).join(', ')}`
-      : '',
-    scaleLabel(item.gradeScale),
-    handIn
-      ? `Lämnas in som ${handIn}`
-      : '',
-  ].filter((fact) => fact !== '').join(' · ')
+    {key: 'handin', label: 'Lämnas in', value: handIn.charAt(0).toUpperCase() + handIn.slice(1)},
+    {key: 'scale', label: 'Bedöms', value: gradeScaleShort(item.gradeScale), title: gradeScaleName(item.gradeScale)},
+    {key: 'resubmit', label: item.resubmitDueAt.length === 1
+      ? 'Komplettering'
+      : 'Kompletteringar', value: item.resubmitDueAt.map((value) => formatDate(value, true)).join(', ')},
+  ]
 })
 
 const isDraft = computed(() => part.value?.status === 'Draft')
 const isScheduled = computed(() =>
   !isDraft.value && part.value !== null && new Date(part.value.publishAt) > new Date())
-
-function scaleLabel(scale: Schema<'GradeScale'> | null): string {
-  return scale
-    ? `Betygsskala ${gradeScaleName(scale)}`
-    : ''
-}
 
 function tabClass(value: 'content' | 'submissions') {
   return tab.value === value
@@ -241,6 +240,12 @@ watch([courseId, linkId], () => {
     <template v-else-if="part">
       <div class="flex flex-col gap-4" :class="{'border-b pb-4': !hasSubmissions}">
         <div class="flex flex-col gap-2">
+          <p class="text-muted-foreground flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm" data-test="part-eyebrow">
+            <component :is="partOf(part).icon" class="size-4"/>
+            <span>{{ partOf(part).label }}</span>
+            <span aria-hidden="true">·</span>
+            <span>{{ weekTitle }}</span>
+          </p>
           <div class="flex flex-wrap items-start justify-between gap-3">
             <h1 class="font-heading min-w-0 text-[30px] leading-tight font-semibold">{{ part.title }}</h1>
             <Button
@@ -259,7 +264,11 @@ watch([courseId, linkId], () => {
               </RouterLink>
             </Button>
           </div>
-          <p class="text-muted-foreground text-sm" data-test="part-facts">{{ facts }}</p>
+          <p v-if="due" class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[15px]" data-test="fact-due">
+            <PhCalendarBlank class="text-muted-foreground size-4"/>
+            <span>Deadline <strong class="font-semibold">{{ due.date }}</strong></span>
+            <span class="text-muted-foreground">{{ due.relative }}</span>
+          </p>
         </div>
 
         <div
@@ -300,6 +309,7 @@ watch([courseId, linkId], () => {
         :submissions="submissions"
         :on-site="(content?.assignment?.submissionModes ?? []).includes('OnSite')"
         :student-count="part?.studentCount ?? undefined"
+        :exercise="isExercise"
         @reload="load(false)"
       />
 
@@ -353,12 +363,14 @@ watch([courseId, linkId], () => {
                   <dt class="text-muted-foreground">Inlämnade</dt>
                   <dd>{{ handedInLabel }}</dd>
                 </div>
-                <div class="flex items-center justify-between gap-2">
+                <div v-if="!isExercise" class="flex items-center justify-between gap-2">
                   <dt class="text-muted-foreground">Att bedöma</dt>
                   <dd>{{ toGrade }}</dd>
                 </div>
               </template>
             </dl>
+
+            <PartFacts :facts="facts" class="border-t pt-3"/>
 
             <p v-if="isDraft" class="text-muted-foreground text-sm">Eleverna ser inte den här delen än.</p>
             <Button

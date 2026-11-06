@@ -175,6 +175,22 @@ describe('AppLayout', () => {
     expect(sheet()).toBeNull()
   })
 
+  it('märket för olästa hämtas igen vid sidbyte och när fönstret får fokus', async () => {
+    const counts = () => requests.filter((request) => request.path === '/api/notifications/unread-count').length
+    const {router} = await renderApp('/')
+    await flushPromises()
+    const atStart = counts()
+    expect(atStart).toBeGreaterThan(0)
+
+    await router.push('/calendar')
+    await flushPromises()
+    expect(counts()).toBe(atStart + 1)
+
+    window.dispatchEvent(new Event('focus'))
+    await flushPromises()
+    expect(counts()).toBe(atStart + 2)
+  })
+
   it('brödsmulorna följer sidan', async () => {
     const page = await render('/courses/c1/modules/1/new')
 

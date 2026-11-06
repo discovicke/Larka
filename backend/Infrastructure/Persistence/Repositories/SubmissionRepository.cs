@@ -47,6 +47,8 @@ public class SubmissionRepository(AppDb db) : ISubmissionRepository
          where link.CourseId != null
              && courseIds.Contains(link.CourseId.Value)
              && submission.Status == SubmissionStatus.Submitted
+             // Bara inlämningar (uppgifter med betygsskala) väntar på läraren. En övning får feedback när läraren vill.
+             && db.AssignmentSpecs.Any(spec => spec.ContentId == content.Id && spec.GradeScale != GradeScale.None)
          orderby submission.SubmittedAt, content.Title, student.Name
          select new SubmissionToGrade(
              submission.Id,
@@ -66,6 +68,8 @@ public class SubmissionRepository(AppDb db) : ISubmissionRepository
          where link.CourseId != null
              && courseIds.Contains(link.CourseId.Value)
              && submission.Status == SubmissionStatus.Submitted
+             // Bara inlämningar (uppgifter med betygsskala) väntar på läraren. En övning får feedback när läraren vill.
+             && db.AssignmentSpecs.Any(spec => spec.ContentId == link.ContentId && spec.GradeScale != GradeScale.None)
          group link by link.CourseId!.Value into courseGroup
          select new CourseToGradeCount(courseGroup.Key, courseGroup.Count()))
         .ToListAsync(ct);

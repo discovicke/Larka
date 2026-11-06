@@ -45,6 +45,11 @@ export function gradeScaleName(scale: Schema<'GradeScale'> | null): string {
   return levels.map((level) => gradeNames[level]).join(' / ')
 }
 
+/** Betygsskalan med bokstäverna, t.ex. "IG / G / VG", för smala listor. Hela namnen står i gradeScaleName. */
+export function gradeScaleShort(scale: Schema<'GradeScale'> | null): string {
+  return levelsFor(scale).map((level) => gradeLabels[level]).join(' / ')
+}
+
 /** Betygsstegen som uppgiftens skala erbjuder. Tom när uppgiften bara har återkoppling. */
 export function levelsFor(scale: Schema<'GradeScale'> | null): Schema<'GradeLevel'>[] {
   return scale

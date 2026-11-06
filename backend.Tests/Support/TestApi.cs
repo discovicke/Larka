@@ -16,10 +16,11 @@ public static class TestApi
         client.PostJsonAsync<LinkResponse>($"/api/content/{contentId}/links", link);
 
     public static async Task<Guid> CreateAssignmentLinkAsync(
-        this HttpClient client, string title, object link, string submissionMode = "text")
+        this HttpClient client, string title, object link, string submissionMode = "text", string? gradeScale = null)
     {
+        // Utan gradeScale blir uppgiften en övning (bara feedback).
         var content = await client.CreateContentAsync(
-            new { type = "assignment", title, bodyMd = "", submissionModes = new[] { submissionMode } });
+            new { type = "assignment", title, bodyMd = "", submissionModes = new[] { submissionMode }, gradeScale });
         return (await client.CreateLinkAsync(content.Id, link)).Id;
     }
 

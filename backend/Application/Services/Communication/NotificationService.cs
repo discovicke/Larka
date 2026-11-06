@@ -266,7 +266,9 @@ public class NotificationService(
         var studentsByLink = new List<(ContentLink Link, List<Guid> StudentIds)>();
         foreach (var link in linked.Select(item => item.Link))
         {
-            studentsByLink.Add((link, await notifications.GetStudentIdsAsync(await GroupIdsAsync(link, ct), ct)));
+            var studentIds = await notifications.GetMemberIdsAsync(
+                await GroupIdsAsync(link, ct), includeTeachers: false, ct);
+            studentsByLink.Add((link, studentIds));
         }
 
         var muted = await MutedAmongAsync(

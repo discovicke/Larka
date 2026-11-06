@@ -121,9 +121,9 @@ public class TeachingEndpointTests(TestWebApplicationFactory factory) : IClassFi
         var setup = await AddSetupAsync();
         var now = DateTimeOffset.UtcNow;
         var older = await _client.CreateAssignmentLinkAsync(
-            "Äldre", new { courseId = setup.CourseId, dueAt = now.AddDays(2) });
+            "Äldre", new { courseId = setup.CourseId, dueAt = now.AddDays(2) }, gradeScale: "PassFail");
         var newer = await _client.CreateAssignmentLinkAsync(
-            "Nyare", new { courseId = setup.CourseId, dueAt = now.AddDays(1) });
+            "Nyare", new { courseId = setup.CourseId, dueAt = now.AddDays(1) }, gradeScale: "PassFail");
         var olderSubmission = await SetSubmissionAsync(
             older, setup.StudentId, SubmissionStatus.Submitted, now.AddHours(-2));
         var newerSubmission = await SetSubmissionAsync(
@@ -146,11 +146,14 @@ public class TeachingEndpointTests(TestWebApplicationFactory factory) : IClassFi
     {
         var setup = await AddSetupAsync();
         var now = DateTimeOffset.UtcNow;
-        var graded = await _client.CreateAssignmentLinkAsync("Bedömd", new { courseId = setup.CourseId });
-        var needsWork = await _client.CreateAssignmentLinkAsync("Komplettering", new { courseId = setup.CourseId });
-        var waiting = await _client.CreateAssignmentLinkAsync("Väntar", new { courseId = setup.CourseId });
+        var graded = await _client.CreateAssignmentLinkAsync(
+            "Bedömd", new { courseId = setup.CourseId }, gradeScale: "PassFail");
+        var needsWork = await _client.CreateAssignmentLinkAsync(
+            "Komplettering", new { courseId = setup.CourseId }, gradeScale: "PassFail");
+        var waiting = await _client.CreateAssignmentLinkAsync(
+            "Väntar", new { courseId = setup.CourseId }, gradeScale: "PassFail");
         var otherCourse = await _client.CreateAssignmentLinkAsync(
-            "Annan kurs", new { courseId = setup.OtherCourseId, dueAt = now.AddDays(2) });
+            "Annan kurs", new { courseId = setup.OtherCourseId, dueAt = now.AddDays(2) }, gradeScale: "PassFail");
         await SetSubmissionAsync(graded, setup.StudentId, SubmissionStatus.Graded, now.AddHours(-3));
         await SetSubmissionAsync(needsWork, setup.StudentId, SubmissionStatus.NeedsWork, now.AddHours(-2));
         await SetSubmissionAsync(waiting, setup.StudentId, SubmissionStatus.Submitted, now.AddHours(-1));
@@ -171,12 +174,30 @@ public class TeachingEndpointTests(TestWebApplicationFactory factory) : IClassFi
     }
 
     [Fact]
+    public async Task ToGrade_ExcludesExercises_WhichOnlyGetFeedback()
+    {
+        var setup = await AddSetupAsync();
+        var now = DateTimeOffset.UtcNow;
+        var exercise = await _client.CreateAssignmentLinkAsync("Övning", new { courseId = setup.CourseId });
+        var handIn = await _client.CreateAssignmentLinkAsync(
+            "Inlämning", new { courseId = setup.CourseId }, gradeScale: "PassFail");
+        await SetSubmissionAsync(exercise, setup.StudentId, SubmissionStatus.Submitted, now.AddHours(-2));
+        await SetSubmissionAsync(handIn, setup.StudentId, SubmissionStatus.Submitted, now.AddHours(-1));
+
+        var teaching = await GetTeachingAsync(setup.TeacherId);
+
+        Assert.Equal("Inlämning", Assert.Single(teaching.ToGrade).Title);
+        Assert.Equal(1, teaching.ToGradeTotal);
+        Assert.Equal(1, Assert.Single(teaching.Courses).ToGrade);
+    }
+
+    [Fact]
     public async Task Deadlines_ShowPublishedAssignmentsWithinTwoWeeks_WithCounts()
     {
         var setup = await AddSetupAsync();
         var now = DateTimeOffset.UtcNow;
         var soon = await _client.CreateAssignmentLinkAsync(
-            "Snart", new { courseId = setup.CourseId, dueAt = now.AddDays(3) });
+            "Snart", new { courseId = setup.CourseId, dueAt = now.AddDays(3) }, gradeScale: "PassFail");
         await _client.CreateAssignmentLinkAsync(
             "Om en månad", new { courseId = setup.CourseId, dueAt = now.AddDays(30) });
         var draft = await _client.CreateContentAsync(new

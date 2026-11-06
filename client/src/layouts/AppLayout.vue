@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import {useEventListener} from '@vueuse/core'
+import {watch} from 'vue'
 import {useRoute} from 'vue-router'
 
 import AppHeader from '@/components/layout/AppHeader.vue'
@@ -17,6 +19,11 @@ const {loadUnreadCount} = useNotifications()
 loadCourses()
 loadMe()
 loadUnreadCount()
+
+// Märket i sidomenyn hämtas igen när man byter sida eller kommer tillbaka till fliken, så att en ny notis syns
+// utan att man laddar om.
+watch(() => route.path, loadUnreadCount)
+useEventListener(window, 'focus', loadUnreadCount)
 </script>
 
 <template>

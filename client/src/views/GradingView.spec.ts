@@ -218,7 +218,7 @@ describe('GradingView', () => {
     await flushPromises()
 
     expect(text(wrapper.find('[data-test="grading-deadline"]')))
-      .toBe('Sista deadline passerad 2 nov · bara G eller IG')
+      .toBe('Sista deadline 2 nov har passerat')
   })
 
   it('delar upp i två flikar utan automatiskt IG med antal och byter innehåll', async () => {
@@ -292,6 +292,36 @@ describe('GradingView', () => {
     await flushPromises()
 
     expect(requests.map((request) => request.path)).not.toContain('/api/links/l2/submissions')
+  })
+
+  it('hoppar över övningar, som bara får feedback och inget betyg', async () => {
+    const exercise = {...assignment('l4', 'x4', 'Docker-övning'), gradeScale: 'None'}
+    mockApi((_method, path) => {
+      if (path === '/api/me') {
+        return {status: 200, body: meAs('Teacher', ['c1'])}
+      }
+      if (path === '/api/courses') {
+        return {status: 200, body: [devops]}
+      }
+      if (path === '/api/courses/c1/modules') {
+        return {status: 200, body: [week('m1', [release, exercise])]}
+      }
+      if (path === '/api/links/l1/submissions') {
+        return {status: 200, body: releaseSubmissions}
+      }
+      if (path === '/api/links/l4/submissions') {
+        return {status: 200, body: [submission('s9', 'u2', 'Submitted', '2026-10-10T10:00:00Z')]}
+      }
+      return {status: 404}
+    })
+
+    const {wrapper} = await renderApp('/grading')
+    await flushPromises()
+
+    expect(requests.map((request) => request.path)).not.toContain('/api/links/l4/submissions')
+    const groups = wrapper.findAll('[data-test="grading-group"]')
+    expect(groups).toHaveLength(1)
+    expect(text(groups[0])).toContain('Release-pipeline')
   })
 
   it('en elev som öppnar Att bedöma hamnar på Idag', async () => {

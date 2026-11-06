@@ -213,7 +213,16 @@ watch([status, meStatus], ([coursesValue, meValue]) => {
           </div>
 
           <div class="overflow-x-auto">
-            <table class="w-full min-w-[640px] text-[13px]">
+            <!-- Fasta kolumner: varje uppgift har en egen tabell, och utan dem flyttar kolumnerna efter innehållet. -->
+            <table class="w-full min-w-[640px] table-fixed text-[13px]">
+              <colgroup>
+                <col class="w-[34%]"/>
+                <template v-if="activeTab === 'submitted'">
+                  <col class="w-[200px]"/>
+                  <col/>
+                </template>
+                <col class="w-[112px]"/>
+              </colgroup>
               <tbody>
                 <tr
                   v-for="(row, index) in group.rows"
@@ -223,7 +232,7 @@ watch([status, meStatus], ([coursesValue, meValue]) => {
                     ? 'border-b'
                     : ''"
                 >
-                  <td class="px-5 py-3 font-medium">{{ row.name }}</td>
+                  <td class="truncate px-5 py-3 font-medium">{{ row.name }}</td>
                   <td v-if="activeTab === 'submitted'" class="px-3 py-3">
                     <StatusBadge
                       :status="row.previousGrade

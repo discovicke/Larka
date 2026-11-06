@@ -32,13 +32,6 @@ public class NotificationRepository(AppDb db) : INotificationRepository
             .Select(courseTeacher => courseTeacher.UserId)
             .ToListAsync(ct);
 
-    public Task<List<Guid>> GetStudentIdsAsync(IReadOnlyCollection<Guid> groupIds, CancellationToken ct) =>
-        db.Enrollments
-            .Where(enrollment => groupIds.Contains(enrollment.GroupId) && enrollment.Role == GroupRole.Student)
-            .Select(enrollment => enrollment.UserId)
-            .Distinct()
-            .ToListAsync(ct);
-
     public async Task<HashSet<Guid>> GetNotifiedUserIdsAsync(
         NotificationKind kind, Guid contentId, CancellationToken ct) =>
         (await db.Notifications

@@ -7,7 +7,6 @@ import {
   isModuleComplete,
   nextDueLabel,
   openableParts,
-  resubmitLabel,
   sectionsFor,
 } from '@/lib/studentCourse'
 import {deadlineState} from '@/test/deadline'
@@ -144,15 +143,6 @@ describe('openableParts', () => {
       {id: 'c', isAvailable: true, content: [item('z')]},
     ] as unknown as Module[]
     expect(openableParts(modules).map((entry) => entry.part.linkId)).toEqual(['x', 'z'])
-  })
-})
-
-describe('kompletteringsdeadlines', () => {
-  const dates = ['2026-11-15T22:59:00Z', '2026-11-29T22:59:00Z']
-
-  it('listar dem under deadlinen, tomt utan', () => {
-    expect(resubmitLabel({resubmitDueAt: []})).toBe('')
-    expect(resubmitLabel({resubmitDueAt: dates})).toMatch(/^Kompletteringar: .+nov.+, .+nov/)
   })
 })
 

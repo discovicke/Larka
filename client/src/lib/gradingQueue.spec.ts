@@ -104,23 +104,21 @@ describe('groupByAssignment', () => {
 
 describe('deadlineLine', () => {
   it('visar en kommande deadline', () => {
-    expect(deadlineLine({dueAt: later, resubmitDueAt: [], gradeScale: 'PassFail'}, now))
+    expect(deadlineLine({dueAt: later, resubmitDueAt: []}, now))
       .toEqual({text: 'Deadline 10 nov', last: false})
   })
 
   it('visar passerad deadline och nästa komplettering', () => {
-    expect(deadlineLine({dueAt: past, resubmitDueAt: [later], gradeScale: 'PassFail'}, now))
+    expect(deadlineLine({dueAt: past, resubmitDueAt: [later]}, now))
       .toEqual({text: 'Deadline 1 nov passerad · nästa komplettering 10 nov', last: false})
   })
 
-  it('visar att sista deadline har passerat med betygen som skalan har', () => {
-    expect(deadlineLine({dueAt: past, resubmitDueAt: [], gradeScale: 'PassFailDistinction'}, now))
-      .toEqual({text: 'Sista deadline passerad 1 nov · bara G, VG eller IG', last: true})
-    expect(deadlineLine({dueAt: past, resubmitDueAt: [], gradeScale: 'PassFail'}, now).text)
-      .toContain('bara G eller IG')
+  it('visar att sista deadline har passerat', () => {
+    expect(deadlineLine({dueAt: past, resubmitDueAt: []}, now))
+      .toEqual({text: 'Sista deadline 1 nov har passerat', last: true})
   })
 
   it('säger det när uppgiften saknar deadline', () => {
-    expect(deadlineLine({dueAt: null, resubmitDueAt: [], gradeScale: null}, now).text).toBe('Ingen deadline')
+    expect(deadlineLine({dueAt: null, resubmitDueAt: []}, now).text).toBe('Ingen deadline')
   })
 })

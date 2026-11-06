@@ -7,7 +7,6 @@ import {
   PhCircle,
   PhLock,
   PhLockOpen,
-  PhPaperPlaneTilt,
 } from '@phosphor-icons/vue'
 import {computed, nextTick, ref, watch} from 'vue'
 import {useRoute} from 'vue-router'
@@ -16,6 +15,7 @@ import GitHubAssignmentBlock from '@/components/GitHubAssignmentBlock.vue'
 import RelatedMaterial from '@/components/student/RelatedMaterial.vue'
 import StudentHelpButton from '@/components/StudentHelpButton.vue'
 import AttachmentList from '@/components/course/AttachmentList.vue'
+import PartFacts, {type PartFact} from '@/components/course/PartFacts.vue'
 import MarkdownView from '@/components/editor/MarkdownView.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import SubmissionPanel from '@/components/student/SubmissionPanel.vue'
@@ -25,21 +25,30 @@ import {Checkbox} from '@/components/ui/checkbox'
 import {useCurrentUser} from '@/composables/useCurrentUser'
 import {api, errorMessage, type Schema} from '@/lib/api'
 import {parseChecklist} from '@/lib/checklist'
-import {partOf} from '@/lib/content'
+import {formatDate, partOf} from '@/lib/content'
 import {
+  dueHeadings,
   dueStatus,
-  gradeScaleLabel,
+  isDone,
   kindOf,
+  nextDueAt,
   nextDueKind,
-  nextDueLabel,
-  personalDueLabel,
-  resubmitLabel,
   rowIcon,
   rowIconClass,
+  sameInstant,
   statusHeading,
 } from '@/lib/studentCourse'
-import {gradeBadgeVariant, gradedLabel, gradeLabel, gradeName, handInLabel} from '@/lib/submissions'
+import {
+  gradeBadgeVariant,
+  gradedLabel,
+  gradeLabel,
+  gradeName,
+  gradeScaleName,
+  gradeScaleShort,
+  handInLabel,
+} from '@/lib/submissions'
 import {fetchLinkSubmissions} from '@/lib/submissionsApi'
+import {relativeText} from '@/lib/today'
 
 // En öppen del: innehåll, checklista, lärarens kommentar och elevens status. Vyn runtom äger
 // datat, valet av del och felmeddelandet.
@@ -161,6 +170,49 @@ function repoUrlFor(item: Schema<'StudentContentItem'>): string | null {
     : null
 }
 
+// Deadlinen under titeln är den som gäller nu: huvuddeadlinen, elevens egen eller en komplettering.
+const due = computed(() => {
+  const item = props.part
+  const date = nextDueAt(item)
+  if (!date) {
+    return null
+  }
+  return {
+    label: dueHeadings[nextDueKind(item)],
+    date: formatDate(date, true),
+    // Klar eller inlämnad behöver ingen nedräkning. Snart och försenad visas som märke i stället.
+    relative: isDone(item)
+      ? ''
+      : relativeText(date, new Date()),
+  }
+})
+
+// Övriga fakta står i statuspanelen. Datumet som redan står under titeln upprepas inte.
+const facts = computed<PartFact[]>(() => {
+  const item = props.part
+  const kind = nextDueKind(item)
+  const current = item.deadline?.nextDeadline ?? null
+  const resubmits = item.resubmitDueAt
+    .filter((value) => kind !== 'resubmit' || current === null || !sameInstant(value, current))
+  return [
+    {key: 'handin', label: 'Lämnas in', value: capitalize(handInOf(item))},
+    {key: 'scale', label: 'Bedöms', value: gradeScaleShort(item.gradeScale), title: gradeScaleName(item.gradeScale)},
+    {key: 'main-due', label: 'Ordinarie deadline', value: kind !== 'main' && item.dueAt
+      ? formatDate(item.dueAt, true)
+      : ''},
+    {key: 'personal-due', label: 'Din deadline', value: kind !== 'personal' && item.personalDueAt
+      ? formatDate(item.personalDueAt, true)
+      : ''},
+    {key: 'resubmit', label: resubmits.length === 1
+      ? 'Komplettering'
+      : 'Kompletteringar', value: resubmits.map((value) => formatDate(value, true)).join(', ')},
+  ]
+})
+
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
 function handInOf(item: Schema<'StudentContentItem'>): string {
   return item.type === 'Assignment'
     ? handInLabel(item.submissionModes)
@@ -170,52 +222,33 @@ function handInOf(item: Schema<'StudentContentItem'>): string {
 
 <template>
   <div ref="root" class="flex scroll-mt-4 flex-col gap-6" data-test="student-detail">
-    <header class="flex flex-col gap-3 border-b pb-4">
-      <Button
-        variant="ghost"
-        size="sm"
-        class="-ml-2 w-fit"
-        data-test="student-back"
-        @click="emit('close')"
-      >
-        <PhArrowLeft/>
-        Tillbaka till veckan
-      </Button>
-      <h2 class="text-3xl leading-tight font-semibold">{{ part.title }}</h2>
-      <p class="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-        <span class="flex items-center gap-1">
-          <component :is="partOf(part).icon" class="size-4"/>
-          {{ kindOf(part) }}
-        </span>
-        <span>·</span>
-        <span>{{ module.title }}</span>
+    <header class="flex flex-col gap-2 border-b pb-4">
+      <p class="text-muted-foreground flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm" data-test="part-eyebrow">
+        <component :is="partOf(part).icon" class="size-4"/>
+        <span>{{ kindOf(part) }}</span>
+        <span aria-hidden="true">·</span>
+        <!-- Veckan leder tillbaka till veckans lista, så sidan behöver ingen egen tillbakaknapp. -->
+        <button
+          type="button"
+          class="hover:text-foreground decoration-border hover:decoration-foreground min-h-6 text-left underline underline-offset-4"
+          :aria-label="`Tillbaka till ${module.title}`"
+          data-test="student-back"
+          @click="emit('close')"
+        >
+          {{ module.title }}
+        </button>
         <template v-if="part.type === 'News'">
-          <span>·</span>
+          <span aria-hidden="true">·</span>
           <span>Nyhet</span>
         </template>
       </p>
-      <div class="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm" data-test="facts">
-        <span v-if="part.dueAt" class="flex items-center gap-1.5" data-test="fact-due">
-          <PhCalendarBlank class="size-4"/>
-          {{ nextDueLabel(part) }}
-          <StatusBadge v-if="dueStatus(part)" :status="dueStatus(part)!"/>
-        </span>
-        <span
-          v-if="personalDueLabel(part) && nextDueKind(part) !== 'personal'"
-          class="font-medium"
-          data-test="fact-personal-due"
-        >
-          {{ personalDueLabel(part) }}
-        </span>
-        <span v-if="resubmitLabel(part)" data-test="fact-resubmit">{{ resubmitLabel(part) }}</span>
-        <span v-if="gradeScaleLabel(part.gradeScale)" data-test="fact-scale">
-          Betygsskala {{ gradeScaleLabel(part.gradeScale) }}
-        </span>
-        <span v-if="handInOf(part)" class="flex items-center gap-1.5" data-test="fact-handin">
-          <PhPaperPlaneTilt class="size-4"/>
-          Lämnas in som {{ handInOf(part) }}
-        </span>
-      </div>
+      <h2 class="text-3xl leading-tight font-semibold">{{ part.title }}</h2>
+      <p v-if="due" class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[15px]" data-test="fact-due">
+        <PhCalendarBlank class="text-muted-foreground size-4"/>
+        <span>{{ due.label }} <strong class="font-semibold">{{ due.date }}</strong></span>
+        <StatusBadge v-if="dueStatus(part)" :status="dueStatus(part)!"/>
+        <span v-else-if="due.relative" class="text-muted-foreground">{{ due.relative }}</span>
+      </p>
     </header>
 
     <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -393,6 +426,8 @@ function handInOf(item: Schema<'StudentContentItem'>): string {
             </p>
             <p class="text-muted-foreground text-xs" data-test="graded-by">{{ gradedLabel(feedback, true) }}</p>
           </section>
+
+          <PartFacts :facts="facts" class="border-t pt-3"/>
 
           <template v-if="part.canMarkDone && !part.isLocked">
             <Button

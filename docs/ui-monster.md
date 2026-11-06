@@ -8,11 +8,13 @@ På desktop står listan och innehållet sida vid sida. Under `md` är de två s
 
 ## Del i en kurs
 
-Under titeln står en metarad som vanlig text: typ, vecka, deadline, betygsskala och inlämningssätt. Din status är panelen till höger på desktop och står före innehållet på mobil, så att eleven ser läget och knappen direkt. Knappen för att ångra säger bara Ångra, eftersom läget redan står ovanför.
+Typ och vecka står på en liten rad ovanför titeln. Veckan leder tillbaka till veckans lista, så sidan har ingen egen tillbakaknapp. Under titeln står bara deadlinen som gäller nu, med datumet i fetstil och tiden kvar som vanlig text ("om 9 dagar"). Deadline snart och Försenad är märken i stället för tiden kvar. Har eleven en egen deadline eller en kompletteringsdeadline står den under titeln, och den ordinarie står i panelen.
+
+Övriga fakta står i panelen bredvid innehållet, med etikett till vänster och värde till höger (`PartFacts`): Lämnas in, Bedöms (IG / G / VG, hela namnen som tooltip) och datum som inte står under titeln. Eleven behöver dem när hen lämnar in, så de står nära knappen. Din status är panelen till höger på desktop och står före innehållet på mobil, så att eleven ser läget och knappen direkt. Knappen för att ångra säger bara Ångra, eftersom läget redan står ovanför.
 
 ## Delens sida för lärare
 
-Läraren och admin öppnar en del läsbar på `courses/:courseId/parts/:linkId`. Klicket på en del öppnar alltså inte redigeraren. Redigera ligger uppe till höger, och efter sparandet kommer läraren tillbaka hit. Panelen Läge visar publicering, inlämnade och hur många som väntar på bedömning. Uppgifter med inlämning har flikarna Innehåll och Inlämningar, där den andra öppnas med `?tab=inlamningar`. Teori har inga flikar. Eleven har sin egen vy av delen på kurssidan.
+Läraren och admin öppnar en del läsbar på `courses/:courseId/parts/:linkId`. Klicket på en del öppnar alltså inte redigeraren. Redigera ligger uppe till höger, och efter sparandet kommer läraren tillbaka hit. Rubriken har samma typ, vecka och deadline som elevens. Panelen Läge visar publicering, inlämnade, hur många som väntar på bedömning, och under dem inlämningssätt, betygsskala och kompletteringar. Uppgifter med inlämning har flikarna Innehåll och Inlämningar, där den andra öppnas med `?tab=inlamningar`. Teori har inga flikar. Eleven har sin egen vy av delen på kurssidan.
 
 ## Tabeller på mobil
 

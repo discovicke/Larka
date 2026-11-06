@@ -564,6 +564,14 @@ namespace Backend.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("UserId");
 
+                    b.HasIndex(new[] { "Kind", "ContentId", "UserId", "DueAt" }, "IX_Notifications_OncePerDeadline")
+                        .IsUnique()
+                        .HasFilter("\"Kind\" = 'DeadlineSoon'");
+
+                    b.HasIndex(new[] { "Kind", "ContentId", "UserId" }, "IX_Notifications_OncePerPublish")
+                        .IsUnique()
+                        .HasFilter("\"Kind\" IN ('NewsPublished', 'AssignmentPublished')");
+
                     b.ToTable("Notifications");
                 });
 

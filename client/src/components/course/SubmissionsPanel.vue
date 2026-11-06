@@ -56,6 +56,8 @@ const props = defineProps<{
   onSite?: boolean
   /** Eleverna som delen delas ut till. En elev som inte har börjat har ingen inlämning och syns inte i listan. */
   studentCount?: number
+  /** En övning utan betygsskala: läraren kan ge feedback men har inget att bedöma. */
+  exercise?: boolean
 }>()
 
 const emit = defineEmits<{reload: []}>()
@@ -142,7 +144,9 @@ async function resolveHelp(row: TrackingRow): Promise<void> {
 
 const filters = computed<{value: Filter, label: string}[]>(() => [
   {value: 'all', label: `Alla ${rows.value.length}`},
-  {value: 'due', label: `Att bedöma ${countOf('Submitted')}`},
+  {value: 'due', label: `${props.exercise
+    ? 'Inlämnat'
+    : 'Att bedöma'} ${countOf('Submitted')}`},
   {value: 'needsWork', label: `Komplettering ${countOf('NeedsWork')}`},
   {value: 'notStarted', label: `Inte inlämnad ${countOf('NotStarted')}`},
   ...(autoFailCount.value > 0
@@ -591,14 +595,16 @@ function rowBorder(index: number) {
                   <Button
                     v-if="row.status === 'Submitted' || row.status === 'NeedsWork' || canOpenEmpty(row)"
                     as-child
-                    :variant="canAssess(row)
+                    :variant="canAssess(row) && !exercise
                       ? 'default'
                       : 'outline'"
                     class="h-7 px-2.5 text-[13px]"
                   >
                     <RouterLink :to="reviewRoute(row)">
                       {{ canAssess(row)
-                        ? 'Bedöm'
+                        ? (exercise
+                          ? 'Ge feedback'
+                          : 'Bedöm')
                         : 'Visa' }}
                     </RouterLink>
                   </Button>

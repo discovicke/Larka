@@ -1,6 +1,7 @@
 import {flushPromises} from '@vue/test-utils'
 import {describe, expect, it} from 'vitest'
 
+import {deadlineState} from '@/test/deadline'
 import {mockApi, requests, sent} from '@/test/mockApi'
 import {meAs} from '@/test/me'
 import {renderApp} from '@/test/renderApp'
@@ -23,6 +24,8 @@ interface StudentItem {
   publishAt: string
   dueAt: string | null
   resubmitDueAt: string[]
+  personalDueAt?: string | null
+  deadline?: Record<string, unknown>
   isPinned: boolean
   isLocked: boolean
   isCompleted: boolean
@@ -753,15 +756,50 @@ describe('StudentCourseContentView', () => {
       expect(wrapper.find('[role="alert"]').exists()).toBe(true)
     })
 
-    it('visar betygsskala och inlämningssätt som vanlig text, inte som piller', async () => {
+    it('visar betygsskala och inlämningssätt som vanlig text i statuspanelen', async () => {
       checklistBackend([])
       const {wrapper} = await renderApp('/courses/c1/content?del=l10')
 
-      const facts = wrapper.find('[data-test="facts"]')
-      expect(facts.find('[data-test="fact-scale"]').text()).toContain('Icke godkänd / Godkänd')
-      expect(facts.find('[data-test="fact-handin"]').text()).toContain('text, filer')
-      expect(facts.find('[data-test="fact-due"]').exists()).toBe(false)
+      const facts = wrapper.find('[aria-labelledby="status-h"] [data-test="part-facts"]')
+      expect(facts.find('[data-test="fact-scale"]').text()).toContain('IG / G')
+      expect(facts.find('[data-test="fact-scale"] dd').attributes('title')).toContain('Icke godkänd / Godkänd')
+      expect(facts.find('[data-test="fact-handin"]').text()).toContain('Text, filer')
       expect(facts.find('[data-slot="badge"]').exists()).toBe(false)
+      expect(wrapper.find('[data-test="fact-due"]').exists()).toBe(false)
+      expect(wrapper.find('[data-test="part-eyebrow"]').text()).toContain('Inlämning')
+    })
+
+    it('visar elevens egen deadline under titeln och de andra datumen i panelen', async () => {
+      const day = 24 * 60 * 60 * 1000
+      const main = new Date(Date.now() - day).toISOString()
+      const personal = new Date(Date.now() + 5 * day).toISOString()
+      const resubmit = new Date(Date.now() + 20 * day).toISOString()
+      mockApi((_method, path) => {
+        if (path === '/api/me') {
+          return {status: 200, body: meAs('Student', ['c1'], 'Anna Elev')}
+        }
+        if (path === '/api/courses') {
+          return {status: 200, body: [course]}
+        }
+        if (path === '/api/courses/c1/student-modules') {
+          return {status: 200, body: [week([{
+            ...task,
+            dueAt: main,
+            personalDueAt: personal,
+            resubmitDueAt: [resubmit],
+            deadline: deadlineState({nextDeadline: personal}),
+          }])]}
+        }
+        return {status: 200, body: {checkedIndexes: []}}
+      })
+      const {wrapper} = await renderApp('/courses/c1/content?del=l10')
+
+      const dueFact = wrapper.find('[data-test="fact-due"]')
+      expect(dueFact.text()).toMatch(/^Din deadline .+om 5 dagar$/)
+      const facts = wrapper.find('[aria-labelledby="status-h"] [data-test="part-facts"]')
+      expect(facts.find('[data-test="fact-main-due"]').text()).toContain('Ordinarie deadline')
+      expect(facts.find('[data-test="fact-personal-due"]').exists()).toBe(false)
+      expect(facts.find('[data-test="fact-resubmit"]').text()).toMatch(/^Komplettering(?!ar)/)
     })
 
     it.each([
