@@ -252,7 +252,7 @@ function handInOf(item: Schema<'StudentContentItem'>): string {
     </header>
 
     <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-      <div class="flex flex-col gap-6">
+      <div class="flex min-w-0 flex-col gap-6">
         <section v-if="part.isLocked" class="bg-card flex flex-col items-start gap-3 rounded-xl border border-dashed p-6">
           <span class="bg-muted grid size-10 place-items-center rounded-full">
             <PhLock class="text-muted-foreground size-5"/>
