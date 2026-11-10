@@ -7,11 +7,36 @@ Ett lärplattformssystem (LMS) för skolor. Lärare skapar innehåll (nyheter, t
 
 **Live:** https://net25-devops-grupp-4.onrender.com. Logga in som `elev`/`elev`, `elev-fiber`/`elev-fiber` (yrkesklassen), `larare`/`larare` eller `admin`/`admin`. Gratisinstansen somnar efter 15 minuter utan trafik, så första anropet kan ta en minut.
 
+<img src="docs/assets/screenshots/elev-idag.webp" alt="Elevens startsida Idag med vad som ska göras, senaste återkoppling och nyheter" width="100%">
+
 | Del     | Teknik                                       | Mapp                                |
 | ------- | -------------------------------------------- | ----------------------------------- |
 | Backend | ASP.NET Core (.NET 10), EF Core, Postgres    | `backend/`                          |
 | Klient  | Vue 3, Vite, TypeScript, shadcn-vue          | `client/`                           |
 | Tester  | xUnit med Testcontainers, Vitest, Playwright | `backend.Tests/`, `client/`, `e2e/` |
+
+## Skärmbilder
+
+Lärka i mörkt läge, med demodata från en lokal stack. Samma konton som i demon.
+
+### Elev
+
+| Kursinnehåll                                                                                 | Uppgift                                                                                     | Inkorg                                                                                   |
+| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| ![Kursinnehåll med veckor, delar och elevens status](docs/assets/screenshots/elev-kurs.webp) | ![Uppgift med lärarens kommentar och betyget VG](docs/assets/screenshots/elev-uppgift.webp) | ![Inkorgen med nyheter, betyg och kommentarer](docs/assets/screenshots/elev-inkorg.webp) |
+
+### Lärare och admin
+
+| Att bedöma                                                                                            | Bedömning                                                                                             | Admin                                                                                                                |
+| ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| ![Lärarens kö av inlämningar som väntar på bedömning](docs/assets/screenshots/larare-att-bedoma.webp) | ![Bedömningsvyn med elevens svar, betyg och kommentar](docs/assets/screenshots/larare-bedomning.webp) | ![Adminens Idag med klassernas pågående kurser och elever som behöver stöd](docs/assets/screenshots/admin-idag.webp) |
+
+### Mobil
+
+<p>
+  <img src="docs/assets/screenshots/mobil-idag.webp" alt="Elevens Idag på mobil" width="320">
+  <img src="docs/assets/screenshots/mobil-uppgift.webp" alt="En uppgift med status och lärarens kommentar på mobil" width="320">
+</p>
 
 ## Kom igång
 
