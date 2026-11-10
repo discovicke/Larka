@@ -3,11 +3,13 @@
 [![CD](https://github.com/EduEdugrade/net25-devops-grupp-4/actions/workflows/cd.yml/badge.svg)](https://github.com/EduEdugrade/net25-devops-grupp-4/actions/workflows/cd.yml)
 ![Coverage](https://github.com/EduEdugrade/net25-devops-grupp-4/raw/badges/coverage.svg)
 
+<p align="center">
+  <img src="docs/assets/larka-mark.svg" alt="Lärka" width="64">
+</p>
+
 Ett lärplattformssystem (LMS) för skolor. Lärare skapar innehåll (nyheter, teori och uppgifter) och publicerar det till grupper. Elever lämnar in uppgifter och får betyg, kommentarer och notiser. Admin hanterar skolor, användare, kurser och grupper.
 
 **Live:** https://net25-devops-grupp-4.onrender.com. Logga in som `elev`/`elev`, `elev-fiber`/`elev-fiber` (yrkesklassen), `larare`/`larare` eller `admin`/`admin`. Gratisinstansen somnar efter 15 minuter utan trafik, så första anropet kan ta en minut.
-
-<img src="docs/assets/screenshots/elev-idag.webp" alt="Elevens startsida Idag med vad som ska göras, senaste återkoppling och nyheter" width="100%">
 
 | Del     | Teknik                                       | Mapp                                |
 | ------- | -------------------------------------------- | ----------------------------------- |
@@ -21,9 +23,13 @@ Lärka i mörkt läge, med demodata från en lokal stack. Samma konton som i dem
 
 ### Elev
 
-| Kursinnehåll                                                                                 | Uppgift                                                                                     | Inkorg                                                                                   |
-| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| ![Kursinnehåll med veckor, delar och elevens status](docs/assets/screenshots/elev-kurs.webp) | ![Uppgift med lärarens kommentar och betyget VG](docs/assets/screenshots/elev-uppgift.webp) | ![Inkorgen med nyheter, betyg och kommentarer](docs/assets/screenshots/elev-inkorg.webp) |
+| Idag                                                                                                                      | Kursinnehåll                                                                                 |
+| ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| ![Elevens startsida Idag med vad som ska göras, senaste återkoppling och nyheter](docs/assets/screenshots/elev-idag.webp) | ![Kursinnehåll med veckor, delar och elevens status](docs/assets/screenshots/elev-kurs.webp) |
+
+| Uppgift                                                                                     | Inkorg                                                                                   |
+| ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| ![Uppgift med lärarens kommentar och betyget VG](docs/assets/screenshots/elev-uppgift.webp) | ![Inkorgen med nyheter, betyg och kommentarer](docs/assets/screenshots/elev-inkorg.webp) |
 
 ### Lärare och admin
 
